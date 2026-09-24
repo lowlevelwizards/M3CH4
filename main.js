@@ -1,16 +1,20 @@
 import * as THREE from 'three';
-import { assemblyMassKg, BY_ID, createTestAssembly, validateAssembly } from './components.js';
+import { deriveRigConfig } from './assemblyPhysics.js';
+import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
 import { Controls } from './controls.js';
-import { createRigState, DEFAULT_RIG_CONFIG, physicsYawToViewYaw, stepRig } from './locomotion.js';
+import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
-const assembly = createTestAssembly();
-const assemblyProblems = validateAssembly(assembly);
-if (assemblyProblems.length)
-    throw new Error(`Invalid test rig: ${assemblyProblems.join('; ')}`);
-const installedMassKg = assemblyMassKg(assembly);
-const rigConfig = { ...DEFAULT_RIG_CONFIG, massKg: installedMassKg };
+const labels = {
+    structure: 'STRUCTURE', mobility: 'MOBILITY', power: 'POWER',
+    command: 'COMMAND', combat: 'COMBAT',
+};
+const assembly = makeTestAssembly();
+let inspection = inspectAssembly(assembly);
+let rigConfig = deriveRigConfig(assembly);
+if (!rigConfig)
+    throw new Error('Starting test rig must be fieldable.');
 function required(selector) {
     const element = document.querySelector(selector);
     if (!element)
@@ -33,6 +37,14 @@ const assemblyToggle = required('#assembly-toggle');
 const inspectionPanel = required('#inspection-panel');
 const partInfo = required('#part-info');
 const partList = required('#part-list');
+const checkList = required('#field-checks');
+const fieldStatus = required('#field-status');
+const assemblyMass = required('#assembly-mass');
+const powerStatus = required('#power-status');
+const adapterStatus = required('#adapter-status');
+const orbitHelp = required('#orbit-help');
+const resetOrbitButton = required('#inspect-reset');
+const centerView = required('#center-view');
 const appView = required('#app-view');
 const appSheet = required('#app-sheet');
 const appMessage = required('#app-message');
@@ -40,87 +52,248 @@ const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'h
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
 renderer.domElement.className = 'game-canvas';
-renderer.domElement.setAttribute('aria-label', '3D mech and arena');
+renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
+renderer.domElement.style.touchAction = 'none';
 mount.appendChild(renderer.domElement);
 const arena = createArenaScene(assembly);
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
-// Installed assembly is the source of truth; even this first rig's mass comes from parts.
-required('#assembly-mass').textContent = `${installedMassKg.toLocaleString()} kg`;
 let inspecting = false;
-let selectedPart = 'chassis';
-const partButtons = new Map();
-function selectPart(partId) {
-    selectedPart = partId;
-    arena.selectPart(partId);
-    for (const [id, button] of partButtons) {
-        const selected = id === partId;
-        button.classList.toggle('selected', selected);
-        button.setAttribute('aria-pressed', String(selected));
+let selectedPart = 'structure';
+let statusTimeout = null;
+const selectionButtons = new Map();
+function showStatus(message) {
+    fieldStatus.dataset.message = message;
+    if (statusTimeout !== null)
+        window.clearTimeout(statusTimeout);
+    statusTimeout = window.setTimeout(() => {
+        delete fieldStatus.dataset.message;
+        statusTimeout = null;
+    }, 2400);
+    renderFieldStatus();
+}
+function renderFieldStatus() {
+    fieldStatus.classList.toggle('ready', inspection.ready);
+    fieldStatus.classList.toggle('blocked', !inspection.ready);
+    fieldStatus.textContent = fieldStatus.dataset.message || (inspection.ready ? 'TRAINING-RIG READY · ENTER PILOT VIEW' :
+        'ASSEMBLY INCOMPLETE · RESOLVE CHECKS TO DRIVE');
+}
+function selectPart(slot, focus = true) {
+    selectedPart = slot;
+    arena.selectPart(slot);
+    if (focus)
+        arena.focusPart(slot);
+    for (const [key, button] of selectionButtons) {
+        button.classList.toggle('selected', key === slot);
+        button.setAttribute('aria-pressed', String(key === slot));
     }
+    renderPartInfo();
+}
+function renderPartInfo() {
     partInfo.replaceChildren();
-    const definition = partId ? BY_ID.get(partId) : null;
-    const installed = assembly.parts.find((part) => part.definitionId === partId);
-    if (!definition || !installed) {
-        partInfo.textContent = 'Select a component to inspect its physical role.';
+    if (!selectedPart) {
+        partInfo.textContent = 'Choose a physical assembly to inspect or try a replacement.';
         return;
     }
-    const title = document.createElement('div');
-    title.className = 'part-model';
-    title.textContent = definition.model;
-    const stats = document.createElement('div');
-    stats.className = 'part-stat';
-    const parent = definition.mountedTo ? BY_ID.get(definition.mountedTo)?.model ?? definition.mountedTo : 'ROOT FRAME';
-    stats.textContent = `SERIAL ${installed.serial}\nMASS ${definition.massKg} kg\nMOUNT ${parent}\nENVELOPE ${definition.envelope.join(' × ')} m`;
-    stats.style.whiteSpace = 'pre-line';
-    const purpose = document.createElement('div');
-    purpose.className = 'part-purpose';
-    purpose.textContent = definition.purpose;
-    partInfo.append(title, stats, purpose);
+    const fitted = installedPart(assembly, selectedPart);
+    const section = document.createElement('div');
+    section.className = 'part-model';
+    section.textContent = labels[selectedPart];
+    partInfo.append(section);
+    if (fitted) {
+        const stats = document.createElement('div');
+        stats.className = 'part-stat';
+        stats.style.whiteSpace = 'pre-line';
+        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg`;
+        const description = document.createElement('div');
+        description.className = 'part-purpose';
+        description.textContent = fitted.definition.description;
+        partInfo.append(stats, description);
+    }
+    else {
+        const missing = document.createElement('div');
+        missing.className = 'part-purpose missing-part';
+        missing.textContent = 'NO MODULE INSTALLED. Choose an owned part below.';
+        partInfo.append(missing);
+    }
+    const options = document.createElement('div');
+    options.className = 'swap-options';
+    for (const def of partsFor(selectedPart)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        const fittedHere = fitted?.definition.id === def.id;
+        button.className = `swap-option ${fittedHere ? 'installed-option' : ''}`;
+        button.textContent = `${fittedHere ? '✓ ' : 'FIT '}${def.name} · ${def.massKg} kg`;
+        button.disabled = fittedHere;
+        button.addEventListener('click', () => {
+            equip(assembly, def.slot, def.id);
+            refreshAssembly();
+            selectPart(def.slot);
+        });
+        options.appendChild(button);
+    }
+    partInfo.append(options);
+    if (fitted) {
+        const takeOff = document.createElement('button');
+        takeOff.type = 'button';
+        takeOff.className = 'remove-option';
+        takeOff.textContent = 'REMOVE INSTALLED MODULE';
+        takeOff.addEventListener('click', () => {
+            remove(assembly, selectedPart);
+            refreshAssembly();
+            selectPart(selectedPart);
+        });
+        partInfo.appendChild(takeOff);
+    }
 }
-for (const installed of assembly.parts) {
-    const definition = BY_ID.get(installed.definitionId);
-    if (!definition)
-        continue;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.setAttribute('aria-label', `Inspect ${definition.model}`);
-    const name = document.createElement('span');
-    name.textContent = definition.model;
-    const mass = document.createElement('span');
-    mass.textContent = `${definition.massKg} kg`;
-    button.append(name, mass);
-    button.addEventListener('click', () => selectPart(definition.id));
-    partList.appendChild(button);
-    partButtons.set(definition.id, button);
+function renderPartsList() {
+    selectionButtons.clear();
+    partList.replaceChildren();
+    for (const slot of SLOTS) {
+        const fitted = installedPart(assembly, slot);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'module-row';
+        button.setAttribute('aria-label', `Inspect ${labels[slot]}`);
+        button.setAttribute('aria-pressed', String(slot === selectedPart));
+        const name = document.createElement('span');
+        const category = document.createElement('small');
+        category.textContent = labels[slot];
+        name.append(category, document.createTextNode(fitted?.definition.name ?? 'EMPTY STATION'));
+        const mass = document.createElement('span');
+        mass.textContent = fitted ? `${fitted.definition.massKg} kg` : '—';
+        button.append(name, mass);
+        button.classList.toggle('selected', slot === selectedPart);
+        button.classList.toggle('empty', !fitted);
+        button.addEventListener('click', () => selectPart(slot));
+        partList.appendChild(button);
+        selectionButtons.set(slot, button);
+    }
 }
-selectPart(selectedPart);
+function renderChecks() {
+    checkList.replaceChildren();
+    for (const check of inspection.checks) {
+        const row = document.createElement('div');
+        row.className = `field-check ${check.passes ? 'pass' : 'fail'}`;
+        const title = document.createElement('strong');
+        title.textContent = `${check.passes ? '✓' : '!'} ${check.label.toUpperCase()}`;
+        const reason = document.createElement('div');
+        reason.textContent = check.reason;
+        row.append(title, reason);
+        checkList.append(row);
+    }
+    assemblyMass.textContent = `${inspection.massKg.toLocaleString()} kg`;
+    powerStatus.textContent = `${inspection.powerUsedKw} / ${inspection.powerAvailableKw} kW`;
+    adapterStatus.textContent = inspection.adapters.length
+        ? inspection.adapters.map(a => `${a.description} · ${a.serial}`).join(' · ')
+        : 'Direct-mount stations · no adapters';
+    renderFieldStatus();
+}
+function refreshAssembly() {
+    inspection = inspectAssembly(assembly);
+    rigConfig = deriveRigConfig(assembly);
+    arena.rebuildAssembly(assembly);
+    renderPartsList();
+    renderChecks();
+    renderPartInfo();
+}
+refreshAssembly();
+selectPart('structure', false);
 function toggleInspection(force) {
-    inspecting = force ?? !inspecting;
+    const requested = force ?? !inspecting;
+    if (!requested && !inspection.ready) {
+        showStatus('NOT READY · RESTORE ALL FIVE FUNCTIONS');
+        return;
+    }
+    inspecting = requested;
     document.body.classList.toggle('inspecting', inspecting);
     inspectionPanel.classList.toggle('hidden', !inspecting);
+    orbitHelp.classList.toggle('hidden', !inspecting);
+    resetOrbitButton.classList.toggle('hidden', !inspecting);
+    centerView.classList.toggle('hidden', inspecting);
     assemblyToggle.classList.toggle('pressed', inspecting);
     assemblyToggle.setAttribute('aria-pressed', String(inspecting));
     assemblyToggle.textContent = inspecting ? 'PILOT VIEW' : 'ASSEMBLY';
     arena.setInspection(inspecting);
+    if (inspecting)
+        arena.resetOrbit();
     controls.setEnabled(!inspecting && appSheet.classList.contains('hidden'));
-    // Inspecting is a paused 3D parts diagram, not a separate garage or repair mode.
     accumulator = 0;
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
-renderer.domElement.addEventListener('pointerup', (event) => {
+centerView.addEventListener('click', () => controls.recenterLook());
+resetOrbitButton.addEventListener('click', () => { arena.resetOrbit(); showStatus('INSPECTION CAMERA RESET'); });
+// Only canvas gestures manipulate the 3D view. The left panel scrolls normally.
+// Drag orbits; pinch/wheel zoom; a still tap picks the physically visible module.
+const pointers = new Map();
+let lastPinchDist = 0;
+function pinchDistance() {
+    const items = [...pointers.values()];
+    if (items.length < 2)
+        return 0;
+    return Math.hypot(items[0].x - items[1].x, items[0].y - items[1].y);
+}
+renderer.domElement.addEventListener('pointerdown', event => {
     if (!inspecting)
         return;
-    const chosen = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
-    if (chosen)
-        selectPart(chosen);
+    event.preventDefault();
+    renderer.domElement.setPointerCapture(event.pointerId);
+    pointers.set(event.pointerId, {
+        x: event.clientX, y: event.clientY,
+        startX: event.clientX, startY: event.clientY, dragged: false,
+    });
+    if (pointers.size >= 2) {
+        for (const pointer of pointers.values())
+            pointer.dragged = true;
+        lastPinchDist = pinchDistance();
+    }
 });
-required('#center-view').addEventListener('click', () => controls.recenterLook());
-const appStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+renderer.domElement.addEventListener('pointermove', event => {
+    const pointer = pointers.get(event.pointerId);
+    if (!pointer || !inspecting)
+        return;
+    const dx = event.clientX - pointer.x;
+    const dy = event.clientY - pointer.y;
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
+    if (Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY) > 7)
+        pointer.dragged = true;
+    if (pointers.size >= 2) {
+        const next = pinchDistance();
+        if (lastPinchDist > 0 && next > 0)
+            arena.zoomBy(next / lastPinchDist);
+        lastPinchDist = next;
+    }
+    else if (Math.abs(dx) + Math.abs(dy) > 0)
+        arena.orbitBy(dx, dy);
+});
+const endPointer = (event) => {
+    const pointer = pointers.get(event.pointerId);
+    if (!pointer)
+        return;
+    pointers.delete(event.pointerId);
+    lastPinchDist = pointers.size >= 2 ? pinchDistance() : 0;
+    if (inspecting && event.type === 'pointerup' && !pointer.dragged) {
+        const slot = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
+        if (slot)
+            selectPart(slot);
+    }
+};
+renderer.domElement.addEventListener('pointerup', endPointer);
+renderer.domElement.addEventListener('pointercancel', endPointer);
+renderer.domElement.addEventListener('lostpointercapture', endPointer);
+renderer.domElement.addEventListener('wheel', event => {
+    if (!inspecting)
+        return;
+    event.preventDefault();
+    arena.zoomBy(Math.exp(-event.deltaY * .0015));
+}, { passive: false });
+const appStandalone = () => window.matchMedia('(display-mode: standalone)').matches ||
+    navigator.standalone === true;
 function showAppGuide() {
     appMessage.textContent = appStandalone()
-        ? 'You are already running the standalone Home Screen app. Safari tabs are hidden in this mode.'
-        : 'On iPhone: open the hosted game in Safari, tap Share → Add to Home Screen, leave Open as Web App enabled if offered, then tap Add. Launch MECH ARENA from its Home Screen icon.';
+        ? 'You are running the standalone Home Screen app. Safari tabs are hidden.'
+        : 'On iPhone: open the hosted game in Safari, tap Share → Add to Home Screen, leave Open as Web App enabled if offered, tap Add, then launch the MECH ARENA icon.';
     appSheet.classList.remove('hidden');
     appSheet.setAttribute('aria-hidden', 'false');
     controls.setEnabled(false);
@@ -131,7 +304,6 @@ function hideAppGuide() {
     controls.setEnabled(!inspecting);
 }
 appView.addEventListener('click', async () => {
-    // iPhone Safari does not expose arbitrary page fullscreen; offer the proper app installation path.
     if (appStandalone()) {
         showAppGuide();
         return;
@@ -142,7 +314,7 @@ appView.addEventListener('click', async () => {
             appView.textContent = 'FULL SCREEN';
             return;
         }
-        catch { /* Safari and browsers that reject this fall back to the guide. */ }
+        catch { /* iPhone Safari requires Home Screen web-app mode. */ }
     }
     showAppGuide();
 });
@@ -153,7 +325,7 @@ document.addEventListener('fullscreenchange', () => {
     appView.textContent = document.fullscreenElement ? 'FULL SCREEN' : appStandalone() ? 'APP MODE' : 'APP VIEW';
     resize();
 });
-const renderScales = [0.55, 0.7, 0.85];
+const renderScales = [.55, .70, .85];
 let renderScaleIndex = 1;
 let renderScale = renderScales[renderScaleIndex];
 let previousTime = performance.now();
@@ -175,10 +347,10 @@ resize();
 function frame(now) {
     const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);
     previousTime = now;
-    fps += ((1 / Math.max(frameDt, 0.0001)) - fps) * 0.06;
+    fps += ((1 / Math.max(frameDt, .0001)) - fps) * .06;
     const input = controls.sample();
     let steps = 0;
-    if (!inspecting && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
+    if (!inspecting && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
             stepRig(rig, input, FIXED_DT, rigConfig);
@@ -191,44 +363,38 @@ function frame(now) {
     else
         accumulator = 0;
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt);
-    updateUi(input.lookYaw, steps);
-    renderer.render(arena.scene, arena.camera);
-    requestAnimationFrame(frame);
-}
-function updateUi(lookYaw, steps) {
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);
-    motionEl.textContent = rig.forwardSpeed < -0.15 ? 'REV' : rig.forwardSpeed > 0.15 ? 'FWD' : 'IDLE';
+    motionEl.textContent = rig.forwardSpeed < -.15 ? 'REV' : rig.forwardSpeed > .15 ? 'FWD' : 'IDLE';
     yawRateEl.textContent = Math.round(THREE.MathUtils.radToDeg(rig.yawRate)).toString();
     loadBar.style.transform = `scaleX(${rig.driveLoad.toFixed(3)})`;
-    const degrees = Math.round(-THREE.MathUtils.radToDeg(lookYaw));
-    lookHeadingEl.textContent = Math.abs(degrees) < 2
-        ? 'VIEW: FORWARD · CENTERED'
-        : `VIEW: ${degrees > 0 ? 'RIGHT' : 'LEFT'} ${Math.abs(degrees)}° · MECH-RELATIVE`;
+    const degrees = Math.round(-THREE.MathUtils.radToDeg(input.lookYaw));
+    lookHeadingEl.textContent = Math.abs(degrees) < 2 ? 'VIEW: FORWARD · CENTERED' :
+        `VIEW: ${degrees > 0 ? 'RIGHT' : 'LEFT'} ${Math.abs(degrees)}° · MECH-RELATIVE`;
     if (!devPanel.classList.contains('hidden')) {
         devReadout.textContent = [
             `FPS       ${fps.toFixed(0)}`,
             `FIXED DT  ${(FIXED_DT * 1000).toFixed(2)} ms`,
-            `STEPS     ${steps}${inspecting ? ' (PAUSED INSPECTION)' : ''}`,
+            `STEPS     ${steps}${inspecting ? ' (PAUSED)' : ''}`,
             `POS X/Z   ${rig.x.toFixed(2)} / ${rig.z.toFixed(2)} m`,
             `FWD V     ${rig.forwardSpeed.toFixed(2)} m/s`,
             `LAT V     ${rig.lateralSpeed.toFixed(2)} m/s`,
             `YAW       ${THREE.MathUtils.radToDeg(rig.yaw).toFixed(1)}°`,
-            `VIEW YAW  ${THREE.MathUtils.radToDeg(physicsYawToViewYaw(rig.yaw) + lookYaw).toFixed(1)}° (THREE)`,
+            `VIEW YAW  ${THREE.MathUtils.radToDeg(physicsYawToViewYaw(rig.yaw) + input.lookYaw).toFixed(1)}°`,
             `YAW RATE  ${THREE.MathUtils.radToDeg(rig.yawRate).toFixed(1)}°/s`,
             `ACCEL     ${rig.longitudinalAcceleration.toFixed(2)} m/s²`,
             `LOAD      ${(rig.driveLoad * 100).toFixed(0)}%`,
-            `IMPACT    ${(rig.impact * 100).toFixed(0)}%`,
-            `PARTS     ${assembly.parts.length}`,
-            `MASS      ${installedMassKg.toLocaleString()} kg`,
+            `MASS      ${inspection.massKg.toLocaleString()} kg`,
+            `POWER     ${inspection.powerUsedKw}/${inspection.powerAvailableKw} kW`,
+            `FIELDED   ${inspection.ready ? 'YES (TRAINING)' : 'NO'}`,
+            `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    ${Math.round(renderScale * 100)}%`,
         ].join('\n');
     }
+    renderer.render(arena.scene, arena.camera);
+    requestAnimationFrame(frame);
 }
 devToggle.addEventListener('click', () => devPanel.classList.toggle('hidden'));
-resetRig.addEventListener('click', () => {
-    rig = createRigState();
-    controls.recenterLook();
-});
+resetRig.addEventListener('click', () => { rig = createRigState(); controls.recenterLook(); });
 toggleColliders.addEventListener('click', () => {
     showColliders = !showColliders;
     arena.debugColliders.visible = showColliders;
@@ -240,4 +406,5 @@ resolutionToggle.addEventListener('click', () => {
     resolutionToggle.textContent = `RES ${Math.round(renderScale * 100)}`;
     resize();
 });
+// Deliberately no save, purchasing, damage or firing yet: this is a build/inspection test.
 requestAnimationFrame(frame);

@@ -15,7 +15,7 @@
       { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" } }
     </script>
     <link rel="stylesheet" href="./styles.css" />
-    <title>MECH ARENA — 0.0.1b Assembly</title>
+    <title>MECH ARENA — 0.0.1b.3 Assembly Test</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -23,6 +23,7 @@
     <div class="toolbar left-tools">
       <button id="assembly-toggle" class="utility-button" type="button">ASSEMBLY</button>
       <button id="center-view" class="utility-button" type="button">CENTER VIEW</button>
+      <button id="inspect-reset" class="utility-button hidden" type="button">RESET ORBIT</button>
       <button id="app-view" class="utility-button" type="button">APP VIEW</button>
     </div>
     <div class="toolbar right-tools">
@@ -60,17 +61,24 @@
     </div>
     <button id="brake" class="pedal" type="button">BRAKE</button>
 
-    <section id="inspection-panel" class="inspection-panel hidden" aria-label="installed parts">
-      <header><span>SR-01 · ASSEMBLY</span><small>TRAINING RIG</small></header>
-      <div class="inspection-note">14 individually identified physical parts. Tap a part in the diagram or list. The cannon is inert; damage arrives in 0.0.1c–d.</div>
-      <div class="assembly-total">INSTALLED MASS <b id="assembly-mass">4,250 kg</b></div>
-      <div class="inspection-info" id="part-info" aria-live="polite"></div>
+    <section id="inspection-panel" class="inspection-panel hidden" aria-label="physical assembly builder">
+      <header><span>SR-01 · THE FIVE SYSTEMS</span><small>ASSEMBLY TEST</small></header>
+      <div class="inspection-note">Tap a module to inspect it. Fit one of the owned alternatives to try it on. Changes affect the machine's mass and driving characteristics.</div>
+      <div class="assembly-total">TOTAL MASS <b id="assembly-mass">4,090 kg</b></div>
+      <div class="assembly-total">POWER DRAW <b id="power-status">108 / 145 kW</b></div>
+      <div id="field-status" class="field-status ready" aria-live="polite">TRAINING-RIG READY</div>
       <div id="part-list" class="part-list"></div>
-      <div class="inspection-note foot">No purchasing, wear, damage or repair in this build.</div>
+      <div class="inspection-info" id="part-info" aria-live="polite"></div>
+      <div class="section-head">FIELDABILITY · FIVE FUNCTIONS</div>
+      <div id="field-checks" class="field-checks"></div>
+      <div class="section-head">MOUNTING HARDWARE</div>
+      <div id="adapter-status" class="adapter-status"></div>
+      <div class="inspection-note foot">Only five assembly stations and eight owned modules for now. No shop, universal geometry, damage, weapons fire, repairs or save data.</div>
     </section>
+    <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; PINCH · ZOOM &nbsp; | &nbsp; TAP · FOCUS</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1b</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1b.3</span></header>
       <pre id="dev-readout"></pre>
       <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
     </section>

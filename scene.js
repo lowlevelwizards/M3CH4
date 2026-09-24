@@ -1,25 +1,18 @@
 import * as THREE from 'three';
 import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
-import { installedDefinitions } from './components.js';
+import { adapterFor, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 const C = {
-    concrete: 0x777267,
-    concreteDark: 0x4d4b45,
-    yellow: 0xa9822f,
-    teal: 0x2f7473,
-    metal: 0x343a39,
-    dark: 0x151816,
-    rust: 0x8a4d2d,
-    amber: 0xe0a44c,
-    green: 0x6ea778,
+    concrete: 0x777267, concreteDark: 0x4d4b45,
+    yellow: 0xa9822f, teal: 0x2f7473, metal: 0x343a39,
+    dark: 0x151816, rust: 0x8a4d2d, amber: 0xe0a44c, green: 0x6ea778,
 };
-export function createArenaScene(assembly) {
+export function createArenaScene(initial) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x171915);
     scene.fog = new THREE.FogExp2(0x171915, 0.018);
-    const camera = new THREE.PerspectiveCamera(72, 1, 0.06, 95);
+    const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 95);
     camera.rotation.order = 'YXZ';
-    const hemi = new THREE.HemisphereLight(0xb2b59d, 0x26231d, 1.1);
-    scene.add(hemi);
+    scene.add(new THREE.HemisphereLight(0xb2b59d, 0x26231d, 1.1));
     const sun = new THREE.DirectionalLight(0xffd69a, 2.1);
     sun.position.set(-7, 12, 8);
     scene.add(sun);
@@ -27,11 +20,17 @@ export function createArenaScene(assembly) {
     const cockpit = buildCockpit(scene);
     const debugColliders = buildDebugColliders(scene);
     debugColliders.visible = false;
-    const exterior = buildExteriorRig(assembly);
+    let exterior = buildExteriorRig(initial);
     scene.add(exterior.root);
     exterior.root.visible = false;
     const raycaster = new THREE.Raycaster();
+    let selected = 'structure';
     let inspecting = false;
+    let azimuth = 0.57;
+    let elevation = 0.31;
+    let radius = 5.85;
+    const orbitTarget = new THREE.Vector3(0, 1.85, 0);
+    const desiredTarget = orbitTarget.clone();
     let visualYaw = 0;
     let visualX = 0;
     let visualZ = 8;
@@ -51,18 +50,23 @@ export function createArenaScene(assembly) {
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
         cockpitHeave += ((footfall - impactKick) - cockpitHeave) * (1 - Math.exp(-12 * dt));
-        // Locomotion's positive yaw turns the physics forward vector to +X (right).
-        // Three.js cameras face -Z and need NEGATIVE rotation.y to look toward +X.
-        // The old build used positive yaw for the camera, visually reversing turns.
         const renderYaw = physicsYawToViewYaw(visualYaw);
         cockpit.position.set(visualX, 0, visualZ);
         cockpit.rotation.set(cockpitPitch, renderYaw, cockpitRoll, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
         if (inspecting) {
-            const offset = new THREE.Vector3(4.5, 3.35, -5.7).applyAxisAngle(new THREE.Vector3(0, 1, 0), renderYaw);
-            camera.position.set(visualX + offset.x, offset.y, visualZ + offset.z);
-            camera.lookAt(visualX, 1.65, visualZ);
+            // Orbit the machine, not the background. The camera target follows selected modules.
+            orbitTarget.lerp(desiredTarget, 1 - Math.exp(-9 * dt));
+            const around = new THREE.Vector3(radius * Math.sin(azimuth) * Math.cos(elevation), radius * Math.sin(elevation), -radius * Math.cos(azimuth) * Math.cos(elevation)).applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
+            const center = orbitTarget.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
+            center.x += visualX;
+            center.z += visualZ;
+            camera.position.copy(center).add(around);
+            // Offset the framing rightward to keep the machine clear of the left inspector panel.
+            const right = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth))
+                .applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
+            camera.lookAt(center.addScaledVector(right, -Math.min(0.65, radius * 0.12)));
         }
         else {
             camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
@@ -74,15 +78,57 @@ export function createArenaScene(assembly) {
         exterior.root.visible = enabled;
         cockpit.visible = !enabled;
     }
-    function selectPart(id) {
-        for (const [partId, group] of exterior.partGroups) {
-            for (const object of group.children) {
-                if (!(object instanceof THREE.Mesh) || !(object.material instanceof THREE.MeshStandardMaterial))
+    function rebuildAssembly(assembly) {
+        const oldRoot = exterior.root;
+        exterior = buildExteriorRig(assembly);
+        exterior.root.position.copy(oldRoot.position);
+        exterior.root.rotation.copy(oldRoot.rotation);
+        exterior.root.visible = inspecting;
+        scene.add(exterior.root);
+        scene.remove(oldRoot);
+        oldRoot.traverse(object => {
+            if (object instanceof THREE.Mesh) {
+                object.geometry.dispose();
+                const materials = Array.isArray(object.material) ? object.material : [object.material];
+                for (const material of materials)
+                    material.dispose();
+            }
+        });
+        selectPart(selected && installedPart(assembly, selected) ? selected : null);
+        const command = installedPart(assembly, 'command')?.definition.id;
+        cockpit.userData.armoredCab.visible = command === 'cab-armored';
+    }
+    function selectPart(slot) {
+        selected = slot;
+        for (const [groupSlot, meshes] of exterior.partMeshes) {
+            for (const mesh of meshes) {
+                const material = mesh.material;
+                if (!(material instanceof THREE.MeshStandardMaterial))
                     continue;
-                object.material.emissive.setHex(partId === id ? 0x8c7023 : 0x000000);
-                object.material.emissiveIntensity = partId === id ? 0.45 : 0;
+                material.emissive.setHex(groupSlot === slot ? 0xb78b35 : 0);
+                material.emissiveIntensity = groupSlot === slot ? 0.30 : 0;
             }
         }
+    }
+    function focusPart(slot) {
+        if (!slot || !exterior.partGroups.has(slot))
+            desiredTarget.set(0, 1.85, 0);
+        else
+            desiredTarget.set(...SLOT_CENTERS[slot]);
+    }
+    function orbitBy(dx, dy) {
+        azimuth = (azimuth - dx * 0.007) % (Math.PI * 2);
+        elevation = THREE.MathUtils.clamp(elevation + dy * 0.006, -0.18, 1.05);
+    }
+    function zoomBy(scale) {
+        if (Number.isFinite(scale) && scale > 0)
+            radius = THREE.MathUtils.clamp(radius / scale, 2.7, 11.2);
+    }
+    function resetOrbit() {
+        azimuth = 0.57;
+        elevation = 0.31;
+        radius = 5.85;
+        focusPart(null);
     }
     function pickPart(clientX, clientY, canvas) {
         if (!inspecting)
@@ -90,11 +136,17 @@ export function createArenaScene(assembly) {
         const rect = canvas.getBoundingClientRect();
         const pointer = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
         exterior.root.updateWorldMatrix(true, true);
+        camera.updateMatrixWorld();
         raycaster.setFromCamera(pointer, camera);
-        const first = raycaster.intersectObjects(exterior.hitVolumes, false)[0];
-        return typeof first?.object.userData.partId === 'string' ? first.object.userData.partId : null;
+        const first = raycaster.intersectObjects(exterior.pickMeshes, false)[0];
+        return first?.object.userData.slot ?? null;
     }
-    return { scene, camera, cockpit, debugColliders, updateRigVisual, setInspection, selectPart, pickPart };
+    selectPart(selected);
+    return {
+        scene, camera, cockpit, debugColliders,
+        updateRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
+        orbitBy, zoomBy, resetOrbit, pickPart,
+    };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {
     return new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
@@ -220,6 +272,11 @@ function buildCockpit(scene) {
         gauge.position.set(x, 1.93, -1.17);
         cockpit.add(gauge);
     }
+    const armoredCab = box(1.23, .20, .23, teal);
+    armoredCab.position.set(0, 2.94, -.71);
+    armoredCab.visible = false;
+    cockpit.add(armoredCab);
+    cockpit.userData.armoredCab = armoredCab;
     return cockpit;
 }
 function buildDebugColliders(scene) {
@@ -235,141 +292,179 @@ function buildDebugColliders(scene) {
     scene.add(group);
     return group;
 }
-/** External view is a physical diagram of exactly the installed part records.
- * Every piece has its own local 3-D envelope; the next milestone can raycast them.
- * The weapon is inert until 0.0.1c. */
+/** The exterior is rebuilt entirely from the five fitted assembly definitions.
+ * Each model is intentionally an uncomplicated, complete serviceable assembly.
+ * Nested meshes have ownership tags for inspection; there are no arbitrary visual limbs. */
 function buildExteriorRig(assembly) {
     const root = new THREE.Group();
     const partGroups = new Map();
-    const hitVolumes = [];
-    const definitions = installedDefinitions(assembly);
-    const definitionsById = new Map(definitions.map((entry) => [entry.id, entry]));
-    const steel = 0x363f41;
-    const mustard = 0xb28a39;
+    const partMeshes = new Map();
+    const pickMeshes = [];
+    const yellow = 0xb28a39;
     const teal = 0x417f81;
-    for (const def of definitions) {
-        const part = new THREE.Group();
-        part.name = def.id;
-        part.position.set(...def.center);
-        root.add(part);
-        partGroups.set(def.id, part);
-        const m = (color) => mat(color, 0.79, 0.36);
+    const steel = 0x363f41;
+    const brightSteel = 0x7b827b;
+    const m = (color) => mat(color, .82, .31);
+    for (const slot of SLOTS) {
+        const fitted = installedPart(assembly, slot);
+        if (!fitted)
+            continue;
+        const def = fitted.definition;
+        const group = new THREE.Group();
+        group.name = `${slot}: ${def.name} (${fitted.instance.serial})`;
+        group.position.set(...def.center);
+        root.add(group);
+        partGroups.set(slot, group);
+        const meshes = [];
+        partMeshes.set(slot, meshes);
         const add = (mesh, x = 0, y = 0, z = 0) => {
             mesh.position.set(x, y, z);
-            part.add(mesh);
+            mesh.userData.slot = slot;
+            group.add(mesh);
+            meshes.push(mesh);
+            pickMeshes.push(mesh);
+            return mesh;
         };
-        const cylinder = (top, bottom, length, sides, color) => new THREE.Mesh(new THREE.CylinderGeometry(top, bottom, length, sides), m(color));
+        const cyl = (radiusTop, radiusBottom, height, material, sides = 10) => new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, sides), m(material));
+        const round = (radius, material) => new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 6), m(material));
         switch (def.id) {
-            case 'chassis': {
-                add(cylinder(0.72, 0.9, 1.05, 8, mustard));
-                const torso = new THREE.Mesh(new THREE.SphereGeometry(0.72, 8, 5), m(steel));
-                torso.scale.set(1.25, 0.76, 1.1);
-                add(torso, 0, 0.20, -0.06);
+            case 'frame-sr': {
+                // A shallow structural monocoque supported by a visible, substantial hip bridge.
+                add(plate(1.8, 0.8, 1.26, m(yellow)), 0, 0.15, -0.06);
+                add(plate(1.34, 0.36, .93, m(steel)), 0, -.42, .08);
+                const front = add(plate(1.48, .63, .14, m(0xc9a04f)), 0, .05, -.72);
+                front.rotation.x = -.18;
+                const hipBeam = add(cyl(.23, .23, 1.85, steel), 0, -.45, .11);
+                hipBeam.rotation.z = Math.PI / 2;
+                for (const side of [-1, 1]) {
+                    const shoulder = add(cyl(.37, .37, .21, steel), side * .95, .14, -.03);
+                    shoulder.rotation.z = Math.PI / 2;
+                    const hip = add(cyl(.35, .35, .25, brightSteel), side * .75, -.45, .11);
+                    hip.rotation.z = Math.PI / 2;
+                    add(plate(.42, .43, .68, m(teal)), side * .85, .15, -.08);
+                }
                 break;
             }
-            case 'left-leg':
-            case 'right-leg': {
-                add(cylinder(0.29, 0.38, 1.16, 8, steel), 0, 0.11, 0.07);
-                add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), m(0x272d2e)), 0, 0.59, 0.12);
-                add(plate(0.71, 0.22, 1.03, m(0x555850)), 0, -0.66, -0.27);
+            case 'legs-yard':
+            case 'legs-hauler': {
+                const wide = def.id === 'legs-hauler';
+                const spread = wide ? .86 : .69;
+                const thick = wide ? 1.23 : 1;
+                // Each limb has a load path: hip pivot → canted thigh → knee → shin → ankle → broad foot.
+                for (const side of [-1, 1]) {
+                    const hip = add(cyl(.34 * thick, .34 * thick, .32 * thick, steel), side * spread, .51, .03);
+                    hip.rotation.z = Math.PI / 2;
+                    const thigh = add(plate(.49 * thick, .64, .45 * thick, m(0x525750)), side * spread, .12, .08);
+                    thigh.rotation.z = side * -.075;
+                    const piston = add(cyl(.092, .12, .58, brightSteel), side * (spread + .25 * thick), -.07, .13);
+                    piston.rotation.z = side * .19;
+                    const knee = add(cyl(.27 * thick, .27 * thick, .25 * thick, steel), side * spread, -.25, .04);
+                    knee.rotation.z = Math.PI / 2;
+                    const kneeArmor = add(plate(.55 * thick, .50, .20, m(wide ? yellow : teal)), side * spread, -.27, -.23);
+                    kneeArmor.rotation.x = -.10;
+                    add(plate(.46 * thick, .55, .42 * thick, m(steel)), side * spread, -.51, .15);
+                    const ankle = add(round(.20 * thick, brightSteel), side * spread, -.75, .14);
+                    ankle.scale.set(1.0, .75, .8);
+                    const foot = add(plate(.74 * thick, .23, 1.08 * thick, m(0x55584c)), side * spread, -.89, -.24);
+                    foot.rotation.x = -.025;
+                    add(plate(.52 * thick, .11, .36, m(yellow)), side * spread, -.78, -.60);
+                }
+                if (wide) {
+                    const brace = add(plate(1.78, .23, .38, m(steel)), 0, .52, .17);
+                    brace.rotation.x = -.08;
+                }
+                if (adapterFor(assembly, 'mobility')) {
+                    add(cyl(.39, .39, .18, 0xd8ad60), 0, .58, .04);
+                    for (const side of [-1, 1]) {
+                        const flange = add(cyl(.39, .39, .13, 0xb7bcb1), side * spread, .53, .05);
+                        flange.rotation.z = Math.PI / 2;
+                    }
+                }
                 break;
             }
-            case 'left-actuator':
-            case 'right-actuator': {
-                add(cylinder(0.13, 0.15, 0.71, 8, 0x83847a));
-                add(cylinder(0.19, 0.19, 0.13, 8, 0x353e42), 0, 0.25);
-                add(cylinder(0.19, 0.19, 0.13, 8, 0x353e42), 0, -0.25);
-                break;
-            }
-            case 'power-unit': {
-                add(cylinder(0.43, 0.43, 0.69, 8, 0x656e67));
-                for (const offset of [-0.24, 0.24])
-                    add(cylinder(0.45, 0.45, 0.09, 8, 0x282d2c), 0, offset);
-                break;
-            }
-            case 'radiator': {
-                add(plate(1.10, 0.60, 0.18, m(teal)));
+            case 'power-dynamo': {
+                // Rear-mounted generator/cooling pack: fans and exposed teal radiator fins.
+                add(plate(1.06, .85, .76, m(steel)), 0, 0, 0);
+                add(plate(1.24, .85, .18, m(teal)), 0, -.03, .38);
                 for (let i = -4; i <= 4; i++)
-                    add(box(0.055, 0.42, 0.035, m(0x1b3336)), i * 0.109, 0, -0.11);
+                    add(box(.064, .63, .085, m(0x1c3537)), i * .12, -.03, .50);
+                const fan = add(cyl(.28, .28, .10, brightSteel, 12), 0, .12, .56);
+                fan.rotation.x = Math.PI / 2;
+                add(box(.43, .08, .08, m(0x283434)), 0, .12, .65);
+                add(box(.08, .43, .08, m(0x283434)), 0, .12, .65);
                 break;
             }
-            case 'weapon-mount': {
-                const trunnion = cylinder(0.30, 0.30, 0.55, 8, steel);
-                trunnion.rotation.z = Math.PI / 2;
-                add(trunnion);
+            case 'cab-cyclops':
+            case 'cab-armored': {
+                const armored = def.id === 'cab-armored';
+                add(plate(armored ? 1.28 : 1.03, armored ? .91 : .72, .92, m(steel)), 0, 0, .05);
+                const hood = add(plate(armored ? 1.27 : 1.02, .34, .96, m(yellow)), 0, -.34, -.07);
+                hood.rotation.x = -.10;
+                if (armored) {
+                    add(plate(1.24, .37, .38, m(teal)), 0, .30, -.35);
+                    for (const side of [-1, 1]) {
+                        add(plate(.33, .59, .65, m(0x8c733e)), side * .54, -.02, -.03);
+                        add(round(.13, 0x9bd1bb), side * .33, .06, -.48);
+                    }
+                }
+                else {
+                    add(plate(.89, .20, .38, m(yellow)), 0, .27, -.34);
+                    const optic = add(round(.21, 0x89c5ae), 0, .08, -.45);
+                    optic.scale.set(1.05, .81, .56);
+                    add(round(.105, 0x20393d), 0, .08, -.55);
+                    add(plate(.32, .23, .30, m(teal)), 0, .30, -.27);
+                }
                 break;
             }
-            case 'inert-cannon': {
-                const barrel = cylinder(0.125, 0.19, 1.35, 8, 0x545a54);
-                barrel.rotation.x = -Math.PI / 2;
-                add(barrel, 0, 0, -0.03);
-                const muzzle = cylinder(0.24, 0.24, 0.10, 8, 0x262b2b);
-                muzzle.rotation.x = -Math.PI / 2;
-                add(muzzle, 0, 0, -0.68);
-                break;
-            }
-            case 'camera': {
-                add(new THREE.Mesh(new THREE.SphereGeometry(0.20, 8, 6), m(mustard)));
-                const optic = new THREE.Mesh(new THREE.CircleGeometry(0.12, 8), m(0x192f35));
-                optic.rotation.y = Math.PI;
-                add(optic, 0, 0, -0.20);
-                break;
-            }
-            case 'front-armor': {
-                const glacis = plate(1.49, 0.82, 0.15, m(mustard));
-                glacis.rotation.x = -0.17;
-                add(glacis);
-                break;
-            }
-            case 'left-leg-armor':
-            case 'right-leg-armor': {
-                const knee = plate(0.52, 0.73, 0.16, m(teal));
-                knee.rotation.x = -0.09;
-                add(knee);
-                break;
-            }
-            case 'weapon-shroud': {
-                add(plate(0.54, 0.48, 0.75, m(mustard)));
+            case 'gun-cannon':
+            case 'gun-short': {
+                const short = def.id === 'gun-short';
+                const mount = add(cyl(.35, .35, .51, steel), -.10, .01, .13);
+                mount.rotation.z = Math.PI / 2;
+                add(plate(.81, .55, .85, m(yellow)), 0, .05, -.04);
+                add(plate(.66, .28, .62, m(teal)), 0, .25, .05);
+                const length = short ? .73 : 1.46;
+                const barrel = add(cyl(short ? .20 : .135, short ? .26 : .20, length, brightSteel), 0, -.05, -.45 - length * .25);
+                barrel.rotation.x = Math.PI / 2;
+                const muzzle = add(cyl(short ? .27 : .22, short ? .27 : .22, .12, steel), 0, -.05, -.45 - length * .75);
+                muzzle.rotation.x = Math.PI / 2;
+                add(plate(.66, .46, .37, m(0x5a5b4d)), 0, .05, .53);
                 break;
             }
         }
-        // A component-local physical target volume, separate from its decorative mesh.
-        // Stored for inspection/picking and reused by future projectile intersection.
-        const hit = new THREE.Mesh(new THREE.BoxGeometry(...def.envelope), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
-        hit.userData.partId = def.id;
-        part.add(hit);
-        hitVolumes.push(hit);
     }
-    // Attach actual scene nodes to their declared mounts. Preserve the rig-local
-    // coordinates: stored centers are measured from the same chassis origin.
-    for (const def of definitions) {
-        if (!def.mountedTo)
-            continue;
-        const child = partGroups.get(def.id);
-        const parent = partGroups.get(def.mountedTo);
-        const parentDef = definitionsById.get(def.mountedTo);
-        if (!child || !parent || !parentDef)
-            throw new Error(`Missing physical mount for ${def.id}`);
-        parent.add(child);
-        child.position.set(def.center[0] - parentDef.center[0], def.center[1] - parentDef.center[1], def.center[2] - parentDef.center[2]);
+    // Mount subassemblies to the real hull group. The adapter is a derived physical
+    // object on the heavy leg geometry; its mass is added by the mechanical inspector.
+    const hull = partGroups.get('structure');
+    if (hull) {
+        for (const [slot, group] of partGroups) {
+            if (slot === 'structure')
+                continue;
+            hull.add(group);
+            const c = SLOT_CENTERS[slot];
+            const parent = SLOT_CENTERS.structure;
+            group.position.set(c[0] - parent[0], c[1] - parent[1], c[2] - parent[2]);
+        }
     }
-    return { root, partGroups, hitVolumes };
+    return { root, partGroups, partMeshes, pickMeshes };
 }
-/** Six-sided silhouette with a one-segment industrial chamfer. */
+/** Chamfered polygon, deliberately low-poly; avoid the cuboid-only silhouette. */
 function plate(width, height, depth, material) {
-    const cut = Math.min(0.13, width * 0.15, height * 0.17);
-    const outline = new THREE.Shape();
-    outline.moveTo(-width / 2 + cut, -height / 2);
-    outline.lineTo(width / 2 - cut, -height / 2);
-    outline.lineTo(width / 2, -height / 2 + cut);
-    outline.lineTo(width / 2, height / 2 - cut);
-    outline.lineTo(width / 2 - cut, height / 2);
-    outline.lineTo(-width / 2 + cut, height / 2);
-    outline.lineTo(-width / 2, height / 2 - cut);
-    outline.lineTo(-width / 2, -height / 2 + cut);
-    outline.closePath();
-    const bevel = Math.min(0.022, depth / 4);
-    const geometry = new THREE.ExtrudeGeometry(outline, { depth: depth - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, curveSegments: 1 });
+    const cut = Math.min(.13, width * .15, height * .17);
+    const shape = new THREE.Shape();
+    shape.moveTo(-width / 2 + cut, -height / 2);
+    shape.lineTo(width / 2 - cut, -height / 2);
+    shape.lineTo(width / 2, -height / 2 + cut);
+    shape.lineTo(width / 2, height / 2 - cut);
+    shape.lineTo(width / 2 - cut, height / 2);
+    shape.lineTo(-width / 2 + cut, height / 2);
+    shape.lineTo(-width / 2, height / 2 - cut);
+    shape.closePath();
+    const bevel = Math.min(.024, depth / 4);
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+        depth: depth - bevel * 2, bevelEnabled: true, bevelThickness: bevel,
+        bevelSize: bevel, bevelSegments: 1, curveSegments: 1,
+    });
     geometry.translate(0, 0, -depth / 2 + bevel);
     return new THREE.Mesh(geometry, material);
 }

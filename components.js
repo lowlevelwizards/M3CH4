@@ -1,79 +1,106 @@
-export const PART_DEFINITIONS = [
-    { id: 'chassis', model: 'Welded SR-frame', kind: 'structure', massKg: 1350, center: [0, 1.78, 0], envelope: [1.65, 1.23, 1.65], mountedTo: null, purpose: 'Carries the cockpit and transfers loads into both legs.' },
-    { id: 'left-leg', model: 'Scrapyard walking leg / L', kind: 'locomotion', massKg: 440, center: [-0.77, 0.85, 0.08], envelope: [0.76, 1.55, 1.08], mountedTo: 'chassis', purpose: 'Ground contact and support on the pilot’s left.' },
-    { id: 'right-leg', model: 'Scrapyard walking leg / R', kind: 'locomotion', massKg: 440, center: [0.77, 0.85, 0.08], envelope: [0.76, 1.55, 1.08], mountedTo: 'chassis', purpose: 'Ground contact and support on the pilot’s right.' },
-    { id: 'left-actuator', model: 'L-4 electric drive / L', kind: 'actuation', massKg: 160, center: [-0.84, 1.30, -0.29], envelope: [0.29, 0.85, 0.30], mountedTo: 'left-leg', purpose: 'Produces controlled force through the left leg.' },
-    { id: 'right-actuator', model: 'L-4 electric drive / R', kind: 'actuation', massKg: 160, center: [0.84, 1.30, -0.29], envelope: [0.29, 0.85, 0.30], mountedTo: 'right-leg', purpose: 'Produces controlled force through the right leg.' },
-    { id: 'power-unit', model: 'Dynamo G-2', kind: 'power', massKg: 460, center: [0, 1.84, 0.66], envelope: [0.92, 0.83, 0.54], mountedTo: 'chassis', purpose: 'Supplies drive and auxiliary electrical power.' },
-    { id: 'radiator', model: 'Mismatch R-1 cooler', kind: 'cooling', massKg: 180, center: [0, 2.37, 0.88], envelope: [1.12, 0.64, 0.22], mountedTo: 'chassis', purpose: 'Rejects heat from the power unit and drive assemblies.' },
-    { id: 'weapon-mount', model: 'Right shoulder trunnion', kind: 'mount', massKg: 200, center: [1.07, 2.15, -0.20], envelope: [0.66, 0.55, 0.73], mountedTo: 'chassis', purpose: 'Supports a future weapon and transmits recoil into the chassis.' },
-    { id: 'inert-cannon', model: 'Deactivated training cannon', kind: 'weapon', massKg: 280, center: [1.22, 2.01, -1.08], envelope: [0.44, 0.46, 1.55], mountedTo: 'weapon-mount', purpose: 'Visual balance mass only. Firing begins in 0.0.1c.' },
-    { id: 'camera', model: 'Used cyclops optical head', kind: 'sensor', massKg: 40, center: [0, 2.78, -0.49], envelope: [0.43, 0.36, 0.45], mountedTo: 'chassis', purpose: 'Pilot’s forward view; sensor failures come later.' },
-    { id: 'front-armor', model: 'Mustard front glacis', kind: 'armor', massKg: 230, center: [0, 1.81, -0.79], envelope: [1.58, 0.88, 0.16], mountedTo: 'chassis', purpose: 'Covers the front of the frame.' },
-    { id: 'left-leg-armor', model: 'Recovered blue knee plate / L', kind: 'armor', massKg: 120, center: [-0.82, 0.98, -0.49], envelope: [0.55, 0.75, 0.18], mountedTo: 'left-leg', purpose: 'Covers the left leg’s forward mechanisms.' },
-    { id: 'right-leg-armor', model: 'Recovered blue knee plate / R', kind: 'armor', massKg: 120, center: [0.82, 0.98, -0.49], envelope: [0.55, 0.75, 0.18], mountedTo: 'right-leg', purpose: 'Covers the right leg’s forward mechanisms.' },
-    { id: 'weapon-shroud', model: 'Riveted barrel jacket', kind: 'armor', massKg: 70, center: [1.22, 2.02, -0.76], envelope: [0.59, 0.57, 0.78], mountedTo: 'weapon-mount', purpose: 'Protects the weapon’s rear mechanism.' },
+export const SLOTS = ['structure', 'mobility', 'power', 'command', 'combat'];
+export const SLOT_CENTERS = {
+    structure: [0, 1.82, 0.13],
+    mobility: [0, 1.03, 0.10],
+    power: [0, 2.01, 0.86],
+    command: [0, 2.55, -0.36],
+    combat: [1.17, 2.03, -0.65],
+};
+/** The frame offers standardized ports. H2 is only one small test case of auto-fit, not universal compatibility. */
+export const PORTS = {
+    mobility: 'U1', power: 'U1', command: 'U1', combat: 'U1',
+};
+export const CATALOG = [
+    { id: 'frame-sr', name: 'SR-01 welded hull', slot: 'structure', massKg: 1580, center: SLOT_CENTERS.structure, envelope: [1.78, 1.0, 1.62], accepts: 'U1', description: 'One squat load-bearing hull; armored front, integrated hip rail and four standardized stations.', powerKw: 0, loadLimitKg: 5100, functionReady: true },
+    { id: 'legs-yard', name: 'Yardwalker paired legs', slot: 'mobility', massKg: 1240, center: SLOT_CENTERS.mobility, envelope: [2.0, 1.65, 1.18], accepts: 'U1', description: 'Paired short legs, pistons and broad feet in one serviceable walking assembly.', powerKw: -82, loadLimitKg: 4700, driveForceN: 12200, turnTorqueNm: 23000, lateralGripNsPerM: 10500, maxForwardSpeedMps: 7.4, functionReady: true },
+    { id: 'legs-hauler', name: 'Hauler H2 heavy legs', slot: 'mobility', massKg: 1520, center: SLOT_CENTERS.mobility, envelope: [2.55, 1.68, 1.35], accepts: 'H2', description: 'Wider industrial supports, oversized knee joints and slower, stronger drives. Requires an H2/U1 hip adapter.', powerKw: -115, loadLimitKg: 5500, driveForceN: 16200, turnTorqueNm: 19400, lateralGripNsPerM: 14400, maxForwardSpeedMps: 6.2, functionReady: true },
+    { id: 'power-dynamo', name: 'Dynamo G-2 power pack', slot: 'power', massKg: 510, center: SLOT_CENTERS.power, envelope: [1.12, 1.01, 0.84], accepts: 'U1', description: 'Rear generator with exposed passive fins. Generator and cooler remain one assembly at this stage.', powerKw: 145, functionReady: true },
+    { id: 'cab-cyclops', name: 'Cyclops salvage cab', slot: 'command', massKg: 350, center: SLOT_CENTERS.command, envelope: [1.00, 0.82, 0.96], accepts: 'U1', description: 'Light pilot cage with a purposeful forward cyclops optic and simple controls.', powerKw: -8, functionReady: true },
+    { id: 'cab-armored', name: 'Hearth armored cab', slot: 'command', massKg: 460, center: SLOT_CENTERS.command, envelope: [1.25, 0.96, 1.07], accepts: 'U1', description: 'Wider protected cab with twin optics. Heavier, and needs more power to run its systems.', powerKw: -20, functionReady: true },
+    { id: 'gun-cannon', name: 'Deactivated training cannon', slot: 'combat', massKg: 410, center: SLOT_CENTERS.combat, envelope: [0.87, 0.76, 1.69], accepts: 'U1', description: 'Long right-shoulder cannon including trunnion and breech. Present but deliberately inert until 0.0.1c.', powerKw: -18, functionReady: true },
+    { id: 'gun-short', name: 'Deactivated stump cannon', slot: 'combat', massKg: 300, center: SLOT_CENTERS.combat, envelope: [0.95, 0.85, 1.19], accepts: 'U1', description: 'A short heavy-breech training gun with lower power demand. Still deliberately inert.', powerKw: -8, functionReady: true },
 ];
-export const BY_ID = new Map(PART_DEFINITIONS.map((part) => [part.id, part]));
-export function createTestAssembly() {
+export const BY_ID = new Map(CATALOG.map(part => [part.id, part]));
+export function partsFor(slot) { return CATALOG.filter(part => part.slot === slot); }
+export function makeTestAssembly() {
+    const owned = CATALOG.map((part, index) => ({
+        serial: `SR01-${String(index + 1).padStart(3, '0')}`,
+        definitionId: part.id,
+        condition: 1, wear: 0, repairs: 0,
+    }));
+    const serialOf = (definitionId) => owned.find(p => p.definitionId === definitionId).serial;
     return {
-        serial: 'SR-01',
-        name: 'SCRAPYARD RIG',
-        parts: PART_DEFINITIONS.map((part, index) => ({
-            serial: `SR01-${String(index + 1).padStart(3, '0')}`,
-            definitionId: part.id,
-            condition: 1,
-            wear: 0,
-            repairs: 0,
-        })),
+        serial: 'SR-01', name: 'SCRAPYARD RIG', owned,
+        installed: {
+            structure: serialOf('frame-sr'), mobility: serialOf('legs-yard'),
+            power: serialOf('power-dynamo'), command: serialOf('cab-cyclops'),
+            combat: serialOf('gun-cannon'),
+        },
     };
 }
-export function installedDefinitions(assembly) {
-    return assembly.parts.map((part) => {
-        const def = BY_ID.get(part.definitionId);
-        if (!def)
-            throw new Error(`Unknown part definition ${part.definitionId}`);
-        return def;
+export function installedPart(assembly, slot) {
+    const serial = assembly.installed[slot];
+    if (!serial)
+        return null;
+    const instance = assembly.owned.find(part => part.serial === serial);
+    const definition = instance && BY_ID.get(instance.definitionId);
+    return instance && definition && definition.slot === slot ? { instance, definition } : null;
+}
+export function equip(assembly, slot, definitionId) {
+    const definition = BY_ID.get(definitionId);
+    if (!definition || definition.slot !== slot)
+        throw new Error(`Cannot fit ${definitionId} in ${slot}`);
+    const owned = assembly.owned.find(part => part.definitionId === definitionId);
+    if (!owned)
+        throw new Error(`Not owned: ${definitionId}`);
+    assembly.installed[slot] = owned.serial; // installing an old part preserves its identity
+}
+export function remove(assembly, slot) {
+    delete assembly.installed[slot];
+}
+/** One explicit, inspectable adapter proof. Never silently fabricate arbitrary universal geometry. */
+export function adapterFor(assembly, slot) {
+    const part = installedPart(assembly, slot);
+    if (!part || part.definition.accepts === PORTS[slot])
+        return null;
+    if (slot === 'mobility' && PORTS[slot] === 'U1' && part.definition.accepts === 'H2') {
+        return { id: 'hip-h2-u1', serial: `AD-${part.instance.serial}`, slot, massKg: 110, description: 'H2/U1 hip conversion ring: 110 kg of real mounting hardware.' };
+    }
+    return null;
+}
+export function inspectAssembly(assembly) {
+    const fitted = SLOTS.map(slot => installedPart(assembly, slot));
+    const adapters = Object.keys(PORTS)
+        .map(slot => adapterFor(assembly, slot)).filter((item) => item !== null);
+    const massKg = fitted.reduce((sum, part) => sum + (part?.definition.massKg ?? 0), 0)
+        + adapters.reduce((sum, adapter) => sum + adapter.massKg, 0);
+    const powerAvailableKw = Math.max(0, installedPart(assembly, 'power')?.definition.powerKw ?? 0);
+    const powerUsedKw = fitted.reduce((sum, part) => sum + Math.max(0, -(part?.definition.powerKw ?? 0)), 0);
+    const frame = installedPart(assembly, 'structure')?.definition;
+    const mover = installedPart(assembly, 'mobility')?.definition;
+    const missing = SLOTS.filter(slot => !installedPart(assembly, slot));
+    const validSerials = new Set(assembly.owned.map(part => part.serial));
+    const noDuplicateOwnership = validSerials.size === assembly.owned.length;
+    const installedSerials = Object.values(assembly.installed).filter((serial) => !!serial);
+    const repeatedInstall = new Set(installedSerials).size !== installedSerials.length;
+    const invalidSlotReferences = installedSerials.filter(serial => !validSerials.has(serial));
+    const mountErrors = Object.keys(PORTS).filter(slot => {
+        const part = installedPart(assembly, slot);
+        return part && part.definition.accepts !== PORTS[slot] && !adapterFor(assembly, slot);
     });
-}
-export function assemblyMassKg(assembly) {
-    return installedDefinitions(assembly).reduce((sum, part) => sum + part.massKg, 0);
-}
-export function validateAssembly(assembly) {
-    const problems = [];
-    const serials = new Set();
-    const ids = new Set();
-    for (const part of assembly.parts) {
-        if (serials.has(part.serial))
-            problems.push(`Duplicate serial ${part.serial}`);
-        serials.add(part.serial);
-        if (ids.has(part.definitionId))
-            problems.push(`Duplicate installed part ${part.definitionId}`);
-        ids.add(part.definitionId);
-        if (!BY_ID.has(part.definitionId))
-            problems.push(`Unknown definition ${part.definitionId}`);
-        if (!Number.isFinite(part.condition) || part.condition < 0 || part.condition > 1)
-            problems.push(`Invalid condition ${part.serial}`);
-    }
-    for (const instance of assembly.parts) {
-        const part = BY_ID.get(instance.definitionId);
-        if (!part)
-            continue; // Report the unknown definition above, do not throw.
-        if (part.mountedTo && !ids.has(part.mountedTo))
-            problems.push(`${part.id} has no parent ${part.mountedTo}`);
-        if (part.envelope.some((size) => !Number.isFinite(size) || size <= 0))
-            problems.push(`Invalid envelope ${part.id}`);
-        // Physical attachment hierarchy may not contain a cycle.
-        const visited = new Set([part.id]);
-        let parent = part.mountedTo;
-        while (parent) {
-            if (visited.has(parent)) {
-                problems.push(`Cyclic mount ${part.id}`);
-                break;
-            }
-            visited.add(parent);
-            parent = BY_ID.get(parent)?.mountedTo ?? null;
-        }
-    }
-    return problems;
+    const checks = [
+        { id: 'structure', label: 'Structure', passes: !!frame && noDuplicateOwnership && invalidSlotReferences.length === 0 && !repeatedInstall && mountErrors.length === 0 && massKg <= (frame?.loadLimitKg ?? 0), reason: !frame ? 'Install a connected frame.' : (!noDuplicateOwnership || invalidSlotReferences.length || repeatedInstall) ? 'Duplicate or invalid component identity.' : mountErrors.length ? `Unresolved mounts: ${mountErrors.join(', ')}.` : massKg > (frame.loadLimitKg ?? 0) ? `Frame exceeds ${frame.loadLimitKg} kg rating.` : 'Load-bearing frame and mount interfaces connected.' },
+        { id: 'mobility', label: 'Mobility', passes: !!mover?.functionReady && massKg <= (mover?.loadLimitKg ?? 0), reason: !mover ? 'Install a walking or rolling assembly.' : massKg > (mover.loadLimitKg ?? 0) ? `Installed mass exceeds ${mover.loadLimitKg} kg leg rating.` : 'Powered, load-rated locomotion assembly installed.' },
+        { id: 'power', label: 'Power', passes: powerAvailableKw >= powerUsedKw && powerAvailableKw > 0, reason: powerAvailableKw === 0 ? 'Install a power unit.' : powerUsedKw > powerAvailableKw ? `Demand ${powerUsedKw} kW exceeds ${powerAvailableKw} kW available.` : `${powerUsedKw}/${powerAvailableKw} kW nominal load.` },
+        { id: 'command', label: 'Command', passes: !!installedPart(assembly, 'command')?.definition.functionReady, reason: installedPart(assembly, 'command') ? 'Pilot enclosure, optics and controls present.' : 'Install a pilot enclosure with controls.' },
+        { id: 'combat', label: 'Combat provision', passes: !!installedPart(assembly, 'combat')?.definition.functionReady, reason: installedPart(assembly, 'combat') ? 'Weapon provision installed; weapon is still inert in this prototype.' : 'Install a weapon assembly.' },
+    ];
+    const warnings = adapters.map(a => `${a.description} Added to mass and hip structure.`);
+    if (!noDuplicateOwnership || invalidSlotReferences.length || repeatedInstall)
+        warnings.push('Ownership serial or installation reference is invalid.');
+    if (missing.length)
+        warnings.push(`Missing: ${missing.join(', ')}.`);
+    if (mountErrors.length)
+        warnings.push(`No adapter available for ${mountErrors.join(', ')}.`);
+    return { ready: checks.every(check => check.passes), checks, warnings, adapters, massKg, powerUsedKw, powerAvailableKw };
 }
