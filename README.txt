@@ -1,17 +1,5 @@
-MECH ARENA 0.0.1a — STATIC PLAYTEST
+MECH ARENA 0.0.1b — flat static playtest
 
-This is a flat, already-transpiled browser copy for quick mobile testing.
+Upload all files in this folder to the ROOT of an HTTPS static host (e.g., GitHub Pages). Open its URL in iPhone Safari. Add to Home Screen and launch via the icon to hide Safari tabs. Use landscape. Three.js loads from jsDelivr on first visit.
 
-Host these files together on any HTTPS static host (for example GitHub Pages).
-Open index.html from the hosted URL on an iPhone in landscape.
-
-This playtest imports Three.js 0.186.0 from jsDelivr at runtime, so the phone needs internet access on first load.
-
-Controls:
-- Left stick: forward/reverse + steering
-- Right side: drag to look
-- BRAKE: strong braking
-- DEV: diagnostics + collider view
-- RES: cycles 55/70/85% internal render scale
-
-This is 0.0.1a only. There are intentionally no weapons, damage, target mech, garage, persistence, economy, or AI.
+No npm install or build step is required for this playtest.

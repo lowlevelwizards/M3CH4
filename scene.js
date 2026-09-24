@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { DEFAULT_WORLD } from './locomotion.js';
+import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
+import { installedDefinitions } from './components.js';
 const C = {
     concrete: 0x777267,
     concreteDark: 0x4d4b45,
@@ -11,7 +12,7 @@ const C = {
     amber: 0xe0a44c,
     green: 0x6ea778,
 };
-export function createArenaScene() {
+export function createArenaScene(assembly) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x171915);
     scene.fog = new THREE.FogExp2(0x171915, 0.018);
@@ -26,6 +27,11 @@ export function createArenaScene() {
     const cockpit = buildCockpit(scene);
     const debugColliders = buildDebugColliders(scene);
     debugColliders.visible = false;
+    const exterior = buildExteriorRig(assembly);
+    scene.add(exterior.root);
+    exterior.root.visible = false;
+    const raycaster = new THREE.Raycaster();
+    let inspecting = false;
     let visualYaw = 0;
     let visualX = 0;
     let visualZ = 8;
@@ -45,12 +51,50 @@ export function createArenaScene() {
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
         cockpitHeave += ((footfall - impactKick) - cockpitHeave) * (1 - Math.exp(-12 * dt));
+        // Locomotion's positive yaw turns the physics forward vector to +X (right).
+        // Three.js cameras face -Z and need NEGATIVE rotation.y to look toward +X.
+        // The old build used positive yaw for the camera, visually reversing turns.
+        const renderYaw = physicsYawToViewYaw(visualYaw);
         cockpit.position.set(visualX, 0, visualZ);
-        cockpit.rotation.set(cockpitPitch, visualYaw, cockpitRoll, 'YXZ');
-        camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
-        camera.rotation.set(lookPitch + cockpitPitch * 0.35, visualYaw + lookYaw, cockpitRoll * 0.25, 'YXZ');
+        cockpit.rotation.set(cockpitPitch, renderYaw, cockpitRoll, 'YXZ');
+        exterior.root.position.set(visualX, 0, visualZ);
+        exterior.root.rotation.y = renderYaw;
+        if (inspecting) {
+            const offset = new THREE.Vector3(4.5, 3.35, -5.7).applyAxisAngle(new THREE.Vector3(0, 1, 0), renderYaw);
+            camera.position.set(visualX + offset.x, offset.y, visualZ + offset.z);
+            camera.lookAt(visualX, 1.65, visualZ);
+        }
+        else {
+            camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
+            camera.rotation.set(lookPitch + cockpitPitch * 0.35, renderYaw + lookYaw, cockpitRoll * 0.25, 'YXZ');
+        }
     }
-    return { scene, camera, cockpit, debugColliders, updateRigVisual };
+    function setInspection(enabled) {
+        inspecting = enabled;
+        exterior.root.visible = enabled;
+        cockpit.visible = !enabled;
+    }
+    function selectPart(id) {
+        for (const [partId, group] of exterior.partGroups) {
+            for (const object of group.children) {
+                if (!(object instanceof THREE.Mesh) || !(object.material instanceof THREE.MeshStandardMaterial))
+                    continue;
+                object.material.emissive.setHex(partId === id ? 0x8c7023 : 0x000000);
+                object.material.emissiveIntensity = partId === id ? 0.45 : 0;
+            }
+        }
+    }
+    function pickPart(clientX, clientY, canvas) {
+        if (!inspecting)
+            return null;
+        const rect = canvas.getBoundingClientRect();
+        const pointer = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+        exterior.root.updateWorldMatrix(true, true);
+        raycaster.setFromCamera(pointer, camera);
+        const first = raycaster.intersectObjects(exterior.hitVolumes, false)[0];
+        return typeof first?.object.userData.partId === 'string' ? first.object.userData.partId : null;
+    }
+    return { scene, camera, cockpit, debugColliders, updateRigVisual, setInspection, selectPart, pickPart };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {
     return new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
@@ -190,4 +234,142 @@ function buildDebugColliders(scene) {
     }
     scene.add(group);
     return group;
+}
+/** External view is a physical diagram of exactly the installed part records.
+ * Every piece has its own local 3-D envelope; the next milestone can raycast them.
+ * The weapon is inert until 0.0.1c. */
+function buildExteriorRig(assembly) {
+    const root = new THREE.Group();
+    const partGroups = new Map();
+    const hitVolumes = [];
+    const definitions = installedDefinitions(assembly);
+    const definitionsById = new Map(definitions.map((entry) => [entry.id, entry]));
+    const steel = 0x363f41;
+    const mustard = 0xb28a39;
+    const teal = 0x417f81;
+    for (const def of definitions) {
+        const part = new THREE.Group();
+        part.name = def.id;
+        part.position.set(...def.center);
+        root.add(part);
+        partGroups.set(def.id, part);
+        const m = (color) => mat(color, 0.79, 0.36);
+        const add = (mesh, x = 0, y = 0, z = 0) => {
+            mesh.position.set(x, y, z);
+            part.add(mesh);
+        };
+        const cylinder = (top, bottom, length, sides, color) => new THREE.Mesh(new THREE.CylinderGeometry(top, bottom, length, sides), m(color));
+        switch (def.id) {
+            case 'chassis': {
+                add(cylinder(0.72, 0.9, 1.05, 8, mustard));
+                const torso = new THREE.Mesh(new THREE.SphereGeometry(0.72, 8, 5), m(steel));
+                torso.scale.set(1.25, 0.76, 1.1);
+                add(torso, 0, 0.20, -0.06);
+                break;
+            }
+            case 'left-leg':
+            case 'right-leg': {
+                add(cylinder(0.29, 0.38, 1.16, 8, steel), 0, 0.11, 0.07);
+                add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), m(0x272d2e)), 0, 0.59, 0.12);
+                add(plate(0.71, 0.22, 1.03, m(0x555850)), 0, -0.66, -0.27);
+                break;
+            }
+            case 'left-actuator':
+            case 'right-actuator': {
+                add(cylinder(0.13, 0.15, 0.71, 8, 0x83847a));
+                add(cylinder(0.19, 0.19, 0.13, 8, 0x353e42), 0, 0.25);
+                add(cylinder(0.19, 0.19, 0.13, 8, 0x353e42), 0, -0.25);
+                break;
+            }
+            case 'power-unit': {
+                add(cylinder(0.43, 0.43, 0.69, 8, 0x656e67));
+                for (const offset of [-0.24, 0.24])
+                    add(cylinder(0.45, 0.45, 0.09, 8, 0x282d2c), 0, offset);
+                break;
+            }
+            case 'radiator': {
+                add(plate(1.10, 0.60, 0.18, m(teal)));
+                for (let i = -4; i <= 4; i++)
+                    add(box(0.055, 0.42, 0.035, m(0x1b3336)), i * 0.109, 0, -0.11);
+                break;
+            }
+            case 'weapon-mount': {
+                const trunnion = cylinder(0.30, 0.30, 0.55, 8, steel);
+                trunnion.rotation.z = Math.PI / 2;
+                add(trunnion);
+                break;
+            }
+            case 'inert-cannon': {
+                const barrel = cylinder(0.125, 0.19, 1.35, 8, 0x545a54);
+                barrel.rotation.x = -Math.PI / 2;
+                add(barrel, 0, 0, -0.03);
+                const muzzle = cylinder(0.24, 0.24, 0.10, 8, 0x262b2b);
+                muzzle.rotation.x = -Math.PI / 2;
+                add(muzzle, 0, 0, -0.68);
+                break;
+            }
+            case 'camera': {
+                add(new THREE.Mesh(new THREE.SphereGeometry(0.20, 8, 6), m(mustard)));
+                const optic = new THREE.Mesh(new THREE.CircleGeometry(0.12, 8), m(0x192f35));
+                optic.rotation.y = Math.PI;
+                add(optic, 0, 0, -0.20);
+                break;
+            }
+            case 'front-armor': {
+                const glacis = plate(1.49, 0.82, 0.15, m(mustard));
+                glacis.rotation.x = -0.17;
+                add(glacis);
+                break;
+            }
+            case 'left-leg-armor':
+            case 'right-leg-armor': {
+                const knee = plate(0.52, 0.73, 0.16, m(teal));
+                knee.rotation.x = -0.09;
+                add(knee);
+                break;
+            }
+            case 'weapon-shroud': {
+                add(plate(0.54, 0.48, 0.75, m(mustard)));
+                break;
+            }
+        }
+        // A component-local physical target volume, separate from its decorative mesh.
+        // Stored for inspection/picking and reused by future projectile intersection.
+        const hit = new THREE.Mesh(new THREE.BoxGeometry(...def.envelope), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+        hit.userData.partId = def.id;
+        part.add(hit);
+        hitVolumes.push(hit);
+    }
+    // Attach actual scene nodes to their declared mounts. Preserve the rig-local
+    // coordinates: stored centers are measured from the same chassis origin.
+    for (const def of definitions) {
+        if (!def.mountedTo)
+            continue;
+        const child = partGroups.get(def.id);
+        const parent = partGroups.get(def.mountedTo);
+        const parentDef = definitionsById.get(def.mountedTo);
+        if (!child || !parent || !parentDef)
+            throw new Error(`Missing physical mount for ${def.id}`);
+        parent.add(child);
+        child.position.set(def.center[0] - parentDef.center[0], def.center[1] - parentDef.center[1], def.center[2] - parentDef.center[2]);
+    }
+    return { root, partGroups, hitVolumes };
+}
+/** Six-sided silhouette with a one-segment industrial chamfer. */
+function plate(width, height, depth, material) {
+    const cut = Math.min(0.13, width * 0.15, height * 0.17);
+    const outline = new THREE.Shape();
+    outline.moveTo(-width / 2 + cut, -height / 2);
+    outline.lineTo(width / 2 - cut, -height / 2);
+    outline.lineTo(width / 2, -height / 2 + cut);
+    outline.lineTo(width / 2, height / 2 - cut);
+    outline.lineTo(width / 2 - cut, height / 2);
+    outline.lineTo(-width / 2 + cut, height / 2);
+    outline.lineTo(-width / 2, height / 2 - cut);
+    outline.lineTo(-width / 2, -height / 2 + cut);
+    outline.closePath();
+    const bevel = Math.min(0.022, depth / 4);
+    const geometry = new THREE.ExtrudeGeometry(outline, { depth: depth - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, curveSegments: 1 });
+    geometry.translate(0, 0, -depth / 2 + bevel);
+    return new THREE.Mesh(geometry, material);
 }

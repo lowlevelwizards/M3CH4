@@ -40,6 +40,10 @@ export function createRigState() {
         impact: 0,
     };
 }
+/** Three.js camera's -Z forward requires the opposite signed Y rotation. */
+export function physicsYawToViewYaw(physicsYaw) { return -physicsYaw; }
+/** Physics forward direction on the ground: +X right, -Z forward at zero yaw. */
+export function rigForward(yaw) { return [Math.sin(yaw), -Math.cos(yaw)]; }
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const damp = (value, strength, dt) => value * Math.exp(-strength * dt);
 export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = DEFAULT_WORLD) {

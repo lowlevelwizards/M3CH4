@@ -5,65 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#151816" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MECH ARENA" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>MECH ARENA — 0.0.1a Heavy Rig</title>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
+    <link rel="icon" type="image/png" href="./app-icon.png" />
     <script type="importmap">
-      {
-        "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"
-        }
-      }
+      { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" } }
     </script>
     <link rel="stylesheet" href="./styles.css" />
+    <title>MECH ARENA — 0.0.1b Assembly</title>
   </head>
   <body>
-    <div id="game"></div>
+    <div id="game" aria-label="3D warehouse test rig"></div>
 
+    <div class="toolbar left-tools">
+      <button id="assembly-toggle" class="utility-button" type="button">ASSEMBLY</button>
+      <button id="center-view" class="utility-button" type="button">CENTER VIEW</button>
+      <button id="app-view" class="utility-button" type="button">APP VIEW</button>
+    </div>
+    <div class="toolbar right-tools">
+      <button id="resolution-toggle" class="utility-button" type="button">RES 70</button>
+      <button id="dev-toggle" class="utility-button" type="button">DEV</button>
+    </div>
+
+    <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
+    <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
     <div id="cockpit-ui" aria-label="cockpit instruments">
       <div class="instrument cluster-left">
         <div class="instrument-label">GROUND SPEED</div>
-        <div class="instrument-value"><span id="speed">0.0</span><span class="unit"> m/s</span></div>
+        <div class="instrument-value"><span id="speed">0.0</span><span class="unit"> m/s</span><small id="motion-direction" class="motion-direction">IDLE</small></div>
       </div>
       <div class="instrument cluster-mid">
         <div class="instrument-label">DRIVE LOAD</div>
         <div class="bar"><i id="load-bar"></i></div>
       </div>
       <div class="instrument cluster-right">
-        <div class="instrument-label">YAW RATE</div>
+        <div class="instrument-label">TURN RATE</div>
         <div class="instrument-value"><span id="yaw-rate">0</span><span class="unit"> °/s</span></div>
       </div>
       <div class="rig-tag">SCRAPYARD RIG // SR-01</div>
     </div>
 
     <div id="controls">
-      <div id="drive-zone" class="stick-zone" aria-label="drive control">
-        <div class="stick-ring"><div id="drive-knob" class="stick-knob"></div></div>
-        <div class="control-caption">DRIVE</div>
+      <div id="drive-zone" class="stick-zone" aria-label="floating joystick: up forward, down reverse, left and right turn">
+        <div class="stick-ring"><div class="stick-axis up">FWD</div><div class="stick-axis down">REV</div><div class="stick-axis left">L</div><div class="stick-axis right">R</div><div id="drive-knob" class="stick-knob"></div></div>
+        <div class="control-caption">UP DRIVE · DOWN REVERSE · L/R TURN</div>
       </div>
-      <div id="look-zone" class="look-zone" aria-label="look control">
+      <div id="look-zone" class="look-zone" aria-label="drag to look, independent of mech steering">
         <div class="look-reticle">⌁</div>
-        <div class="control-caption">LOOK</div>
+        <div class="control-caption">LOOK ONLY · CENTER VIEW AT TOP</div>
       </div>
     </div>
-
     <button id="brake" class="pedal" type="button">BRAKE</button>
-    <button id="dev-toggle" class="utility-button" type="button">DEV</button>
-    <button id="resolution-toggle" class="utility-button res-button" type="button">RES 70</button>
 
-    <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1a</span></header>
-      <pre id="dev-readout"></pre>
-      <div class="dev-actions">
-        <button id="reset-rig" type="button">RESET RIG</button>
-        <button id="toggle-colliders" type="button">COLLIDERS: OFF</button>
-      </div>
+    <section id="inspection-panel" class="inspection-panel hidden" aria-label="installed parts">
+      <header><span>SR-01 · ASSEMBLY</span><small>TRAINING RIG</small></header>
+      <div class="inspection-note">14 individually identified physical parts. Tap a part in the diagram or list. The cannon is inert; damage arrives in 0.0.1c–d.</div>
+      <div class="assembly-total">INSTALLED MASS <b id="assembly-mass">4,250 kg</b></div>
+      <div class="inspection-info" id="part-info" aria-live="polite"></div>
+      <div id="part-list" class="part-list"></div>
+      <div class="inspection-note foot">No purchasing, wear, damage or repair in this build.</div>
     </section>
 
-    <div id="portrait-warning">
-      <div>ROTATE TO LANDSCAPE</div>
-      <small>The test rig is built around two-thumb controls.</small>
+    <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
+      <header>RIG DIAGNOSTICS <span>0.0.1b</span></header>
+      <pre id="dev-readout"></pre>
+      <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
+    </section>
+
+    <div id="app-sheet" class="sheet hidden" role="dialog" aria-label="Install for app view" aria-modal="true" aria-hidden="true">
+      <div class="sheet-content">
+        <button type="button" id="app-close" class="sheet-close">✕</button>
+        <div class="sheet-label">LANDSCAPE TEST BAY</div>
+        <h1>HIDE SAFARI’S TABS</h1>
+        <p id="app-message">Open the hosted game in Safari. Tap <b>Share</b> → <b>Add to Home Screen</b>, keep <b>Open as Web App</b> enabled, and tap <b>Add</b>. Then launch MECH ARENA from its Home Screen icon.</p>
+        <p class="sheet-muted">Ordinary Safari tabs cannot be hidden by a website on demand. A Home Screen launch opens the dedicated web-app view. Landscape works best; rotate your phone.</p>
+        <button id="app-done" class="sheet-done" type="button">BACK TO TEST BAY</button>
+      </div>
     </div>
 
+    <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

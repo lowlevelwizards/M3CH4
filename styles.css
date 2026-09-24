@@ -114,3 +114,56 @@ body {
   .pedal { bottom: 74px; }
   .rig-tag { bottom: 63px; }
 }
+
+/* 0.0.1b mobile and assembly additions; supersede 0.0.1a toolbar placement. */
+html, body, #game { height: 100%; height: 100dvh; }
+.hidden { display: none !important; }
+.toolbar { position: absolute; z-index: 12; top: max(8px, env(safe-area-inset-top)); display: flex; gap: 6px; }
+.left-tools { left: max(10px, env(safe-area-inset-left)); }
+.right-tools { right: max(10px, env(safe-area-inset-right)); }
+.toolbar .utility-button { position: static; height: 32px; min-width: 49px; padding: 0 8px; font-size: 9px; }
+.toolbar .utility-button.pressed { color: #181e17; background: var(--amber); border-color: var(--amber); }
+.look-heading { position: absolute; z-index: 4; left: 50%; top: max(11px, env(safe-area-inset-top)); transform: translateX(-50%); font-size: 9px; letter-spacing: .14em; color: #a5b99c; pointer-events: none; white-space: nowrap; background: #101611a6; padding: 6px 12px; border: 1px solid #6c896655; }
+.center-crosshair { position: absolute; top: 50%; left: 50%; z-index: 3; transform: translate(-50%, -50%); font: 17px/1 monospace; color: #b6bc9b66; pointer-events: none; text-shadow: 0 0 2px black; }
+#controls, .stick-zone, .look-zone { touch-action: none; }
+.stick-zone, .look-zone { height: 56dvh; width: 34vw; }
+.stick-zone { left: max(4px, env(safe-area-inset-left)); }
+.look-zone { right: max(4px, env(safe-area-inset-right)); }
+.stick-ring { pointer-events: none; }
+.stick-axis { position: absolute; font: 700 8px/1 monospace; color: #bbac84a0; letter-spacing: .08em; }
+.stick-axis.up { top: 8px; left: 50%; transform: translateX(-50%); }
+.stick-axis.down { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.stick-axis.left { left: 9px; top: 50%; transform: translateY(-50%); }
+.stick-axis.right { right: 9px; top: 50%; transform: translateY(-50%); }
+.stick-knob { pointer-events: none; }
+.pedal { bottom: max(82px, env(safe-area-inset-bottom)); left: calc(max(4px, env(safe-area-inset-left)) + min(30vw, 275px)); }
+#dev-panel { z-index: 18; top: max(49px, calc(env(safe-area-inset-top) + 46px)); }
+body.inspecting #cockpit-ui, body.inspecting #controls, body.inspecting #brake, body.inspecting #center-crosshair, body.inspecting #look-heading { display: none; }
+.inspection-panel { position: absolute; z-index: 15; left: max(9px, env(safe-area-inset-left)); top: max(50px, calc(env(safe-area-inset-top) + 44px)); bottom: max(9px, env(safe-area-inset-bottom)); width: min(292px, 38vw); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 10px; background: rgba(14, 20, 18, .93); border: 1px solid #7f9a795c; box-shadow: 0 8px 40px #0009; }
+.inspection-panel header { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; color: #d6aa5b; font: bold 11px/1.3 monospace; border-bottom: 1px solid #a98e5940; padding-bottom: 7px; }
+.inspection-panel header small { font: 8px/1 monospace; color: #91a595; }
+.inspection-note { font: 10px/1.4 monospace; color: #b4b8a4; padding: 10px 0; }
+.inspection-note.foot { padding-bottom: 3px; color: #899487; }
+.assembly-total { display: flex; justify-content: space-between; font-size: 9px; letter-spacing: .05em; color: #8baf98; background: #26372b55; border: 1px solid #84af8455; padding: 7px; }
+.assembly-total b { color: #d3d8c2; }
+.inspection-info { padding: 11px 8px; margin: 8px 0; border-left: 3px solid var(--amber); background: #36382577; }
+.part-model { color: #efcb7d; font: bold 12px/1.3 monospace; }
+.part-stat { color: #cbd5c7; font: 10px/1.5 monospace; }
+.part-purpose { color: #b4b9a5; font: 10px/1.4 monospace; margin-top: 5px; }
+.part-list { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.part-list button { display: flex; justify-content: space-between; gap: 8px; align-items: center; width: 100%; min-height: 29px; color: #c5c8b8; border: 1px solid #727a644d; background: #2a302a99; text-align: left; padding: 6px; font: 9px/1.1 monospace; }
+.part-list button span:last-child { color: #9ab69e; white-space: nowrap; }
+.part-list button.selected { border-color: var(--amber); color: #f3d790; background: #80642b44; }
+.sheet { position: absolute; z-index: 40; inset: 0; padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); display: grid; place-items: center; background: #080d0bc9; }
+.sheet-content { position: relative; width: min(490px, 100%); max-height: 94%; overflow-y: auto; touch-action: pan-y; border: 1px solid #e6b760aa; padding: 22px; background: linear-gradient(150deg, #303829, #141b18); box-shadow: 0 15px 70px #000e; }
+.sheet-label { font: 10px/1.2 monospace; letter-spacing: .14em; color: #83b393; }
+.sheet-content h1 { margin: 6px 0 10px; font: 700 22px/1.1 monospace; color: #e5b867; }
+.sheet-content p { font: 12px/1.55 system-ui,sans-serif; color: #d5d9cf; }
+.sheet-content p b { color: #ffd18a; }
+.sheet-content .sheet-muted { color: #a1a99a; font-size: 11px; }
+.sheet-close { position: absolute; right: 9px; top: 8px; width: 32px; height: 32px; border: 0; color: #e6cd8d; background: transparent; font-size: 17px; }
+.sheet-done { margin-top: 7px; padding: 10px 15px; background: #9a7732; color: #111911; font: 700 11px/1 monospace; border: 0; }
+@media (max-width: 730px) { .toolbar .utility-button { padding: 0 5px; font-size: 8px; } .look-heading { top: 42px; } .inspection-panel { width: 46vw; } }
+@media (max-height: 430px) { .stick-zone, .look-zone { height: 53dvh; bottom: 65px; } .pedal { bottom: 70px; } .look-heading { top: max(40px, env(safe-area-inset-top)); } }
+
+.motion-direction { color: #d7a24b; font-size: 9px; letter-spacing: .12em; margin-left: 8px; }

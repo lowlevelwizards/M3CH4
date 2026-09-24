@@ -1,4 +1,14 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+/** Pure joystick mapping: displacement from touch-down, never absolute screen position. */
+export function stickAxes(dxPx, dyPx, radiusPx) {
+    const length = Math.hypot(dxPx, dyPx);
+    const factor = length > radiusPx ? radiusPx / length : 1;
+    const dx = dxPx * factor / radiusPx;
+    const dy = dyPx * factor / radiusPx;
+    const deadZone = 0.12;
+    const axis = (value) => Math.abs(value) <= deadZone ? 0 : Math.sign(value) * (Math.abs(value) - deadZone) / (1 - deadZone);
+    return { throttle: axis(-dy), steer: axis(dx) };
+}
 export class Controls {
     throttle = 0;
     steer = 0;
@@ -8,34 +18,52 @@ export class Controls {
     keyboard = new Set();
     drivePointer = null;
     lookPointer = null;
+    driveOriginX = 0;
+    driveOriginY = 0;
     lookLastX = 0;
     lookLastY = 0;
+    enabled = true;
+    driveRing;
+    driveKnob;
     constructor(driveZone, driveKnob, lookZone, brakeButton) {
-        const driveStart = (event) => {
-            if (this.drivePointer !== null)
+        const ring = driveZone.querySelector('.stick-ring');
+        if (!ring)
+            throw new Error('Drive ring is required');
+        this.driveRing = ring;
+        this.driveKnob = driveKnob;
+        // Floating neutral point: wherever the thumb first lands is 0/0.
+        // This prevents touching above the decorative ring from secretly commanding reverse.
+        driveZone.addEventListener('pointerdown', (event) => {
+            if (!this.enabled || this.drivePointer !== null)
                 return;
+            event.preventDefault();
             this.drivePointer = event.pointerId;
+            this.driveOriginX = event.clientX;
+            this.driveOriginY = event.clientY;
+            const bounds = driveZone.getBoundingClientRect();
+            ring.style.left = `${event.clientX - bounds.left}px`;
+            ring.style.top = `${event.clientY - bounds.top}px`;
+            ring.style.bottom = 'auto';
+            ring.style.transform = 'translate(-50%, -50%)';
             driveZone.setPointerCapture(event.pointerId);
-            this.updateDrive(event, driveZone, driveKnob);
-        };
-        driveZone.addEventListener('pointerdown', driveStart);
+            this.updateDrive(event);
+        });
         driveZone.addEventListener('pointermove', (event) => {
             if (event.pointerId === this.drivePointer)
-                this.updateDrive(event, driveZone, driveKnob);
+                this.updateDrive(event);
         });
         const driveEnd = (event) => {
             if (event.pointerId !== this.drivePointer)
                 return;
-            this.drivePointer = null;
-            this.throttle = 0;
-            this.steer = 0;
-            driveKnob.style.transform = 'translate(-50%, -50%)';
+            this.clearDrive();
         };
         driveZone.addEventListener('pointerup', driveEnd);
         driveZone.addEventListener('pointercancel', driveEnd);
+        driveZone.addEventListener('lostpointercapture', driveEnd);
         lookZone.addEventListener('pointerdown', (event) => {
-            if (this.lookPointer !== null)
+            if (!this.enabled || this.lookPointer !== null)
                 return;
+            event.preventDefault();
             this.lookPointer = event.pointerId;
             this.lookLastX = event.clientX;
             this.lookLastY = event.clientY;
@@ -48,6 +76,7 @@ export class Controls {
             const dy = event.clientY - this.lookLastY;
             this.lookLastX = event.clientX;
             this.lookLastY = event.clientY;
+            // Three's negative camera yaw looks right; dragging right should look right.
             this.lookYaw = clamp(this.lookYaw - dx * 0.0042, -0.62, 0.62);
             this.lookPitch = clamp(this.lookPitch - dy * 0.0034, -0.19, 0.16);
         });
@@ -57,21 +86,24 @@ export class Controls {
         };
         lookZone.addEventListener('pointerup', lookEnd);
         lookZone.addEventListener('pointercancel', lookEnd);
+        lookZone.addEventListener('lostpointercapture', lookEnd);
         const setBrake = (pressed) => {
-            this.brake = pressed ? 1 : 0;
-            brakeButton.classList.toggle('active', pressed);
+            this.brake = pressed && this.enabled ? 1 : 0;
+            brakeButton.classList.toggle('active', this.brake > 0);
         };
         brakeButton.addEventListener('pointerdown', (event) => {
+            if (!this.enabled)
+                return;
+            event.preventDefault();
             brakeButton.setPointerCapture(event.pointerId);
             setBrake(true);
         });
         brakeButton.addEventListener('pointerup', () => setBrake(false));
         brakeButton.addEventListener('pointercancel', () => setBrake(false));
-        brakeButton.addEventListener('pointerleave', (event) => {
-            if (event.buttons === 0)
-                setBrake(false);
-        });
+        brakeButton.addEventListener('lostpointercapture', () => setBrake(false));
         window.addEventListener('keydown', (event) => {
+            if (!this.enabled)
+                return;
             this.keyboard.add(event.code);
             if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code))
                 event.preventDefault();
@@ -79,16 +111,18 @@ export class Controls {
         window.addEventListener('keyup', (event) => this.keyboard.delete(event.code));
         window.addEventListener('blur', () => {
             this.keyboard.clear();
-            this.brake = 0;
+            this.clearDrive();
+            this.lookPointer = null;
+            setBrake(false);
         });
     }
     sample() {
-        const forward = (this.keyboard.has('KeyW') || this.keyboard.has('ArrowUp') ? 1 : 0) - (this.keyboard.has('KeyS') || this.keyboard.has('ArrowDown') ? 1 : 0);
-        const turn = (this.keyboard.has('KeyD') || this.keyboard.has('ArrowRight') ? 1 : 0) - (this.keyboard.has('KeyA') || this.keyboard.has('ArrowLeft') ? 1 : 0);
+        const forward = Number(this.keyboard.has('KeyW') || this.keyboard.has('ArrowUp')) - Number(this.keyboard.has('KeyS') || this.keyboard.has('ArrowDown'));
+        const turn = Number(this.keyboard.has('KeyD') || this.keyboard.has('ArrowRight')) - Number(this.keyboard.has('KeyA') || this.keyboard.has('ArrowLeft'));
         return {
-            throttle: clamp(this.throttle + forward, -1, 1),
-            steer: clamp(this.steer + turn, -1, 1),
-            brake: Math.max(this.brake, this.keyboard.has('Space') ? 1 : 0),
+            throttle: this.enabled ? clamp(this.throttle + forward, -1, 1) : 0,
+            steer: this.enabled ? clamp(this.steer + turn, -1, 1) : 0,
+            brake: this.enabled ? Math.max(this.brake, this.keyboard.has('Space') ? 1 : 0) : 1,
             lookYaw: this.lookYaw,
             lookPitch: this.lookPitch,
         };
@@ -97,20 +131,35 @@ export class Controls {
         this.lookYaw = 0;
         this.lookPitch = 0;
     }
-    updateDrive(event, zone, knob) {
-        const rect = zone.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const radius = Math.min(rect.width, rect.height) * 0.34;
-        let dx = event.clientX - cx;
-        let dy = event.clientY - cy;
-        const length = Math.hypot(dx, dy);
-        if (length > radius) {
-            dx = (dx / length) * radius;
-            dy = (dy / length) * radius;
+    setEnabled(enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            this.clearDrive();
+            this.lookPointer = null;
+            this.brake = 0;
+            this.keyboard.clear();
         }
-        this.steer = clamp(dx / radius, -1, 1);
-        this.throttle = clamp(-dy / radius, -1, 1);
-        knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    }
+    clearDrive() {
+        this.drivePointer = null;
+        this.throttle = 0;
+        this.steer = 0;
+        this.driveKnob.style.transform = 'translate(-50%, -50%)';
+        this.driveRing.style.left = '';
+        this.driveRing.style.top = '';
+        this.driveRing.style.bottom = '';
+        this.driveRing.style.transform = '';
+    }
+    updateDrive(event) {
+        const rect = this.driveRing.getBoundingClientRect();
+        const radius = Math.min(rect.width, rect.height) * 0.35;
+        const dx = event.clientX - this.driveOriginX;
+        const dy = event.clientY - this.driveOriginY;
+        const length = Math.hypot(dx, dy);
+        const factor = length > radius ? radius / length : 1;
+        const axes = stickAxes(dx, dy, radius);
+        this.steer = axes.steer;
+        this.throttle = axes.throttle;
+        this.driveKnob.style.transform = `translate(calc(-50% + ${dx * factor}px), calc(-50% + ${dy * factor}px))`;
     }
 }
