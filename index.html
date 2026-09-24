@@ -15,7 +15,7 @@
       { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" } }
     </script>
     <link rel="stylesheet" href="./styles.css" />
-    <title>MECH ARENA — 0.0.1b.5 Five Contrasting Parts</title>
+    <title>MECH ARENA — 0.0.1b.5.1 Inspector Camera Hotfix</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -78,7 +78,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1b.5</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1b.5.1</span></header>
       <pre id="dev-readout"></pre>
       <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
     </section>
@@ -95,6 +95,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js"></script>
+    <script type="module" src="./main.js?v=b51"></script>
   </body>
 </html>

@@ -37,3 +37,14 @@ No gunfire, damage, AI, repair, persistent saves, shopping, thermal calculations
 ### Verification
 
 Pure component, load, power, serial and locomotion logic is testable offline. The `.ts` source includes Vitest cases for the new combinations. A static-playtest smoke test is included in the development verification, but actual Three.js rendering and iPhone interaction still require a device playtest when CDN access is available.
+
+
+## 0.0.1b.5.1 inspection-camera hotfix
+
+Apply this flat patch on top of **0.0.1b.5**. Only the inspector camera and display sizing changed; parts, vehicle physics, touch layout, and save behavior (none yet) are unchanged.
+
+- One-finger drag right now orbits in the direction your thumb moves the visible mech. Vertical drag behavior is unchanged.
+- Two-finger drag right now moves the viewed machine right; pinch zoom is unchanged.
+- The default camera frames the mech in the unobstructed space **to the right** of the parts panel.
+- Viewport sizing uses the canvas's actual bounds; Safari visual-viewport/orientation changes trigger another resize.
+- The patch includes only changed files; upload it over your existing flat files, retaining everything else. If iPhone Safari still shows the old behavior, reload the page or open the hosted URL with a fresh `?v=b51` query.

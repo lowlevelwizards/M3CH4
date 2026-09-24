@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
 import { Controls } from './controls.js';
-import { gestureMetrics } from './inspectionCamera.js';
+import { gestureMetrics } from './inspectionCamera.js?v=b51';
 import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
-import { createArenaScene } from './scene.js';
+import { createArenaScene } from './scene.js?v=b51';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -354,12 +354,16 @@ let accumulator = 0;
 let fps = 60;
 let showColliders = false;
 function syncInspectorLayout() {
-    const panelRight = inspecting ? inspectionPanel.getBoundingClientRect().right + 12 : 0;
-    arena.setInspectorLayout(panelRight, window.innerWidth, window.innerHeight);
+    // The actual canvas bounds (not stale window dimensions) are the camera viewport.
+    // This also handles landscape-left / landscape-right and Safari toolbar resizing.
+    const rect = renderer.domElement.getBoundingClientRect();
+    const panelRight = inspecting ? inspectionPanel.getBoundingClientRect().right - rect.left + 12 : 0;
+    arena.setInspectorLayout(panelRight, rect.width, rect.height);
 }
 function resize() {
-    const width = Math.max(1, window.innerWidth);
-    const height = Math.max(1, window.innerHeight);
+    const bounds = mount.getBoundingClientRect();
+    const width = Math.max(1, Math.round(bounds.width));
+    const height = Math.max(1, Math.round(bounds.height));
     arena.camera.aspect = width / height;
     arena.camera.updateProjectionMatrix();
     renderer.setSize(Math.floor(width * renderScale), Math.floor(height * renderScale), false);
@@ -368,7 +372,12 @@ function resize() {
     syncInspectorLayout();
 }
 window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', () => window.setTimeout(resize, 120));
+// Safari can settle the visual viewport a little after its orientation event.
+window.visualViewport?.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => {
+    resize();
+    window.setTimeout(resize, 180);
+});
 resize();
 function frame(now) {
     const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { framingOffsetWorld, panInRigSpace } from './inspectionCamera.js';
+import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js?v=b51';
 import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
 import { adapterFor, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 const C = {
@@ -72,7 +72,9 @@ export function createArenaScene(initial) {
             const right = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth))
                 .applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
             const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov);
-            camera.lookAt(center.addScaledVector(right, -shift));
+            // +rig-right is actual CAMERA SCREEN-left at our negative-Z inspection angle.
+            // Looking further +rig-right therefore positions the mech to the right of the panel.
+            camera.lookAt(center.addScaledVector(right, shift));
         }
         else {
             camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
@@ -124,7 +126,7 @@ export function createArenaScene(initial) {
             desiredTarget.set(...SLOT_CENTERS[slot]);
     }
     function orbitBy(dx, dy) {
-        azimuth = (azimuth - dx * 0.007) % (Math.PI * 2);
+        azimuth = orbitAzimuthAfterDrag(azimuth, dx);
         elevation = THREE.MathUtils.clamp(elevation + dy * 0.006, -0.18, 1.05);
     }
     function panBy(dx, dy, screenHeight) {
