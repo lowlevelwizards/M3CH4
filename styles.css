@@ -1,0 +1,116 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #121411;
+  color: #d8d5c4;
+  --amber: #d7a24b;
+  --amber-soft: rgba(215, 162, 75, 0.7);
+  --green: #75a979;
+  --panel: rgba(16, 20, 18, 0.84);
+  --line: rgba(219, 199, 145, 0.28);
+}
+
+* { box-sizing: border-box; }
+html, body, #game { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body {
+  position: fixed;
+  inset: 0;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  background: #11130f;
+}
+
+.game-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  image-rendering: pixelated;
+}
+
+#cockpit-ui {
+  pointer-events: none;
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  height: 70px;
+  display: grid;
+  grid-template-columns: 1fr 1.25fr 1fr;
+  gap: 8px;
+  align-items: end;
+  z-index: 4;
+}
+
+.instrument {
+  min-height: 50px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(20, 25, 22, 0.72), rgba(9, 12, 10, 0.86));
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.55);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.instrument-label { font-size: 9px; letter-spacing: 0.13em; color: #9e9b89; }
+.instrument-value { margin-top: 3px; color: #cdd9b9; font-size: 18px; text-shadow: 0 0 6px rgba(117, 169, 121, 0.3); }
+.unit { font-size: 9px; color: #8d9584; }
+.bar { height: 9px; margin-top: 9px; background: #222821; border: 1px solid #3a4539; overflow: hidden; }
+.bar i { display: block; width: 100%; height: 100%; transform-origin: left center; transform: scaleX(0); background: repeating-linear-gradient(90deg, #6c9c70 0 8px, #82b784 8px 10px); }
+.rig-tag { position: absolute; right: 8px; bottom: 76px; font-size: 8px; letter-spacing: 0.13em; color: rgba(226, 191, 116, 0.65); }
+
+#controls { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.stick-zone, .look-zone { pointer-events: auto; position: absolute; bottom: max(82px, calc(env(safe-area-inset-bottom) + 78px)); width: 32vw; height: 47vh; min-width: 150px; max-width: 310px; min-height: 160px; max-height: 330px; }
+.stick-zone { left: max(4px, env(safe-area-inset-left)); }
+.look-zone { right: max(4px, env(safe-area-inset-right)); }
+.stick-ring {
+  width: min(22vw, 150px); height: min(22vw, 150px); min-width: 112px; min-height: 112px;
+  position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%);
+  border: 1px solid rgba(222, 198, 134, 0.26); border-radius: 50%;
+  background: radial-gradient(circle, rgba(70, 75, 65, 0.11) 0 46%, rgba(12, 15, 13, 0.4) 48% 100%);
+  box-shadow: inset 0 0 18px rgba(0,0,0,.42);
+}
+.stick-knob {
+  position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; transform: translate(-50%, -50%);
+  border-radius: 50%; border: 2px solid rgba(215, 162, 75, 0.45); background: rgba(33, 39, 34, 0.82);
+  box-shadow: 0 3px 12px rgba(0,0,0,.55), inset 0 0 10px rgba(215,162,75,.12);
+}
+.look-reticle { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); font-size: 54px; color: rgba(220, 206, 165, 0.18); }
+.control-caption { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); font-size: 9px; letter-spacing: .2em; color: rgba(219, 199, 145, .42); }
+
+.pedal, .utility-button, .dev-actions button {
+  border: 1px solid rgba(218, 184, 111, .32); color: #d5c393; background: rgba(15, 19, 16, .84);
+  font: 700 10px/1 ui-monospace, monospace; letter-spacing: .12em; border-radius: 3px;
+}
+.pedal { position: absolute; left: calc(max(4px, env(safe-area-inset-left)) + min(28vw, 265px)); bottom: max(88px, calc(env(safe-area-inset-bottom) + 84px)); width: 74px; height: 48px; z-index: 6; transform: skewX(-7deg); }
+.pedal.active { background: rgba(111, 57, 36, .92); border-color: rgba(236, 127, 74, .7); transform: skewX(-7deg) translateY(2px); }
+.utility-button { position: absolute; top: max(10px, env(safe-area-inset-top)); z-index: 8; height: 30px; padding: 0 10px; }
+#dev-toggle { right: max(10px, env(safe-area-inset-right)); }
+.res-button { right: calc(max(10px, env(safe-area-inset-right)) + 54px); }
+
+.dev-panel {
+  position: absolute; z-index: 9; top: max(48px, calc(env(safe-area-inset-top) + 44px)); right: max(10px, env(safe-area-inset-right)); width: min(285px, 44vw);
+  padding: 10px; border: 1px solid rgba(117,169,121,.4); background: rgba(9,13,10,.91); box-shadow: 0 8px 30px rgba(0,0,0,.45);
+}
+.dev-panel.hidden { display: none; }
+.dev-panel header { display: flex; justify-content: space-between; color: #8bb990; font-size: 10px; letter-spacing: .12em; border-bottom: 1px solid rgba(117,169,121,.22); padding-bottom: 7px; }
+.dev-panel header span { color: #6e7d6f; }
+.dev-panel pre { margin: 8px 0; color: #9eb3a0; font: 10px/1.45 ui-monospace, monospace; }
+.dev-actions { display: flex; gap: 6px; }
+.dev-actions button { height: 30px; flex: 1; font-size: 8px; }
+
+#portrait-warning { display: none; position: absolute; inset: 0; z-index: 30; background: #131612; align-items: center; justify-content: center; flex-direction: column; gap: 9px; text-align: center; color: #d2b87c; letter-spacing: .12em; }
+#portrait-warning small { max-width: 280px; color: #878b7e; font-size: 10px; letter-spacing: .04em; }
+
+@media (orientation: portrait) and (max-width: 700px) {
+  #portrait-warning { display: flex; }
+}
+
+@media (max-height: 430px) {
+  #cockpit-ui { height: 60px; grid-template-columns: .9fr 1.1fr .9fr; }
+  .instrument { min-height: 44px; padding: 6px 8px; }
+  .instrument-value { font-size: 15px; }
+  .stick-zone, .look-zone { bottom: 69px; height: 47vh; }
+  .pedal { bottom: 74px; }
+  .rig-tag { bottom: 63px; }
+}

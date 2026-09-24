@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#151816" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>MECH ARENA — 0.0.1a Heavy Rig</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <div id="cockpit-ui" aria-label="cockpit instruments">
+      <div class="instrument cluster-left">
+        <div class="instrument-label">GROUND SPEED</div>
+        <div class="instrument-value"><span id="speed">0.0</span><span class="unit"> m/s</span></div>
+      </div>
+      <div class="instrument cluster-mid">
+        <div class="instrument-label">DRIVE LOAD</div>
+        <div class="bar"><i id="load-bar"></i></div>
+      </div>
+      <div class="instrument cluster-right">
+        <div class="instrument-label">YAW RATE</div>
+        <div class="instrument-value"><span id="yaw-rate">0</span><span class="unit"> °/s</span></div>
+      </div>
+      <div class="rig-tag">SCRAPYARD RIG // SR-01</div>
+    </div>
+
+    <div id="controls">
+      <div id="drive-zone" class="stick-zone" aria-label="drive control">
+        <div class="stick-ring"><div id="drive-knob" class="stick-knob"></div></div>
+        <div class="control-caption">DRIVE</div>
+      </div>
+      <div id="look-zone" class="look-zone" aria-label="look control">
+        <div class="look-reticle">⌁</div>
+        <div class="control-caption">LOOK</div>
+      </div>
+    </div>
+
+    <button id="brake" class="pedal" type="button">BRAKE</button>
+    <button id="dev-toggle" class="utility-button" type="button">DEV</button>
+    <button id="resolution-toggle" class="utility-button res-button" type="button">RES 70</button>
+
+    <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
+      <header>RIG DIAGNOSTICS <span>0.0.1a</span></header>
+      <pre id="dev-readout"></pre>
+      <div class="dev-actions">
+        <button id="reset-rig" type="button">RESET RIG</button>
+        <button id="toggle-colliders" type="button">COLLIDERS: OFF</button>
+      </div>
+    </section>
+
+    <div id="portrait-warning">
+      <div>ROTATE TO LANDSCAPE</div>
+      <small>The test rig is built around two-thumb controls.</small>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
