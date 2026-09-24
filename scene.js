@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { framingOffsetWorld, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
 import { adapterFor, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 const C = {
@@ -24,13 +25,16 @@ export function createArenaScene(initial) {
     scene.add(exterior.root);
     exterior.root.visible = false;
     const raycaster = new THREE.Raycaster();
-    let selected = 'structure';
+    let selected = null;
     let inspecting = false;
     let azimuth = 0.57;
     let elevation = 0.31;
     let radius = 5.85;
     const orbitTarget = new THREE.Vector3(0, 1.85, 0);
     const desiredTarget = orbitTarget.clone();
+    let panelRightPx = 0;
+    let viewportWidth = 1;
+    let viewportHeight = 1;
     let visualYaw = 0;
     let visualX = 0;
     let visualZ = 8;
@@ -63,10 +67,12 @@ export function createArenaScene(initial) {
             center.x += visualX;
             center.z += visualZ;
             camera.position.copy(center).add(around);
-            // Offset the framing rightward to keep the machine clear of the left inspector panel.
+            // The panel occupies real screen pixels; aim at the middle of the remaining visible area.
+            // Raycasting uses this same camera, so tap-to-pick stays accurate at every panel width/zoom.
             const right = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth))
                 .applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
-            camera.lookAt(center.addScaledVector(right, -Math.min(0.65, radius * 0.12)));
+            const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov);
+            camera.lookAt(center.addScaledVector(right, -shift));
         }
         else {
             camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
@@ -120,6 +126,17 @@ export function createArenaScene(initial) {
         azimuth = (azimuth - dx * 0.007) % (Math.PI * 2);
         elevation = THREE.MathUtils.clamp(elevation + dy * 0.006, -0.18, 1.05);
     }
+    function panBy(dx, dy, screenHeight) {
+        const delta = panInRigSpace(dx, dy, radius, azimuth, elevation, screenHeight, camera.fov);
+        desiredTarget.x = THREE.MathUtils.clamp(desiredTarget.x + delta.x, -3, 3);
+        desiredTarget.y = THREE.MathUtils.clamp(desiredTarget.y + delta.y, 0.45, 3.8);
+        desiredTarget.z = THREE.MathUtils.clamp(desiredTarget.z + delta.z, -3, 3);
+    }
+    function setInspectorLayout(panelRight, width, height) {
+        panelRightPx = panelRight;
+        viewportWidth = width;
+        viewportHeight = height;
+    }
     function zoomBy(scale) {
         if (Number.isFinite(scale) && scale > 0)
             radius = THREE.MathUtils.clamp(radius / scale, 2.7, 11.2);
@@ -145,7 +162,7 @@ export function createArenaScene(initial) {
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
-        orbitBy, zoomBy, resetOrbit, pickPart,
+        orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {
@@ -396,23 +413,39 @@ function buildExteriorRig(assembly) {
             }
             case 'cab-cyclops':
             case 'cab-armored': {
+                // Vehicle-like pilot modules, not robot faces. Cab shells overlap the hull's
+                // shoulder line: armor carries load, a recessed glazing slit provides sight.
                 const armored = def.id === 'cab-armored';
-                add(plate(armored ? 1.28 : 1.03, armored ? .91 : .72, .92, m(steel)), 0, 0, .05);
-                const hood = add(plate(armored ? 1.27 : 1.02, .34, .96, m(yellow)), 0, -.34, -.07);
-                hood.rotation.x = -.10;
                 if (armored) {
-                    add(plate(1.24, .37, .38, m(teal)), 0, .30, -.35);
+                    // Heavy Hearth: broad wedge, armored flanks, flush horizontal observation slit.
+                    add(plate(1.28, .68, 1.04, m(steel)), 0, -.07, .04);
                     for (const side of [-1, 1]) {
-                        add(plate(.33, .59, .65, m(0x8c733e)), side * .54, -.02, -.03);
-                        add(round(.13, 0x9bd1bb), side * .33, .06, -.48);
+                        const cheek = add(plate(.18, .62, .91, m(yellow)), side * .65, -.05, -.02);
+                        cheek.rotation.z = side * -.075;
                     }
+                    const lower = add(plate(1.30, .36, .32, m(0xc19848)), 0, -.30, -.47);
+                    lower.rotation.x = -.17;
+                    add(plate(.92, .105, .045, m(0x142326)), 0, .055, -.508);
+                    add(plate(.52, .045, .025, m(0x609a91)), -.12, .055, -.536);
+                    const visorBrow = add(plate(1.38, .19, .42, m(teal)), 0, .23, -.42);
+                    visorBrow.rotation.x = -.08;
+                    add(plate(1.30, .16, .84, m(0x6f7164)), 0, .32, .16);
+                    add(plate(.32, .08, .46, m(0x957139)), .43, .42, .23);
                 }
                 else {
-                    add(plate(.89, .20, .38, m(yellow)), 0, .27, -.34);
-                    const optic = add(round(.21, 0x89c5ae), 0, .08, -.45);
-                    optic.scale.set(1.05, .81, .56);
-                    add(round(.105, 0x20393d), 0, .08, -.55);
-                    add(plate(.32, .23, .30, m(teal)), 0, .30, -.27);
+                    // Scrapyard Cyclops: an integrated pilot tub with ONE offset optics window.
+                    add(plate(1.04, .59, 1.00, m(steel)), 0, -.07, .06);
+                    for (const side of [-1, 1]) {
+                        const rail = add(plate(.16, .41, .83, m(yellow)), side * .53, -.08, .04);
+                        rail.rotation.z = side * -.08;
+                    }
+                    const hood = add(plate(1.09, .29, .40, m(yellow)), 0, -.30, -.37);
+                    hood.rotation.x = -.14;
+                    add(plate(.78, .17, .075, m(0x142628)), 0, .035, -.481);
+                    // Asymmetric rectangular optical insert avoids a humanoid eyeball read.
+                    add(plate(.29, .105, .032, m(0x5ba39a)), -.21, .046, -.531);
+                    add(plate(.90, .13, .80, m(0x6b7065)), 0, .28, .07);
+                    add(plate(.26, .12, .31, m(teal)), .31, .34, -.13);
                 }
                 break;
             }

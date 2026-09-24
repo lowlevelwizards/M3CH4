@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
 import { Controls } from './controls.js';
+import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 const FIXED_DT = 1 / 60;
@@ -59,7 +60,7 @@ const arena = createArenaScene(assembly);
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
-let selectedPart = 'structure';
+let selectedPart = null;
 let statusTimeout = null;
 const selectionButtons = new Map();
 function showStatus(message) {
@@ -81,7 +82,8 @@ function renderFieldStatus() {
 function selectPart(slot, focus = true) {
     selectedPart = slot;
     arena.selectPart(slot);
-    if (focus)
+    // Clearing the highlight never steals the inspection camera from the pilot.
+    if (focus && slot)
         arena.focusPart(slot);
     for (const [key, button] of selectionButtons) {
         button.classList.toggle('selected', key === slot);
@@ -165,7 +167,7 @@ function renderPartsList() {
         button.append(name, mass);
         button.classList.toggle('selected', slot === selectedPart);
         button.classList.toggle('empty', !fitted);
-        button.addEventListener('click', () => selectPart(slot));
+        button.addEventListener('click', () => selectPart(selectedPart === slot ? null : slot));
         partList.appendChild(button);
         selectionButtons.set(slot, button);
     }
@@ -198,7 +200,7 @@ function refreshAssembly() {
     renderPartInfo();
 }
 refreshAssembly();
-selectPart('structure', false);
+selectPart(null, false);
 function toggleInspection(force) {
     const requested = force ?? !inspecting;
     if (!requested && !inspection.ready) {
@@ -215,24 +217,17 @@ function toggleInspection(force) {
     assemblyToggle.setAttribute('aria-pressed', String(inspecting));
     assemblyToggle.textContent = inspecting ? 'PILOT VIEW' : 'ASSEMBLY';
     arena.setInspection(inspecting);
-    if (inspecting)
+    if (inspecting) {
         arena.resetOrbit();
+        syncInspectorLayout();
+    }
     controls.setEnabled(!inspecting && appSheet.classList.contains('hidden'));
     accumulator = 0;
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
 centerView.addEventListener('click', () => controls.recenterLook());
 resetOrbitButton.addEventListener('click', () => { arena.resetOrbit(); showStatus('INSPECTION CAMERA RESET'); });
-// Only canvas gestures manipulate the 3D view. The left panel scrolls normally.
-// Drag orbits; pinch/wheel zoom; a still tap picks the physically visible module.
 const pointers = new Map();
-let lastPinchDist = 0;
-function pinchDistance() {
-    const items = [...pointers.values()];
-    if (items.length < 2)
-        return 0;
-    return Math.hypot(items[0].x - items[1].x, items[0].y - items[1].y);
-}
 renderer.domElement.addEventListener('pointerdown', event => {
     if (!inspecting)
         return;
@@ -242,41 +237,49 @@ renderer.domElement.addEventListener('pointerdown', event => {
         x: event.clientX, y: event.clientY,
         startX: event.clientX, startY: event.clientY, dragged: false,
     });
-    if (pointers.size >= 2) {
+    if (pointers.size >= 2)
         for (const pointer of pointers.values())
             pointer.dragged = true;
-        lastPinchDist = pinchDistance();
-    }
 });
 renderer.domElement.addEventListener('pointermove', event => {
     const pointer = pointers.get(event.pointerId);
     if (!pointer || !inspecting)
         return;
+    event.preventDefault();
+    const before = gestureMetrics([...pointers.values()]);
     const dx = event.clientX - pointer.x;
     const dy = event.clientY - pointer.y;
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     if (Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY) > 7)
         pointer.dragged = true;
-    if (pointers.size >= 2) {
-        const next = pinchDistance();
-        if (lastPinchDist > 0 && next > 0)
-            arena.zoomBy(next / lastPinchDist);
-        lastPinchDist = next;
+    const after = gestureMetrics([...pointers.values()]);
+    if (before && after) {
+        for (const active of pointers.values())
+            active.dragged = true;
+        const panX = after.center.x - before.center.x;
+        const panY = after.center.y - before.center.y;
+        if (panX || panY)
+            arena.panBy(panX, panY, renderer.domElement.clientHeight);
+        if (before.separation > 2 && after.separation > 2)
+            arena.zoomBy(after.separation / before.separation);
     }
-    else if (Math.abs(dx) + Math.abs(dy) > 0)
+    else if (pointer.dragged) {
         arena.orbitBy(dx, dy);
+    }
 });
 const endPointer = (event) => {
     const pointer = pointers.get(event.pointerId);
     if (!pointer)
         return;
+    // When one finger of a pinch lifts, the remaining finger must never count as a tap.
+    if (pointers.size > 1)
+        for (const active of pointers.values())
+            active.dragged = true;
     pointers.delete(event.pointerId);
-    lastPinchDist = pointers.size >= 2 ? pinchDistance() : 0;
     if (inspecting && event.type === 'pointerup' && !pointer.dragged) {
         const slot = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
-        if (slot)
-            selectPart(slot);
+        selectPart(slot === selectedPart ? null : slot, slot !== null);
     }
 };
 renderer.domElement.addEventListener('pointerup', endPointer);
@@ -332,6 +335,10 @@ let previousTime = performance.now();
 let accumulator = 0;
 let fps = 60;
 let showColliders = false;
+function syncInspectorLayout() {
+    const panelRight = inspecting ? inspectionPanel.getBoundingClientRect().right + 12 : 0;
+    arena.setInspectorLayout(panelRight, window.innerWidth, window.innerHeight);
+}
 function resize() {
     const width = Math.max(1, window.innerWidth);
     const height = Math.max(1, window.innerHeight);
@@ -340,6 +347,7 @@ function resize() {
     renderer.setSize(Math.floor(width * renderScale), Math.floor(height * renderScale), false);
     renderer.domElement.style.width = `${width}px`;
     renderer.domElement.style.height = `${height}px`;
+    syncInspectorLayout();
 }
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => window.setTimeout(resize, 120));

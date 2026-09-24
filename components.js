@@ -3,7 +3,7 @@ export const SLOT_CENTERS = {
     structure: [0, 1.82, 0.13],
     mobility: [0, 1.03, 0.10],
     power: [0, 2.01, 0.86],
-    command: [0, 2.55, -0.36],
+    command: [0, 2.43, -0.36],
     combat: [1.17, 2.03, -0.65],
 };
 /** The frame offers standardized ports. H2 is only one small test case of auto-fit, not universal compatibility. */
@@ -15,8 +15,8 @@ export const CATALOG = [
     { id: 'legs-yard', name: 'Yardwalker paired legs', slot: 'mobility', massKg: 1240, center: SLOT_CENTERS.mobility, envelope: [2.0, 1.65, 1.18], accepts: 'U1', description: 'Paired short legs, pistons and broad feet in one serviceable walking assembly.', powerKw: -82, loadLimitKg: 4700, driveForceN: 12200, turnTorqueNm: 23000, lateralGripNsPerM: 10500, maxForwardSpeedMps: 7.4, functionReady: true },
     { id: 'legs-hauler', name: 'Hauler H2 heavy legs', slot: 'mobility', massKg: 1520, center: SLOT_CENTERS.mobility, envelope: [2.55, 1.68, 1.35], accepts: 'H2', description: 'Wider industrial supports, oversized knee joints and slower, stronger drives. Requires an H2/U1 hip adapter.', powerKw: -115, loadLimitKg: 5500, driveForceN: 16200, turnTorqueNm: 19400, lateralGripNsPerM: 14400, maxForwardSpeedMps: 6.2, functionReady: true },
     { id: 'power-dynamo', name: 'Dynamo G-2 power pack', slot: 'power', massKg: 510, center: SLOT_CENTERS.power, envelope: [1.12, 1.01, 0.84], accepts: 'U1', description: 'Rear generator with exposed passive fins. Generator and cooler remain one assembly at this stage.', powerKw: 145, functionReady: true },
-    { id: 'cab-cyclops', name: 'Cyclops salvage cab', slot: 'command', massKg: 350, center: SLOT_CENTERS.command, envelope: [1.00, 0.82, 0.96], accepts: 'U1', description: 'Light pilot cage with a purposeful forward cyclops optic and simple controls.', powerKw: -8, functionReady: true },
-    { id: 'cab-armored', name: 'Hearth armored cab', slot: 'command', massKg: 460, center: SLOT_CENTERS.command, envelope: [1.25, 0.96, 1.07], accepts: 'U1', description: 'Wider protected cab with twin optics. Heavier, and needs more power to run its systems.', powerKw: -20, functionReady: true },
+    { id: 'cab-cyclops', name: 'Cyclops salvage cab', slot: 'command', massKg: 350, center: SLOT_CENTERS.command, envelope: [1.24, 0.90, 1.14], accepts: 'U1', description: 'Low salvaged pilot tub; narrow recessed front vision slit with one offset optical insert. Simple controls.', powerKw: -8, functionReady: true },
+    { id: 'cab-armored', name: 'Hearth armored cab', slot: 'command', massKg: 460, center: SLOT_CENTERS.command, envelope: [1.50, 1.02, 1.24], accepts: 'U1', description: 'Wide low-profile armored wedge; flush observation slit, thick flanks, higher power demand.', powerKw: -20, functionReady: true },
     { id: 'gun-cannon', name: 'Deactivated training cannon', slot: 'combat', massKg: 410, center: SLOT_CENTERS.combat, envelope: [0.87, 0.76, 1.69], accepts: 'U1', description: 'Long right-shoulder cannon including trunnion and breech. Present but deliberately inert until 0.0.1c.', powerKw: -18, functionReady: true },
     { id: 'gun-short', name: 'Deactivated stump cannon', slot: 'combat', massKg: 300, center: SLOT_CENTERS.combat, envelope: [0.95, 0.85, 1.19], accepts: 'U1', description: 'A short heavy-breech training gun with lower power demand. Still deliberately inert.', powerKw: -8, functionReady: true },
 ];

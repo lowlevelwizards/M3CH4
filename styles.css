@@ -199,3 +199,11 @@ body.inspecting #cockpit-ui, body.inspecting #controls, body.inspecting #brake, 
 body.inspecting .look-heading, body.inspecting #cockpit-ui, body.inspecting #controls, body.inspecting #brake, body.inspecting #center-crosshair { display: none; }
 @media (max-width: 730px) { .inspection-panel { width: min(270px, 45vw); } .orbit-help { font-size: 8px; max-width: 49vw; } }
 @media (max-height: 390px) { .toolbar .utility-button { height: 28px; } .inspection-panel { top: max(43px, calc(env(safe-area-inset-top) + 36px)); } }
+
+/* b.4: compact left inspector; camera calculates the remaining unobscured space. */
+.inspection-panel { width: min(280px, 36vw); }
+.inspection-panel .inspection-note:not(.foot) { padding: 6px 0 8px; }
+.inspection-panel header { padding-bottom: 5px; }
+.orbit-help { max-width: 60vw; }
+@media (max-width: 730px) { .inspection-panel { width: min(260px, 42vw); } }
+
