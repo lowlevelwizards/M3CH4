@@ -103,6 +103,7 @@ export function createArenaScene(initial) {
         selectPart(selected && installedPart(assembly, selected) ? selected : null);
         const command = installedPart(assembly, 'command')?.definition.id;
         cockpit.userData.armoredCab.visible = command === 'cab-armored';
+        cockpit.userData.utilityCab.visible = command === 'cab-utility';
     }
     function selectPart(slot) {
         selected = slot;
@@ -294,6 +295,13 @@ function buildCockpit(scene) {
     armoredCab.visible = false;
     cockpit.add(armoredCab);
     cockpit.userData.armoredCab = armoredCab;
+    // Utility cab has an asymmetric high windshield; this is a visual differentiation only.
+    const utilityCab = plate(0.60, .20, .08, teal);
+    utilityCab.position.set(.34, 2.98, -.68);
+    utilityCab.rotation.z = -.10;
+    utilityCab.visible = false;
+    cockpit.add(utilityCab);
+    cockpit.userData.utilityCab = utilityCab;
     return cockpit;
 }
 function buildDebugColliders(scene) {
@@ -362,6 +370,26 @@ function buildExteriorRig(assembly) {
                 }
                 break;
             }
+            case 'frame-utility': {
+                // A narrower lower-capacity chassis with an external right shoulder outrigger.
+                add(plate(1.38, .66, 1.17, m(steel)), 0, .12, -.02);
+                const nose = add(plate(1.14, .51, .29, m(0xbb923f)), 0, .02, -.64);
+                nose.rotation.x = -.20;
+                add(plate(1.08, .24, .93, m(yellow)), 0, .41, -.03);
+                add(plate(1.08, .28, .70, m(steel)), 0, -.36, .08);
+                const bridge = add(cyl(.20, .20, 1.54, brightSteel), 0, -.44, .09);
+                bridge.rotation.z = Math.PI / 2;
+                for (const side of [-1, 1]) {
+                    const hip = add(cyl(.30, .30, .22, steel), side * .68, -.43, .11);
+                    hip.rotation.z = Math.PI / 2;
+                    add(plate(.14, .37, .75, m(teal)), side * .67, .09, .04);
+                }
+                const outrigger = add(plate(.65, .23, .42, m(0x72776e)), .82, .12, -.22);
+                outrigger.rotation.z = -.12;
+                const collar = add(cyl(.31, .31, .20, steel), 1.05, .13, -.44);
+                collar.rotation.z = Math.PI / 2;
+                break;
+            }
             case 'legs-yard':
             case 'legs-hauler': {
                 const wide = def.id === 'legs-hauler';
@@ -399,6 +427,31 @@ function buildExteriorRig(assembly) {
                 }
                 break;
             }
+            case 'legs-compact': {
+                // Inboard hip, reverse-canted knees and short piston pairs: a genuinely narrower stance.
+                for (const side of [-1, 1]) {
+                    const hip = add(cyl(.28, .28, .26, steel), side * .57, .49, .04);
+                    hip.rotation.z = Math.PI / 2;
+                    const thigh = add(plate(.36, .52, .40, m(0x77766b)), side * .68, .12, -.08);
+                    thigh.rotation.z = side * -.24;
+                    const rearLink = add(plate(.22, .58, .26, m(steel)), side * .80, -.30, .26);
+                    rearLink.rotation.z = side * .18;
+                    const knee = add(cyl(.25, .25, .23, brightSteel), side * .83, -.21, .03);
+                    knee.rotation.z = Math.PI / 2;
+                    const kneecap = add(plate(.42, .38, .14, m(teal)), side * .83, -.24, -.19);
+                    kneecap.rotation.x = -.16;
+                    const shin = add(plate(.35, .58, .35, m(steel)), side * .64, -.57, .19);
+                    shin.rotation.z = side * .22;
+                    const piston = add(cyl(.065, .10, .50, brightSteel), side * .76, -.49, -.03);
+                    piston.rotation.z = side * .30;
+                    const ankle = add(round(.17, brightSteel), side * .59, -.79, .17);
+                    ankle.scale.set(1, .8, .8);
+                    const foot = add(plate(.56, .17, .90, m(0x555c57)), side * .59, -.88, -.25);
+                    foot.rotation.y = side * -.07;
+                    add(plate(.36, .08, .34, m(yellow)), side * .59, -.77, -.55);
+                }
+                break;
+            }
             case 'power-dynamo': {
                 // Rear-mounted generator/cooling pack: fans and exposed teal radiator fins.
                 add(plate(1.06, .85, .76, m(steel)), 0, 0, 0);
@@ -409,6 +462,24 @@ function buildExteriorRig(assembly) {
                 fan.rotation.x = Math.PI / 2;
                 add(box(.43, .08, .08, m(0x283434)), 0, .12, .65);
                 add(box(.08, .43, .08, m(0x283434)), 0, .12, .65);
+                break;
+            }
+            case 'power-air': {
+                // Compact power core + tall open radiator stack; geometry explains the exposed tradeoff.
+                add(plate(.93, .60, .74, m(steel)), 0, -.20, -.02);
+                add(plate(1.04, .21, .71, m(yellow)), 0, .10, .00);
+                for (const side of [-1, 1]) {
+                    add(plate(.10, .75, .66, m(teal)), side * .43, .27, .04);
+                    for (let fin = -2; fin <= 2; fin++) {
+                        add(plate(.28, .58, .065, m(0x6a7970)), side * .39, .31, fin * .13);
+                    }
+                }
+                const pipe = add(cyl(.09, .09, .55, brightSteel, 8), -.14, .44, -.17);
+                pipe.rotation.z = .17;
+                const fan = add(cyl(.24, .24, .10, brightSteel, 10), 0, .35, .38);
+                fan.rotation.x = Math.PI / 2;
+                add(plate(.45, .09, .08, m(steel)), 0, .35, .47);
+                add(plate(.09, .45, .08, m(steel)), 0, .35, .47);
                 break;
             }
             case 'cab-cyclops':
@@ -447,6 +518,37 @@ function buildExteriorRig(assembly) {
                     add(plate(.90, .13, .80, m(0x6b7065)), 0, .28, .07);
                     add(plate(.26, .12, .31, m(teal)), .31, .34, -.13);
                 }
+                break;
+            }
+            case 'cab-utility': {
+                // Tall offset observation enclosure with ONE broad glazing band, not humanoid eyes.
+                add(plate(.83, .89, .92, m(steel)), -.08, .03, .06);
+                const skirt = add(plate(1.02, .33, 1.00, m(yellow)), 0, -.40, -.07);
+                skirt.rotation.x = -.12;
+                add(plate(.95, .15, .30, m(0x8b8e81)), 0, -.03, -.46);
+                const window = add(plate(.70, .23, .065, m(0x243c3f)), .08, .20, -.415);
+                window.rotation.y = -.10;
+                add(plate(.64, .08, .028, m(0x548e87)), .08, .21, -.464);
+                const canopy = add(plate(.88, .20, .96, m(teal)), -.04, .54, .05);
+                canopy.rotation.x = -.08;
+                add(plate(.18, .56, .62, m(yellow)), -.50, .17, .07);
+                add(plate(.28, .11, .31, m(0x888b77)), .32, .65, .11);
+                break;
+            }
+            case 'gun-light': {
+                // Long narrow barrel + open support rail, smaller breech, exposed recoil path.
+                const mount = add(cyl(.27, .27, .43, steel), -.10, .01, .12);
+                mount.rotation.z = Math.PI / 2;
+                add(plate(.62, .42, .73, m(yellow)), 0, .02, .02);
+                add(plate(.45, .13, 1.18, m(teal)), 0, .28, -.39);
+                add(plate(.18, .25, 1.50, m(0x747970)), -.24, -.13, -.51);
+                const barrel = add(cyl(.105, .14, 2.03, brightSteel, 10), 0, -.05, -1.09);
+                barrel.rotation.x = Math.PI / 2;
+                const muzzle = add(cyl(.17, .17, .20, steel), 0, -.05, -2.12);
+                muzzle.rotation.x = Math.PI / 2;
+                // Two opposed slots visibly distinguish the lightweight muzzle brake.
+                add(plate(.30, .035, .12, m(0x181e1d)), 0, .10, -2.12);
+                add(plate(.31, .24, .29, m(0x54574f)), 0, -.01, .49);
                 break;
             }
             case 'gun-cannon':

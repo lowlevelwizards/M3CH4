@@ -1,47 +1,39 @@
-# MECH ARENA — 0.0.1b.4 · Inspection and command-module pass
+# MECH ARENA — 0.0.1b.5 · Five contrasting parts
 
-This is a DELTA update over the existing 0.0.1b.3 project, still with a flat editable directory. Install these changed files over your existing files, retaining the unchanged modules, manifest and icon. No new parts, weapons, damage, saves or economy.
+**Patch over 0.0.1b.4.** Flat root-level source and mobile playtest patches contain only changed files; keep unchanged files from b.4/b.3. This is still the **builder/locomotion test**, not a combat release.
 
-## New in b.4
+## Exactly five new owned components
 
-- Two-finger drag pans the inspection camera while pinch independently zooms; one-finger orbit is unchanged. RESET ORBIT clears accumulated pan/zoom.
-- The inspection camera aims at the middle of the **visible space to the right of the parts panel**, recalculated for viewport/panel width and zoom.
-- Tapping an already-selected row or 3D part deselects it. Tapping empty canvas also clears the selection without resetting the camera.
-- Cyclops and Hearth pilot cabs have new lower, armored-vehicle-like silhouettes and recessed horizontal view slits (no paired cartoon eyes). Same parts, serials, masses, power and fieldability rules.
+| Function | New alternative | What changes now |
+|---|---|---|
+| Structure | U-2 narrow utility hull | 1,290 kg vs 1,580 kg welded hull; 4,120 kg structure limit vs 5,100 kg; narrower hull modestly reduces yaw inertia. Includes a real-looking external cannon outrigger. |
+| Mobility | Kestrel compact articulated legs | 1,010 kg vs 1,240 kg Yardwalkers; 3,900 kg load limit, 68 kW draw, narrower stance/lower grip and 9.3 m/s theoretical maximum; distinctive reverse-canted joints. |
+| Power | Draft A-1 air-cooled generator | 365 kg vs 510 kg Dynamo; 112 kW vs 145 kW output. Exposed cooling stack, but **no heat simulation yet**. |
+| Command | Vista utility observation cab | 295 kg and 11 kW draw. Tall asymmetric cab with one wide window, not a face. A different real field of view awaits the sensor stage; visibility is only visual today. |
+| Combat | Deactivated needle cannon | 255 kg and 24 kW nominal load; long supported tube and distinct recoil rail. **Still cannot shoot until 0.0.1c.** |
 
-## Existing b.1–b.3 features
+These append to the prior eight, making **13 owned parts across the same five functional systems**. The existing SR01-001 through SR01-008 serial assignments have not changed. Components remain singly installed assemblies with ordinary U1 mount connections; the original H2→U1 Hauler adapter still adds 110 kg.
 
-- **0.0.1b.1 / Physical inspection:** one-finger orbit, two-finger pinch and mouse-wheel zoom, tap a visible module or select it in the list to focus, RESET ORBIT. A refined, low-poly reference rig uses a clear hip bridge, thicker supported legs, more intentional pilot optic and mounted rear power/cooling pack.
-- **0.0.1b.2 / First swaps:** five non-negotiable *functional systems*, each represented initially by one complete serviceable assembly: structure, mobility, power, command and combat provision. There are eight owned modules total: one frame, two leg assemblies, one power/cooling pack, two pilot cabs and two **inert** cannon mounts. Select a system, fit an owned alternative or remove it. Unique serial numbers survive swapping **within the running session**.
-- **0.0.1b.3 / Causal inspection:** five fieldability checks (structure/mounting and loading, mobility, power budget, pilot command, inert combat provision). A specific H2 heavy-leg → U1 frame **hip adapter** is automatically fitted, weighs 110 kg and is represented visually. Real installed-part mass, actuator force, leg width, speed and turn inertia feed the existing fixed-step locomotion. An incomplete rig cannot enter pilot mode.
+The swap options now display functional specs (load rating, speed/power, frame capacity) under each candidate, rather than listing only mass. Once installed, the existing inspection panel honestly recalculates mass, power and fieldability. The physics receives current installed mass, drive force, stance width and frame width; no new generic builder engine was invented.
 
-The training's *combat provision* check means the rig has a mounted practice weapon, **not that it can fire yet**. There is no arbitrary universal adapter system, save file, combat damage, purchasing or garage in this release.
+### Small causal playtest scenarios
 
-## Mobile playtest
+1. In **ASSEMBLY**, choose STRUCTURE and fit the **U-2 narrow hull**; orbit around the external right weapon outrigger and check the total mass drops to **3,800 kg**. Return to PILOT VIEW for different turning inertia.
+2. Fit **Kestrel compact legs** alone; mass drops to **3,860 kg**, nominal top speed rises, and side grip falls. They have a different 3D stance, not just a reskinned Yardwalker.
+3. Fit the **Draft A-1** generator on the starting configuration: **108/112 kW**, ready. Change the cab to the original heavy Hearth: **120/112 kW**, unfieldable. Swap to the original stump cannon: **110/112 kW**, ready again.
+4. Try the Vista cab and needle cannon. Both affect mass and power; neither adds actual sensors or shooting yet.
+5. Fit **all five new parts** together: **3,215 kg**, **103/112 kW**, fieldable. This should look substantially different from the original Scrapyard rig.
 
-1. Start with your already-hosted **0.0.1b.3** flat playtest. Unzip the **0.0.1b.4 playtest PATCH** and upload its contents **over matching hosted files**. Keep unchanged b.3 files (`controls.js`, `locomotion.js`, `assemblyPhysics.js`, `manifest.webmanifest`, `app-icon.png`). New `inspectionCamera.js` belongs alongside the other JavaScript files. All files remain flat at the host root.
-2. Open the site in iPhone Safari in landscape. To avoid Safari tabs, use **Share → Add to Home Screen**, enable **Open as Web App** if offered, then launch from that icon. A normal Safari tab cannot be programmatically hidden on iPhone.
-3. Tap **ASSEMBLY**. Drag the 3D rig with one finger, pinch with two fingers, select a module in the list to focus, drag two fingers to pan the view, then tap the selected part again or tap empty space to deselect. Use **RESET ORBIT** to undo pan/zoom.
-4. Swap the Yardwalker legs for the Hauler legs and observe the automatically fitted adapter and changed weight. Optionally fit the armored cab: its higher power demand makes the default heavy-leg/cannon combination unfieldable. Fitting the stump cannon restores the power budget.
-5. Return to **PILOT VIEW** and try the different locomotion configurations.
+### Installation (iPhone / static site)
 
-The static playtest loads the Three.js library from jsDelivr (internet access required to load it). It does **not** require npm on the phone.
+Unzip the **playtest PATCH** and upload those changed files to your existing hosted b.4 playtest **over matching filenames**. Keep everything else (including `controls.js`, `locomotion.js`, `inspectionCamera.js`, `manifest.webmanifest` and `app-icon.png`) in the same flat root directory. Because these are JS modules, update all the changed files together; don't mix `components.js` or `scene.js` across versions. If Safari shows an old version, reload the page or relaunch the Home Screen app. The hosted page needs internet to load Three.js from the existing jsDelivr import map; your phone doesn't need npm.
 
-## Editable TypeScript source
+The editable **source PATCH** works the same way over the complete prior b.4 source. On a connected desktop, `npm install && npm run check && npm test && npm run build` builds the Vite version. TypeScript and all game files remain flat at the project root.
 
-Apply the **source PATCH** over the original 0.0.1b.3 flat source, leaving other files in place. On a machine with Node.js and npm connectivity, in that directory:
+### Deliberately not included
 
-```sh
-npm install
-npm run check
-npm test
-npm run build
-```
+No gunfire, damage, AI, repair, persistent saves, shopping, thermal calculations, universal adapter fabrication or new locomotion class. Visual inspection controls and the Home Screen web-app path from b.4 are unchanged. The five new shapes are procedural low-poly meshes, and part geometry is still tied to the existing mount centers. The next milestone is **0.0.1c: a shot hits a real part**, not another catalogue expansion.
 
-`npm run dev` serves the game locally. Vite outputs a conventional `dist` build folder; that generated folder is not part of the flat editable source layout. `base: './'` supports project-relative hosting.
+### Verification
 
-## Verification and known limits
-
-The assembly/locomotion rules are separate from the renderer so they can be tested without 3D or DOM access. Source includes Vitest tests for fitting, serial identity, adapter mass, power limits, mobility differences and steering, alongside the earlier locomotion tests. The packaged static playtest can be syntax- and link-checked offline; actual WebGL and iPhone behavior must be confirmed on-device. New inspection-camera math has dedicated unit tests. This development environment may be unable to contact npm, so don't interpret a missing local Vite run as a successful full-browser test.
-
-**Next optional small build: 0.0.1b.5, five contrasting part variants, followed by 0.0.1c projectile impacts.** Don't expand the builder to arbitrary mounts before these five systems feel good to inspect and swap.
+Pure component, load, power, serial and locomotion logic is testable offline. The `.ts` source includes Vitest cases for the new combinations. A static-playtest smoke test is included in the development verification, but actual Three.js rendering and iPhone interaction still require a device playtest when CDN access is available.

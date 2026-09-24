@@ -91,6 +91,17 @@ function selectPart(slot, focus = true) {
     }
     renderPartInfo();
 }
+function specLine(part) {
+    if (part.slot === 'structure')
+        return `FRAME LIMIT ${part.loadLimitKg.toLocaleString()} kg`;
+    if (part.slot === 'mobility')
+        return `LOAD ${part.loadLimitKg.toLocaleString()} kg · ${part.maxForwardSpeedMps} m/s · ${-part.powerKw} kW`;
+    if (part.slot === 'power')
+        return `OUTPUT ${part.powerKw} kW`;
+    if (part.slot === 'command')
+        return `CONTROL LOAD ${-part.powerKw} kW`;
+    return `NOMINAL LOAD ${-part.powerKw} kW · INERT`;
+}
 function renderPartInfo() {
     partInfo.replaceChildren();
     if (!selectedPart) {
@@ -110,7 +121,10 @@ function renderPartInfo() {
         const description = document.createElement('div');
         description.className = 'part-purpose';
         description.textContent = fitted.definition.description;
-        partInfo.append(stats, description);
+        const specs = document.createElement('div');
+        specs.className = 'part-specs';
+        specs.textContent = specLine(fitted.definition);
+        partInfo.append(stats, specs, description);
     }
     else {
         const missing = document.createElement('div');
@@ -125,7 +139,11 @@ function renderPartInfo() {
         button.type = 'button';
         const fittedHere = fitted?.definition.id === def.id;
         button.className = `swap-option ${fittedHere ? 'installed-option' : ''}`;
-        button.textContent = `${fittedHere ? '✓ ' : 'FIT '}${def.name} · ${def.massKg} kg`;
+        const title = document.createElement('span');
+        title.textContent = `${fittedHere ? '✓ ' : 'FIT '}${def.name} · ${def.massKg} kg`;
+        const specs = document.createElement('small');
+        specs.textContent = specLine(def);
+        button.append(title, specs);
         button.disabled = fittedHere;
         button.addEventListener('click', () => {
             equip(assembly, def.slot, def.id);

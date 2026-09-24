@@ -7,6 +7,7 @@ export function deriveRigConfig(assembly) {
     if (!inspection.ready)
         return null;
     const mover = installedPart(assembly, 'mobility').definition;
+    const frame = installedPart(assembly, 'structure').definition;
     const massRatio = inspection.massKg / DEFAULT_RIG_CONFIG.massKg;
     const relativeWidth = (mover.envelope[0] / 2) ** 2;
     return {
@@ -19,7 +20,8 @@ export function deriveRigConfig(assembly) {
         maxForwardSpeedMps: mover.maxForwardSpeedMps,
         maxReverseSpeedMps: mover.maxForwardSpeedMps * .475,
         // Wider, heavier mobility assemblies cost real angular acceleration.
-        yawInertiaKgM2: 9200 * massRatio * relativeWidth,
+        // A narrow hull concentrates the supported mass nearer the yaw axis; leg stance still dominates.
+        yawInertiaKgM2: 9200 * massRatio * relativeWidth * (.78 + .22 * (frame.envelope[0] / 1.78) ** 2),
         brakeForceN: 22000 * massRatio,
         collisionRadiusM: Math.max(.95, mover.envelope[0] * .47),
     };
