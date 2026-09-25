@@ -8,6 +8,7 @@ import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 import { createFunctionalDamage, damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
+import { driveCondition, repairInstalledPart } from './garage.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -67,6 +68,7 @@ const resetRig = required('#reset-rig');
 const toggleColliders = required('#toggle-colliders');
 const resolutionToggle = required('#resolution-toggle');
 const assemblyToggle = required('#assembly-toggle');
+const garageDeploy = required('#garage-deploy');
 const inspectionPanel = required('#inspection-panel');
 const partInfo = required('#part-info');
 const partList = required('#part-list');
@@ -124,8 +126,8 @@ function showStatus(message) {
 function renderFieldStatus() {
     fieldStatus.classList.toggle('ready', inspection.ready);
     fieldStatus.classList.toggle('blocked', !inspection.ready);
-    fieldStatus.textContent = fieldStatus.dataset.message || (inspection.ready ? 'TRAINING-RIG READY · ENTER PILOT VIEW' :
-        'ASSEMBLY INCOMPLETE · RESOLVE CHECKS TO DRIVE');
+    fieldStatus.textContent = fieldStatus.dataset.message || (inspection.ready ? 'FIELDABLE · DEPLOY WHEN READY' :
+        'GARAGE · RESOLVE FIELDABILITY CHECKS TO DEPLOY');
 }
 function selectPart(slot, focus = true) {
     selectedPart = slot;
@@ -165,7 +167,7 @@ function renderPartInfo() {
         const stats = document.createElement('div');
         stats.className = 'part-stat';
         stats.style.whiteSpace = 'pre-line';
-        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg\nCONDITION ${Math.round(fitted.instance.condition * 100)}%`;
+        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg\nCONDITION ${Math.round(fitted.instance.condition * 100)}% · REPAIRS ${fitted.instance.repairs} · WEAR ${Math.round(fitted.instance.wear * 100)}%`;
         const description = document.createElement('div');
         description.className = 'part-purpose';
         description.textContent = fitted.definition.description;
@@ -173,6 +175,52 @@ function renderPartInfo() {
         specs.className = 'part-specs';
         specs.textContent = specLine(fitted.definition);
         partInfo.append(stats, specs, description);
+        const meter = document.createElement('div');
+        meter.className = `garage-condition ${fitted.instance.condition < .55 ? 'severe' : fitted.instance.condition < .99 ? 'damaged' : ''}`;
+        meter.setAttribute('aria-label', `Component condition ${Math.round(fitted.instance.condition * 100)} percent`);
+        const fill = document.createElement('i');
+        fill.style.width = `${Math.max(0, Math.min(100, fitted.instance.condition * 100))}%`;
+        meter.append(fill);
+        partInfo.append(meter);
+        const symptom = document.createElement('div');
+        symptom.className = 'garage-symptom';
+        const condition = fitted.instance.condition;
+        if (selectedPart === 'mobility') {
+            const sections = driveCondition(assembly, damage);
+            symptom.textContent = sections
+                ? `LEFT DRIVE ${Math.round(sections.left * 100)}% · RIGHT DRIVE ${Math.round(sections.right * 100)}% · uneven output pulls the rig under power.`
+                : 'NO MOBILITY INSTALLED';
+        }
+        else if (selectedPart === 'power') {
+            symptom.textContent = `GENERATOR OUTPUT ${output.powerAvailableKw.toFixed(0)} kW · DEMAND ${output.nominalDemandKw.toFixed(0)} kW${output.powerFactor < 1 ? ' · DRIVE POWER LIMITED' : ''}`;
+        }
+        else if (selectedPart === 'combat') {
+            symptom.textContent = !output.weaponOperational ? 'WEAPON OFFLINE · INSUFFICIENT POWER OR INTERNAL DAMAGE' :
+                output.weapon < .99 ? 'WEAPON DAMAGED · INCREASED SPREAD AND SLOWER CYCLE' : 'WEAPON READY · NO FUNCTIONAL DAMAGE';
+        }
+        else
+            symptom.textContent = condition < .99
+                ? 'COSMETIC / STRUCTURAL CONDITION ONLY · FUNCTIONAL CONSEQUENCES NOT YET MODELED' : 'NO RECORDED DAMAGE';
+        partInfo.append(symptom);
+        const repair = document.createElement('button');
+        repair.type = 'button';
+        repair.className = 'garage-repair';
+        repair.disabled = condition >= 1 - 1e-6;
+        repair.textContent = repair.disabled ? 'NO REPAIR REQUIRED' : `REPAIR ${labels[selectedPart]} · NO COST (TEST)`;
+        repair.addEventListener('click', () => {
+            if (!selectedPart)
+                return;
+            const result = repairInstalledPart(assembly, damage, selectedPart);
+            if (result.repaired) {
+                updateFunctionalStatus();
+                renderPartsList();
+                renderPartInfo();
+                renderChecks();
+                showStatus(`${result.serial} REPAIRED · SAME PHYSICAL MODULE`);
+                renderAmmo();
+            }
+        });
+        partInfo.append(repair);
     }
     else {
         const missing = document.createElement('div');
@@ -229,7 +277,8 @@ function renderPartsList() {
         category.textContent = labels[slot];
         name.append(category, document.createTextNode(fitted?.definition.name ?? 'EMPTY STATION'));
         const mass = document.createElement('span');
-        mass.textContent = fitted ? `${fitted.definition.massKg} kg` : '—';
+        mass.textContent = fitted ? `${Math.round(fitted.instance.condition * 100)}% · ${fitted.definition.massKg}kg` : '—';
+        mass.classList.toggle('condition-low', !!fitted && fitted.instance.condition < .75);
         button.append(name, mass);
         button.classList.toggle('selected', slot === selectedPart);
         button.classList.toggle('empty', !fitted);
@@ -255,6 +304,7 @@ function renderChecks() {
     adapterStatus.textContent = inspection.adapters.length
         ? inspection.adapters.map(a => `${a.description} · ${a.serial}`).join(' · ')
         : 'Direct-mount stations · no adapters';
+    garageDeploy.disabled = !inspection.ready;
     renderFieldStatus();
 }
 function refreshAssembly() {
@@ -282,6 +332,21 @@ function toggleInspection(force) {
     }
     inspecting = requested;
     fireHeld = false;
+    if (inspecting) {
+        devPanel.classList.add('hidden');
+        targetPanel.classList.add('hidden');
+        targetToggle.setAttribute('aria-pressed', 'false');
+        renderPartsList();
+        renderPartInfo();
+    }
+    else {
+        // Each deployment is a new training sortie, not a repair or part replacement.
+        // Actual owned component condition and serials are unchanged.
+        rig = createRigState();
+        controls.recenterLook();
+        weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+        renderAmmo();
+    }
     document.body.classList.toggle('inspecting', inspecting);
     inspectionPanel.classList.toggle('hidden', !inspecting);
     orbitHelp.classList.toggle('hidden', !inspecting);
@@ -289,7 +354,7 @@ function toggleInspection(force) {
     centerView.classList.toggle('hidden', inspecting);
     assemblyToggle.classList.toggle('pressed', inspecting);
     assemblyToggle.setAttribute('aria-pressed', String(inspecting));
-    assemblyToggle.textContent = inspecting ? 'PILOT VIEW' : 'ASSEMBLY';
+    assemblyToggle.textContent = inspecting ? 'DEPLOY' : 'GARAGE';
     arena.setInspection(inspecting);
     if (inspecting) {
         arena.resetOrbit();
@@ -299,6 +364,7 @@ function toggleInspection(force) {
     accumulator = 0;
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
+garageDeploy.addEventListener('click', () => toggleInspection(false));
 centerView.addEventListener('click', () => controls.recenterLook());
 resetOrbitButton.addEventListener('click', () => { arena.resetOrbit(); showStatus('INSPECTION CAMERA RESET'); });
 const pointers = new Map();
@@ -436,6 +502,7 @@ window.addEventListener('orientationchange', () => {
     window.setTimeout(resize, 180);
 });
 resize();
+toggleInspection(true); // Garage is the home screen. Never begin in an uncontrolled live range.
 function frame(now) {
     const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);
     previousTime = now;
@@ -582,11 +649,15 @@ function attemptFire() {
         soundImpact();
         recoilFlash = .19;
         lastHit = `${targetLabels[hit.slot]} · ${hit.serial}`;
-        shotReport.textContent = `${lastHit} · ARMOR -${hit.armorAbsorbed} · INTERNAL -${hit.internalDamage}${hit.disabled ? ' · DISABLED' : ''}`;
+        shotReport.classList.toggle('penetrated', hit.internalDamage > 0);
+        shotReport.classList.toggle('disabled-part', hit.disabled);
+        const outcome = hit.disabled ? 'MODULE DISABLED' : hit.internalDamage > 0 ? 'ARMOR BREACHED' : 'ARMOR IMPACT';
+        shotReport.textContent = `${outcome} · ${lastHit} · ARMOR −${hit.armorAbsorbed} · INTERNAL −${hit.internalDamage}`;
         renderTarget();
     }
     else {
         lastHit = 'RANGE SURFACE / MISS';
+        shotReport.classList.remove('penetrated', 'disabled-part');
         shotReport.textContent = 'NO TARGET HIT · ADJUST AIM';
     }
     reportFade = 2.2;
@@ -658,5 +729,5 @@ for (const button of document.querySelectorAll('[data-damage]')) {
 updateFunctionalStatus();
 renderAmmo();
 renderTarget();
-// No enemy AI, player armor, save data or garage repairs until later milestones.
+// Stage e.1: in-session garage and real component repairs. Persistence, economy, enemy fire and sustained effects remain later milestones.
 requestAnimationFrame(frame);

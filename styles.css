@@ -297,3 +297,21 @@ body.inspecting .fault-strip { display:none; }
 @media(max-height:430px){ .fault-strip { top:max(65px,calc(env(safe-area-inset-top) + 55px)); font-size:8px; } }
 #dev-panel { max-height:calc(100dvh - 66px); overflow-y:auto; overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch; touch-action:pan-y; }
+
+/* 0.0.1e.1: visible first-class garage actions and honest session-only repairs. */
+.garage-deploy { position:sticky; top:0; z-index:2; width:100%; min-height:37px; margin:7px 0 8px;
+  touch-action:manipulation; background:#caa65d; color:#192117; border:1px solid #f2cf86;
+  box-shadow:0 3px 12px #0008; font:800 11px/1.2 ui-monospace,monospace; letter-spacing:.055em; }
+.garage-deploy:disabled { opacity:.42; background:#5e6356; color:#d8d8c7; border-color:#787e65; }
+.garage-condition { height:9px; border:1px solid #668d70; background:#15231a; overflow:hidden; margin-top:9px; }
+.garage-condition i { display:block; height:100%; background:#80b583; }
+.garage-condition.damaged i { background:#d5a958; }
+.garage-condition.severe i { background:#d17d50; }
+.garage-symptom { margin-top:7px; font:9px/1.45 ui-monospace,monospace; color:#ecc693; }
+.garage-repair { display:block; width:100%; min-height:35px; touch-action:manipulation;
+  margin:9px 0; padding:7px; border:1px solid #86b48b; color:#172218; background:#99c393;
+  font:800 10px/1.2 ui-monospace,monospace; letter-spacing:.025em; }
+.garage-repair:disabled { border-color:#5c745e; color:#9faf98; background:#243129; }
+.part-list .condition-low { color:#eabc72 !important; font-weight:700; }
+.shot-report.penetrated { border-color:#e59852; color:#ffe0ac; background:#38251de8; }
+.shot-report.disabled-part { border-color:#e97552; color:#fff2d7; background:#6a3227ed; }

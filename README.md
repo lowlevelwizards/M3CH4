@@ -1,42 +1,30 @@
-# MECH ARENA · 0.0.1c — FIRST LIVE-FIRE RANGE
+# MECH ARENA — 0.0.1e.1 · First Garage
 
-**Scope:** one stationary target and one ballistic weapon family, integrated with the existing five-station builder. Same flat directory. This is an incremental patch **over 0.0.1b.6**.
+**Incremental update on top of 0.0.1d.1.** All project files remain flat at the root; no folder migration, no changes to the previous chassis, command modules, locomotion, aiming or weapons.
 
-## Apply the patch on your phone
+## Install on your existing static host (iPhone)
 
-- **Mobile playtest PATCH:** unzip it and upload its **root-level** contents over your currently working 0.0.1b.6 hosted files. Keep every file that the patch doesn't replace. No folders or manual source editing are required.
-- Safari may cache the older modules. After uploading, reload with `?v=c1` on the hosted URL, or close and relaunch your Home Screen app.
-- The playtest imports Three.js 0.186.0 from jsDelivr, just like the preceding build. It must be on a network-enabled static host; opening its `index.html` from a local Files preview is not the supported path.
-- **TypeScript source PATCH:** apply it to your matching flat 0.0.1b.6 source root; on a computer with package access, `npm install && npm run check && npm test && npm run build`.
+1. **Keep all of your existing 0.0.1d.1 playtest files.** Unzip `MECH_ARENA_0.0.1e1_playtest_PATCH.zip` and upload its root-level files **over** the matching existing files. `garage.js` is new. Don't delete any unchanged modules.
+2. Reload the hosted game. If the old version is cached, try a one-time URL query such as `?v=e1`, or reload the Home Screen web app.
+3. The game now starts in **GARAGE**. Choose **DEPLOY TO TEST RANGE** (or the top-left Deploy button). To return, tap the top-left **GARAGE** button in the arena.
 
-## Test route: one complete shooting interaction
+For editable source, unpack `MECH_ARENA_0.0.1e1_source_PATCH.zip` over the original flat source project and run `npm install`, `npm run check`, `npm test`, and `npm run dev` as usual.
 
-1. Tap **PILOT VIEW**. The range target is about eight meters straight ahead, facing you. It's a different physical assembly with its own serials, not a flat dummy or a clone sharing player identity.
-2. Use the existing floating left stick to move and steer; drag the right area to aim. Hold **FIRE**, or press **F** on desktop. Fire requests consume real magazine rounds immediately; repeat-fire cooldown and reload advance on the fixed simulation tick, so quick taps register reliably.
-3. Check the cartridge count and recoil. Your off-center shoulder gun produces a backwards momentum impulse and some chassis yaw; the existing frame/mobility mass affects the reaction. The three already-owned cannons use the same system with distinct magazine, damage, fire-rate, spread and impulse values.
-4. Aim at the target's visible **legs, power pack, command cab, frame, or weapon**. The game rays out from the real muzzle toward your central reticle, checks intervening solid warehouse geometry and identifies the **first physical mesh hit**. A localized armor layer absorbs damage before the affected component's underlying integrity falls.
-5. Use **TARGET** (top right) to view individual component serials, internal condition and remaining local armor. Hit locations darken and accumulate small impact marks. Use **REBUILD TARGET** to restore its five components and remove impact scars. **R** or the on-screen **RELOAD** button refills the magazine from the finite reserve.
-6. Return to **ASSEMBLY** and change the equipped gun, frame or legs. The selected cannon actually determines live-fire behavior. Original inspection orbit, pan, zoom, highlight, selection and fieldability checks remain.
+## Small test route
 
-## Implemented, and deliberately *not* implemented
+- Start in Garage; orbit around your assembled mech. Optionally swap any of the existing modules. Deploy into the range.
+- Tap **DEV**, inject **HIT L DRIVE −25%** once or twice, then close DEV and notice the change under acceleration. The diagnostic fault strip reflects the actual power loss.
+- Tap **GARAGE**. Select **MOBILITY** from the list. Check the total condition, distinct left/right drive conditions and original serial.
+- Choose **REPAIR MOBILITY · NO COST (TEST)**. Both drive sections recover, and the owned part's repair count increments. Deploy again and check that movement has recovered.
+- Repeat with the Generator or Weapon. You can also leave a part damaged, swap it out, and fit it again; the old part still has its original condition until specifically repaired.
+- Shoot the range target and compare **ARMOR IMPACT**, **ARMOR BREACHED**, and **MODULE DISABLED** messages. Existing 3D sparks/tracers are unchanged.
 
-- **0.0.1c.1:** live weapon cycling, magazine + spare rounds, reload and rate limiting, seeded spread, trace and impact, visible breech/recoil response, synthesized mechanical sound, fixed-timestep shot scheduling.
-- **0.0.1c.2:** stationary target assembled from the same parts catalogue, first-mesh intersection and obstruction, slot-level armor/integrity, unique serials and mirrored acute condition, localized darkening/scorch marks, status panel and reset.
-- **Not in scope:** moving enemy/AI, gravity and simulated projectile travel (a ray represents a very fast short-range ballistic round), complex armor penetration, player taking damage, functional failures, repairs, purchases, ammo economy, or browser persistence. These are later milestones.
+## Scope of this patch
 
-## Current files
+- In-session Garage ↔ Arena deployment flow using the existing Assembly inspector.
+- Accurate condition/repair-count readouts, side-specific drive inspection, one-step no-cost repairs on the *actual installed serial*.
+- Reloaded training ammunition and a fresh position **on each deployment**; owned part condition and repair history stay the same until page reload.
+- A minimal impact-message distinction for armor vs penetration vs disabled parts.
+- **Not in this stage:** browser persistence, currency or repair costs, incoming enemy fire, new smoke/explosions/debris particles, and visually modeled player damage. Closing/reloading this e.1 build restores the initial test machine; persistence is e.2.
 
-All project files remain **flat**. New root modules: `combat.ts` (pure weapon/impact state), `audio.ts` (minimal Web Audio feedback), and `combat.test.ts`. Modified root files: `main.ts`, `scene.ts`, `components.ts`, `components.test.ts`, `index.html`, `styles.css`, `package.json`, `README.md` and `CHANGELOG.md`.
-
-The static playtest patch contains transpiled `combat.js`, `audio.js`, `main.js`, `scene.js` and `components.js` instead of the corresponding TypeScript, plus the changed HTML, CSS and notes. Other unchanged `.js` modules and image/manifest must be kept from b.6.
-
-## Verification and limitations
-
-The pure mechanical modules type-check independently; all **47** original and new test cases passed in an offline Vitest-compatible harness (including 9 chassis/cab combinations, original controls and collisions, ammo cadence, recoil, local armor and unique target identities). Each `.ts` file also passed a TypeScript syntax/transpile check. A true `npm`/Three.js compile and live browser/device render **could not be run** in this environment because package/CDN network access and local browser navigation are restricted. Your iPhone playtest remains the final visual and gesture check.
-
-
-## 0.0.1d contained functional-damage test
-
-In Pilot View, tap **DEV**, then tap **HIT L DRIVE**, **HIT R DRIVE**, **HIT GENERATOR** or **HIT WEAPON**. Each tap directly damages the installed part by 25%. Unequal leg drive produces steering bias; damaged generation limits force and can shut off firing; weapon damage widens shot dispersion and slows cycling before disabling the gun. **DEV RESET FAULTS** restores the installed test parts without an economy or repair history. The target uses existing condition records and reports drive, generator and weapon consequences, but remains stationary. No enemy AI, player-facing armor, repairs or persistence yet.
-
-Apply the playtest patch over the complete 0.0.1c flat playtest. If the host caches older scripts, perform a hard refresh or append a query string to the hosted URL.
+This small patch uses the same external Three.js CDN and existing hosting setup as 0.0.1d.1. The static playtest is pre-transpiled and requires no build step once uploaded.

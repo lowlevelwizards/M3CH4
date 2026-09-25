@@ -19,17 +19,18 @@
     "./combat.js": "./combat.js?v=c",
     "./audio.js": "./audio.js?v=c",
     "./locomotion.js": "./locomotion.js?v=d1",
-    "./functionalDamage.js": "./functionalDamage.js?v=d1"
+    "./functionalDamage.js": "./functionalDamage.js?v=d1",
+    "./garage.js": "./garage.js?v=e1"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=d1" />
-    <title>MECH ARENA — 0.0.1d — Functional Damage</title>
+    <link rel="stylesheet" href="./styles.css?v=e1" />
+    <title>MECH ARENA — 0.0.1e.1 — First Garage</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
 
     <div class="toolbar left-tools">
-      <button id="assembly-toggle" class="utility-button" type="button">ASSEMBLY</button>
+      <button id="assembly-toggle" class="utility-button" type="button">DEPLOY</button>
       <button id="center-view" class="utility-button" type="button">CENTER VIEW</button>
       <button id="inspect-reset" class="utility-button hidden" type="button">RESET ORBIT</button>
       <button id="app-view" class="utility-button" type="button">APP VIEW</button>
@@ -84,8 +85,9 @@
     </section>
 
     <section id="inspection-panel" class="inspection-panel hidden" aria-label="physical assembly builder">
-      <header><span>SR-01 · THE FIVE SYSTEMS</span><small>ASSEMBLY TEST</small></header>
-      <div class="inspection-note">Tap a module to focus. Swap real parts; installed weapons now fire in pilot view. Training target condition resets on REBUILD TARGET.</div>
+      <header><span>GARAGE · SR-01</span><small>REPAIR BAY</small></header>
+      <div class="inspection-note">Your existing machine, with its real damage. Inspect a part, repair it or leave it compromised. Changes last until this page is reloaded in e.1.</div>
+      <button id="garage-deploy" type="button" class="garage-deploy">DEPLOY TO TEST RANGE →</button>
       <div class="assembly-total">TOTAL MASS <b id="assembly-mass">4,090 kg</b></div>
       <div class="assembly-total">POWER DRAW <b id="power-status">108 / 145 kW</b></div>
       <div id="field-status" class="field-status ready" aria-live="polite">TRAINING-RIG READY</div>
@@ -95,12 +97,12 @@
       <div id="field-checks" class="field-checks"></div>
       <div class="section-head">MOUNTING HARDWARE</div>
       <div id="adapter-status" class="adapter-status"></div>
-      <div class="inspection-note foot">Five functional stations, fourteen owned modules, three command cabins and three chassis frames. Live-fire training range now active. DEV panel allows controlled player damage. No enemy AI, repairs or save data yet.</div>
+      <div class="inspection-note foot">Five interchangeable stations. DEV in the arena injects controlled damage into YOUR rig; return here to inspect and selectively repair. e.1 keeps progress only until reload; browser saving and advanced effects come next.</div>
     </section>
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1d</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1e.1</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -124,6 +126,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=d1"></script>
+    <script type="module" src="./main.js?v=e1"></script>
   </body>
 </html>
