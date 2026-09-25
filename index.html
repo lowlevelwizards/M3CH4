@@ -11,11 +11,17 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
-    <script type="importmap">
-      { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js", "./components.js": "./components.js?v=b6", "./scene.js": "./scene.js?v=b6" } }
-    </script>
-    <link rel="stylesheet" href="./styles.css" />
-    <title>MECH ARENA — 0.0.1b.6 Command + Chassis Visual Pass</title>
+    <script type="importmap">{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+    "./components.js": "./components.js?v=c",
+    "./scene.js": "./scene.js?v=c",
+    "./combat.js": "./combat.js?v=c",
+    "./audio.js": "./audio.js?v=c"
+  }
+}</script>
+    <link rel="stylesheet" href="./styles.css?v=c" />
+    <title>MECH ARENA — 0.0.1c — Live-Fire Range</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -27,12 +33,17 @@
       <button id="app-view" class="utility-button" type="button">APP VIEW</button>
     </div>
     <div class="toolbar right-tools">
+      <button id="target-toggle" class="utility-button" type="button" aria-pressed="false">TARGET</button>
       <button id="resolution-toggle" class="utility-button" type="button">RES 70</button>
       <button id="dev-toggle" class="utility-button" type="button">DEV</button>
     </div>
 
     <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
     <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
+    <div id="shot-report" class="shot-report faded" aria-live="polite">LIVE-FIRE TEST · TARGET AHEAD</div>
+    <div id="weapon-hud" class="weapon-hud" aria-live="polite">
+      <span id="weapon-label">TRAINING CANNON</span><strong id="ammo-count">12 / 60</strong>
+    </div>
     <div id="cockpit-ui" aria-label="cockpit instruments">
       <div class="instrument cluster-left">
         <div class="instrument-label">GROUND SPEED</div>
@@ -60,10 +71,18 @@
       </div>
     </div>
     <button id="brake" class="pedal" type="button">BRAKE</button>
+    <button id="reload" class="range-button reload-button" type="button">RELOAD</button>
+    <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire the installed cannon">FIRE</button>
+    <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
+      <header>STATIONARY TARGET · TGT-01</header>
+      <p>Shots strike actual meshes. Each part has local armor and internal integrity; damage does not affect operation until 0.0.1d.</p>
+      <div id="target-readout" class="target-readout"></div>
+      <button id="reset-target" type="button">REBUILD TARGET</button>
+    </section>
 
     <section id="inspection-panel" class="inspection-panel hidden" aria-label="physical assembly builder">
       <header><span>SR-01 · THE FIVE SYSTEMS</span><small>ASSEMBLY TEST</small></header>
-      <div class="inspection-note">Tap a module to focus. Tap it again, or tap empty space, to clear. Fit contrasting parts to test mass, power, load limits and handling.</div>
+      <div class="inspection-note">Tap a module to focus. Swap real parts; installed weapons now fire in pilot view. Training target condition resets on REBUILD TARGET.</div>
       <div class="assembly-total">TOTAL MASS <b id="assembly-mass">4,090 kg</b></div>
       <div class="assembly-total">POWER DRAW <b id="power-status">108 / 145 kW</b></div>
       <div id="field-status" class="field-status ready" aria-live="polite">TRAINING-RIG READY</div>
@@ -73,12 +92,12 @@
       <div id="field-checks" class="field-checks"></div>
       <div class="section-head">MOUNTING HARDWARE</div>
       <div id="adapter-status" class="adapter-status"></div>
-      <div class="inspection-note foot">Five functional stations, fourteen owned modules, three command cabins and three chassis frames. No shop, universal geometry, damage, weapons fire, repairs or save data.</div>
+      <div class="inspection-note foot">Five functional stations, fourteen owned modules, three command cabins and three chassis frames. Live-fire training range now active. No AI, player damage, repairs or save data yet.</div>
     </section>
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1b.6</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1c</span></header>
       <pre id="dev-readout"></pre>
       <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
     </section>
@@ -95,6 +114,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=b6"></script>
+    <script type="module" src="./main.js?v=c"></script>
   </body>
 </html>

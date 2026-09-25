@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
+import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
+import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, shotSpread, startReload, weaponFor } from './combat.js';
 import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
 import { Controls } from './controls.js';
-import { gestureMetrics } from './inspectionCamera.js?v=b51';
-import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
-import { createArenaScene } from './scene.js?v=b6';
+import { gestureMetrics } from './inspectionCamera.js';
+import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
+import { createArenaScene } from './scene.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -12,6 +14,16 @@ const labels = {
     command: 'COMMAND', combat: 'COMBAT',
 };
 const assembly = makeTestAssembly();
+// A different, stationary target built with the same module definitions.
+const targetAssembly = makeRangeTarget();
+let targetCondition = createTargetCondition(targetAssembly);
+let weaponSpec = weaponFor(assembly);
+let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+const rangeWorld = {
+    ...DEFAULT_WORLD,
+    obstacles: [...DEFAULT_WORLD.obstacles,
+        { id: 'stationary-target', minX: -1.0, maxX: 1.0, minZ: -.65, maxZ: .65 }],
+};
 let inspection = inspectAssembly(assembly);
 let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
@@ -49,6 +61,16 @@ const centerView = required('#center-view');
 const appView = required('#app-view');
 const appSheet = required('#app-sheet');
 const appMessage = required('#app-message');
+const fireButton = required('#fire');
+const reloadButton = required('#reload');
+const weaponLabel = required('#weapon-label');
+const ammoReadout = required('#ammo-count');
+const shotReport = required('#shot-report');
+const targetToggle = required('#target-toggle');
+const targetPanel = required('#target-panel');
+const targetReadout = required('#target-readout');
+const resetTarget = required('#reset-target');
+const rangeCrosshair = required('#center-crosshair');
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
@@ -56,12 +78,17 @@ renderer.domElement.className = 'game-canvas';
 renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
 renderer.domElement.style.touchAction = 'none';
 mount.appendChild(renderer.domElement);
-const arena = createArenaScene(assembly);
+const arena = createArenaScene(assembly, targetAssembly);
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
 let selectedPart = null;
 let statusTimeout = null;
+let fireHeld = false;
+let recoilFlash = 0;
+let reportFade = 0;
+let shotsFired = 0;
+let lastHit = 'NO SHOTS YET';
 const selectionButtons = new Map();
 function showStatus(message) {
     fieldStatus.dataset.message = message;
@@ -100,7 +127,7 @@ function specLine(part) {
         return `OUTPUT ${part.powerKw} kW`;
     if (part.slot === 'command')
         return `CONTROL LOAD ${-part.powerKw} kW`;
-    return `NOMINAL LOAD ${-part.powerKw} kW · INERT`;
+    return `FIRING LOAD ${-part.powerKw} kW · LIVE-FIRE RANGE`;
 }
 function renderPartInfo() {
     partInfo.replaceChildren();
@@ -212,6 +239,12 @@ function renderChecks() {
 function refreshAssembly() {
     inspection = inspectAssembly(assembly);
     rigConfig = deriveRigConfig(assembly);
+    const nextSpec = weaponFor(assembly);
+    if (nextSpec?.id !== weaponSpec?.id)
+        weaponState = nextSpec ? createWeaponState(nextSpec) : null;
+    weaponSpec = nextSpec;
+    arena.setPilotWeapon(weaponSpec);
+    renderAmmo();
     arena.rebuildAssembly(assembly);
     renderPartsList();
     renderChecks();
@@ -226,6 +259,7 @@ function toggleInspection(force) {
         return;
     }
     inspecting = requested;
+    fireHeld = false;
     document.body.classList.toggle('inspecting', inspecting);
     inspectionPanel.classList.toggle('hidden', !inspecting);
     orbitHelp.classList.toggle('hidden', !inspecting);
@@ -318,6 +352,7 @@ function showAppGuide() {
     appSheet.classList.remove('hidden');
     appSheet.setAttribute('aria-hidden', 'false');
     controls.setEnabled(false);
+    fireHeld = false;
 }
 function hideAppGuide() {
     appSheet.classList.add('hidden');
@@ -388,7 +423,12 @@ function frame(now) {
     if (!inspecting && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
-            stepRig(rig, input, FIXED_DT, rigConfig);
+            stepRig(rig, input, FIXED_DT, rigConfig, rangeWorld);
+            if (weaponSpec && weaponState) {
+                advanceWeapon(weaponState, weaponSpec, FIXED_DT);
+                if (fireHeld)
+                    attemptFire();
+            }
             accumulator -= FIXED_DT;
             steps++;
         }
@@ -398,6 +438,12 @@ function frame(now) {
     else
         accumulator = 0;
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt);
+    arena.updateCombatEffects(frameDt);
+    recoilFlash = Math.max(0, recoilFlash - frameDt);
+    reportFade = Math.max(0, reportFade - frameDt);
+    rangeCrosshair.classList.toggle('confirmed-hit', recoilFlash > 0);
+    shotReport.classList.toggle('faded', reportFade === 0);
+    renderAmmo();
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);
     motionEl.textContent = rig.forwardSpeed < -.15 ? 'REV' : rig.forwardSpeed > .15 ? 'FWD' : 'IDLE';
     yawRateEl.textContent = Math.round(THREE.MathUtils.radToDeg(rig.yawRate)).toString();
@@ -423,6 +469,10 @@ function frame(now) {
             `FIELDED   ${inspection.ready ? 'YES (TRAINING)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    ${Math.round(renderScale * 100)}%`,
+            `ROUNDS    ${weaponState?.loaded ?? 0}/${weaponState?.reserve ?? 0}`,
+            `SHOTS     ${shotsFired}`,
+            `TARGET    ${targetCondition.shotsHit} HITS`,
+            `LAST HIT  ${lastHit}`,
         ].join('\n');
     }
     renderer.render(arena.scene, arena.camera);
@@ -441,5 +491,125 @@ resolutionToggle.addEventListener('click', () => {
     resolutionToggle.textContent = `RES ${Math.round(renderScale * 100)}`;
     resize();
 });
-// Deliberately no save, purchasing, damage or firing yet: this is a build/inspection test.
+// One tiny target-readout; diagnostic detail is available without covering the cockpit.
+const targetLabels = {
+    structure: 'HULL', mobility: 'LEGS', power: 'POWER', command: 'CAB', combat: 'WEAPON',
+};
+function renderAmmo() {
+    weaponLabel.textContent = weaponSpec?.label ?? 'NO WEAPON';
+    ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
+        weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
+            `${weaponState.loaded} / ${weaponState.reserve}`;
+    reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
+    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || weaponState.reloadLeft > 0;
+}
+function renderTarget() {
+    targetReadout.replaceChildren();
+    for (const slot of SLOTS) {
+        const part = targetCondition.parts[slot];
+        const row = document.createElement('div');
+        row.className = 'target-row';
+        const label = document.createElement('span');
+        label.textContent = `${targetLabels[slot]} · ${part.serial}`;
+        const metrics = document.createElement('b');
+        metrics.textContent = `${Math.ceil(part.integrity / part.maxIntegrity * 100)}% · ARM ${Math.ceil(part.armor)}`;
+        const bar = document.createElement('i');
+        bar.style.transform = `scaleX(${part.integrity / part.maxIntegrity})`;
+        if (!part.integrity)
+            row.classList.add('target-disabled');
+        row.append(label, metrics, bar);
+        targetReadout.append(row);
+    }
+}
+function attemptFire() {
+    if (!weaponSpec || !weaponState || !rigConfig || inspecting || !inspection.ready || !appSheet.classList.contains('hidden'))
+        return;
+    const shot = fireWeapon(weaponState, weaponSpec);
+    if (shot === null) {
+        if (weaponState.loaded <= 0 && weaponState.reloadLeft === 0) {
+            if (startReload(weaponState, weaponSpec))
+                soundReload();
+            else {
+                soundEmpty();
+                fireHeld = false;
+            }
+        }
+        renderAmmo();
+        return;
+    }
+    const [spreadX, spreadY] = shotSpread(shot, weaponSpec.spread);
+    const contact = arena.traceShot(spreadX, spreadY, weaponSpec.muzzleZ);
+    const directionX = (contact.point.x - contact.muzzle.x) / Math.max(contact.distance, .001);
+    const directionZ = (contact.point.z - contact.muzzle.z) / Math.max(contact.distance, .001);
+    applyRecoil(rig, rigConfig, directionX, directionZ, weaponSpec.recoilImpulseNs);
+    shotsFired++;
+    soundFire();
+    arena.showShot(contact, contact.slot !== null);
+    if (contact.slot !== null) {
+        const hit = applyTargetHit(targetCondition, contact.slot, weaponSpec.damage);
+        mirrorTargetCondition(targetAssembly, targetCondition);
+        arena.updateTargetDamage(targetCondition);
+        soundImpact();
+        recoilFlash = .19;
+        lastHit = `${targetLabels[hit.slot]} · ${hit.serial}`;
+        shotReport.textContent = `${lastHit} · ARMOR -${hit.armorAbsorbed} · INTERNAL -${hit.internalDamage}${hit.disabled ? ' · DISABLED' : ''}`;
+        renderTarget();
+    }
+    else {
+        lastHit = 'RANGE SURFACE / MISS';
+        shotReport.textContent = 'NO TARGET HIT · ADJUST AIM';
+    }
+    reportFade = 2.2;
+    renderAmmo();
+}
+fireButton.addEventListener('pointerdown', event => {
+    if (inspecting)
+        return;
+    event.preventDefault();
+    fireButton.setPointerCapture(event.pointerId);
+    fireHeld = true;
+    attemptFire(); // A quick tap must fire even if it ends before the next animation frame.
+});
+const endFire = () => { fireHeld = false; };
+fireButton.addEventListener('pointerup', endFire);
+fireButton.addEventListener('pointercancel', endFire);
+fireButton.addEventListener('lostpointercapture', endFire);
+fireButton.addEventListener('click', event => {
+    if (event.detail === 0)
+        attemptFire(); // keyboard accessibility
+});
+window.addEventListener('keydown', event => {
+    if (event.code === 'KeyF' && !event.repeat) {
+        fireHeld = true;
+        attemptFire();
+    }
+    if (event.code === 'KeyR' && weaponState && weaponSpec && !event.repeat) {
+        if (startReload(weaponState, weaponSpec))
+            soundReload();
+    }
+});
+window.addEventListener('keyup', event => { if (event.code === 'KeyF')
+    endFire(); });
+window.addEventListener('blur', endFire);
+reloadButton.addEventListener('click', () => {
+    if (weaponState && weaponSpec && startReload(weaponState, weaponSpec))
+        soundReload();
+    renderAmmo();
+});
+targetToggle.addEventListener('click', () => {
+    const isOpen = targetPanel.classList.toggle('hidden') === false;
+    targetToggle.setAttribute('aria-pressed', String(isOpen));
+});
+resetTarget.addEventListener('click', () => {
+    targetCondition = createTargetCondition(targetAssembly);
+    mirrorTargetCondition(targetAssembly, targetCondition);
+    arena.resetTargetDamage(targetCondition);
+    lastHit = 'TARGET REBUILT';
+    shotReport.textContent = 'TARGET RESET · ARMOR AND COMPONENTS RESTORED';
+    reportFade = 2;
+    renderTarget();
+});
+renderAmmo();
+renderTarget();
+// Deliberately no AI, player damage, persistent injury, shop or repairs until later stages.
 requestAnimationFrame(frame);

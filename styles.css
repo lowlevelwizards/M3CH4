@@ -209,3 +209,74 @@ body.inspecting .look-heading, body.inspecting #cockpit-ui, body.inspecting #con
 .orbit-help { max-width: 60vw; }
 @media (max-width: 730px) { .inspection-panel { width: min(260px, 42vw); } }
 
+
+/* 0.0.1c: compact live-fire HUD, kept out of the existing two-stick input regions. */
+.weapon-hud {
+  position:absolute; z-index: 7; right:max(9px, env(safe-area-inset-right));
+  top:max(48px, calc(env(safe-area-inset-top) + 41px));
+  pointer-events:none; width:min(170px, 26vw); padding:5px 8px;
+  display:flex; flex-direction:column; gap:3px; background:#111b17dc;
+  border:1px solid #739b8066; font:9px/1.2 monospace; letter-spacing:.07em; color:#9ec4ae;
+}
+.weapon-hud strong { color:#f0ca82; font-size:16px; letter-spacing:.04em; }
+.shot-report {
+  position:absolute; z-index:7; top:max(54px,calc(env(safe-area-inset-top) + 50px));
+  left:49%; transform:translateX(-50%); max-width:40vw; text-align:center;
+  padding:7px 9px; background:#15221dbf; border:1px solid #cca86788;
+  color:#f0d493; font:700 9px/1.35 monospace; letter-spacing:.04em;
+  pointer-events:none; transition:opacity .28s; opacity:1;
+}
+.shot-report.faded { opacity:0; }
+.center-crosshair.confirmed-hit { color:#e3c379; font-size:22px; text-shadow:0 0 9px #d18b43; }
+.range-button {
+  position:absolute; z-index:7; touch-action:none; user-select:none;
+  padding:0 5px; border:1px solid #ac8459; border-radius:4px;
+  font:700 11px/1 monospace; letter-spacing:.1em;
+}
+.fire-button {
+  right:max(10px,env(safe-area-inset-right));
+  bottom:max(92px,calc(env(safe-area-inset-bottom) + 87px));
+  width:clamp(65px,11vw,91px); height:clamp(54px,13vh,71px);
+  color:#191b14; background:#e6ae60; border-color:#ffd28a;
+  box-shadow:inset 0 -6px #b87835,0 0 19px #ad7d3f55;
+}
+.fire-button:active { box-shadow:inset 0 3px #a06531; background:#f4c57d; }
+.reload-button {
+  right:calc(max(10px,env(safe-area-inset-right)) + clamp(74px,12vw,105px));
+  bottom:max(96px,calc(env(safe-area-inset-bottom) + 91px));
+  width:clamp(60px,9vw,78px); height:40px; color:#d5d5bb; background:#26322ce8;
+}
+.range-button:disabled { opacity:.42; }
+.target-panel {
+  position:absolute; z-index:15; top:max(113px, calc(env(safe-area-inset-top) + 100px));
+  right:max(9px,env(safe-area-inset-right)); width:min(245px, 34vw);
+  max-height:calc(100dvh - 128px); overflow:auto; touch-action:pan-y;
+  border:1px solid #82a48999; padding:9px; background:#111c18f2;
+  box-shadow:0 8px 25px #0009;
+}
+.target-panel header { color:#e4bd78; font:700 10px/1.3 monospace; }
+.target-panel p { color:#afbdad; font:9px/1.4 monospace; margin:6px 0 10px; }
+.target-row { position:relative; display:flex; flex-wrap:wrap; justify-content:space-between;
+  gap:2px 7px; border:1px solid #6c91714f; padding:5px 5px 8px; margin-bottom:4px;
+  color:#b6cbb8; font:8px/1.15 monospace; background:#293a2b70; }
+.target-row b { color:#e5c582; font-weight:normal; }
+.target-row i { position:absolute; bottom:0; left:0; width:100%; height:3px; transform-origin:left;
+  background:#83b787; }
+.target-row.target-disabled { border-color:#955649; color:#e8a88e; }
+.target-row.target-disabled i { background:#b4644b; }
+#reset-target { width:100%; border:1px solid #ba9d64; color:#e6cfab; background:#3a3528;
+  font:700 9px/1 monospace; padding:10px 3px; }
+body.inspecting .range-button, body.inspecting .weapon-hud, body.inspecting .shot-report,
+body.inspecting .target-panel,body.inspecting #target-toggle { display:none; }
+@media(max-height:430px) {
+  .weapon-hud { top:max(41px,calc(env(safe-area-inset-top) + 36px)); padding:3px 6px; }
+  .weapon-hud strong { font-size:13px; }
+  .shot-report { top:max(48px,calc(env(safe-area-inset-top) + 44px)); }
+  .fire-button { bottom:max(75px,calc(env(safe-area-inset-bottom) + 72px)); }
+  .reload-button { bottom:max(78px,calc(env(safe-area-inset-bottom) + 75px)); }
+  .target-panel { top:max(89px,calc(env(safe-area-inset-top) + 79px)); max-height:calc(100dvh - 104px); }
+}
+@media(max-width:730px) {
+  .shot-report { max-width:34vw; font-size:8px; }
+  .target-panel { width:min(215px,38vw); }
+}

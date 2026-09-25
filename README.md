@@ -1,39 +1,35 @@
-# MECH ARENA · 0.0.1b.6 — Command + Chassis Visual Pass
+# MECH ARENA · 0.0.1c — FIRST LIVE-FIRE RANGE
 
-**This is a small, flat-directory patch over 0.0.1b.5.1, not a standalone game.** It changes the three command-cab models, rebuilds two existing frame models, and adds one Wedge frame. It intentionally adds no new mechanical subsystem, AI, gunfire, damage, save handling or separate asset folders.
+**Scope:** one stationary target and one ballistic weapon family, integrated with the existing five-station builder. Same flat directory. This is an incremental patch **over 0.0.1b.6**.
 
-## What changed, stage by stage
+## Apply the patch on your phone
 
-**A · Command modules:** Three existing parts retain their definition IDs, ownership serials and mechanical specifications while receiving visibly different procedural geometry:
+- **Mobile playtest PATCH:** unzip it and upload its **root-level** contents over your currently working 0.0.1b.6 hosted files. Keep every file that the patch doesn't replace. No folders or manual source editing are required.
+- Safari may cache the older modules. After uploading, reload with `?v=c1` on the hosted URL, or close and relaunch your Home Screen app.
+- The playtest imports Three.js 0.186.0 from jsDelivr, just like the preceding build. It must be on a network-enabled static host; opening its `index.html` from a local Files preview is not the supported path.
+- **TypeScript source PATCH:** apply it to your matching flat 0.0.1b.6 source root; on a computer with package access, `npm install && npm run check && npm test && npm run build`.
 
-- **Cyclops single-optic cab (`cab-cyclops`):** low salvage pilot tub with one large, circular protected camera cassette, thick frame and no paired eyes.
-- **Hearth integrated cab (`cab-armored`):** shallow flush-window armored enclosure with a lower front skirt, merging into the surrounding chassis rather than looking like a robot head.
-- **Vista observation cab (`cab-utility`):** taller industrial vehicle cab with a wide front windshield and side glazing. Sight differences are still visual-only.
+## Test route: one complete shooting interaction
 
-**B · Chassis:** The existing welded frame is rebuilt as the **Bruiser**, with deep trunnions, layered plates and a heavy hip bridge. The existing U-2 narrow utility hull becomes the more visibly serviceable **Skeleton** with an exposed spine, open side rails and its original outboard weapon mount. Their definition IDs, serials, weights and load limits remain unchanged. The **W-3 Wedge monocoque** is the **only newly owned part**: 1,450 kg, 4,850 kg load rating, wide tapered armored nose and low rear mounting saddle. Existing U1 stations accept all three command modules. One physical Hauler H2/U1 leg adapter remains the only automatic adapter in the prototype.
+1. Tap **PILOT VIEW**. The range target is about eight meters straight ahead, facing you. It's a different physical assembly with its own serials, not a flat dummy or a clone sharing player identity.
+2. Use the existing floating left stick to move and steer; drag the right area to aim. Hold **FIRE**, or press **F** on desktop. Fire requests consume real magazine rounds immediately; repeat-fire cooldown and reload advance on the fixed simulation tick, so quick taps register reliably.
+3. Check the cartridge count and recoil. Your off-center shoulder gun produces a backwards momentum impulse and some chassis yaw; the existing frame/mobility mass affects the reaction. The three already-owned cannons use the same system with distinct magazine, damage, fire-rate, spread and impulse values.
+4. Aim at the target's visible **legs, power pack, command cab, frame, or weapon**. The game rays out from the real muzzle toward your central reticle, checks intervening solid warehouse geometry and identifies the **first physical mesh hit**. A localized armor layer absorbs damage before the affected component's underlying integrity falls.
+5. Use **TARGET** (top right) to view individual component serials, internal condition and remaining local armor. Hit locations darken and accumulate small impact marks. Use **REBUILD TARGET** to restore its five components and remove impact scars. **R** or the on-screen **RELOAD** button refills the magazine from the finite reserve.
+6. Return to **ASSEMBLY** and change the equipped gun, frame or legs. The selected cannon actually determines live-fire behavior. Original inspection orbit, pan, zoom, highlight, selection and fieldability checks remain.
 
-**C · Builder integration:** The same five functional stations, swappable assemblies and selection/orbit/zoom/pan controls remain. The builder now shows **3 chassis × 3 command options = 9 direct U1 pairings** with existing equipment; no preset mech is hardcoded. Changing a frame changes mass, envelope-derived yaw inertia and actual load-rating validation. The Wedge is `SR01-014`; existing `SR01-001` through `SR01-013` serial assignments are unchanged.
+## Implemented, and deliberately *not* implemented
 
-**D · Visual fit:** Command modules retain the same attachment center across all frames. Leg geometry, weapon mounts, generator packs, cockpit operation, camera math and mobile controls are deliberately untouched.
+- **0.0.1c.1:** live weapon cycling, magazine + spare rounds, reload and rate limiting, seeded spread, trace and impact, visible breech/recoil response, synthesized mechanical sound, fixed-timestep shot scheduling.
+- **0.0.1c.2:** stationary target assembled from the same parts catalogue, first-mesh intersection and obstruction, slot-level armor/integrity, unique serials and mirrored acute condition, localized darkening/scorch marks, status panel and reset.
+- **Not in scope:** moving enemy/AI, gravity and simulated projectile travel (a ray represents a very fast short-range ballistic round), complex armor penetration, player taking damage, functional failures, repairs, purchases, ammo economy, or browser persistence. These are later milestones.
 
-## iPhone installation (playtest patch)
+## Current files
 
-Keep your **complete hosted 0.0.1b.5.1 flat playtest** in place. Unzip the `MECH_ARENA_0.0.1b6_playtest_PATCH.zip` and upload its root-level files **over matching existing filenames**. Upload the included `main.js` too (it refreshes the scene import). Keep unchanged `inspectionCamera.js`, `locomotion.js`, `controls.js`, `assemblyPhysics.js`, `styles.css`, `manifest.webmanifest` and `app-icon.png`. Do not upload only this patch into an empty folder. Reload Safari or relaunch your Home Screen app; to bypass an old cached HTML page you can append `?v=b6` to the hosted URL.
+All project files remain **flat**. New root modules: `combat.ts` (pure weapon/impact state), `audio.ts` (minimal Web Audio feedback), and `combat.test.ts`. Modified root files: `main.ts`, `scene.ts`, `components.ts`, `components.test.ts`, `index.html`, `styles.css`, `package.json`, `README.md` and `CHANGELOG.md`.
 
-To work on the **source** instead, apply the source patch over the complete 0.0.1b.5.1 TypeScript tree, keeping unchanged files. With npm access: `npm install`, `npm run check`, `npm test`, `npm run build`. Both patches preserve the existing flat directory layout.
+The static playtest patch contains transpiled `combat.js`, `audio.js`, `main.js`, `scene.js` and `components.js` instead of the corresponding TypeScript, plus the changed HTML, CSS and notes. Other unchanged `.js` modules and image/manifest must be kept from b.6.
 
-## Quick playtest
+## Verification and limitations
 
-1. Enter **ASSEMBLY**, choose **COMMAND**, and cycle between Cyclops, Hearth and Vista. Check that the cockpit silhouette changes much more than the previous head-like variants.
-2. Choose **STRUCTURE**, then cycle Bruiser → Skeleton → Wedge. Orbit to inspect the deep shoulder mounts, open spine, and sloped wedge shell; each should still take the same cab and training weapon.
-3. Swap all three cabs onto all three frames; default Yardwalker legs + Dynamo pack + long training cannon should remain fieldable in all nine pairings.
-4. Try **Skeleton + Hauler heavy legs**: its 4,120 kg frame rating is exceeded; the inspection should explain why. Swapping only the frame to Wedge or Bruiser restores fieldability, without silently changing your installed leg/cab/gun identities.
-5. Compare drive handling between the 1,290 kg Skeleton and the 1,580 kg Bruiser; mass and chassis width already contribute to the existing fixed-step movement model.
-
-## Intentional exclusions
-
-Side Pod, recessed cockpit and sensor mast; Offset, Workhorse and Core frames; changes to locomotion, weapons or power; true freeform spatial mounting, procedurally generated universal adapters, firing or damage. The next game-mechanics milestone remains **0.0.1c: a shot hits something real**. This visual pass is designed to validate the shared design language before multiplying parts.
-
-## Verification limits
-
-New automated TypeScript tests cover the nine default-compatible chassis/cab combinations, part counts and serial preservation, actual mass/inertia differences, load-limit rejection and the existing H2/U1 adapter. The flat mobile JS modules can also be checked independently. Live Three.js rendering and touch behavior must still be evaluated on an iPhone; this build does not ship a vendored Three.js copy and keeps the prior CDN import map.
+The pure mechanical modules type-check independently; all **47** original and new test cases passed in an offline Vitest-compatible harness (including 9 chassis/cab combinations, original controls and collisions, ammo cadence, recoil, local armor and unique target identities). Each `.ts` file also passed a TypeScript syntax/transpile check. A true `npm`/Three.js compile and live browser/device render **could not be run** in this environment because package/CDN network access and local browser navigation are restricted. Your iPhone playtest remains the final visual and gesture check.

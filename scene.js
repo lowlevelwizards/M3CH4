@@ -7,7 +7,7 @@ const C = {
     yellow: 0xa9822f, teal: 0x2f7473, metal: 0x343a39,
     dark: 0x151816, rust: 0x8a4d2d, amber: 0xe0a44c, green: 0x6ea778,
 };
-export function createArenaScene(initial) {
+export function createArenaScene(initial, targetAssembly) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x171915);
     scene.fog = new THREE.FogExp2(0x171915, 0.018);
@@ -17,10 +17,33 @@ export function createArenaScene(initial) {
     const sun = new THREE.DirectionalLight(0xffd69a, 2.1);
     sun.position.set(-7, 12, 8);
     scene.add(sun);
-    buildWarehouse(scene);
+    const worldSolids = buildWarehouse(scene);
     const cockpit = buildCockpit(scene);
     const debugColliders = buildDebugColliders(scene);
     debugColliders.visible = false;
+    // The stationary target is assembled from the SAME definitions and geometry
+    // as the player. It has its own installed serials and never inherits player swaps.
+    let targetExterior = buildExteriorRig(targetAssembly);
+    targetExterior.root.position.set(0, 0, 0);
+    targetExterior.root.rotation.y = Math.PI; // Look back toward the pilot.
+    scene.add(targetExterior.root);
+    const rangeMarks = new THREE.Group();
+    targetExterior.root.add(rangeMarks);
+    const sootMarks = [];
+    const transientFX = [];
+    const targetColors = new WeakMap();
+    for (const mesh of targetExterior.pickMeshes) {
+        const material = mesh.material;
+        if (material instanceof THREE.MeshStandardMaterial)
+            targetColors.set(mesh, material.color.clone());
+    }
+    // Ring, not another obstacle or an invisible hit volume.
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(0, .035, 0);
+    scene.add(ring);
+    let muzzleKick = 0;
+    let muzzleFlash = 0;
     let exterior = buildExteriorRig(initial);
     scene.add(exterior.root);
     exterior.root.visible = false;
@@ -41,6 +64,8 @@ export function createArenaScene(initial) {
     let cockpitHeave = 0;
     let cockpitRoll = 0;
     let cockpitPitch = 0;
+    const gunPivot = cockpit.userData.gunPivot;
+    const flashMesh = cockpit.userData.flashMesh;
     function updateRigVisual(state, lookYaw, lookPitch, dt) {
         const smoothing = 1 - Math.exp(-16 * dt);
         visualX += (state.x - visualX) * smoothing;
@@ -55,6 +80,9 @@ export function createArenaScene(initial) {
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
         cockpitHeave += ((footfall - impactKick) - cockpitHeave) * (1 - Math.exp(-12 * dt));
         const renderYaw = physicsYawToViewYaw(visualYaw);
+        gunPivot.rotation.set(lookPitch * .85, lookYaw * .85, 0, 'YXZ');
+        gunPivot.position.z = -0.62 + muzzleKick * .13;
+        flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX, 0, visualZ);
         cockpit.rotation.set(cockpitPitch, renderYaw, cockpitRoll, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
@@ -161,11 +189,123 @@ export function createArenaScene(initial) {
         const first = raycaster.intersectObjects(exterior.pickMeshes, false)[0];
         return first?.object.userData.slot ?? null;
     }
+    function setPilotWeapon(spec) {
+        const barrel = cockpit.userData.gunBarrel;
+        const breech = cockpit.userData.gunBreech;
+        gunPivot.visible = !!spec;
+        if (!spec)
+            return;
+        const extension = Math.max(.48, Math.abs(spec.muzzleZ + .62));
+        barrel.scale.y = Math.max(.3, (extension - .23) / 1.13);
+        barrel.position.z = -(extension + .23) / 2;
+        flashMesh.position.z = -extension;
+        breech.scale.setScalar(spec.id === 'gun-short' ? 1.14 : spec.id === 'gun-light' ? .75 : 1);
+    }
+    function traceShot(spreadX, spreadY, muzzleZ) {
+        camera.updateMatrixWorld();
+        cockpit.updateMatrixWorld(true);
+        targetExterior.root.updateWorldMatrix(true, true);
+        // A sighting ray finds what the pilot sees; the second ray starts at the
+        // gun's actual off-center muzzle and is allowed to be obstructed.
+        const sightDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+        sightDir.addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
+        raycaster.set(camera.position, sightDir);
+        raycaster.far = 70;
+        const visible = raycaster.intersectObjects([...targetExterior.pickMeshes, ...worldSolids], false)[0];
+        const aimPoint = visible ? visible.point : camera.position.clone().addScaledVector(sightDir, 70);
+        const muzzle = gunPivot.localToWorld(new THREE.Vector3(0, -.04, muzzleZ + .62));
+        const bore = aimPoint.clone().sub(muzzle).normalize();
+        raycaster.set(muzzle, bore);
+        raycaster.far = 70;
+        const actual = raycaster.intersectObjects([...targetExterior.pickMeshes, ...worldSolids], false)[0];
+        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 70);
+        const surfaceNormal = actual?.face
+            ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
+            : bore.clone().negate();
+        const slot = actual?.object.userData.slot;
+        return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+    }
+    function showShot(contact, hit) {
+        muzzleKick = Math.min(1, muzzleKick + .8);
+        muzzleFlash = .10;
+        const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
+        const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xf4c77e : 0xc7a76f, transparent: true, opacity: .92 });
+        const tracer = new THREE.Line(track, trackMat);
+        tracer.frustumCulled = false;
+        scene.add(tracer);
+        transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
+        const sparkMat = new THREE.MeshBasicMaterial({ color: hit ? 0xffbc64 : 0xd2ad74, transparent: true, opacity: .9 });
+        const spark = new THREE.Mesh(new THREE.IcosahedronGeometry(hit ? .14 : .08, 0), sparkMat);
+        spark.position.copy(contact.point).addScaledVector(contact.normal, .035);
+        scene.add(spark);
+        transientFX.push({ object: spark, remaining: .20, duration: .20, material: sparkMat });
+        if (hit) {
+            // World impact converted to target-local mark, so the scar belongs to
+            // the struck assembly's machine and stays put when viewed from any angle.
+            const soot = new THREE.Mesh(new THREE.IcosahedronGeometry(.075, 0), new THREE.MeshBasicMaterial({ color: 0x171c19, depthWrite: false }));
+            targetExterior.root.updateWorldMatrix(true, false);
+            soot.position.copy(targetExterior.root.worldToLocal(contact.point.clone().addScaledVector(contact.normal, .045)));
+            rangeMarks.add(soot);
+            sootMarks.push(soot);
+            if (sootMarks.length > 26) {
+                const oldest = sootMarks.shift();
+                rangeMarks.remove(oldest);
+                oldest.geometry.dispose();
+                oldest.material.dispose();
+            }
+        }
+    }
+    function updateTargetDamage(condition) {
+        for (const [slot, meshes] of targetExterior.partMeshes) {
+            const state = condition.parts[slot];
+            // Only affected geometry darkens. The rest of the same rig is untouched.
+            const damage = 1 - state.integrity / state.maxIntegrity;
+            const stripped = 1 - state.armor / state.maxArmor;
+            for (const mesh of meshes) {
+                const material = mesh.material;
+                const color = targetColors.get(mesh);
+                if (!(material instanceof THREE.MeshStandardMaterial) || !color)
+                    continue;
+                material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
+                material.emissive.setHex(state.integrity === 0 ? 0x30150b : 0);
+                material.emissiveIntensity = state.integrity === 0 ? .35 : 0;
+            }
+        }
+    }
+    function resetTargetDamage(condition) {
+        while (sootMarks.length) {
+            const mark = sootMarks.pop();
+            rangeMarks.remove(mark);
+            mark.geometry.dispose();
+            mark.material.dispose();
+        }
+        updateTargetDamage(condition);
+    }
+    function updateCombatEffects(dt) {
+        muzzleKick = Math.max(0, muzzleKick - dt * 5);
+        muzzleFlash = Math.max(0, muzzleFlash - dt);
+        for (let index = transientFX.length - 1; index >= 0; index--) {
+            const fx = transientFX[index];
+            fx.remaining -= dt;
+            if (fx.remaining <= 0) {
+                scene.remove(fx.object);
+                fx.object.geometry.dispose();
+                fx.material.dispose();
+                transientFX.splice(index, 1);
+            }
+            else if ('opacity' in fx.material) {
+                fx.material.opacity = fx.remaining / fx.duration;
+            }
+        }
+    }
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
+        traceShot, showShot, updateTargetDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {
@@ -176,9 +316,11 @@ function box(w, h, d, material) {
     return mesh;
 }
 function buildWarehouse(scene) {
+    const solids = [];
     const floor = box(50, 0.35, 36, mat(C.concreteDark, 1, 0));
     floor.position.y = -0.18;
     scene.add(floor);
+    solids.push(floor);
     const grid = new THREE.GridHelper(48, 24, 0x4d4a3e, 0x34342f);
     grid.position.y = 0.01;
     scene.add(grid);
@@ -188,15 +330,19 @@ function buildWarehouse(scene) {
     const north = box(50, wallHeight, wallThickness, wallMat);
     north.position.set(0, wallHeight / 2, -17);
     scene.add(north);
+    solids.push(north);
     const south = box(50, wallHeight, wallThickness, wallMat);
     south.position.set(0, wallHeight / 2, 17);
     scene.add(south);
+    solids.push(south);
     const west = box(wallThickness, wallHeight, 34, wallMat);
     west.position.set(-24, wallHeight / 2, 0);
     scene.add(west);
+    solids.push(west);
     const east = west.clone();
     east.position.x = 24;
     scene.add(east);
+    solids.push(east);
     const stripeMat = mat(C.yellow, 0.9, 0.08);
     for (let x = -20; x <= 20; x += 8) {
         const stripe = box(3.5, 0.03, 0.22, stripeMat);
@@ -211,6 +357,7 @@ function buildWarehouse(scene) {
         const object = box(w, h, d, material);
         object.position.set((obstacle.minX + obstacle.maxX) / 2, h / 2, (obstacle.minZ + obstacle.maxZ) / 2);
         scene.add(object);
+        solids.push(object);
         if (!obstacle.id.startsWith('crate')) {
             const cap = box(w * 0.8, 0.08, d * 1.03, stripeMat);
             cap.position.set(object.position.x, h + 0.04, object.position.z);
@@ -223,6 +370,7 @@ function buildWarehouse(scene) {
             const column = box(0.55, 7.5, 0.55, columnMat);
             column.position.set(x, 3.75, z);
             scene.add(column);
+            solids.push(column);
         }
     }
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffcf8a, emissive: 0xffa43a, emissiveIntensity: 2.4 });
@@ -251,6 +399,7 @@ function buildWarehouse(scene) {
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: texture }));
     sign.position.set(0, 5, -16.68);
     scene.add(sign);
+    return solids;
 }
 function buildCockpit(scene) {
     const cockpit = new THREE.Group();
@@ -304,6 +453,26 @@ function buildCockpit(scene) {
     utilityCab.visible = false;
     cockpit.add(utilityCab);
     cockpit.userData.utilityCab = utilityCab;
+    // Pilot-view weapon is a moving physical silhouette, not a HUD sprite.
+    const gunPivot = new THREE.Group();
+    gunPivot.position.set(1.16, 2.04, -.62);
+    const breech = box(.43, .34, .65, metal);
+    breech.position.set(0, 0, -.19);
+    gunPivot.add(breech);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.105, .13, 1.13, 8), metal);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, -.04, -.79);
+    gunPivot.add(barrel);
+    const muzzleFlashMat = new THREE.MeshBasicMaterial({ color: 0xffce7e, transparent: true, opacity: .9 });
+    const flashMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(.18, 0), muzzleFlashMat);
+    flashMesh.position.set(0, -.04, -1.27);
+    flashMesh.visible = false;
+    gunPivot.add(flashMesh);
+    cockpit.add(gunPivot);
+    cockpit.userData.gunPivot = gunPivot;
+    cockpit.userData.gunBarrel = barrel;
+    cockpit.userData.gunBreech = breech;
+    cockpit.userData.flashMesh = flashMesh;
     return cockpit;
 }
 function buildDebugColliders(scene) {
