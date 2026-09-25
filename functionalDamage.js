@@ -66,12 +66,19 @@ export function functionalOutput(assembly, state) {
  * Different leg condition makes unequal traction-force / yaw moment, not a generic speed penalty. */
 export function derateRigConfig(base, output) {
     const legMean = (output.left + output.right) / 2;
+    const pairedAuthority = Math.sqrt(output.left * output.right);
     const driveFactor = legMean * output.powerFactor;
     return {
         ...base,
         driveForceN: base.driveForceN * driveFactor,
         reverseForceN: base.reverseForceN * driveFactor,
-        turnTorqueNm: base.turnTorqueNm * (.25 + .75 * legMean) * output.powerFactor,
+        lateralDriveForceN: base.lateralDriveForceN * pairedAuthority * output.powerFactor,
+        maxLateralSpeedMps: base.maxLateralSpeedMps * (.2 + .8 * pairedAuthority) * output.powerFactor,
+        turnTorqueNm: base.turnTorqueNm,
+        // A right turn leans more heavily on the left drive and vice versa. The
+        // opposite drive still contributes, so one bad leg degrades rather than binary-disables yaw.
+        turnRightScale: (.65 * output.left + .35 * output.right) * output.powerFactor,
+        turnLeftScale: (.65 * output.right + .35 * output.left) * output.powerFactor,
         lateralGripNsPerM: base.lateralGripNsPerM * (.5 + .5 * legMean),
         // Positive bias turns right: left drive stronger than right; reversible in reverse.
         driveAsymmetryTorqueNm: (output.left - output.right) * base.driveForceN *

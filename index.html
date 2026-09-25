@@ -11,21 +11,8 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
-    <script type="importmap">{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
-    "./components.js": "./components.js?v=c",
-    "./scene.js": "./scene.js?v=f",
-    "./combat.js": "./combat.js?v=c",
-    "./audio.js": "./audio.js?v=c",
-    "./locomotion.js": "./locomotion.js?v=d1",
-    "./functionalDamage.js": "./functionalDamage.js?v=d1",
-    "./garage.js": "./garage.js?v=e1",
-    "./damageVisuals.js": "./damageVisuals.js?v=f"
-  }
-}</script>
-    <link rel="stylesheet" href="./styles.css?v=e2" />
-    <title>MECH ARENA — 0.0.1g — Hostile Rig</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <title>MECH ARENA — 0.0.1g.1 — Mobility-Aware Combat Controls</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -66,11 +53,11 @@
     </div>
 
     <div id="controls">
-      <div id="drive-zone" class="stick-zone" aria-label="floating joystick: up forward, down reverse, left and right turn">
-        <div class="stick-ring"><div class="stick-axis up">FWD</div><div class="stick-axis down">REV</div><div class="stick-axis left">L</div><div class="stick-axis right">R</div><div id="drive-knob" class="stick-knob"></div></div>
-        <div class="control-caption">UP DRIVE · DOWN REVERSE · L/R TURN</div>
+      <div id="drive-zone" class="stick-zone" aria-label="floating movement joystick: up forward, down reverse, left and right step">
+        <div class="stick-ring"><div class="stick-axis up">FWD</div><div class="stick-axis down">REV</div><div class="stick-axis left">STEP L</div><div class="stick-axis right">STEP R</div><div id="drive-knob" class="stick-knob"></div></div>
+        <div class="control-caption">FWD / REV · L/R STEP</div>
       </div>
-      <div id="look-zone" class="look-zone" aria-label="drag to look, independent of mech steering">
+      <div id="look-zone" class="look-zone" aria-label="drag to aim; the chassis follows when aim reaches the traverse edge">
         <div class="look-reticle">⌁</div>
         <div class="control-caption">LOOK ONLY · CENTER VIEW AT TOP</div>
       </div>
@@ -107,7 +94,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1g</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1g.1</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -131,6 +118,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=g"></script>
+    <script type="module" src="./main.ts"></script>
   </body>
 </html>

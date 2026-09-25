@@ -3,7 +3,7 @@ import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
-import { Controls } from './controls.js';
+import { bodyFollowSteer, Controls } from './controls.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
@@ -157,7 +157,7 @@ function specLine(part) {
     if (part.slot === 'structure')
         return `FRAME LIMIT ${part.loadLimitKg.toLocaleString()} kg`;
     if (part.slot === 'mobility')
-        return `LOAD ${part.loadLimitKg.toLocaleString()} kg · ${part.maxForwardSpeedMps} m/s · ${-part.powerKw} kW`;
+        return `LOAD ${part.loadLimitKg.toLocaleString()} kg · FWD ${part.maxForwardSpeedMps} m/s · LAT ${part.maxLateralSpeedMps} m/s · ${-part.powerKw} kW`;
     if (part.slot === 'power')
         return `OUTPUT ${part.powerKw} kW`;
     if (part.slot === 'command')
@@ -560,12 +560,21 @@ function frame(now) {
     const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);
     previousTime = now;
     fps += ((1 / Math.max(frameDt, .0001)) - fps) * .06;
-    const input = controls.sample();
+    let input = controls.sample();
     let steps = 0;
     if (!inspecting && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
-            stepRig(rig, input, FIXED_DT, effectiveConfig, rangeWorld);
+            const followSteer = bodyFollowSteer(input.lookYaw);
+            const bodySteer = THREE.MathUtils.clamp(input.steer + followSteer, -1, 1);
+            const yawBefore = rig.yaw;
+            stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, rangeWorld);
+            // When aim drives the chassis, counter-rotate the weapon/camera by the exact
+            // body motion so the pilot keeps the same world-space aim while the legs catch up.
+            if (Math.abs(followSteer) > .001) {
+                controls.compensateBodyTurn(rig.yaw - yawBefore);
+                input = controls.sample();
+            }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
                 if (fireHeld)
@@ -588,6 +597,8 @@ function frame(now) {
     }
     else
         accumulator = 0;
+    // Re-sample after body-follow compensation before rendering the cockpit/gun.
+    input = controls.sample();
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt);
     arena.updateCombatEffects(frameDt);
     recoilFlash = Math.max(0, recoilFlash - frameDt);
@@ -596,12 +607,15 @@ function frame(now) {
     shotReport.classList.toggle('faded', reportFade === 0);
     renderAmmo();
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);
-    motionEl.textContent = rig.forwardSpeed < -.15 ? 'REV' : rig.forwardSpeed > .15 ? 'FWD' : 'IDLE';
+    const lateralDominant = Math.abs(rig.lateralSpeed) > .18 && Math.abs(rig.lateralSpeed) > Math.abs(rig.forwardSpeed) * .72;
+    motionEl.textContent = lateralDominant ? (rig.lateralSpeed > 0 ? 'STEP R' : 'STEP L') :
+        rig.forwardSpeed < -.15 ? 'REV' : rig.forwardSpeed > .15 ? 'FWD' : 'IDLE';
     yawRateEl.textContent = Math.round(THREE.MathUtils.radToDeg(rig.yawRate)).toString();
     loadBar.style.transform = `scaleX(${rig.driveLoad.toFixed(3)})`;
     const degrees = Math.round(-THREE.MathUtils.radToDeg(input.lookYaw));
-    lookHeadingEl.textContent = Math.abs(degrees) < 2 ? 'VIEW: FORWARD · CENTERED' :
-        `VIEW: ${degrees > 0 ? 'RIGHT' : 'LEFT'} ${Math.abs(degrees)}° · MECH-RELATIVE`;
+    const following = Math.abs(bodyFollowSteer(input.lookYaw)) > .02;
+    lookHeadingEl.textContent = Math.abs(degrees) < 2 ? 'AIM: FORWARD · BODY CENTERED' :
+        `AIM: ${degrees > 0 ? 'RIGHT' : 'LEFT'} ${Math.abs(degrees)}°${following ? ' · BODY FOLLOW' : ' · FREE TRAVERSE'}`;
     if (!devPanel.classList.contains('hidden')) {
         devReadout.textContent = [
             `FPS       ${fps.toFixed(0)}`,

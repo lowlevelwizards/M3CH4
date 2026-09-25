@@ -5,6 +5,8 @@ export const DEFAULT_RIG_CONFIG = {
     brakeForceN: 22_000,
     longitudinalDragNsPerM: 760,
     lateralGripNsPerM: 10_500,
+    lateralDriveForceN: 21_500,
+    maxLateralSpeedMps: 2.4,
     turnTorqueNm: 23_000,
     yawDampingNms: 26_000,
     yawInertiaKgM2: 9_200,
@@ -48,6 +50,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const damp = (value, strength, dt) => value * Math.exp(-strength * dt);
 export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = DEFAULT_WORLD) {
     const throttle = clamp(input.throttle, -1, 1);
+    const strafe = clamp(input.strafe ?? 0, -1, 1);
     const steer = clamp(input.steer, -1, 1);
     const brake = clamp(input.brake, 0, 1);
     const sin = Math.sin(state.yaw);
@@ -70,14 +73,19 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
         longitudinalForce = 0;
     if (previousForwardSpeed <= -config.maxReverseSpeedMps && longitudinalForce < 0)
         longitudinalForce = 0;
-    const lateralForce = -lateralSpeed * config.lateralGripNsPerM;
+    // A legged rig actively steps toward a requested sideways velocity. The grip
+    // coefficient damps uncontrolled slide; lateralDriveForceN is the actuator limit.
+    const targetLateralSpeed = strafe * config.maxLateralSpeedMps * (1 - brake * .8);
+    const lateralError = targetLateralSpeed - lateralSpeed;
+    const lateralForce = clamp(lateralError * config.lateralGripNsPerM, -config.lateralDriveForceN, config.lateralDriveForceN);
     const ax = (forwardX * longitudinalForce + rightX * lateralForce) / config.massKg;
     const az = (forwardZ * longitudinalForce + rightZ * lateralForce) / config.massKg;
     state.vx += ax * dt;
     state.vz += az * dt;
     const speedFraction = clamp(Math.abs(previousForwardSpeed) / config.maxForwardSpeedMps, 0, 1);
     const turnAuthority = 0.68 + speedFraction * 0.32;
-    const yawTorque = steer * config.turnTorqueNm * turnAuthority
+    const directionalTurnScale = steer >= 0 ? (config.turnRightScale ?? 1) : (config.turnLeftScale ?? 1);
+    const yawTorque = steer * config.turnTorqueNm * turnAuthority * directionalTurnScale
         + throttle * (config.driveAsymmetryTorqueNm ?? 0)
         - state.yawRate * config.yawDampingNms;
     state.yawRate += (yawTorque / config.yawInertiaKgM2) * dt;
@@ -97,9 +105,10 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     state.longitudinalAcceleration = (state.forwardSpeed - previousForwardSpeed) / dt;
     const propulsionLoad = config.driveForceN > 0
         ? Math.abs(opposingThrottle ? 0 : requestedForce) / config.driveForceN : 0;
-    const turningLoad = Math.abs(steer) * 0.32;
+    const lateralLoad = config.lateralDriveForceN > 0 ? Math.abs(lateralForce) / config.lateralDriveForceN * .55 : 0;
+    const turningLoad = Math.abs(steer) * 0.26;
     const brakingLoad = brake * 0.18;
-    state.driveLoad = clamp(propulsionLoad + turningLoad + brakingLoad, 0, 1);
+    state.driveLoad = clamp(propulsionLoad + lateralLoad + turningLoad + brakingLoad, 0, 1);
 }
 function resolveWorldCollisions(state, config, world) {
     const radius = config.collisionRadiusM;

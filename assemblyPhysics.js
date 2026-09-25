@@ -17,6 +17,8 @@ export function deriveRigConfig(assembly) {
         reverseForceN: mover.driveForceN * (8 / 12.2),
         turnTorqueNm: mover.turnTorqueNm,
         lateralGripNsPerM: mover.lateralGripNsPerM,
+        lateralDriveForceN: mover.lateralDriveForceN,
+        maxLateralSpeedMps: mover.maxLateralSpeedMps,
         maxForwardSpeedMps: mover.maxForwardSpeedMps,
         maxReverseSpeedMps: mover.maxForwardSpeedMps * .475,
         // Wider, heavier mobility assemblies cost real angular acceleration.

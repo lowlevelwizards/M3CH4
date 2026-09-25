@@ -1,4 +1,15 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+/** Convert mech-relative aim offset into body-turn intent. Right aim is negative
+ * camera yaw in Three.js, while positive physics yaw turns the body right. */
+export function bodyFollowSteer(lookYaw) {
+    const magnitude = Math.abs(lookYaw);
+    if (magnitude <= BODY_FOLLOW_START)
+        return 0;
+    const normalized = clamp((magnitude - BODY_FOLLOW_START) / (AIM_YAW_LIMIT - BODY_FOLLOW_START), 0, 1);
+    return -Math.sign(lookYaw) * normalized;
+}
+export const AIM_YAW_LIMIT = 0.92;
+export const BODY_FOLLOW_START = 0.42;
 /** Pure joystick mapping: displacement from touch-down, never absolute screen position. */
 export function stickAxes(dxPx, dyPx, radiusPx) {
     const length = Math.hypot(dxPx, dyPx);
@@ -7,11 +18,11 @@ export function stickAxes(dxPx, dyPx, radiusPx) {
     const dy = dyPx * factor / radiusPx;
     const deadZone = 0.12;
     const axis = (value) => Math.abs(value) <= deadZone ? 0 : Math.sign(value) * (Math.abs(value) - deadZone) / (1 - deadZone);
-    return { throttle: axis(-dy), steer: axis(dx) };
+    return { throttle: axis(-dy), strafe: axis(dx) };
 }
 export class Controls {
     throttle = 0;
-    steer = 0;
+    strafe = 0;
     brake = 0;
     lookYaw = 0;
     lookPitch = 0;
@@ -77,7 +88,7 @@ export class Controls {
             this.lookLastX = event.clientX;
             this.lookLastY = event.clientY;
             // Three's negative camera yaw looks right; dragging right should look right.
-            this.lookYaw = clamp(this.lookYaw - dx * 0.0042, -0.62, 0.62);
+            this.lookYaw = clamp(this.lookYaw - dx * 0.0042, -AIM_YAW_LIMIT, AIM_YAW_LIMIT);
             this.lookPitch = clamp(this.lookPitch - dy * 0.0034, -0.19, 0.16);
         });
         const lookEnd = (event) => {
@@ -118,14 +129,20 @@ export class Controls {
     }
     sample() {
         const forward = Number(this.keyboard.has('KeyW') || this.keyboard.has('ArrowUp')) - Number(this.keyboard.has('KeyS') || this.keyboard.has('ArrowDown'));
-        const turn = Number(this.keyboard.has('KeyD') || this.keyboard.has('ArrowRight')) - Number(this.keyboard.has('KeyA') || this.keyboard.has('ArrowLeft'));
+        const lateral = Number(this.keyboard.has('KeyD')) - Number(this.keyboard.has('KeyA'));
+        const manualTurn = Number(this.keyboard.has('ArrowRight')) - Number(this.keyboard.has('ArrowLeft'));
         return {
             throttle: this.enabled ? clamp(this.throttle + forward, -1, 1) : 0,
-            steer: this.enabled ? clamp(this.steer + turn, -1, 1) : 0,
+            strafe: this.enabled ? clamp(this.strafe + lateral, -1, 1) : 0,
+            steer: this.enabled ? clamp(manualTurn, -1, 1) : 0,
             brake: this.enabled ? Math.max(this.brake, this.keyboard.has('Space') ? 1 : 0) : 1,
             lookYaw: this.lookYaw,
             lookPitch: this.lookPitch,
         };
+    }
+    /** Preserve world aim while the chassis rotates to catch up with an aimed weapon. */
+    compensateBodyTurn(deltaPhysicsYaw) {
+        this.lookYaw = clamp(this.lookYaw + deltaPhysicsYaw, -AIM_YAW_LIMIT, AIM_YAW_LIMIT);
     }
     recenterLook() {
         this.lookYaw = 0;
@@ -143,7 +160,7 @@ export class Controls {
     clearDrive() {
         this.drivePointer = null;
         this.throttle = 0;
-        this.steer = 0;
+        this.strafe = 0;
         this.driveKnob.style.transform = 'translate(-50%, -50%)';
         this.driveRing.style.left = '';
         this.driveRing.style.top = '';
@@ -158,7 +175,7 @@ export class Controls {
         const length = Math.hypot(dx, dy);
         const factor = length > radius ? radius / length : 1;
         const axes = stickAxes(dx, dy, radius);
-        this.steer = axes.steer;
+        this.strafe = axes.strafe;
         this.throttle = axes.throttle;
         this.driveKnob.style.transform = `translate(calc(-50% + ${dx * factor}px), calc(-50% + ${dy * factor}px))`;
     }

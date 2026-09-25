@@ -1,13 +1,18 @@
-# MECH ARENA 0.0.1g — First Hostile Rig
+# MECH ARENA 0.0.1g.1 — Mobility-Aware Combat Controls
 
-## Added
-- The stationary range rig now returns fire after a short deployment delay.
-- Incoming rounds are raycast against the player's actual exterior component meshes and use the same armor-first localized hit resolution as the range target.
-- Mobility hits resolve to the physically struck left/right side and feed the existing asymmetric drive-damage model.
-- Target weapon, generator, command and frame condition now determine whether the hostile rig can keep firing; weapon/power damage also slows and destabilizes its fire.
-- Incoming shots use the existing pixel sparks/chips/smoke feedback, and player component geometry darkens with real damage for garage inspection.
-- A sortie ends when frame, command, power or both drive sides become inoperable. Damage is kept when returning to the Garage; repairing the affected module restores its local range armor/integrity too.
+## Changed
+- Left floating stick now expresses **translation intent**: forward/reverse plus left/right side-step.
+- Added real lateral leg actuation with force and lateral-speed limits per installed mobility assembly.
+- Yardwalker, Hauler and Kestrel legs now have distinct side-step capability rather than sharing one generic strafe speed.
+- Right-thumb aim has a soft free-traverse region. Pushing aim farther to either side asks the chassis to rotate and catch up.
+- Body-follow counter-rotates the aim by the chassis motion so the weapon stays on the same world-space point while the legs turn underneath it.
+- Individual left/right drive damage now reduces paired side-step authority and produces direction-dependent body-turn authority.
+- Pilot HUD now distinguishes FWD/REV from STEP L/STEP R and reports FREE TRAVERSE vs BODY FOLLOW.
+- Garage mobility specifications now expose lateral speed alongside forward speed.
 
-## Scope intentionally deferred
-- No locomotion/pathfinding AI, cover logic, tactical decision making, opponent repair, economy, browser persistence, networking or advanced armor model.
-- The hostile rig deliberately cycles simple physical aim points; it is a mechanical test opponent, not yet a full combat AI.
+## Deliberately deferred
+- Dash/surge movement.
+- Tracks, wheels, quadrupeds or radial walkers.
+- Touch-to-fire / firing directly from the aim surface.
+- Independent torso joint simulation or hard weapon-traverse stops.
+- New enemy AI behavior.
