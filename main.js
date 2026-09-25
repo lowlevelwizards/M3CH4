@@ -4,7 +4,7 @@ import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remo
 import { Controls } from './controls.js';
 import { gestureMetrics } from './inspectionCamera.js?v=b51';
 import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
-import { createArenaScene } from './scene.js?v=b51';
+import { createArenaScene } from './scene.js?v=b6';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {

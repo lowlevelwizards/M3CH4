@@ -12,10 +12,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <script type="importmap">
-      { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" } }
+      { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js", "./components.js": "./components.js?v=b6", "./scene.js": "./scene.js?v=b6" } }
     </script>
     <link rel="stylesheet" href="./styles.css" />
-    <title>MECH ARENA — 0.0.1b.5.1 Inspector Camera Hotfix</title>
+    <title>MECH ARENA — 0.0.1b.6 Command + Chassis Visual Pass</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -73,12 +73,12 @@
       <div id="field-checks" class="field-checks"></div>
       <div class="section-head">MOUNTING HARDWARE</div>
       <div id="adapter-status" class="adapter-status"></div>
-      <div class="inspection-note foot">Only five assembly stations and eight owned modules for now. No shop, universal geometry, damage, weapons fire, repairs or save data.</div>
+      <div class="inspection-note foot">Five functional stations, fourteen owned modules, three command cabins and three chassis frames. No shop, universal geometry, damage, weapons fire, repairs or save data.</div>
     </section>
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1b.5.1</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1b.6</span></header>
       <pre id="dev-readout"></pre>
       <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
     </section>
@@ -95,6 +95,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=b51"></script>
+    <script type="module" src="./main.js?v=b6"></script>
   </body>
 </html>

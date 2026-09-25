@@ -1,50 +1,39 @@
-# MECH ARENA — 0.0.1b.5 · Five contrasting parts
+# MECH ARENA · 0.0.1b.6 — Command + Chassis Visual Pass
 
-**Patch over 0.0.1b.4.** Flat root-level source and mobile playtest patches contain only changed files; keep unchanged files from b.4/b.3. This is still the **builder/locomotion test**, not a combat release.
+**This is a small, flat-directory patch over 0.0.1b.5.1, not a standalone game.** It changes the three command-cab models, rebuilds two existing frame models, and adds one Wedge frame. It intentionally adds no new mechanical subsystem, AI, gunfire, damage, save handling or separate asset folders.
 
-## Exactly five new owned components
+## What changed, stage by stage
 
-| Function | New alternative | What changes now |
-|---|---|---|
-| Structure | U-2 narrow utility hull | 1,290 kg vs 1,580 kg welded hull; 4,120 kg structure limit vs 5,100 kg; narrower hull modestly reduces yaw inertia. Includes a real-looking external cannon outrigger. |
-| Mobility | Kestrel compact articulated legs | 1,010 kg vs 1,240 kg Yardwalkers; 3,900 kg load limit, 68 kW draw, narrower stance/lower grip and 9.3 m/s theoretical maximum; distinctive reverse-canted joints. |
-| Power | Draft A-1 air-cooled generator | 365 kg vs 510 kg Dynamo; 112 kW vs 145 kW output. Exposed cooling stack, but **no heat simulation yet**. |
-| Command | Vista utility observation cab | 295 kg and 11 kW draw. Tall asymmetric cab with one wide window, not a face. A different real field of view awaits the sensor stage; visibility is only visual today. |
-| Combat | Deactivated needle cannon | 255 kg and 24 kW nominal load; long supported tube and distinct recoil rail. **Still cannot shoot until 0.0.1c.** |
+**A · Command modules:** Three existing parts retain their definition IDs, ownership serials and mechanical specifications while receiving visibly different procedural geometry:
 
-These append to the prior eight, making **13 owned parts across the same five functional systems**. The existing SR01-001 through SR01-008 serial assignments have not changed. Components remain singly installed assemblies with ordinary U1 mount connections; the original H2→U1 Hauler adapter still adds 110 kg.
+- **Cyclops single-optic cab (`cab-cyclops`):** low salvage pilot tub with one large, circular protected camera cassette, thick frame and no paired eyes.
+- **Hearth integrated cab (`cab-armored`):** shallow flush-window armored enclosure with a lower front skirt, merging into the surrounding chassis rather than looking like a robot head.
+- **Vista observation cab (`cab-utility`):** taller industrial vehicle cab with a wide front windshield and side glazing. Sight differences are still visual-only.
 
-The swap options now display functional specs (load rating, speed/power, frame capacity) under each candidate, rather than listing only mass. Once installed, the existing inspection panel honestly recalculates mass, power and fieldability. The physics receives current installed mass, drive force, stance width and frame width; no new generic builder engine was invented.
+**B · Chassis:** The existing welded frame is rebuilt as the **Bruiser**, with deep trunnions, layered plates and a heavy hip bridge. The existing U-2 narrow utility hull becomes the more visibly serviceable **Skeleton** with an exposed spine, open side rails and its original outboard weapon mount. Their definition IDs, serials, weights and load limits remain unchanged. The **W-3 Wedge monocoque** is the **only newly owned part**: 1,450 kg, 4,850 kg load rating, wide tapered armored nose and low rear mounting saddle. Existing U1 stations accept all three command modules. One physical Hauler H2/U1 leg adapter remains the only automatic adapter in the prototype.
 
-### Small causal playtest scenarios
+**C · Builder integration:** The same five functional stations, swappable assemblies and selection/orbit/zoom/pan controls remain. The builder now shows **3 chassis × 3 command options = 9 direct U1 pairings** with existing equipment; no preset mech is hardcoded. Changing a frame changes mass, envelope-derived yaw inertia and actual load-rating validation. The Wedge is `SR01-014`; existing `SR01-001` through `SR01-013` serial assignments are unchanged.
 
-1. In **ASSEMBLY**, choose STRUCTURE and fit the **U-2 narrow hull**; orbit around the external right weapon outrigger and check the total mass drops to **3,800 kg**. Return to PILOT VIEW for different turning inertia.
-2. Fit **Kestrel compact legs** alone; mass drops to **3,860 kg**, nominal top speed rises, and side grip falls. They have a different 3D stance, not just a reskinned Yardwalker.
-3. Fit the **Draft A-1** generator on the starting configuration: **108/112 kW**, ready. Change the cab to the original heavy Hearth: **120/112 kW**, unfieldable. Swap to the original stump cannon: **110/112 kW**, ready again.
-4. Try the Vista cab and needle cannon. Both affect mass and power; neither adds actual sensors or shooting yet.
-5. Fit **all five new parts** together: **3,215 kg**, **103/112 kW**, fieldable. This should look substantially different from the original Scrapyard rig.
+**D · Visual fit:** Command modules retain the same attachment center across all frames. Leg geometry, weapon mounts, generator packs, cockpit operation, camera math and mobile controls are deliberately untouched.
 
-### Installation (iPhone / static site)
+## iPhone installation (playtest patch)
 
-Unzip the **playtest PATCH** and upload those changed files to your existing hosted b.4 playtest **over matching filenames**. Keep everything else (including `controls.js`, `locomotion.js`, `inspectionCamera.js`, `manifest.webmanifest` and `app-icon.png`) in the same flat root directory. Because these are JS modules, update all the changed files together; don't mix `components.js` or `scene.js` across versions. If Safari shows an old version, reload the page or relaunch the Home Screen app. The hosted page needs internet to load Three.js from the existing jsDelivr import map; your phone doesn't need npm.
+Keep your **complete hosted 0.0.1b.5.1 flat playtest** in place. Unzip the `MECH_ARENA_0.0.1b6_playtest_PATCH.zip` and upload its root-level files **over matching existing filenames**. Upload the included `main.js` too (it refreshes the scene import). Keep unchanged `inspectionCamera.js`, `locomotion.js`, `controls.js`, `assemblyPhysics.js`, `styles.css`, `manifest.webmanifest` and `app-icon.png`. Do not upload only this patch into an empty folder. Reload Safari or relaunch your Home Screen app; to bypass an old cached HTML page you can append `?v=b6` to the hosted URL.
 
-The editable **source PATCH** works the same way over the complete prior b.4 source. On a connected desktop, `npm install && npm run check && npm test && npm run build` builds the Vite version. TypeScript and all game files remain flat at the project root.
+To work on the **source** instead, apply the source patch over the complete 0.0.1b.5.1 TypeScript tree, keeping unchanged files. With npm access: `npm install`, `npm run check`, `npm test`, `npm run build`. Both patches preserve the existing flat directory layout.
 
-### Deliberately not included
+## Quick playtest
 
-No gunfire, damage, AI, repair, persistent saves, shopping, thermal calculations, universal adapter fabrication or new locomotion class. Visual inspection controls and the Home Screen web-app path from b.4 are unchanged. The five new shapes are procedural low-poly meshes, and part geometry is still tied to the existing mount centers. The next milestone is **0.0.1c: a shot hits a real part**, not another catalogue expansion.
+1. Enter **ASSEMBLY**, choose **COMMAND**, and cycle between Cyclops, Hearth and Vista. Check that the cockpit silhouette changes much more than the previous head-like variants.
+2. Choose **STRUCTURE**, then cycle Bruiser → Skeleton → Wedge. Orbit to inspect the deep shoulder mounts, open spine, and sloped wedge shell; each should still take the same cab and training weapon.
+3. Swap all three cabs onto all three frames; default Yardwalker legs + Dynamo pack + long training cannon should remain fieldable in all nine pairings.
+4. Try **Skeleton + Hauler heavy legs**: its 4,120 kg frame rating is exceeded; the inspection should explain why. Swapping only the frame to Wedge or Bruiser restores fieldability, without silently changing your installed leg/cab/gun identities.
+5. Compare drive handling between the 1,290 kg Skeleton and the 1,580 kg Bruiser; mass and chassis width already contribute to the existing fixed-step movement model.
 
-### Verification
+## Intentional exclusions
 
-Pure component, load, power, serial and locomotion logic is testable offline. The `.ts` source includes Vitest cases for the new combinations. A static-playtest smoke test is included in the development verification, but actual Three.js rendering and iPhone interaction still require a device playtest when CDN access is available.
+Side Pod, recessed cockpit and sensor mast; Offset, Workhorse and Core frames; changes to locomotion, weapons or power; true freeform spatial mounting, procedurally generated universal adapters, firing or damage. The next game-mechanics milestone remains **0.0.1c: a shot hits something real**. This visual pass is designed to validate the shared design language before multiplying parts.
 
+## Verification limits
 
-## 0.0.1b.5.1 inspection-camera hotfix
-
-Apply this flat patch on top of **0.0.1b.5**. Only the inspector camera and display sizing changed; parts, vehicle physics, touch layout, and save behavior (none yet) are unchanged.
-
-- One-finger drag right now orbits in the direction your thumb moves the visible mech. Vertical drag behavior is unchanged.
-- Two-finger drag right now moves the viewed machine right; pinch zoom is unchanged.
-- The default camera frames the mech in the unobstructed space **to the right** of the parts panel.
-- Viewport sizing uses the canvas's actual bounds; Safari visual-viewport/orientation changes trigger another resize.
-- The patch includes only changed files; upload it over your existing flat files, retaining everything else. If iPhone Safari still shows the old behavior, reload the page or open the hosted URL with a fresh `?v=b51` query.
+New automated TypeScript tests cover the nine default-compatible chassis/cab combinations, part counts and serial preservation, actual mass/inertia differences, load-limit rejection and the existing H2/U1 adapter. The flat mobile JS modules can also be checked independently. Live Three.js rendering and touch behavior must still be evaluated on an iPhone; this build does not ship a vendored Three.js copy and keeps the prior CDN import map.
