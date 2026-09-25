@@ -65,9 +65,12 @@ export function createArenaScene(initial, targetAssembly) {
     function activateParticle(pool, cursorName, position, velocity, scale, duration, gravity = 0, grow = 0, color = null, smoke = false) {
         let cursor = cursorName === 'spark' ? sparkCursor : cursorName === 'chip' ? chipCursor : smokeCursor;
         const state = pool[cursor % pool.length];
-        if (cursorName === 'spark') sparkCursor = (cursor + 1) % pool.length;
-        else if (cursorName === 'chip') chipCursor = (cursor + 1) % pool.length;
-        else smokeCursor = (cursor + 1) % pool.length;
+        if (cursorName === 'spark')
+            sparkCursor = (cursor + 1) % pool.length;
+        else if (cursorName === 'chip')
+            chipCursor = (cursor + 1) % pool.length;
+        else
+            smokeCursor = (cursor + 1) % pool.length;
         state.mesh.position.copy(position);
         state.velocity.copy(velocity);
         state.life = state.duration = duration;
@@ -77,7 +80,8 @@ export function createArenaScene(initial, targetAssembly) {
         state.smoke = smoke;
         state.mesh.scale.setScalar(scale);
         state.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-        if (color !== null) state.mesh.material.color.setHex(color);
+        if (color !== null)
+            state.mesh.material.color.setHex(color);
         state.mesh.material.opacity = smoke ? .48 : 1;
         state.mesh.visible = true;
     }
@@ -107,7 +111,8 @@ export function createArenaScene(initial, targetAssembly) {
     function partWorldPoint(slot) {
         const group = targetExterior.partGroups.get(slot);
         const point = new THREE.Vector3();
-        if (group) group.getWorldPosition(point);
+        if (group)
+            group.getWorldPosition(point);
         point.x += (Math.random() - .5) * .45;
         point.y += (Math.random() - .5) * .30;
         point.z += (Math.random() - .5) * .45;
@@ -118,7 +123,10 @@ export function createArenaScene(initial, targetAssembly) {
             state.life = 0;
             state.mesh.visible = false;
         }
-        for (const budget of emitterBudget.values()) { budget.spark = 0; budget.smoke = 0; }
+        for (const budget of emitterBudget.values()) {
+            budget.spark = 0;
+            budget.smoke = 0;
+        }
     }
     // Ring, not another obstacle or an invisible hit volume.
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
@@ -130,6 +138,16 @@ export function createArenaScene(initial, targetAssembly) {
     let exterior = buildExteriorRig(initial);
     scene.add(exterior.root);
     exterior.root.visible = false;
+    const captureColors = (meshes) => {
+        const colors = new WeakMap();
+        for (const mesh of meshes) {
+            const material = mesh.material;
+            if (material instanceof THREE.MeshStandardMaterial)
+                colors.set(mesh, material.color.clone());
+        }
+        return colors;
+    };
+    let pilotColors = captureColors(exterior.pickMeshes);
     const raycaster = new THREE.Raycaster();
     let selected = null;
     let inspecting = false;
@@ -200,6 +218,7 @@ export function createArenaScene(initial, targetAssembly) {
     function rebuildAssembly(assembly) {
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
+        pilotColors = captureColors(exterior.pickMeshes);
         exterior.root.position.copy(oldRoot.position);
         exterior.root.rotation.copy(oldRoot.rotation);
         exterior.root.visible = inspecting;
@@ -310,6 +329,44 @@ export function createArenaScene(initial, targetAssembly) {
         const slot = actual?.object.userData.slot;
         return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
+    function traceHostileShot(state, aimSlot, spreadX, spreadY) {
+        // Use exact physics pose for hit testing even though the visible cockpit/exterior is smoothed.
+        exterior.root.position.set(state.x, 0, state.z);
+        exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
+        exterior.root.updateWorldMatrix(true, true);
+        targetExterior.root.updateWorldMatrix(true, true);
+        const combatGroup = targetExterior.partGroups.get('combat');
+        const muzzleLocalZ = installedPart(targetAssembly, 'combat')?.definition.id === 'gun-light' ? -2.16 :
+            installedPart(targetAssembly, 'combat')?.definition.id === 'gun-short' ? -1.03 : -1.58;
+        const muzzle = combatGroup
+            ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
+            : targetExterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
+        const aimLocal = new THREE.Vector3(...SLOT_CENTERS[aimSlot]);
+        const aimPoint = exterior.root.localToWorld(aimLocal);
+        const forward = aimPoint.clone().sub(muzzle).normalize();
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        let right = new THREE.Vector3().crossVectors(forward, worldUp);
+        if (right.lengthSq() < 1e-6)
+            right.set(1, 0, 0);
+        else
+            right.normalize();
+        const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+        const bore = forward.clone().addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
+        raycaster.set(muzzle, bore);
+        raycaster.far = 70;
+        const actual = raycaster.intersectObjects([...exterior.pickMeshes, ...worldSolids], false)[0];
+        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 70);
+        const surfaceNormal = actual?.face
+            ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
+            : bore.clone().negate();
+        const slot = actual?.object.userData.slot;
+        let driveSide;
+        if (slot === 'mobility') {
+            const local = exterior.root.worldToLocal(point.clone());
+            driveSide = local.x < 0 ? 'left' : 'right';
+        }
+        return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point), driveSide };
+    }
     function showShot(contact, outcome) {
         muzzleKick = Math.min(1, muzzleKick + .8);
         muzzleFlash = .10;
@@ -338,6 +395,19 @@ export function createArenaScene(initial, targetAssembly) {
             }
         }
     }
+    function showHostileShot(contact, outcome) {
+        const hit = outcome !== null;
+        const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
+        const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xff9e62 : 0xb97955, transparent: true, opacity: .88 });
+        const tracer = new THREE.Line(track, trackMat);
+        tracer.frustumCulled = false;
+        scene.add(tracer);
+        transientFX.push({ object: tracer, remaining: .17, duration: .17, material: trackMat });
+        // A tiny muzzle flash identifies the hostile rig's firing point without adding a bespoke weapon renderer.
+        activateParticle(sparkPool, 'spark', contact.muzzle, new THREE.Vector3(0, .08, 0), 1.15, .09, 0, 0, 0xffd79a);
+        const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
+        spawnImpactParticles(impactPoint, contact.normal, outcome);
+    }
     function updateTargetDamage(condition) {
         activeTargetCondition = condition;
         for (const [slot, meshes] of targetExterior.partMeshes) {
@@ -348,6 +418,24 @@ export function createArenaScene(initial, targetAssembly) {
             for (const mesh of meshes) {
                 const material = mesh.material;
                 const color = targetColors.get(mesh);
+                if (!(material instanceof THREE.MeshStandardMaterial) || !color)
+                    continue;
+                material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
+                material.emissive.setHex(state.integrity === 0 ? 0x30150b : 0);
+                material.emissiveIntensity = state.integrity === 0 ? .35 : 0;
+            }
+        }
+    }
+    function updatePilotDamage(condition) {
+        for (const [slot, meshes] of exterior.partMeshes) {
+            const state = condition.parts[slot];
+            if (!state)
+                continue;
+            const damage = 1 - state.integrity / state.maxIntegrity;
+            const stripped = 1 - state.armor / state.maxArmor;
+            for (const mesh of meshes) {
+                const material = mesh.material;
+                const color = pilotColors.get(mesh);
                 if (!(material instanceof THREE.MeshStandardMaterial) || !color)
                     continue;
                 material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
@@ -383,7 +471,8 @@ export function createArenaScene(initial, targetAssembly) {
             }
         }
         for (const state of particleStates) {
-            if (!state.mesh.visible) continue;
+            if (!state.mesh.visible)
+                continue;
             state.life -= dt;
             if (state.life <= 0) {
                 state.mesh.visible = false;
@@ -399,14 +488,16 @@ export function createArenaScene(initial, targetAssembly) {
                 state.mesh.scale.setScalar(scale);
                 state.mesh.material.opacity = .44 * t;
             }
-            else state.mesh.material.opacity = Math.min(1, t * 1.8);
+            else
+                state.mesh.material.opacity = Math.min(1, t * 1.8);
         }
         // Sustained distress comes from the actual damaged component, at a low bounded rate.
         if (activeTargetCondition) {
             targetExterior.root.updateWorldMatrix(true, true);
             for (const slot of SLOTS) {
                 const part = activeTargetCondition.parts[slot];
-                if (!part) continue;
+                if (!part)
+                    continue;
                 const profile = persistentFailureProfile(slot, integrityRatio(part));
                 const budget = emitterBudget.get(slot);
                 budget.spark += profile.sparkRate * dt;
@@ -431,7 +522,7 @@ export function createArenaScene(initial, targetAssembly) {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
-        traceShot, showShot, updateTargetDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
+        traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {

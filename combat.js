@@ -89,19 +89,36 @@ export function makeRangeTarget() {
 export const TARGET_RESILIENCE = {
     structure: [230, 70], mobility: [150, 38], power: [95, 24], command: [105, 32], combat: [115, 26],
 };
-export function createTargetCondition(assembly) {
+function targetPartFor(assembly, slot, useOwnedCondition = false) {
+    const installed = installedPart(assembly, slot);
+    if (!installed)
+        throw new Error(`Target requires ${slot} to use physical hit volumes.`);
+    const [maxIntegrity, maxArmor] = TARGET_RESILIENCE[slot];
+    const condition = useOwnedCondition ? Math.max(0, Math.min(1, installed.instance.condition)) : 1;
+    return {
+        serial: installed.instance.serial, slot, name: installed.definition.name,
+        integrity: maxIntegrity * condition, maxIntegrity, armor: maxArmor, maxArmor, impacts: 0,
+    };
+}
+export function createTargetCondition(assembly, useOwnedCondition = false) {
     const parts = {};
+    for (const slot of SLOTS)
+        parts[slot] = targetPartFor(assembly, slot, useOwnedCondition);
+    return { parts, shotsHit: 0 };
+}
+/** Preserve combat wear for unchanged serials while accepting a newly fitted owned module. */
+export function reconcileTargetCondition(target, assembly) {
     for (const slot of SLOTS) {
         const installed = installedPart(assembly, slot);
         if (!installed)
-            throw new Error(`Target requires ${slot} to use physical hit volumes.`);
-        const [maxIntegrity, maxArmor] = TARGET_RESILIENCE[slot];
-        parts[slot] = {
-            serial: installed.instance.serial, slot, name: installed.definition.name,
-            integrity: maxIntegrity, maxIntegrity, armor: maxArmor, maxArmor, impacts: 0,
-        };
+            continue;
+        if (target.parts[slot]?.serial !== installed.instance.serial)
+            target.parts[slot] = targetPartFor(assembly, slot, true);
     }
-    return { parts, shotsHit: 0 };
+}
+/** A garage repair restores this module's local housing and internal integrity without replacing its serial. */
+export function restoreTargetPart(target, assembly, slot) {
+    target.parts[slot] = targetPartFor(assembly, slot, true);
 }
 /** The target's underlying unique owned component records the same acute condition.
  * Damage is not persisted to storage yet; this is one internal authority per session. */

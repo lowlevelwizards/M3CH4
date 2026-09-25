@@ -1,30 +1,20 @@
-# MECH ARENA — 0.0.1f · Damage Expression
+# MECH ARENA — 0.0.1g First Hostile Rig
 
-**Incremental patch on top of 0.0.1e.2.** The flat-directory mobile workflow is unchanged.
+This patch turns the existing stationary range target into the first dangerous opponent while keeping the scope deliberately small.
 
-## Install
+## Play loop
+1. Configure and repair SR-01 in the Garage.
+2. Tap **DEPLOY**.
+3. TGT-01 begins firing after a short delay.
+4. Its rounds can strike the actual frame, mobility, power, command or weapon geometry on your machine.
+5. Damage immediately feeds the existing functional model: one damaged leg pulls the rig, generator damage limits power, and weapon damage compromises your gun.
+6. Shoot TGT-01's weapon/power/command hardware to degrade or stop its return fire.
+7. If your frame, cockpit/command, generator or both drive sides become inoperable, the test ends. Return to the Garage and repair the same installed serials.
 
-1. Keep your existing 0.0.1e.2 hosted files.
-2. Unzip `MECH_ARENA_0.0.1f_playtest_PATCH.zip` and upload its root-level files over the matching files. `damageVisuals.js` is new.
-3. Reload the page/Home Screen app. If Safari keeps an old module, a one-time query such as `?v=f` will force a fresh document load.
+## What is intentionally simple
+TGT-01 does not move, pathfind, seek cover or make tactical choices. A deterministic training controller cycles physical aim points and fires its installed Stump cannon using the same magazine/reload rules. Damage to its weapon and generator increases trigger delay and spread before eventually shutting it down.
 
-The Garage now has only one Deploy control: the top-left Deploy/Garage button.
+## Applying this patch
+Overlay the flat playtest patch files on top of the working **0.0.1f** deployment. Keep every unchanged file already on the host.
 
-## What to test
-
-- Fire at fresh armor and watch for a compact bright impact plus a few dark chips.
-- Keep shooting the same location until armor is breached. Penetrations should read as a sharper, heavier burst with a larger local scar.
-- Disable different target systems. A destroyed structural/leg/weapon assembly should fail without a generic fireball; a power-module disable gets the strongest electrical-looking burst and smoke puff because it contains stored/active energy.
-- Leave a badly damaged target standing for several seconds. Intermittent sparks and coarse smoke should originate around the actual affected assembly rather than the torso at random.
-- Use **REBUILD TARGET** and confirm scars and active pooled particles clear.
-- Sustained fire should remain stable on iPhone; the effect pools are hard-capped rather than allocating unbounded particles.
-
-## Causal rules in this pass
-
-`projectile → physical hit point → armor response → penetration/disable result → local visual effect`
-
-Persistent distress is also module-aware. Power hardware begins complaining earlier than passive structure; weapons and locomotion show stronger distress only after substantial internal damage. These are visualization rules over the existing damage authority—not a second health system.
-
-## Scope boundary
-
-This first expression pass is intentionally **target-side** because the stationary target is where real projectile impacts currently occur. Player damage is still injected through DEV controls, so Garage-side smoke/sparks, visible detached armor, fire, fluid leaks, and mesh fracture remain future steps. No new combat or failure mechanics were added.
+This build still uses in-session state only; reloading the page resets the prototype machine.

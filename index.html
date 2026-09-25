@@ -25,7 +25,7 @@
   }
 }</script>
     <link rel="stylesheet" href="./styles.css?v=e2" />
-    <title>MECH ARENA — 0.0.1f — Damage Expression</title>
+    <title>MECH ARENA — 0.0.1g — Hostile Rig</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -37,14 +37,14 @@
       <button id="app-view" class="utility-button" type="button">APP VIEW</button>
     </div>
     <div class="toolbar right-tools">
-      <button id="target-toggle" class="utility-button" type="button" aria-pressed="false">TARGET</button>
+      <button id="target-toggle" class="utility-button" type="button" aria-pressed="false">HOSTILE</button>
       <button id="resolution-toggle" class="utility-button" type="button">RES 70</button>
       <button id="dev-toggle" class="utility-button" type="button">DEV</button>
     </div>
 
     <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
     <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
-    <div id="shot-report" class="shot-report faded" aria-live="polite">LIVE-FIRE TEST · TARGET AHEAD</div>
+    <div id="shot-report" class="shot-report faded" aria-live="polite">LIVE-FIRE DUEL · HOSTILE RIG AHEAD</div>
     <div id="fault-strip" class="fault-strip" aria-live="polite">SYSTEMS NOMINAL</div>
     <div id="weapon-hud" class="weapon-hud" aria-live="polite">
       <span id="weapon-label">TRAINING CANNON</span><strong id="ammo-count">12 / 60</strong>
@@ -79,10 +79,10 @@
     <button id="reload" class="range-button reload-button" type="button">RELOAD</button>
     <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire the installed cannon">FIRE</button>
     <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
-      <header>STATIONARY TARGET · TGT-01</header>
-      <p>Shots strike actual meshes. Each part has local armor and internal integrity; mobility, weapon and generator integrity now affect operational capability.</p>
+      <header>AUTOMATED HOSTILE RIG · TGT-01</header>
+      <p>It uses the same localized armor and component condition as your rig. Damage its weapon, generator or command system to degrade or stop its return fire.</p>
       <div id="target-readout" class="target-readout"></div>
-      <button id="reset-target" type="button">REBUILD TARGET</button>
+      <button id="reset-target" type="button">REBUILD HOSTILE RIG</button>
     </section>
 
     <section id="inspection-panel" class="inspection-panel hidden" aria-label="garage and physical assembly builder">
@@ -107,7 +107,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1f</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1g</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -131,6 +131,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=f"></script>
+    <script type="module" src="./main.js?v=g"></script>
   </body>
 </html>

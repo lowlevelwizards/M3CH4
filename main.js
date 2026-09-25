@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
-import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, shotSpread, startReload, weaponFor } from './combat.js';
+import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
 import { Controls } from './controls.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -9,6 +9,7 @@ import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './
 import { createArenaScene } from './scene.js';
 import { createFunctionalDamage, damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
+import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileOutput, hostileSpread, } from './hostileRig.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -21,8 +22,15 @@ const damage = createFunctionalDamage();
 // A different, stationary target built with the same module definitions.
 const targetAssembly = makeRangeTarget();
 let targetCondition = createTargetCondition(targetAssembly);
+// Incoming fire uses the same localized armor/integrity representation, seeded from the owned player's current condition.
+let playerCondition = createTargetCondition(assembly, true);
 let weaponSpec = weaponFor(assembly);
 let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+const hostileWeaponSpec = weaponFor(targetAssembly);
+let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
+let hostileController = createHostileController();
+let testEnded = false;
+let testEndReason = null;
 const rangeWorld = {
     ...DEFAULT_WORLD,
     obstacles: [...DEFAULT_WORLD.obstacles,
@@ -216,6 +224,9 @@ function renderPartInfo() {
                 return;
             const result = repairInstalledPart(assembly, damage, selectedPart);
             if (result.repaired) {
+                restoreTargetPart(playerCondition, assembly, selectedPart);
+                arena.updatePilotDamage(playerCondition);
+                testEndReason = disabledReason(playerCondition, functionalOutput(assembly, damage));
                 updateFunctionalStatus();
                 renderPartsList();
                 renderPartInfo();
@@ -352,7 +363,9 @@ function refreshAssembly() {
     weaponSpec = nextSpec;
     arena.setPilotWeapon(weaponSpec);
     renderAmmo();
+    reconcileTargetCondition(playerCondition, assembly);
     arena.rebuildAssembly(assembly);
+    arena.updatePilotDamage(playerCondition);
     renderPartsList();
     renderChecks();
     renderPartInfo();
@@ -361,8 +374,9 @@ refreshAssembly();
 selectPart(null, false);
 function toggleInspection(force) {
     const requested = force ?? !inspecting;
-    if (!requested && !inspection.ready) {
-        showStatus('NOT READY · RESTORE ALL FIVE FUNCTIONS');
+    testEndReason = disabledReason(playerCondition, functionalOutput(assembly, damage));
+    if (!requested && (!inspection.ready || testEndReason)) {
+        showStatus(testEndReason ? `NOT READY · ${testEndReason} · REPAIR REQUIRED` : 'NOT READY · RESTORE ALL FIVE FUNCTIONS');
         return;
     }
     inspecting = requested;
@@ -375,11 +389,16 @@ function toggleInspection(force) {
         renderPartInfo();
     }
     else {
-        // Each deployment is a new training sortie, not a repair or part replacement.
-        // Actual owned component condition and serials are unchanged.
+        // Each deployment is a new training sortie. Owned damage persists; ammunition and
+        // the automated range controller are reset for a clean test run.
         rig = createRigState();
         controls.recenterLook();
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+        hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
+        hostileController = createHostileController();
+        testEnded = false;
+        testEndReason = null;
+        updateFunctionalStatus();
         renderAmmo();
     }
     document.body.classList.toggle('inspecting', inspecting);
@@ -395,7 +414,7 @@ function toggleInspection(force) {
         arena.resetOrbit();
         syncInspectorLayout();
     }
-    controls.setEnabled(!inspecting && appSheet.classList.contains('hidden'));
+    controls.setEnabled(!inspecting && !testEnded && appSheet.classList.contains('hidden'));
     accumulator = 0;
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
@@ -479,7 +498,7 @@ function showAppGuide() {
 function hideAppGuide() {
     appSheet.classList.add('hidden');
     appSheet.setAttribute('aria-hidden', 'true');
-    controls.setEnabled(!inspecting);
+    controls.setEnabled(!inspecting && !testEnded);
 }
 appView.addEventListener('click', async () => {
     if (appStandalone()) {
@@ -552,6 +571,15 @@ function frame(now) {
                 if (fireHeld)
                     attemptFire();
             }
+            if (hostileWeaponSpec && hostileWeaponState) {
+                advanceWeapon(hostileWeaponState, hostileWeaponSpec, FIXED_DT);
+                if (hostileWeaponState.loaded <= 0 && hostileWeaponState.reloadLeft === 0 && hostileWeaponState.reserve > 0) {
+                    startReload(hostileWeaponState, hostileWeaponSpec);
+                }
+                const hostileShot = advanceHostileController(hostileController, targetCondition, FIXED_DT, testEnded);
+                if (hostileShot !== null)
+                    attemptHostileFire(hostileShot);
+            }
             accumulator -= FIXED_DT;
             steps++;
         }
@@ -622,12 +650,12 @@ const targetLabels = {
     structure: 'HULL', mobility: 'LEGS', power: 'POWER', command: 'CAB', combat: 'WEAPON',
 };
 function renderAmmo() {
-    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${!output.weaponOperational ? ' · OFFLINE' : output.weapon < .95 ? ' · DAMAGED' : ''}` : 'NO WEAPON';
+    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${testEnded ? ' · TEST ENDED' : !output.weaponOperational ? ' · OFFLINE' : output.weapon < .95 ? ' · DAMAGED' : ''}` : 'NO WEAPON';
     ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
     reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
-    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || !output.weaponOperational || weaponState.reloadLeft > 0;
+    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational || weaponState.reloadLeft > 0;
 }
 function renderTarget() {
     targetReadout.replaceChildren();
@@ -651,8 +679,63 @@ function renderTarget() {
         targetReadout.append(row);
     }
 }
+function attemptHostileFire(shotIndex) {
+    if (!hostileWeaponSpec || !hostileWeaponState || inspecting || testEnded || !appSheet.classList.contains('hidden'))
+        return;
+    const hostile = hostileOutput(targetCondition);
+    if (!hostile.operational)
+        return;
+    const consumed = fireWeapon(hostileWeaponState, hostileWeaponSpec);
+    if (consumed === null)
+        return;
+    // The test controller is intentionally slower than the weapon's raw cyclic rate.
+    hostileWeaponState.cooldown = Math.max(hostileWeaponState.cooldown, hostile.triggerSeconds * .55);
+    const [spreadX, spreadY] = hostileSpread(shotIndex, hostile.spreadRadians);
+    const aimSlot = hostileAimSlot(shotIndex);
+    const contact = arena.traceHostileShot(rig, aimSlot, spreadX, spreadY);
+    soundFire();
+    if (contact.slot === null) {
+        arena.showHostileShot(contact, null);
+        return;
+    }
+    const partBefore = playerCondition.parts[contact.slot];
+    const beforeIntegrity = partBefore.integrity;
+    const hit = applyTargetHit(playerCondition, contact.slot, hostileWeaponSpec.damage);
+    if (hit.internalDamage > 0) {
+        const amount = hit.internalDamage / Math.max(1, partBefore.maxIntegrity);
+        if (contact.slot === 'mobility')
+            damageInstalledPart(assembly, damage, 'mobility', amount, contact.driveSide ?? 'left');
+        else
+            damageInstalledPart(assembly, damage, contact.slot, amount);
+        // Paired mobility stores side damage in FunctionalDamage; the owned assembly condition is the authoritative average.
+        const installed = installedPart(assembly, contact.slot);
+        if (installed)
+            playerCondition.parts[contact.slot].integrity = playerCondition.parts[contact.slot].maxIntegrity * installed.instance.condition;
+    }
+    const nowDisabled = playerCondition.parts[contact.slot].integrity <= 0;
+    arena.showHostileShot(contact, { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled });
+    arena.updatePilotDamage(playerCondition);
+    soundImpact();
+    rig.impact = Math.min(1, rig.impact + .65);
+    updateFunctionalStatus();
+    renderPartsList();
+    renderPartInfo();
+    renderAmmo();
+    testEndReason = disabledReason(playerCondition, output);
+    if (testEndReason) {
+        testEnded = true;
+        fireHeld = false;
+        controls.setEnabled(false);
+        faultStrip.textContent = `RIG DISABLED · ${testEndReason}`;
+        faultStrip.classList.add('faulted');
+        shotReport.classList.remove('faded');
+        shotReport.classList.add('disabled-part');
+        shotReport.textContent = `TEST ENDED · ${testEndReason} · RETURN TO GARAGE`;
+        reportFade = 9999;
+    }
+}
 function attemptFire() {
-    if (!weaponSpec || !weaponState || !rigConfig || inspecting || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
+    if (!weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
         return;
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
@@ -741,9 +824,11 @@ targetToggle.addEventListener('click', () => {
 resetTarget.addEventListener('click', () => {
     targetCondition = createTargetCondition(targetAssembly);
     mirrorTargetCondition(targetAssembly, targetCondition);
+    hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
+    hostileController = createHostileController(.7);
     arena.resetTargetDamage(targetCondition);
-    lastHit = 'TARGET REBUILT';
-    shotReport.textContent = 'TARGET RESET · ARMOR AND COMPONENTS RESTORED';
+    lastHit = 'HOSTILE RIG REBUILT';
+    shotReport.textContent = 'HOSTILE RIG RESET · ARMOR AND COMPONENTS RESTORED';
     reportFade = 2;
     renderTarget();
 });
@@ -752,15 +837,30 @@ resetTarget.addEventListener('click', () => {
 for (const button of document.querySelectorAll('[data-damage]')) {
     button.addEventListener('click', () => {
         const type = button.dataset.damage;
-        if (type === 'restore')
+        let touched = null;
+        if (type === 'restore') {
             resetInstalledDamage(assembly, damage);
-        else if (type === 'left' || type === 'right')
+            for (const slot of SLOTS)
+                restoreTargetPart(playerCondition, assembly, slot);
+        }
+        else if (type === 'left' || type === 'right') {
             damageInstalledPart(assembly, damage, 'mobility', .25, type);
-        else if (type === 'power' || type === 'weapon')
-            damageInstalledPart(assembly, damage, type === 'power' ? 'power' : 'combat', .25);
+            touched = 'mobility';
+        }
+        else if (type === 'power' || type === 'weapon') {
+            touched = type === 'power' ? 'power' : 'combat';
+            damageInstalledPart(assembly, damage, touched, .25);
+        }
+        if (touched) {
+            const installed = installedPart(assembly, touched);
+            if (installed)
+                playerCondition.parts[touched].integrity = playerCondition.parts[touched].maxIntegrity * installed.instance.condition;
+        }
+        arena.updatePilotDamage(playerCondition);
         updateFunctionalStatus();
         renderAmmo();
         renderPartInfo();
+        renderPartsList();
     });
 }
 updateFunctionalStatus();
