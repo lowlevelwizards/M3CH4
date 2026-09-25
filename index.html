@@ -11,8 +11,18 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
-    <link rel="stylesheet" href="./styles.css" />
-    <title>MECH ARENA — 0.0.1g.1 — Mobility-Aware Combat Controls</title>
+    <script type="importmap">{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+    "./assemblyPhysics.js": "./assemblyPhysics.js?v=g11",
+    "./components.js": "./components.js?v=g11",
+    "./controls.js": "./controls.js?v=g11",
+    "./functionalDamage.js": "./functionalDamage.js?v=g11",
+    "./locomotion.js": "./locomotion.js?v=g11"
+  }
+}</script>
+    <link rel="stylesheet" href="./styles.css?v=e2" />
+    <title>MECH ARENA — 0.0.1g.1.1 — Static Playtest Hotfix</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -118,6 +128,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.ts"></script>
+    <script type="module" src="./main.js?v=g11"></script>
   </body>
 </html>
