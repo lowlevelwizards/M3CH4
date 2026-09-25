@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
 import { adapterFor, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
+import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
     yellow: 0xa9822f, teal: 0x2f7473, metal: 0x343a39,
@@ -36,6 +37,88 @@ export function createArenaScene(initial, targetAssembly) {
         const material = mesh.material;
         if (material instanceof THREE.MeshStandardMaterial)
             targetColors.set(mesh, material.color.clone());
+    }
+    // 0.0.1f: a deliberately small pooled pixel-particle system. Particles are
+    // reused instead of allocated per shot so sustained fire stays friendly to phones.
+    const particleRoot = new THREE.Group();
+    scene.add(particleRoot);
+    const particleStates = [];
+    function makePool(count, geometry, color, transparent = false) {
+        const pool = [];
+        for (let i = 0; i < count; i++) {
+            const material = new THREE.MeshBasicMaterial({ color, transparent, opacity: transparent ? .55 : 1, depthWrite: !transparent });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.visible = false;
+            particleRoot.add(mesh);
+            const state = { mesh, velocity: new THREE.Vector3(), life: 0, duration: 0, gravity: 0, grow: 0, baseScale: 1, smoke: false };
+            particleStates.push(state);
+            pool.push(state);
+        }
+        return pool;
+    }
+    const sparkPool = makePool(32, new THREE.BoxGeometry(.035, .035, .14), 0xffc968, true);
+    const chipPool = makePool(18, new THREE.BoxGeometry(.075, .055, .09), 0x4a4d46, true);
+    const smokePool = makePool(16, new THREE.BoxGeometry(.15, .15, .15), 0x252a26, true);
+    let sparkCursor = 0, chipCursor = 0, smokeCursor = 0;
+    let activeTargetCondition = null;
+    const emitterBudget = new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0 }]));
+    function activateParticle(pool, cursorName, position, velocity, scale, duration, gravity = 0, grow = 0, color = null, smoke = false) {
+        let cursor = cursorName === 'spark' ? sparkCursor : cursorName === 'chip' ? chipCursor : smokeCursor;
+        const state = pool[cursor % pool.length];
+        if (cursorName === 'spark') sparkCursor = (cursor + 1) % pool.length;
+        else if (cursorName === 'chip') chipCursor = (cursor + 1) % pool.length;
+        else smokeCursor = (cursor + 1) % pool.length;
+        state.mesh.position.copy(position);
+        state.velocity.copy(velocity);
+        state.life = state.duration = duration;
+        state.gravity = gravity;
+        state.grow = grow;
+        state.baseScale = scale;
+        state.smoke = smoke;
+        state.mesh.scale.setScalar(scale);
+        state.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        if (color !== null) state.mesh.material.color.setHex(color);
+        state.mesh.material.opacity = smoke ? .48 : 1;
+        state.mesh.visible = true;
+    }
+    function randomBurstDirection(normal, spread = .9) {
+        const random = new THREE.Vector3(Math.random() - .5, Math.random() * .8, Math.random() - .5).normalize();
+        return normal.clone().multiplyScalar(1.1).addScaledVector(random, spread).normalize();
+    }
+    function spawnImpactParticles(position, normal, outcome) {
+        const profile = impactProfile(outcome);
+        activateParticle(sparkPool, 'spark', position, normal.clone().multiplyScalar(.18), profile.flashScale * 1.25, .085, 0, 0, profile.kind === 'power-disable' ? 0xffe199 : 0xffcf70);
+        for (let i = 0; i < profile.sparkCount; i++) {
+            const direction = randomBurstDirection(normal, 1.15);
+            const speed = 1.8 + Math.random() * 3.4;
+            activateParticle(sparkPool, 'spark', position, direction.multiplyScalar(speed), .7 + Math.random() * .7, .18 + Math.random() * .22, -4.2, 0, Math.random() > .2 ? 0xffc35f : 0xfff0a2);
+        }
+        for (let i = 0; i < profile.chipCount; i++) {
+            const direction = randomBurstDirection(normal, 1.35);
+            const speed = .8 + Math.random() * 2.1;
+            activateParticle(chipPool, 'chip', position, direction.multiplyScalar(speed), .7 + Math.random() * .8, .45 + Math.random() * .45, -7.2, 0, Math.random() > .35 ? 0x3c403b : 0x78684d);
+        }
+        for (let i = 0; i < profile.smokeCount; i++) {
+            const drift = new THREE.Vector3((Math.random() - .5) * .25, .28 + Math.random() * .28, (Math.random() - .5) * .25);
+            activateParticle(smokePool, 'smoke', position, drift, .72 + Math.random() * .5, .75 + Math.random() * .55, 0, .8, 0x242824, true);
+        }
+        return profile;
+    }
+    function partWorldPoint(slot) {
+        const group = targetExterior.partGroups.get(slot);
+        const point = new THREE.Vector3();
+        if (group) group.getWorldPosition(point);
+        point.x += (Math.random() - .5) * .45;
+        point.y += (Math.random() - .5) * .30;
+        point.z += (Math.random() - .5) * .45;
+        return point;
+    }
+    function clearPooledParticles() {
+        for (const state of particleStates) {
+            state.life = 0;
+            state.mesh.visible = false;
+        }
+        for (const budget of emitterBudget.values()) { budget.spark = 0; budget.smoke = 0; }
     }
     // Ring, not another obstacle or an invisible hit volume.
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
@@ -227,29 +310,27 @@ export function createArenaScene(initial, targetAssembly) {
         const slot = actual?.object.userData.slot;
         return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
-    function showShot(contact, hit) {
+    function showShot(contact, outcome) {
         muzzleKick = Math.min(1, muzzleKick + .8);
         muzzleFlash = .10;
+        const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xf4c77e : 0xc7a76f, transparent: true, opacity: .92 });
         const tracer = new THREE.Line(track, trackMat);
         tracer.frustumCulled = false;
         scene.add(tracer);
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
-        const sparkMat = new THREE.MeshBasicMaterial({ color: hit ? 0xffbc64 : 0xd2ad74, transparent: true, opacity: .9 });
-        const spark = new THREE.Mesh(new THREE.IcosahedronGeometry(hit ? .14 : .08, 0), sparkMat);
-        spark.position.copy(contact.point).addScaledVector(contact.normal, .035);
-        scene.add(spark);
-        transientFX.push({ object: spark, remaining: .20, duration: .20, material: sparkMat });
+        const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
+        const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
         if (hit) {
-            // World impact converted to target-local mark, so the scar belongs to
-            // the struck assembly's machine and stays put when viewed from any angle.
-            const soot = new THREE.Mesh(new THREE.IcosahedronGeometry(.075, 0), new THREE.MeshBasicMaterial({ color: 0x171c19, depthWrite: false }));
+            // A dark local scar belongs to the struck machine. Breaches and disable events
+            // leave larger marks, but we do not invent mesh fracture or generic explosions.
+            const soot = new THREE.Mesh(new THREE.IcosahedronGeometry(.075 * profile.markScale, 0), new THREE.MeshBasicMaterial({ color: profile.kind === 'penetration' || profile.kind.includes('disable') ? 0x111512 : 0x252720, depthWrite: false }));
             targetExterior.root.updateWorldMatrix(true, false);
-            soot.position.copy(targetExterior.root.worldToLocal(contact.point.clone().addScaledVector(contact.normal, .045)));
+            soot.position.copy(targetExterior.root.worldToLocal(impactPoint));
             rangeMarks.add(soot);
             sootMarks.push(soot);
-            if (sootMarks.length > 26) {
+            if (sootMarks.length > 32) {
                 const oldest = sootMarks.shift();
                 rangeMarks.remove(oldest);
                 oldest.geometry.dispose();
@@ -258,6 +339,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function updateTargetDamage(condition) {
+        activeTargetCondition = condition;
         for (const [slot, meshes] of targetExterior.partMeshes) {
             const state = condition.parts[slot];
             // Only affected geometry darkens. The rest of the same rig is untouched.
@@ -275,6 +357,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function resetTargetDamage(condition) {
+        clearPooledParticles();
         while (sootMarks.length) {
             const mark = sootMarks.pop();
             rangeMarks.remove(mark);
@@ -297,6 +380,49 @@ export function createArenaScene(initial, targetAssembly) {
             }
             else if ('opacity' in fx.material) {
                 fx.material.opacity = fx.remaining / fx.duration;
+            }
+        }
+        for (const state of particleStates) {
+            if (!state.mesh.visible) continue;
+            state.life -= dt;
+            if (state.life <= 0) {
+                state.mesh.visible = false;
+                continue;
+            }
+            state.velocity.y += state.gravity * dt;
+            state.mesh.position.addScaledVector(state.velocity, dt);
+            state.mesh.rotation.x += dt * 4.1;
+            state.mesh.rotation.z += dt * 3.2;
+            const t = state.life / state.duration;
+            if (state.smoke) {
+                const scale = state.baseScale * (1 + (1 - t) * state.grow);
+                state.mesh.scale.setScalar(scale);
+                state.mesh.material.opacity = .44 * t;
+            }
+            else state.mesh.material.opacity = Math.min(1, t * 1.8);
+        }
+        // Sustained distress comes from the actual damaged component, at a low bounded rate.
+        if (activeTargetCondition) {
+            targetExterior.root.updateWorldMatrix(true, true);
+            for (const slot of SLOTS) {
+                const part = activeTargetCondition.parts[slot];
+                if (!part) continue;
+                const profile = persistentFailureProfile(slot, integrityRatio(part));
+                const budget = emitterBudget.get(slot);
+                budget.spark += profile.sparkRate * dt;
+                budget.smoke += profile.smokeRate * dt;
+                while (budget.spark >= 1) {
+                    budget.spark -= 1;
+                    const origin = partWorldPoint(slot);
+                    const velocity = new THREE.Vector3((Math.random() - .5) * 1.8, .5 + Math.random() * 1.6, (Math.random() - .5) * 1.8);
+                    activateParticle(sparkPool, 'spark', origin, velocity, .55 + Math.random() * .5, .18 + Math.random() * .22, -3.8, 0, 0xffb951);
+                }
+                while (budget.smoke >= 1) {
+                    budget.smoke -= 1;
+                    const origin = partWorldPoint(slot);
+                    const velocity = new THREE.Vector3((Math.random() - .5) * .16, .22 + Math.random() * .22, (Math.random() - .5) * .16);
+                    activateParticle(smokePool, 'smoke', origin, velocity, .72 + profile.severity * .4, .9 + Math.random() * .65, 0, 1.05, slot === 'power' ? 0x20241f : 0x2b2d28, true);
+                }
             }
         }
     }

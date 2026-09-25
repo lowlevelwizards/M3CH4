@@ -15,16 +15,17 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
     "./components.js": "./components.js?v=c",
-    "./scene.js": "./scene.js?v=c",
+    "./scene.js": "./scene.js?v=f",
     "./combat.js": "./combat.js?v=c",
     "./audio.js": "./audio.js?v=c",
     "./locomotion.js": "./locomotion.js?v=d1",
     "./functionalDamage.js": "./functionalDamage.js?v=d1",
-    "./garage.js": "./garage.js?v=e1"
+    "./garage.js": "./garage.js?v=e1",
+    "./damageVisuals.js": "./damageVisuals.js?v=f"
   }
 }</script>
     <link rel="stylesheet" href="./styles.css?v=e2" />
-    <title>MECH ARENA — 0.0.1e.2 — Garage Interface</title>
+    <title>MECH ARENA — 0.0.1f — Damage Expression</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -89,7 +90,6 @@
         <div class="garage-brand"><strong>GARAGE</strong><small>SR-01</small></div>
         <div id="field-status" class="field-status ready" aria-live="polite">READY</div>
         <div id="part-list" class="part-list" aria-label="module categories"></div>
-        <button id="garage-deploy" type="button" class="garage-deploy">DEPLOY</button>
       </div>
       <div id="garage-context" class="garage-context">
         <header><span>MODULE BAY</span><small>INSTALLED / AVAILABLE</small></header>
@@ -107,7 +107,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1e.2</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1f</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -131,6 +131,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=e2"></script>
+    <script type="module" src="./main.js?v=f"></script>
   </body>
 </html>

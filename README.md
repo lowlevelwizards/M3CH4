@@ -1,34 +1,30 @@
-# MECH ARENA — 0.0.1e.2 · Garage Interface
+# MECH ARENA — 0.0.1f · Damage Expression
 
-**Incremental update on top of 0.0.1d.1.** All project files remain flat at the root; no folder migration, no changes to the previous chassis, command modules, locomotion, aiming or weapons.
+**Incremental patch on top of 0.0.1e.2.** The flat-directory mobile workflow is unchanged.
 
-## Install on your existing static host (iPhone)
+## Install
 
-1. **Keep all of your existing 0.0.1d.1 playtest files.** Unzip `MECH_ARENA_0.0.1e1_playtest_PATCH.zip` and upload its root-level files **over** the matching existing files. `garage.js` is new. Don't delete any unchanged modules.
-2. Reload the hosted game. If the old version is cached, try a one-time URL query such as `?v=e1`, or reload the Home Screen web app.
-3. The game now starts in **GARAGE**. Choose **DEPLOY TO TEST RANGE** (or the top-left Deploy button). To return, tap the top-left **GARAGE** button in the arena.
+1. Keep your existing 0.0.1e.2 hosted files.
+2. Unzip `MECH_ARENA_0.0.1f_playtest_PATCH.zip` and upload its root-level files over the matching files. `damageVisuals.js` is new.
+3. Reload the page/Home Screen app. If Safari keeps an old module, a one-time query such as `?v=f` will force a fresh document load.
 
-For editable source, unpack `MECH_ARENA_0.0.1e1_source_PATCH.zip` over the original flat source project and run `npm install`, `npm run check`, `npm test`, and `npm run dev` as usual.
+The Garage now has only one Deploy control: the top-left Deploy/Garage button.
 
-## Small test route
+## What to test
 
-- Start in Garage; orbit around your assembled mech. Optionally swap any of the existing modules. Deploy into the range.
-- Tap **DEV**, inject **HIT L DRIVE −25%** once or twice, then close DEV and notice the change under acceleration. The diagnostic fault strip reflects the actual power loss.
-- Tap **GARAGE**. Select **MOBILITY** from the list. Check the total condition, distinct left/right drive conditions and original serial.
-- Choose **REPAIR MOBILITY · NO COST (TEST)**. Both drive sections recover, and the owned part's repair count increments. Deploy again and check that movement has recovered.
-- Repeat with the Generator or Weapon. You can also leave a part damaged, swap it out, and fit it again; the old part still has its original condition until specifically repaired.
-- Shoot the range target and compare **ARMOR IMPACT**, **ARMOR BREACHED**, and **MODULE DISABLED** messages. Existing 3D sparks/tracers are unchanged.
+- Fire at fresh armor and watch for a compact bright impact plus a few dark chips.
+- Keep shooting the same location until armor is breached. Penetrations should read as a sharper, heavier burst with a larger local scar.
+- Disable different target systems. A destroyed structural/leg/weapon assembly should fail without a generic fireball; a power-module disable gets the strongest electrical-looking burst and smoke puff because it contains stored/active energy.
+- Leave a badly damaged target standing for several seconds. Intermittent sparks and coarse smoke should originate around the actual affected assembly rather than the torso at random.
+- Use **REBUILD TARGET** and confirm scars and active pooled particles clear.
+- Sustained fire should remain stable on iPhone; the effect pools are hard-capped rather than allocating unbounded particles.
 
-## Scope of this patch
+## Causal rules in this pass
 
-- In-session Garage ↔ Arena deployment flow using the existing Assembly inspector.
-- Accurate condition/repair-count readouts, side-specific drive inspection, one-step no-cost repairs on the *actual installed serial*.
-- Reloaded training ammunition and a fresh position **on each deployment**; owned part condition and repair history stay the same until page reload.
-- A minimal impact-message distinction for armor vs penetration vs disabled parts.
-- **Not in this stage:** browser persistence, currency or repair costs, incoming enemy fire, new smoke/explosions/debris particles, and visually modeled player damage. Closing/reloading this e.1 build restores the initial test machine; persistence is e.2.
+`projectile → physical hit point → armor response → penetration/disable result → local visual effect`
 
-This small patch uses the same external Three.js CDN and existing hosting setup as 0.0.1d.1. The static playtest is pre-transpiled and requires no build step once uploaded.
+Persistent distress is also module-aware. Power hardware begins complaining earlier than passive structure; weapons and locomotion show stronger distress only after substantial internal damage. These are visualization rules over the existing damage authority—not a second health system.
 
+## Scope boundary
 
-## 0.0.1e.2 garage interface
-The long component list is replaced by a compact five-system rail. Each system icon derives its color directly from the installed component/function condition: green healthy, yellow degraded, orange damaged, red disabled, gray missing. Selecting a system opens a contextual drawer containing the installed module, repair action and currently available alternatives; selecting it again or tapping empty space collapses the drawer so the 3D machine stays dominant.
+This first expression pass is intentionally **target-side** because the stationary target is where real projectile impacts currently occur. Player damage is still injected through DEV controls, so Garage-side smoke/sparks, visible detached armor, fire, fluid leaks, and mesh fracture remain future steps. No new combat or failure mechanics were added.

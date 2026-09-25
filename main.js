@@ -69,7 +69,6 @@ const resetRig = required('#reset-rig');
 const toggleColliders = required('#toggle-colliders');
 const resolutionToggle = required('#resolution-toggle');
 const assemblyToggle = required('#assembly-toggle');
-const garageDeploy = required('#garage-deploy');
 const inspectionPanel = required('#inspection-panel');
 const partInfo = required('#part-info');
 const partList = required('#part-list');
@@ -341,7 +340,6 @@ function renderChecks() {
     adapterStatus.textContent = inspection.adapters.length
         ? inspection.adapters.map(a => `${a.description} · ${a.serial}`).join(' · ')
         : 'Direct-mount stations · no adapters';
-    garageDeploy.disabled = !inspection.ready;
     renderFieldStatus();
 }
 function refreshAssembly() {
@@ -401,7 +399,6 @@ function toggleInspection(force) {
     accumulator = 0;
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
-garageDeploy.addEventListener('click', () => toggleInspection(false));
 centerView.addEventListener('click', () => controls.recenterLook());
 resetOrbitButton.addEventListener('click', () => { arena.resetOrbit(); showStatus('INSPECTION CAMERA RESET'); });
 const pointers = new Map();
@@ -678,9 +675,11 @@ function attemptFire() {
     applyRecoil(rig, effectiveConfig, directionX, directionZ, weaponSpec.recoilImpulseNs);
     shotsFired++;
     soundFire();
-    arena.showShot(contact, contact.slot !== null);
     if (contact.slot !== null) {
+        const beforeIntegrity = targetCondition.parts[contact.slot].integrity;
         const hit = applyTargetHit(targetCondition, contact.slot, weaponSpec.damage);
+        const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled };
+        arena.showShot(contact, visualHit);
         mirrorTargetCondition(targetAssembly, targetCondition);
         arena.updateTargetDamage(targetCondition);
         soundImpact();
@@ -693,6 +692,7 @@ function attemptFire() {
         renderTarget();
     }
     else {
+        arena.showShot(contact, null);
         lastHit = 'RANGE SURFACE / MISS';
         shotReport.classList.remove('penetrated', 'disabled-part');
         shotReport.textContent = 'NO TARGET HIT · ADJUST AIM';
