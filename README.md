@@ -1,17 +1,14 @@
-# MECH ARENA — 0.0.1g.1 Mobility-Aware Combat Controls
+# MECH ARENA 0.0.1h.1 — Your Persistent Machine
 
-A focused control/locomotion patch on top of **0.0.1g First Hostile Rig**.
+Contained update to the working **0.0.1g.1.1** mobile build. This is a compiled mobile playtest PATCH, not a stand-alone game. Overlay these flat files onto your existing installation; leave unchanged files on the host.
 
-## Mobile controls
-- **Left thumb:** forward, reverse, step left, step right. Diagonals combine naturally.
-- **Right thumb:** aim independently of locomotion.
-- **Aim near center:** chassis orientation stays put; the weapon/camera traverses freely.
-- **Aim beyond the soft edge:** the installed legs begin rotating the chassis toward the aim while the weapon stays on its world-space target.
-- **FIRE / RELOAD:** unchanged in this build.
+## New behavior
+- Saves the installed loadout, every owned component's serial/condition/wear/repair count, individual left/right drive condition, and player armor/housing integrity in versioned browser storage.
+- Saves automatically when you swap parts, repair, receive an incoming hit (including armor-only hits), or use developer damage controls. The game also flushes on Safari suspension/page exit.
+- Reopening the same site/Home Screen web app restores your rig **in the Garage**, not in combat; ammo and the hostile test opponent reset for each deployment.
+- If storage is blocked or an invalid save is encountered, a fresh test rig opens and a short status message is shown instead of crashing.
 
-The locomotion module determines how well the same pilot request can be performed. The three current biped assemblies have different lateral forces/speeds, and damaged left/right drives degrade stepping and turning through the same functional-damage model.
+**Important:** Saves belong to the exact browser/origin where the game is hosted. A private tab, changing URLs/domains, deleting website data or installing on another device will not transfer your machine. Save export/import and backup recovery are deferred to h.2.
 
-## Install
-Overlay the flat playtest patch files on top of the working **0.0.1g** deployment. Keep every unchanged file already on the host.
-
-No folders are introduced. No persistence migration is required.
+## Scope deliberately unchanged
+No new parts, damage systems, combat controls, economy, backup UI, match history or migrations. Keep the original 0.0.1g.1.1 files except for the changed files in this ZIP.

@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
-import { equip, inspectAssembly, installedPart, makeTestAssembly, partsFor, remove, SLOTS, } from './components.js';
+import { equip, inspectAssembly, installedPart, partsFor, remove, SLOTS, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
-import { createFunctionalDamage, damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
+import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
+import { loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileOutput, hostileSpread, } from './hostileRig.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
@@ -17,13 +18,21 @@ const labels = {
     command: 'COMMAND', combat: 'COMBAT',
 };
 const symbols = { structure: '⬡', mobility: '⋀', power: 'ϟ', command: '◉', combat: '✦' };
-const assembly = makeTestAssembly();
-const damage = createFunctionalDamage();
+// Loading takes place before either the renderer or the damage/garage UI exists.
+// An invalid or inaccessible save never prevents a fresh rig from opening.
+let saveStorage = null;
+try {
+    saveStorage = window.localStorage;
+}
+catch { /* Safari storage may be unavailable. */ }
+const loadedMachine = loadMachine(saveStorage);
+const assembly = loadedMachine.assembly;
+const damage = loadedMachine.damage;
 // A different, stationary target built with the same module definitions.
 const targetAssembly = makeRangeTarget();
 let targetCondition = createTargetCondition(targetAssembly);
 // Incoming fire uses the same localized armor/integrity representation, seeded from the owned player's current condition.
-let playerCondition = createTargetCondition(assembly, true);
+const playerCondition = loadedMachine.playerCondition;
 let weaponSpec = weaponFor(assembly);
 let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
 const hostileWeaponSpec = weaponFor(targetAssembly);
@@ -131,6 +140,14 @@ function showStatus(message) {
     }, 2400);
     renderFieldStatus();
 }
+let saveErrorShown = false;
+function persistMachine() {
+    const saved = storeMachine(saveStorage, { assembly, damage, playerCondition });
+    if (!saved && !saveErrorShown) {
+        saveErrorShown = true;
+        showStatus('LOCAL SAVE UNAVAILABLE · THIS SESSION WILL NOT PERSIST');
+    }
+}
 function renderFieldStatus() {
     fieldStatus.classList.toggle('ready', inspection.ready);
     fieldStatus.classList.toggle('blocked', !inspection.ready);
@@ -233,6 +250,7 @@ function renderPartInfo() {
                 renderChecks();
                 showStatus(`${result.serial} REPAIRED · SAME PHYSICAL MODULE`);
                 renderAmmo();
+                persistMachine();
             }
         });
         partInfo.append(repair);
@@ -258,7 +276,7 @@ function renderPartInfo() {
         button.disabled = fittedHere;
         button.addEventListener('click', () => {
             equip(assembly, def.slot, def.id);
-            refreshAssembly();
+            refreshAssembly(true);
             selectPart(def.slot);
         });
         options.appendChild(button);
@@ -271,7 +289,7 @@ function renderPartInfo() {
         takeOff.textContent = 'REMOVE INSTALLED MODULE';
         takeOff.addEventListener('click', () => {
             remove(assembly, selectedPart);
-            refreshAssembly();
+            refreshAssembly(true);
             selectPart(selectedPart);
         });
         partInfo.appendChild(takeOff);
@@ -353,7 +371,7 @@ function renderChecks() {
         : 'Direct-mount stations · no adapters';
     renderFieldStatus();
 }
-function refreshAssembly() {
+function refreshAssembly(save = false) {
     inspection = inspectAssembly(assembly);
     rigConfig = deriveRigConfig(assembly);
     updateFunctionalStatus();
@@ -369,6 +387,8 @@ function refreshAssembly() {
     renderPartsList();
     renderChecks();
     renderPartInfo();
+    if (save)
+        persistMachine();
 }
 refreshAssembly();
 selectPart(null, false);
@@ -555,7 +575,19 @@ window.addEventListener('orientationchange', () => {
     window.setTimeout(resize, 180);
 });
 resize();
-toggleInspection(true); // Garage is the home screen. Never begin in an uncontrolled live range.
+toggleInspection(true); // Always reopen in the garage, never in an active hostile firefight.
+if (loadedMachine.status === 'restored')
+    showStatus('OWNED RIG RESTORED · LOCAL SAVE');
+else if (loadedMachine.status === 'invalid')
+    showStatus('INVALID LOCAL SAVE · STARTING FRESH TEST RIG');
+else if (loadedMachine.status === 'unavailable')
+    showStatus('LOCAL STORAGE UNAVAILABLE · PROGRESS WILL NOT SAVE');
+// Backup flush when iPhone Safari suspends the web-app without a page unload.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden')
+        persistMachine();
+});
+window.addEventListener('pagehide', persistMachine);
 function frame(now) {
     const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);
     previousTime = now;
@@ -729,6 +761,7 @@ function attemptHostileFire(shotIndex) {
     const nowDisabled = playerCondition.parts[contact.slot].integrity <= 0;
     arena.showHostileShot(contact, { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled });
     arena.updatePilotDamage(playerCondition);
+    persistMachine(); // Include armor-only hits, not just internal damage.
     soundImpact();
     rig.impact = Math.min(1, rig.impact + .65);
     updateFunctionalStatus();
@@ -875,6 +908,7 @@ for (const button of document.querySelectorAll('[data-damage]')) {
         renderAmmo();
         renderPartInfo();
         renderPartsList();
+        persistMachine();
     });
 }
 updateFunctionalStatus();
