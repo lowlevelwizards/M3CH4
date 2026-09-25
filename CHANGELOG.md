@@ -21,3 +21,10 @@ No enemy AI, player damage, functional failures, simulated projectile gravity, p
 
 ### Verification
 47/47 offline test cases passed. Pure core strict TypeScript type-check passed; all TypeScript files transpiled with no syntax diagnostics. The final live rendering/build cannot be certified here due blocked package and browser-network access and needs the hosted iPhone playtest.
+
+
+### 0.0.1d — Controlled functional damage
+- Independently damage left and right locomotion sections inside the existing installed mobility assembly.
+- Convert real owned-part condition into unequal drive forces / steering bias, damaged-generator power derating, damaged-weapon inaccuracy / slower cycling / shutdown.
+- Five DEV controls to reproduce faults and reset the installed test parts. Minimal cockpit warnings and target-condition consequences.
+- Deliberately no AI, garage, repair economy, player armor or persistent save format.

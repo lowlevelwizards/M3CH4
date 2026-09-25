@@ -33,3 +33,10 @@ The static playtest patch contains transpiled `combat.js`, `audio.js`, `main.js`
 ## Verification and limitations
 
 The pure mechanical modules type-check independently; all **47** original and new test cases passed in an offline Vitest-compatible harness (including 9 chassis/cab combinations, original controls and collisions, ammo cadence, recoil, local armor and unique target identities). Each `.ts` file also passed a TypeScript syntax/transpile check. A true `npm`/Three.js compile and live browser/device render **could not be run** in this environment because package/CDN network access and local browser navigation are restricted. Your iPhone playtest remains the final visual and gesture check.
+
+
+## 0.0.1d contained functional-damage test
+
+In Pilot View, tap **DEV**, then tap **HIT L DRIVE**, **HIT R DRIVE**, **HIT GENERATOR** or **HIT WEAPON**. Each tap directly damages the installed part by 25%. Unequal leg drive produces steering bias; damaged generation limits force and can shut off firing; weapon damage widens shot dispersion and slows cycling before disabling the gun. **DEV RESET FAULTS** restores the installed test parts without an economy or repair history. The target uses existing condition records and reports drive, generator and weapon consequences, but remains stationary. No enemy AI, player-facing armor, repairs or persistence yet.
+
+Apply the playtest patch over the complete 0.0.1c flat playtest. If the host caches older scripts, perform a hard refresh or append a query string to the hosted URL.

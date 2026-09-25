@@ -280,3 +280,20 @@ body.inspecting .target-panel,body.inspecting #target-toggle { display:none; }
   .shot-report { max-width:34vw; font-size:8px; }
   .target-panel { width:min(215px,38vw); }
 }
+
+/* 0.0.1d — minimally intrusive live functional-fault feedback. */
+.fault-strip { position:absolute; z-index:6; left:50%; top:max(77px,calc(env(safe-area-inset-top) + 67px));
+  transform:translateX(-50%); white-space:nowrap; max-width:62vw; overflow:hidden;
+  text-overflow:ellipsis; pointer-events:none; border:1px solid #6c95734a;
+  background:#111a13db; color:#7fb48c; padding:4px 8px; border-radius:3px;
+  font:700 9px/1.25 ui-monospace,monospace; letter-spacing:.05em; }
+.fault-strip.faulted { border-color:#dc9652b5; color:#ffc279; background:#36271be3; }
+.damage-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:8px 0; }
+.damage-actions button { min-height:34px; padding:5px 2px; touch-action:manipulation;
+  background:#35271e; color:#ffd09b; border:1px solid #be884d90; border-radius:2px;
+  font:700 9px/1.2 ui-monospace,monospace; }
+.damage-actions button:last-child { grid-column:1/-1; background:#253a2d; border-color:#628c70; color:#badabf; }
+body.inspecting .fault-strip { display:none; }
+@media(max-height:430px){ .fault-strip { top:max(65px,calc(env(safe-area-inset-top) + 55px)); font-size:8px; } }
+#dev-panel { max-height:calc(100dvh - 66px); overflow-y:auto; overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch; touch-action:pan-y; }

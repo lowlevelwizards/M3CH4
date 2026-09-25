@@ -7,6 +7,7 @@ import { Controls } from './controls.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
+import { createFunctionalDamage, damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -14,6 +15,7 @@ const labels = {
     command: 'COMMAND', combat: 'COMBAT',
 };
 const assembly = makeTestAssembly();
+const damage = createFunctionalDamage();
 // A different, stationary target built with the same module definitions.
 const targetAssembly = makeRangeTarget();
 let targetCondition = createTargetCondition(targetAssembly);
@@ -28,6 +30,24 @@ let inspection = inspectAssembly(assembly);
 let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
     throw new Error('Starting test rig must be fieldable.');
+let output = functionalOutput(assembly, damage);
+let effectiveConfig = derateRigConfig(rigConfig, output);
+function updateFunctionalStatus() {
+    output = functionalOutput(assembly, damage);
+    if (rigConfig)
+        effectiveConfig = derateRigConfig(rigConfig, output);
+    const faults = [];
+    if (output.left < .99)
+        faults.push(`L DRIVE ${Math.round(output.left * 100)}%`);
+    if (output.right < .99)
+        faults.push(`R DRIVE ${Math.round(output.right * 100)}%`);
+    if (output.power < .99)
+        faults.push(`GENERATOR ${Math.round(output.power * 100)}%`);
+    if (output.weapon < .99)
+        faults.push(`WEAPON ${Math.round(output.weapon * 100)}%`);
+    faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
+    faultStrip.classList.toggle('faulted', faults.length > 0);
+}
 function required(selector) {
     const element = document.querySelector(selector);
     if (!element)
@@ -71,6 +91,7 @@ const targetPanel = required('#target-panel');
 const targetReadout = required('#target-readout');
 const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
+const faultStrip = required('#fault-strip');
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
@@ -144,7 +165,7 @@ function renderPartInfo() {
         const stats = document.createElement('div');
         stats.className = 'part-stat';
         stats.style.whiteSpace = 'pre-line';
-        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg`;
+        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg\nCONDITION ${Math.round(fitted.instance.condition * 100)}%`;
         const description = document.createElement('div');
         description.className = 'part-purpose';
         description.textContent = fitted.definition.description;
@@ -239,6 +260,7 @@ function renderChecks() {
 function refreshAssembly() {
     inspection = inspectAssembly(assembly);
     rigConfig = deriveRigConfig(assembly);
+    updateFunctionalStatus();
     const nextSpec = weaponFor(assembly);
     if (nextSpec?.id !== weaponSpec?.id)
         weaponState = nextSpec ? createWeaponState(nextSpec) : null;
@@ -423,7 +445,7 @@ function frame(now) {
     if (!inspecting && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
-            stepRig(rig, input, FIXED_DT, rigConfig, rangeWorld);
+            stepRig(rig, input, FIXED_DT, effectiveConfig, rangeWorld);
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
                 if (fireHeld)
@@ -465,7 +487,10 @@ function frame(now) {
             `ACCEL     ${rig.longitudinalAcceleration.toFixed(2)} m/s²`,
             `LOAD      ${(rig.driveLoad * 100).toFixed(0)}%`,
             `MASS      ${inspection.massKg.toLocaleString()} kg`,
-            `POWER     ${inspection.powerUsedKw}/${inspection.powerAvailableKw} kW`,
+            `POWER     ${output.powerAvailableKw.toFixed(0)}/${output.nominalDemandKw} kW effective`,
+            `LEFT LEG  ${(output.left * 100).toFixed(0)}%`,
+            `RIGHT LEG ${(output.right * 100).toFixed(0)}%`,
+            `WEAPON    ${(output.weapon * 100).toFixed(0)}%`,
             `FIELDED   ${inspection.ready ? 'YES (TRAINING)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    ${Math.round(renderScale * 100)}%`,
@@ -496,12 +521,12 @@ const targetLabels = {
     structure: 'HULL', mobility: 'LEGS', power: 'POWER', command: 'CAB', combat: 'WEAPON',
 };
 function renderAmmo() {
-    weaponLabel.textContent = weaponSpec?.label ?? 'NO WEAPON';
+    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${!output.weaponOperational ? ' · OFFLINE' : output.weapon < .95 ? ' · DAMAGED' : ''}` : 'NO WEAPON';
     ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
     reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
-    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || weaponState.reloadLeft > 0;
+    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || !output.weaponOperational || weaponState.reloadLeft > 0;
 }
 function renderTarget() {
     targetReadout.replaceChildren();
@@ -512,7 +537,11 @@ function renderTarget() {
         const label = document.createElement('span');
         label.textContent = `${targetLabels[slot]} · ${part.serial}`;
         const metrics = document.createElement('b');
-        metrics.textContent = `${Math.ceil(part.integrity / part.maxIntegrity * 100)}% · ARM ${Math.ceil(part.armor)}`;
+        const percent = Math.ceil(part.integrity / part.maxIntegrity * 100);
+        const consequence = slot === 'mobility' ? ` · DRIVE ${percent}%` :
+            slot === 'power' ? ` · GEN ${percent}%` :
+                slot === 'combat' ? ` · GUN ${percent > 12 ? 'ACTIVE' : 'OFFLINE'}` : '';
+        metrics.textContent = `${percent}% · ARM ${Math.ceil(part.armor)}${consequence}`;
         const bar = document.createElement('i');
         bar.style.transform = `scaleX(${part.integrity / part.maxIntegrity})`;
         if (!part.integrity)
@@ -522,7 +551,7 @@ function renderTarget() {
     }
 }
 function attemptFire() {
-    if (!weaponSpec || !weaponState || !rigConfig || inspecting || !inspection.ready || !appSheet.classList.contains('hidden'))
+    if (!weaponSpec || !weaponState || !rigConfig || inspecting || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
         return;
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
@@ -537,11 +566,12 @@ function attemptFire() {
         renderAmmo();
         return;
     }
-    const [spreadX, spreadY] = shotSpread(shot, weaponSpec.spread);
+    weaponState.cooldown *= weaponCycleMultiplier(output);
+    const [spreadX, spreadY] = shotSpread(shot, weaponSpec.spread * weaponSpreadMultiplier(output));
     const contact = arena.traceShot(spreadX, spreadY, weaponSpec.muzzleZ);
     const directionX = (contact.point.x - contact.muzzle.x) / Math.max(contact.distance, .001);
     const directionZ = (contact.point.z - contact.muzzle.z) / Math.max(contact.distance, .001);
-    applyRecoil(rig, rigConfig, directionX, directionZ, weaponSpec.recoilImpulseNs);
+    applyRecoil(rig, effectiveConfig, directionX, directionZ, weaponSpec.recoilImpulseNs);
     shotsFired++;
     soundFire();
     arena.showShot(contact, contact.slot !== null);
@@ -609,7 +639,24 @@ resetTarget.addEventListener('click', () => {
     reportFade = 2;
     renderTarget();
 });
+// Direct internal-damage injections: intentionally DEV-only, without implementing
+// enemy fire, armor penetration against the player, or a pretend repair economy.
+for (const button of document.querySelectorAll('[data-damage]')) {
+    button.addEventListener('click', () => {
+        const type = button.dataset.damage;
+        if (type === 'restore')
+            resetInstalledDamage(assembly, damage);
+        else if (type === 'left' || type === 'right')
+            damageInstalledPart(assembly, damage, 'mobility', .25, type);
+        else if (type === 'power' || type === 'weapon')
+            damageInstalledPart(assembly, damage, type === 'power' ? 'power' : 'combat', .25);
+        updateFunctionalStatus();
+        renderAmmo();
+        renderPartInfo();
+    });
+}
+updateFunctionalStatus();
 renderAmmo();
 renderTarget();
-// Deliberately no AI, player damage, persistent injury, shop or repairs until later stages.
+// No enemy AI, player armor, save data or garage repairs until later milestones.
 requestAnimationFrame(frame);

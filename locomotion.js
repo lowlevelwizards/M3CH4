@@ -77,7 +77,9 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     state.vz += az * dt;
     const speedFraction = clamp(Math.abs(previousForwardSpeed) / config.maxForwardSpeedMps, 0, 1);
     const turnAuthority = 0.68 + speedFraction * 0.32;
-    const yawTorque = steer * config.turnTorqueNm * turnAuthority - state.yawRate * config.yawDampingNms;
+    const yawTorque = steer * config.turnTorqueNm * turnAuthority
+        + throttle * (config.driveAsymmetryTorqueNm ?? 0)
+        - state.yawRate * config.yawDampingNms;
     state.yawRate += (yawTorque / config.yawInertiaKgM2) * dt;
     state.yaw += state.yawRate * dt;
     state.x += state.vx * dt;
@@ -93,7 +95,8 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     state.forwardSpeed = state.vx * newForwardX + state.vz * newForwardZ;
     state.lateralSpeed = state.vx * newRightX + state.vz * newRightZ;
     state.longitudinalAcceleration = (state.forwardSpeed - previousForwardSpeed) / dt;
-    const propulsionLoad = Math.abs(opposingThrottle ? 0 : requestedForce) / config.driveForceN;
+    const propulsionLoad = config.driveForceN > 0
+        ? Math.abs(opposingThrottle ? 0 : requestedForce) / config.driveForceN : 0;
     const turningLoad = Math.abs(steer) * 0.32;
     const brakingLoad = brake * 0.18;
     state.driveLoad = clamp(propulsionLoad + turningLoad + brakingLoad, 0, 1);

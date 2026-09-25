@@ -17,11 +17,13 @@
     "./components.js": "./components.js?v=c",
     "./scene.js": "./scene.js?v=c",
     "./combat.js": "./combat.js?v=c",
-    "./audio.js": "./audio.js?v=c"
+    "./audio.js": "./audio.js?v=c",
+    "./locomotion.js": "./locomotion.js?v=d1",
+    "./functionalDamage.js": "./functionalDamage.js?v=d1"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=c" />
-    <title>MECH ARENA — 0.0.1c — Live-Fire Range</title>
+    <link rel="stylesheet" href="./styles.css?v=d1" />
+    <title>MECH ARENA — 0.0.1d — Functional Damage</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -41,6 +43,7 @@
     <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
     <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
     <div id="shot-report" class="shot-report faded" aria-live="polite">LIVE-FIRE TEST · TARGET AHEAD</div>
+    <div id="fault-strip" class="fault-strip" aria-live="polite">SYSTEMS NOMINAL</div>
     <div id="weapon-hud" class="weapon-hud" aria-live="polite">
       <span id="weapon-label">TRAINING CANNON</span><strong id="ammo-count">12 / 60</strong>
     </div>
@@ -75,7 +78,7 @@
     <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire the installed cannon">FIRE</button>
     <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
       <header>STATIONARY TARGET · TGT-01</header>
-      <p>Shots strike actual meshes. Each part has local armor and internal integrity; damage does not affect operation until 0.0.1d.</p>
+      <p>Shots strike actual meshes. Each part has local armor and internal integrity; mobility, weapon and generator integrity now affect operational capability.</p>
       <div id="target-readout" class="target-readout"></div>
       <button id="reset-target" type="button">REBUILD TARGET</button>
     </section>
@@ -92,13 +95,20 @@
       <div id="field-checks" class="field-checks"></div>
       <div class="section-head">MOUNTING HARDWARE</div>
       <div id="adapter-status" class="adapter-status"></div>
-      <div class="inspection-note foot">Five functional stations, fourteen owned modules, three command cabins and three chassis frames. Live-fire training range now active. No AI, player damage, repairs or save data yet.</div>
+      <div class="inspection-note foot">Five functional stations, fourteen owned modules, three command cabins and three chassis frames. Live-fire training range now active. DEV panel allows controlled player damage. No enemy AI, repairs or save data yet.</div>
     </section>
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1c</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1d</span></header>
       <pre id="dev-readout"></pre>
+      <div class="damage-actions" aria-label="inject internal faults for testing">
+        <button data-damage="left" type="button">HIT L DRIVE −25%</button>
+        <button data-damage="right" type="button">HIT R DRIVE −25%</button>
+        <button data-damage="power" type="button">HIT GENERATOR −25%</button>
+        <button data-damage="weapon" type="button">HIT WEAPON −25%</button>
+        <button data-damage="restore" type="button">DEV RESET FAULTS</button>
+      </div>
       <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
     </section>
 
@@ -114,6 +124,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=c"></script>
+    <script type="module" src="./main.js?v=d1"></script>
   </body>
 </html>
