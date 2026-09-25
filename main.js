@@ -15,6 +15,7 @@ const labels = {
     structure: 'STRUCTURE', mobility: 'MOBILITY', power: 'POWER',
     command: 'COMMAND', combat: 'COMBAT',
 };
+const symbols = { structure: '⬡', mobility: '⋀', power: 'ϟ', command: '◉', combat: '✦' };
 const assembly = makeTestAssembly();
 const damage = createFunctionalDamage();
 // A different, stationary target built with the same module definitions.
@@ -126,12 +127,14 @@ function showStatus(message) {
 function renderFieldStatus() {
     fieldStatus.classList.toggle('ready', inspection.ready);
     fieldStatus.classList.toggle('blocked', !inspection.ready);
-    fieldStatus.textContent = fieldStatus.dataset.message || (inspection.ready ? 'FIELDABLE · DEPLOY WHEN READY' :
-        'GARAGE · RESOLVE FIELDABILITY CHECKS TO DEPLOY');
+    fieldStatus.classList.toggle('message', !!fieldStatus.dataset.message);
+    fieldStatus.textContent = fieldStatus.dataset.message || (inspection.ready ? 'READY' : 'BLOCKED');
+    fieldStatus.title = inspection.ready ? 'All five required functions are present.' : 'One or more required functions are missing or overloaded.';
 }
 function selectPart(slot, focus = true) {
     selectedPart = slot;
     arena.selectPart(slot);
+    inspectionPanel.classList.toggle('expanded', slot !== null);
     // Clearing the highlight never steals the inspection camera from the pilot.
     if (focus && slot)
         arena.focusPart(slot);
@@ -140,6 +143,8 @@ function selectPart(slot, focus = true) {
         button.setAttribute('aria-pressed', String(key === slot));
     }
     renderPartInfo();
+    if (inspecting)
+        window.requestAnimationFrame(syncInspectorLayout);
 }
 function specLine(part) {
     if (part.slot === 'structure')
@@ -155,7 +160,7 @@ function specLine(part) {
 function renderPartInfo() {
     partInfo.replaceChildren();
     if (!selectedPart) {
-        partInfo.textContent = 'Choose a physical assembly to inspect or try a replacement.';
+        partInfo.textContent = 'Tap a system icon to inspect the installed module, repair damage or choose another available part.';
         return;
     }
     const fitted = installedPart(assembly, selectedPart);
@@ -262,26 +267,58 @@ function renderPartInfo() {
         partInfo.appendChild(takeOff);
     }
 }
+function moduleCondition(slot) {
+    const fitted = installedPart(assembly, slot);
+    if (!fitted)
+        return null;
+    if (slot === 'mobility') {
+        const drive = driveCondition(assembly, damage);
+        return drive ? Math.min(fitted.instance.condition, drive.left, drive.right) : fitted.instance.condition;
+    }
+    if (slot === 'power')
+        return Math.min(fitted.instance.condition, output.power);
+    if (slot === 'combat')
+        return output.weaponOperational ? Math.min(fitted.instance.condition, output.weapon) : 0;
+    return fitted.instance.condition;
+}
+function moduleStatus(slot) {
+    const condition = moduleCondition(slot);
+    if (condition === null)
+        return 'missing';
+    if (condition <= .05)
+        return 'disabled';
+    if (condition < .45)
+        return 'severe';
+    if (condition < .8)
+        return 'degraded';
+    return 'good';
+}
+function moduleStatusLabel(status) {
+    return status === 'good' ? 'GOOD' : status === 'degraded' ? 'DEGRADED' :
+        status === 'severe' ? 'DAMAGED' : status === 'disabled' ? 'DISABLED' : 'MISSING';
+}
 function renderPartsList() {
     selectionButtons.clear();
     partList.replaceChildren();
     for (const slot of SLOTS) {
         const fitted = installedPart(assembly, slot);
+        const condition = moduleCondition(slot);
+        const status = moduleStatus(slot);
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'module-row';
-        button.setAttribute('aria-label', `Inspect ${labels[slot]}`);
+        button.className = `module-tab status-${status}`;
+        button.setAttribute('aria-label', `${labels[slot]} · ${fitted?.definition.name ?? 'missing'} · ${moduleStatusLabel(status)}`);
         button.setAttribute('aria-pressed', String(slot === selectedPart));
-        const name = document.createElement('span');
+        button.title = `${labels[slot]} · ${fitted?.definition.name ?? 'missing'} · ${moduleStatusLabel(status)}`;
+        const glyph = document.createElement('span');
+        glyph.className = 'module-glyph';
+        glyph.textContent = symbols[slot];
         const category = document.createElement('small');
-        category.textContent = labels[slot];
-        name.append(category, document.createTextNode(fitted?.definition.name ?? 'EMPTY STATION'));
-        const mass = document.createElement('span');
-        mass.textContent = fitted ? `${Math.round(fitted.instance.condition * 100)}% · ${fitted.definition.massKg}kg` : '—';
-        mass.classList.toggle('condition-low', !!fitted && fitted.instance.condition < .75);
-        button.append(name, mass);
+        category.textContent = labels[slot] === 'STRUCTURE' ? 'FRAME' : labels[slot] === 'MOBILITY' ? 'MOVE' : labels[slot] === 'COMMAND' ? 'CMD' : labels[slot] === 'COMBAT' ? 'ARMS' : 'PWR';
+        const value = document.createElement('i');
+        value.textContent = condition === null ? '—' : `${Math.round(condition * 100)}%`;
+        button.append(glyph, category, value);
         button.classList.toggle('selected', slot === selectedPart);
-        button.classList.toggle('empty', !fitted);
         button.addEventListener('click', () => selectPart(selectedPart === slot ? null : slot));
         partList.appendChild(button);
         selectionButtons.set(slot, button);
@@ -729,5 +766,5 @@ for (const button of document.querySelectorAll('[data-damage]')) {
 updateFunctionalStatus();
 renderAmmo();
 renderTarget();
-// Stage e.1: in-session garage and real component repairs. Persistence, economy, enemy fire and sustained effects remain later milestones.
+// Stage e.2: compact category-based garage UI over the same in-session repair/assembly mechanics.
 requestAnimationFrame(frame);

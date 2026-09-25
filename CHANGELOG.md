@@ -1,3 +1,12 @@
+# 0.0.1e.2 — Garage Interface
+
+- Replaced the long scrolling module list with a compact five-category system rail.
+- Category icons now reflect actual system condition: healthy, degraded, damaged, disabled or missing.
+- Selecting a category opens a contextual installed/available module drawer; selecting again collapses it.
+- Repair and swapping remain the same underlying physical-part operations.
+- Collapsed garage leaves substantially more screen space for the interactive mech.
+- No persistence, economy, inventory expansion, or new damage systems added.
+
 # MECH ARENA 0.0.1e.1 — First Garage
 
 ## New and changed

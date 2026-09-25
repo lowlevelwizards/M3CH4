@@ -1,4 +1,4 @@
-# MECH ARENA — 0.0.1e.1 · First Garage
+# MECH ARENA — 0.0.1e.2 · Garage Interface
 
 **Incremental update on top of 0.0.1d.1.** All project files remain flat at the root; no folder migration, no changes to the previous chassis, command modules, locomotion, aiming or weapons.
 
@@ -28,3 +28,7 @@ For editable source, unpack `MECH_ARENA_0.0.1e1_source_PATCH.zip` over the origi
 - **Not in this stage:** browser persistence, currency or repair costs, incoming enemy fire, new smoke/explosions/debris particles, and visually modeled player damage. Closing/reloading this e.1 build restores the initial test machine; persistence is e.2.
 
 This small patch uses the same external Three.js CDN and existing hosting setup as 0.0.1d.1. The static playtest is pre-transpiled and requires no build step once uploaded.
+
+
+## 0.0.1e.2 garage interface
+The long component list is replaced by a compact five-system rail. Each system icon derives its color directly from the installed component/function condition: green healthy, yellow degraded, orange damaged, red disabled, gray missing. Selecting a system opens a contextual drawer containing the installed module, repair action and currently available alternatives; selecting it again or tapping empty space collapses the drawer so the 3D machine stays dominant.

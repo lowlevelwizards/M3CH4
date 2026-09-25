@@ -23,8 +23,8 @@
     "./garage.js": "./garage.js?v=e1"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=e1" />
-    <title>MECH ARENA — 0.0.1e.1 — First Garage</title>
+    <link rel="stylesheet" href="./styles.css?v=e2" />
+    <title>MECH ARENA — 0.0.1e.2 — Garage Interface</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -84,25 +84,30 @@
       <button id="reset-target" type="button">REBUILD TARGET</button>
     </section>
 
-    <section id="inspection-panel" class="inspection-panel hidden" aria-label="physical assembly builder">
-      <header><span>GARAGE · SR-01</span><small>REPAIR BAY</small></header>
-      <div class="inspection-note">Your existing machine, with its real damage. Inspect a part, repair it or leave it compromised. Changes last until this page is reloaded in e.1.</div>
-      <button id="garage-deploy" type="button" class="garage-deploy">DEPLOY TO TEST RANGE →</button>
-      <div class="assembly-total">TOTAL MASS <b id="assembly-mass">4,090 kg</b></div>
-      <div class="assembly-total">POWER DRAW <b id="power-status">108 / 145 kW</b></div>
-      <div id="field-status" class="field-status ready" aria-live="polite">TRAINING-RIG READY</div>
-      <div id="part-list" class="part-list"></div>
-      <div class="inspection-info" id="part-info" aria-live="polite"></div>
-      <div class="section-head">FIELDABILITY · FIVE FUNCTIONS</div>
-      <div id="field-checks" class="field-checks"></div>
-      <div class="section-head">MOUNTING HARDWARE</div>
-      <div id="adapter-status" class="adapter-status"></div>
-      <div class="inspection-note foot">Five interchangeable stations. DEV in the arena injects controlled damage into YOUR rig; return here to inspect and selectively repair. e.1 keeps progress only until reload; browser saving and advanced effects come next.</div>
+    <section id="inspection-panel" class="inspection-panel hidden" aria-label="garage and physical assembly builder">
+      <div class="garage-rail">
+        <div class="garage-brand"><strong>GARAGE</strong><small>SR-01</small></div>
+        <div id="field-status" class="field-status ready" aria-live="polite">READY</div>
+        <div id="part-list" class="part-list" aria-label="module categories"></div>
+        <button id="garage-deploy" type="button" class="garage-deploy">DEPLOY</button>
+      </div>
+      <div id="garage-context" class="garage-context">
+        <header><span>MODULE BAY</span><small>INSTALLED / AVAILABLE</small></header>
+        <div class="garage-summary">
+          <span>MASS <b id="assembly-mass">4,090 kg</b></span>
+          <span>POWER <b id="power-status">108 / 145 kW</b></span>
+        </div>
+        <div class="inspection-info" id="part-info" aria-live="polite"></div>
+        <div class="garage-meta" aria-hidden="true">
+          <div id="field-checks" class="field-checks"></div>
+          <div id="adapter-status" class="adapter-status"></div>
+        </div>
+      </div>
     </section>
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1e.1</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1e.2</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -126,6 +131,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=e1"></script>
+    <script type="module" src="./main.js?v=e2"></script>
   </body>
 </html>
