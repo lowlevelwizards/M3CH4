@@ -25,6 +25,10 @@ export const DEFAULT_WORLD = {
         { id: 'barrier-west', minX: -14.5, maxX: -10.5, minZ: -2.2, maxZ: 2.2 },
         { id: 'barrier-east', minX: 10.5, maxX: 14.5, minZ: -2.2, maxZ: 2.2 },
         { id: 'crate-north', minX: -2.1, maxX: 2.1, minZ: -11.8, maxZ: -9.2 },
+        // The eight rendered warehouse columns are solid for BOTH rigs and navigation.
+        ...[-18, -6, 6, 18].flatMap(x => [-13, 13].map(z => ({
+            id: `pillar-${x}-${z}`, minX: x - .275, maxX: x + .275, minZ: z - .275, maxZ: z + .275,
+        }))),
     ],
 };
 export function createRigState() {

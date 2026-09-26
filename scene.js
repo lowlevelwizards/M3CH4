@@ -22,6 +22,15 @@ export function createArenaScene(initial, targetAssembly) {
     const cockpit = buildCockpit(scene);
     const debugColliders = buildDebugColliders(scene);
     debugColliders.visible = false;
+    const navMarker = new THREE.Mesh(new THREE.RingGeometry(.42, .52, 16), new THREE.MeshBasicMaterial({ color: 0x73dfc8, side: THREE.DoubleSide, depthTest: false }));
+    navMarker.rotation.x = -Math.PI / 2;
+    navMarker.visible = false;
+    debugColliders.add(navMarker);
+    function updateHostileNavigation(point) {
+        navMarker.visible = point !== null;
+        if (point)
+            navMarker.position.set(point.x, .09, point.z);
+    }
     // The moving target is assembled from the SAME definitions and geometry
     // as the player. It has its own installed serials and never inherits player swaps.
     let targetExterior = buildExteriorRig(targetAssembly);
@@ -527,7 +536,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
     };
@@ -574,6 +583,9 @@ function buildWarehouse(scene) {
         scene.add(stripe);
     }
     for (const obstacle of DEFAULT_WORLD.obstacles) {
+        // Physical columns are rendered below at their full 7.5 m height.
+        if (obstacle.id.startsWith('pillar-'))
+            continue;
         const w = obstacle.maxX - obstacle.minX;
         const d = obstacle.maxZ - obstacle.minZ;
         const h = obstacle.id.startsWith('crate') ? 1.8 : 1.1;

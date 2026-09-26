@@ -461,6 +461,7 @@ function toggleInspection(force) {
         hostileRig.z = 0;
         hostileRig.yaw = Math.PI;
         hostileMotion = createEnemyMotion();
+        arena.updateHostileNavigation(null);
         // The opponent is a fresh training machine each sortie; player damage is NOT reset.
         targetCondition = createTargetCondition(targetAssembly);
         mirrorTargetCondition(targetAssembly, targetCondition);
@@ -667,8 +668,10 @@ function frame(now) {
             const hostile = hostileOutput(targetCondition);
             const canManeuver = !testEnded && hostile.structure > .05 && hostile.command > .05 &&
                 hostile.power > .12 && hostile.mobility > .05;
-            const maneuver = advanceEnemyMotion(hostileMotion, hostileRig, rig, FIXED_DT, canManeuver);
-            stepRig(hostileRig, maneuver, FIXED_DT, hostileLocomotionConfig(), hostileWorld);
+            const hostileConfig = hostileLocomotionConfig();
+            const maneuver = advanceEnemyMotion(hostileMotion, hostileRig, rig, FIXED_DT, canManeuver, hostileWorld, hostileConfig.collisionRadiusM);
+            stepRig(hostileRig, maneuver, FIXED_DT, hostileConfig, hostileWorld);
+            arena.updateHostileNavigation(hostileMotion.waypoint);
             arena.updateTargetRigVisual(hostileRig); // Shots and visible parts use the same physics pose.
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
@@ -743,6 +746,8 @@ function frame(now) {
             `SHOTS     ${shotsFired}`,
             `TARGET    ${targetCondition.shotsHit} HITS`,
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
+            `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
+            `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
             `LAST HIT  ${lastHit}`,
         ].join('\n');
     }
@@ -781,7 +786,7 @@ function renderTarget() {
     targetReadout.replaceChildren();
     const behavior = document.createElement('div');
     behavior.className = 'target-row';
-    behavior.textContent = `MOTION: ${hostileMotion.phase} · ACTUAL DRIVE ${Math.round(hostileOutput(targetCondition).mobility * 100)}%`;
+    behavior.textContent = `MOTION: ${hostileMotion.phase} · ${hostileMotion.navigation} · DRIVE ${Math.round(hostileOutput(targetCondition).mobility * 100)}%`;
     targetReadout.appendChild(behavior);
     for (const slot of SLOTS) {
         const part = targetCondition.parts[slot];
@@ -979,6 +984,7 @@ resetTarget.addEventListener('click', () => {
     hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
     hostileController = createHostileController(.7);
     hostileMotion = createEnemyMotion();
+    arena.updateHostileNavigation(null);
     hostileRig = createRigState();
     hostileRig.z = 0;
     hostileRig.yaw = Math.PI;
