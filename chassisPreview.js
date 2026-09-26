@@ -1,8 +1,9 @@
-/** Standalone k.3a.1 design study. Production scene/main/garage never import it. */
+/** Standalone k.3a.2 design study. Production scene/main/garage never import it. */
 import * as THREE from 'three';
 import { CONCEPT_CHASSIS, getConceptChassis, validateConceptChassis } from './chassisConcepts.js';
 import { buildConceptChassis } from './chassisConceptBuilder.js';
 import { buildSocketGizmos } from './chassisVisualKit.js';
+import { createFitPreviewController } from './chassisFitPreview.js';
 
 const host=document.getElementById('viewport');
 const buttons=document.getElementById('frames');
@@ -23,7 +24,8 @@ const frontArrow=new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vecto
 frontArrow.name='orientation-only:front-negative-Z';scene.add(frontArrow);
 const camera=new THREE.PerspectiveCamera(36,1,.06,65);
 const raycaster=new THREE.Raycaster();const pointer=new THREE.Vector2();
-let root,markers,frame,yaw=2.49,pitch=.24,radius=4.4;
+let root,markers,frame,yaw=2.49,pitch=.24,radius=4.4,targetY=0;
+let fitPreview=null;
 let down=null,pinching=null;
 const views={
     quarter:{yaw:2.49,pitch:.24},
@@ -46,9 +48,23 @@ function disposeTree(tree){
 function frameInfo(f){
     return `${f.name}\n\n${f.structure}\n\n`+
         `${f.pieces.length} named structural members · ${f.sockets.length} authored mounting faces\n`+
-        `No legs, command module, generator or weapon installed.\n`+
-        `No invented gameplay mass or load rating. Socket capacities are only provisional test values.`;
+        `Preview-only structural chassis; BARE mode contains no installed modules.\n`+
+        `ASSEMBLED mode adds the same four existing part envelopes on each frame.\n`+
+        `No invented gameplay mass or frame rating. Socket capacities are provisional.`;
 }
+function reframe(resetRadius=true){
+    if(!root)return;
+    const volume=new THREE.Box3().setFromObject(root);
+    if(fitPreview?.mode==='assembled'&&fitPreview.visual.visible)
+        volume.union(new THREE.Box3().setFromObject(fitPreview.visual));
+    if(volume.isEmpty())return;
+    const size=new THREE.Vector3();volume.getSize(size);
+    targetY=fitPreview?.mode==='assembled'?(volume.min.y+volume.max.y)/2:0;
+    grid.position.y=fitPreview?.mode==='assembled'?volume.min.y-.09:-.99;
+    frontArrow.position.set(0,grid.position.y+.015,-1.23);
+    if(resetRadius)radius=Math.max(3.6,Math.max(size.x,size.y,size.z)*2.4);
+}
+fitPreview=createFitPreviewController({scene,onVisualChange:kind=>reframe(kind!=='visibility')});
 function selectFrame(id){
     const next=getConceptChassis(id);if(!next)return;
     const checked=validateConceptChassis(next);
@@ -57,9 +73,10 @@ function selectFrame(id){
     frame=next;root=buildConceptChassis(frame);markers=buildSocketGizmos(frame);
     markers.visible=showSockets.checked;
     scene.add(root,markers);
+    fitPreview.setFrame(frame);
     for(const button of buttons.children)button.setAttribute('aria-pressed',String(button.dataset.id===id));
     details.textContent=frameInfo(frame);
-    radius=Math.max(3.6,Math.max(...frame.bounds)*2.50);
+    reframe();
 }
 for(const f of CONCEPT_CHASSIS){
     const button=document.createElement('button');
@@ -77,12 +94,14 @@ function displaySocket(id){
         `STRUCTURAL SUPPORT: ${s.supportId}\n${support?.purpose??'MISSING'}`;
 }
 function onPick(clientX,clientY){
-    if(!markers?.visible)return;
-    const rect=renderer.domElement.getBoundingClientRect();
-    pointer.set(((clientX-rect.left)/rect.width)*2-1,-((clientY-rect.top)/rect.height)*2+1);
-    raycaster.setFromCamera(pointer,camera);
-    const hit=raycaster.intersectObjects(markers.children,true)[0];
-    if(hit?.object.userData.socketId)displaySocket(hit.object.userData.socketId);
+    if(markers?.visible){
+        const rect=renderer.domElement.getBoundingClientRect();
+        pointer.set(((clientX-rect.left)/rect.width)*2-1,-((clientY-rect.top)/rect.height)*2+1);
+        raycaster.setFromCamera(pointer,camera);
+        const hit=raycaster.intersectObjects(markers.children,true)[0];
+        if(hit?.object.userData.socketId){displaySocket(hit.object.userData.socketId);return;}
+    }
+    fitPreview.pick(clientX,clientY,camera,renderer);
 }
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 renderer.domElement.addEventListener('pointerdown',e=>{
@@ -127,8 +146,8 @@ window.addEventListener('resize',resize);
 if('ResizeObserver'in window)new ResizeObserver(resize).observe(host);
 function animate(){
     requestAnimationFrame(animate);
-    camera.position.set(radius*Math.sin(yaw)*Math.cos(pitch),radius*Math.sin(pitch),radius*Math.cos(yaw)*Math.cos(pitch));
-    camera.lookAt(0,0,0);
+    camera.position.set(radius*Math.sin(yaw)*Math.cos(pitch),targetY+radius*Math.sin(pitch),radius*Math.cos(yaw)*Math.cos(pitch));
+    camera.lookAt(0,targetY,0);
     renderer.render(scene,camera);
 }
 selectFrame('concept-hub');resize();animate();

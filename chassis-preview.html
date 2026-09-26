@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#171d1b"/>
-  <title>M3CH4 — Bare Chassis Studies k.3a.1</title>
+  <title>M3CH4 — Equipment Fit Lab k.3a.2</title>
   <script type="importmap">{
     "imports": {"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}
   }</script>
@@ -16,6 +16,21 @@
     #viewport canvas{display:block;width:100%;height:100%}#hint{position:absolute;left:12px;bottom:10px;color:#ccd7ce;font-size:10px;pointer-events:none}
     #axis-hint{position:absolute;left:12px;top:12px;color:#d4e0d8;font-size:10px;pointer-events:none;background:#1b2622b3;padding:5px 7px;border-radius:3px}
     aside{width:min(332px,38vw);padding:13px;overflow:auto;background:#222b28;border-left:1px solid #43504a}
+    .fit-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:8px}
+    .fit-modes button{text-align:center;font-weight:700;letter-spacing:.06em}
+    .fixture-toggle{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px}
+    .fixture-toggle input{width:17px;height:17px;accent-color:#d5ad55}
+    .fixture-toggle span{flex:1}.fixture-toggle small{font-size:10px;color:#bbc8bd}
+    #fit-summary{background:#19251f;border:1px solid #43574d;padding:9px;border-radius:5px;font-weight:700;font-size:12px}
+    #fit-summary[data-status="review"]{border-color:#c6a553;color:#e4cd8c}
+    #fit-summary[data-status="blocked"]{border-color:#ba7160;color:#e1a498}
+    #fit-selected{white-space:pre-wrap;font-size:11px;line-height:1.5;color:#dbe7dc;padding:9px;background:#19241f;border-radius:5px}
+    #fit-results h4{font-size:11px;letter-spacing:.05em;margin:13px 0 5px;color:#dae7d8}
+    #fit-results .fit-event{display:block;width:100%;margin:4px 0;padding:8px;font-size:11px;line-height:1.35;text-align:left}
+    #fit-results .fit-event.review{border-left:3px solid #d0af55}
+    #fit-results .fit-event.error{border-left:3px solid #cf8064}
+    #fit-results .fit-event.pass{border-left:3px solid #699b7f}
+    #fit-panel[hidden],#fixture-visibility[hidden]{display:none!important}
     h2{font-size:14px;margin:0 0 9px}h3{font-size:11px;letter-spacing:.12em;margin:14px 0 7px;color:#b7c9bb}
     button{color:inherit;background:#35433e;border:1px solid #586a62;padding:9px;border-radius:6px;text-align:left;cursor:pointer;font:inherit;min-height:38px}
     button[aria-pressed="true"]{border-color:#d5ad55;background:#5c5134}.frames{display:grid;gap:6px}
@@ -27,16 +42,22 @@
   </style>
 </head>
 <body>
-  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.1 · Three new BARE structural studies · Not installed in the game</small></div><a href="./index.html">← Main game</a></header>
+  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.2 · Three bare chassis + shared equipment fit · Preview only</small></div><a href="./index.html">← Main game</a></header>
   <main>
     <div id="viewport" aria-label="3D bare chassis design preview">
       <div id="axis-hint">FRONT −Z · RIGHT +X · UP +Y</div>
-      <div id="hint">DRAG TO ROTATE · PINCH/SCROLL TO ZOOM · SOCKETS OFF BY DEFAULT</div>
+      <div id="hint">DRAG TO ROTATE · PINCH TO ZOOM · TAP PART TO INSPECT</div>
     </div>
     <aside>
       <h2>BARE STRUCTURAL FRAMES</h2>
       <div id="frames" class="frames" role="group" aria-label="Choose chassis concept"></div>
-      <h3>ORTHOGRAPHIC STUDY</h3>
+      <h3>ASSEMBLY VIEW</h3>
+      <div class="fit-modes" role="group" aria-label="Bare or assembled test rig">
+        <button type="button" data-assembly-mode="bare" aria-pressed="true">BARE</button>
+        <button type="button" data-assembly-mode="assembled" aria-pressed="false">ASSEMBLED</button>
+      </div>
+      <div id="fixture-visibility" hidden aria-label="Equipment visibility (does not alter mounting)"></div>
+      <h3>CAMERA STUDY</h3>
       <div id="views" role="group" aria-label="Camera view presets">
         <button type="button" data-view="quarter" aria-pressed="true">3/4</button>
         <button type="button" data-view="front" aria-pressed="false">Front</button>
@@ -45,6 +66,13 @@
       </div>
       <label><input id="show-sockets" type="checkbox"/> Overlay tiny socket role rings (tap to inspect)</label>
       <h3>STRUCTURE / SELECTED MOUNT</h3><div id="details" aria-live="polite">Choose a bare chassis.</div>
+      <div id="fit-panel" hidden>
+        <h3>STANDARD EQUIPMENT FIT</h3>
+        <div id="fit-summary" role="status" aria-live="polite"></div>
+        <p class="muted">Envelopes and masses come from the live catalogue; component models are simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
+        <div id="fit-selected" aria-live="polite"></div>
+        <div id="fit-results"></div>
+      </div>
       <h3>DEBUG RING COLORS</h3>
       <div class="legend"><span class="swatch" style="background:#e2b13f"></span>Command
         <span class="swatch" style="background:#829a66"></span>Power
@@ -54,7 +82,7 @@
       <p class="muted">The hip bosses are visible structure, not two independent functional leg slots. The debug rings sit on metal mount faces rather than floating in space. Provisional socket ratings have not been added to gameplay.</p>
     </aside>
   </main>
-  <footer>Design preview only · No legs, cabs, generator or weapons installed · Inventory, original game, combat and saves untouched</footer>
-  <script type="module" src="./chassisPreview.js?v=k3a1"></script>
+  <footer>Design preview only · ASSEMBLED MODE uses temporary equipment maquettes · Original game, inventory, combat and saves untouched</footer>
+  <script type="module" src="./chassisPreview.js?v=k3a2"></script>
 </body>
 </html>
