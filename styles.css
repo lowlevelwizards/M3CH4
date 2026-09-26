@@ -241,6 +241,8 @@ body.inspecting .look-heading, body.inspecting #cockpit-ui, body.inspecting #con
   box-shadow:inset 0 -6px #b87835,0 0 19px #ad7d3f55;
 }
 .fire-button:active { box-shadow:inset 0 3px #a06531; background:#f4c57d; }
+.fire-button.firing { box-shadow:inset 0 3px #a06531,0 0 13px #f4bb6b88; background:#f4c57d; }
+.fire-hint { display:block; margin-top:6px; font:700 7px/1 ui-monospace,monospace; letter-spacing:0; white-space:nowrap; }
 .reload-button {
   right:calc(max(10px,env(safe-area-inset-right)) + clamp(74px,12vw,105px));
   bottom:max(96px,calc(env(safe-area-inset-bottom) + 91px));

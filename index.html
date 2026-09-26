@@ -16,13 +16,13 @@
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
     "./assemblyPhysics.js": "./assemblyPhysics.js?v=g11",
     "./components.js": "./components.js?v=g11",
-    "./controls.js": "./controls.js?v=g11",
+    "./controls.js": "./controls.js?v=i1",
     "./functionalDamage.js": "./functionalDamage.js?v=g11",
     "./locomotion.js": "./locomotion.js?v=g11"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=e2" />
-    <title>MECH ARENA — 0.0.1h.1 — Persistent Machine</title>
+    <link rel="stylesheet" href="./styles.css?v=i1" />
+    <title>MECH ARENA — 0.0.1i — Aim & Fire Together</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -69,12 +69,12 @@
       </div>
       <div id="look-zone" class="look-zone" aria-label="drag to aim; the chassis follows when aim reaches the traverse edge">
         <div class="look-reticle">⌁</div>
-        <div class="control-caption">LOOK ONLY · CENTER VIEW AT TOP</div>
+        <div class="control-caption">LOOK WITHOUT FIRING</div>
       </div>
     </div>
     <button id="brake" class="pedal" type="button">BRAKE</button>
     <button id="reload" class="range-button reload-button" type="button">RELOAD</button>
-    <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire the installed cannon">FIRE</button>
+    <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire; drag to aim while firing">FIRE<span class="fire-hint" aria-hidden="true">DRAG TO AIM</span></button>
     <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
       <header>AUTOMATED HOSTILE RIG · TGT-01</header>
       <p>It uses the same localized armor and component condition as your rig. Damage its weapon, generator or command system to degrade or stop its return fire.</p>
@@ -128,6 +128,6 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=h1"></script>
+    <script type="module" src="./main.js?v=i1"></script>
   </body>
 </html>

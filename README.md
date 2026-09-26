@@ -1,14 +1,15 @@
-# MECH ARENA 0.0.1h.1 — Your Persistent Machine
+# MECH ARENA 0.0.1i — Aim & Fire Together
 
-Contained update to the working **0.0.1g.1.1** mobile build. This is a compiled mobile playtest PATCH, not a stand-alone game. Overlay these flat files onto your existing installation; leave unchanged files on the host.
+Flat-directory compiled **mobile playtest patch** for the working 0.0.1h.1 project. Overlay these files on that version; keep all other files. The separate source ZIP contains editable TypeScript for Vite (`npm install` and `npm run dev`).
 
-## New behavior
-- Saves the installed loadout, every owned component's serial/condition/wear/repair count, individual left/right drive condition, and player armor/housing integrity in versioned browser storage.
-- Saves automatically when you swap parts, repair, receive an incoming hit (including armor-only hits), or use developer damage controls. The game also flushes on Safari suspension/page exit.
-- Reopening the same site/Home Screen web app restores your rig **in the Garage**, not in combat; ammo and the hostile test opponent reset for each deployment.
-- If storage is blocked or an invalid save is encountered, a fresh test rig opens and a short status message is shown instead of crashing.
+## What to test on an iPhone (landscape)
 
-**Important:** Saves belong to the exact browser/origin where the game is hosted. A private tab, changing URLs/domains, deleting website data or installing on another device will not transfer your machine. Save export/import and backup recovery are deferred to h.2.
+1. Deploy from the Garage. Move/strafe with the left thumb as before.
+2. Use the right LOOK area to aim without shooting; this is unchanged.
+3. **Touch FIRE and keep holding.** The cannon fires immediately, then continues at its normal rate. **Drag that same thumb anywhere**, including beyond the visible button, to track the target while firing. Drag left/right to traverse and up/down to adjust elevation. Your aim must not jump when your thumb first touches FIRE.
+4. At the horizontal traverse edge, the chassis should rotate to follow just as it does when dragging LOOK. Release FIRE to stop shooting without recentering the view.
+5. Test holding FIRE through an automatic reload, canceling a drag, and returning to the Garage. Keyboard F, separate LOOK, BRAKE and RELOAD remain available.
 
-## Scope deliberately unchanged
-No new parts, damage systems, combat controls, economy, backup UI, match history or migrations. Keep the original 0.0.1g.1.1 files except for the changed files in this ZIP.
+This patch changes only combat touch ergonomics and the FIRE hint. It does not change locomotion, enemy behavior, damage, persistence, part definitions, or the flat-directory layout. Reload and empty-ammo restrictions still apply to the weapon itself, even while you keep aiming.
+
+**Installation:** The mobile playtest ZIP is an incremental patch, not a complete game. Upload it over the *working 0.0.1h.1 deployment* on the same static host, preserving unchanged files and the existing browser save. If Safari serves cached scripts, reload the URL (or add `?v=i1` to the URL).

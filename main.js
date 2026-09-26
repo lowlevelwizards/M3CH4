@@ -125,11 +125,26 @@ let inspecting = false;
 let selectedPart = null;
 let statusTimeout = null;
 let fireHeld = false;
+let firePointerId = null;
+let fireLastX = 0;
+let fireLastY = 0;
+let fireKeyHeld = false;
 let recoilFlash = 0;
 let reportFade = 0;
 let shotsFired = 0;
 let lastHit = 'NO SHOTS YET';
 const selectionButtons = new Map();
+function stopFireInput() {
+    // Release capture before changing screens so an old touch cannot fire on redeploy.
+    const captured = firePointerId;
+    firePointerId = null;
+    fireKeyHeld = false;
+    fireHeld = false;
+    fireButton.classList.remove('firing');
+    if (captured !== null && fireButton.hasPointerCapture(captured)) {
+        fireButton.releasePointerCapture(captured);
+    }
+}
 function showStatus(message) {
     fieldStatus.dataset.message = message;
     if (statusTimeout !== null)
@@ -400,7 +415,7 @@ function toggleInspection(force) {
         return;
     }
     inspecting = requested;
-    fireHeld = false;
+    stopFireInput();
     if (inspecting) {
         devPanel.classList.add('hidden');
         targetPanel.classList.add('hidden');
@@ -513,7 +528,7 @@ function showAppGuide() {
     appSheet.classList.remove('hidden');
     appSheet.setAttribute('aria-hidden', 'false');
     controls.setEnabled(false);
-    fireHeld = false;
+    stopFireInput();
 }
 function hideAppGuide() {
     appSheet.classList.add('hidden');
@@ -701,7 +716,10 @@ function renderAmmo() {
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
     reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
-    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational || weaponState.reloadLeft > 0;
+    // Preserve touch capture if an empty magazine starts reloading during a held
+    // FIRE drag. Aim remains usable; the weapon itself still refuses to fire.
+    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational ||
+        (weaponState.reloadLeft > 0 && firePointerId === null);
 }
 function renderTarget() {
     targetReadout.replaceChildren();
@@ -771,7 +789,7 @@ function attemptHostileFire(shotIndex) {
     testEndReason = disabledReason(playerCondition, output);
     if (testEndReason) {
         testEnded = true;
-        fireHeld = false;
+        stopFireInput();
         controls.setEnabled(false);
         faultStrip.textContent = `RIG DISABLED · ${testEndReason}`;
         faultStrip.classList.add('faulted');
@@ -831,23 +849,44 @@ function attemptFire() {
     renderAmmo();
 }
 fireButton.addEventListener('pointerdown', event => {
-    if (inspecting)
+    if (inspecting || testEnded || fireButton.disabled || firePointerId !== null)
         return;
     event.preventDefault();
+    firePointerId = event.pointerId;
+    fireLastX = event.clientX;
+    fireLastY = event.clientY;
     fireButton.setPointerCapture(event.pointerId);
     fireHeld = true;
+    fireButton.classList.add('firing');
     attemptFire(); // A quick tap must fire even if it ends before the next animation frame.
 });
-const endFire = () => { fireHeld = false; };
-fireButton.addEventListener('pointerup', endFire);
-fireButton.addEventListener('pointercancel', endFire);
-fireButton.addEventListener('lostpointercapture', endFire);
+fireButton.addEventListener('pointermove', event => {
+    if (event.pointerId !== firePointerId)
+        return;
+    event.preventDefault();
+    // Pointer capture keeps the gesture working outside the visible FIRE button.
+    // Both touch surfaces use the same aim mapping and preserve existing body follow.
+    controls.dragAim(event.clientX - fireLastX, event.clientY - fireLastY);
+    fireLastX = event.clientX;
+    fireLastY = event.clientY;
+});
+const endFirePointer = (event) => {
+    if (event.pointerId !== firePointerId)
+        return;
+    firePointerId = null;
+    fireHeld = fireKeyHeld;
+    fireButton.classList.remove('firing');
+};
+fireButton.addEventListener('pointerup', endFirePointer);
+fireButton.addEventListener('pointercancel', endFirePointer);
+fireButton.addEventListener('lostpointercapture', endFirePointer);
 fireButton.addEventListener('click', event => {
     if (event.detail === 0)
         attemptFire(); // keyboard accessibility
 });
 window.addEventListener('keydown', event => {
-    if (event.code === 'KeyF' && !event.repeat) {
+    if (event.code === 'KeyF' && !event.repeat && !inspecting && !testEnded) {
+        fireKeyHeld = true;
         fireHeld = true;
         attemptFire();
     }
@@ -856,9 +895,13 @@ window.addEventListener('keydown', event => {
             soundReload();
     }
 });
-window.addEventListener('keyup', event => { if (event.code === 'KeyF')
-    endFire(); });
-window.addEventListener('blur', endFire);
+window.addEventListener('keyup', event => {
+    if (event.code === 'KeyF') {
+        fireKeyHeld = false;
+        fireHeld = firePointerId !== null;
+    }
+});
+window.addEventListener('blur', stopFireInput);
 reloadButton.addEventListener('click', () => {
     if (weaponState && weaponSpec && startReload(weaponState, weaponSpec))
         soundReload();

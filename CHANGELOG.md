@@ -1,9 +1,10 @@
-# MECH ARENA 0.0.1h.1 — Persistent Machine
+# MECH ARENA 0.0.1i — Aim & Fire Together
 
-- Added strictly versioned, validated local owned-rig save and restore.
-- Records installed serials, all owned conditions and repairs, side-specific actuator damage and per-part armor/housing damage.
-- Autosaves when the machine actually changes; backup flush when page is backgrounded.
-- Launches into Garage after restoring; fresh hostile target and ammunition every deployment.
-- Handles blocked storage, future/invalid save versions without aborting the prototype.
+- FIRE now supports captured, relative one-finger drag to aim while held; tapping still fires immediately.
+- FIRE and LOOK share the exact same aim sensitivity, direction, pitch and traverse limits. Existing chassis body-follow continues to work while firing.
+- A held firing touch retains control across automatic reload; shot/reload/ammunition restrictions are unchanged.
+- Release, cancel, focus loss, Garage transitions and test end all clear firing state safely; keyboard F remains supported.
+- Small on-button `DRAG TO AIM` label and refreshed cache-busting on the compiled mobile page.
+- Added regression coverage for directional aiming, zero-jump touch start, clamp and body-follow handoff.
 
-Deferred: save import/export, backups, repair costs, ownership history, opponent persistence.
+Deliberately deferred: opponent locomotion, movement tuning, new parts, save export, firing-mode options, and UI redesign.

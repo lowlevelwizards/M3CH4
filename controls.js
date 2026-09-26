@@ -1,4 +1,12 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+/** Shared touch-aim mapping for the LOOK surface and a held FIRE button.
+ * Deltas, not absolute touch positions, avoid a camera jump when firing begins. */
+export function aimFromDrag(yaw, pitch, dx, dy) {
+    return {
+        yaw: clamp(yaw - dx * 0.0042, -AIM_YAW_LIMIT, AIM_YAW_LIMIT),
+        pitch: clamp(pitch - dy * 0.0034, -0.19, 0.16),
+    };
+}
 /** Convert mech-relative aim offset into body-turn intent. Right aim is negative
  * camera yaw in Three.js, while positive physics yaw turns the body right. */
 export function bodyFollowSteer(lookYaw) {
@@ -87,9 +95,7 @@ export class Controls {
             const dy = event.clientY - this.lookLastY;
             this.lookLastX = event.clientX;
             this.lookLastY = event.clientY;
-            // Three's negative camera yaw looks right; dragging right should look right.
-            this.lookYaw = clamp(this.lookYaw - dx * 0.0042, -AIM_YAW_LIMIT, AIM_YAW_LIMIT);
-            this.lookPitch = clamp(this.lookPitch - dy * 0.0034, -0.19, 0.16);
+            this.dragAim(dx, dy);
         });
         const lookEnd = (event) => {
             if (event.pointerId === this.lookPointer)
@@ -143,6 +149,14 @@ export class Controls {
     /** Preserve world aim while the chassis rotates to catch up with an aimed weapon. */
     compensateBodyTurn(deltaPhysicsYaw) {
         this.lookYaw = clamp(this.lookYaw + deltaPhysicsYaw, -AIM_YAW_LIMIT, AIM_YAW_LIMIT);
+    }
+    /** A second touch surface (FIRE) can request exactly the same aim movement. */
+    dragAim(dx, dy) {
+        if (!this.enabled)
+            return;
+        const next = aimFromDrag(this.lookYaw, this.lookPitch, dx, dy);
+        this.lookYaw = next.yaw;
+        this.lookPitch = next.pitch;
     }
     recenterLook() {
         this.lookYaw = 0;
