@@ -1,9 +1,0 @@
-{
-  "name": "m3ch4-assembly-foundation",
-  "version": "0.0.1-k.1",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "node --test tests/*.test.mjs"
-  }
-}
