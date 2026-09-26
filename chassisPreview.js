@@ -1,9 +1,9 @@
-/** Standalone k.3a.2 design study. Production scene/main/garage never import it. */
+/** Standalone k.3a.3 design study. Production scene/main/garage never import it. */
 import * as THREE from 'three';
 import { CONCEPT_CHASSIS, getConceptChassis, validateConceptChassis } from './chassisConcepts.js';
 import { buildConceptChassis } from './chassisConceptBuilder.js';
 import { buildSocketGizmos } from './chassisVisualKit.js';
-import { createFitPreviewController } from './chassisFitPreview.js';
+import { createFitPreviewController } from './chassisFitPreview.js?v=k3a3';
 
 const host=document.getElementById('viewport');
 const buttons=document.getElementById('frames');

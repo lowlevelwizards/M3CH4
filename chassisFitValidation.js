@@ -4,6 +4,7 @@
  * current live graph it can mate horizontal and vertical cardinal faces.
  */
 import { standardFitFixtures } from './chassisFitFixtures.js';
+import { planYardwalkerGuides } from './mobilityGuide.js';
 
 const UNIT_AXES = [
     [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1],
@@ -80,7 +81,7 @@ const issue=(severity,code,fixtureIds,message,socketId=null) => ({severity,code,
  * conservative envelope warnings separately. Intentional contact with the
  * mounting pad is exempted; nothing else is silently repositioned.
  */
-export function analyzeFit(chassis, fixtures=standardFitFixtures()) {
+export function analyzeFit(chassis, fixtures=standardFitFixtures(), options={}) {
     const poses=new Map(),issues=[],sockets=new Map();
     if(!chassis||!Array.isArray(chassis.sockets)||!Array.isArray(chassis.pieces))
         return {status:'blocked',poses,issues:[issue('error','bad-frame',[],'Missing chassis geometry or sockets.')],components:[]};
@@ -121,7 +122,15 @@ export function analyzeFit(chassis, fixtures=standardFitFixtures()) {
     // bearings are guide surfaces, not independently installable hardpoints.
     // Report the actual vertical gap; NEVER create fake automatic leg extensions.
     const mobility=poses.get('legs-yard');
-    if(mobility){
+    let guidePlan=null;
+    if(mobility&&options.mobilityGuides){
+        guidePlan=planYardwalkerGuides(chassis,mobility);
+        if(guidePlan.ok)issues.push(issue('review','guides-provisional',['legs-yard'],
+            'Two REAL frame-side drop guides reach the Yardwalker receiver faces. Preview fit only: clamp strength and adapter mass are not yet rated.','mobility'));
+        else issues.push(issue('review','guides-incompatible',['legs-yard'],
+            `Guide brackets cannot be authored: ${guidePlan.errors.join(' ')}`,'mobility'));
+    }
+    if(mobility&&!options.mobilityGuides){
         const bosses=chassis.pieces.filter(p=>p.kind==='hip-boss');
         if(bosses.length===2){
             const top=fixtureAabb(fixtures.find(f=>f.id==='legs-yard'),mobility).max[1];
@@ -132,5 +141,5 @@ export function analyzeFit(chassis, fixtures=standardFitFixtures()) {
         }
     }
     return {status:issues.some(i=>i.severity==='error')?'blocked':issues.some(i=>i.severity==='review')?'review':'clear',
-        poses,issues,components:fixtures.map(f=>({fixtureId:f.id,fixture:f,pose:poses.get(f.id)??null}))};
+        poses,issues,guidePlan,components:fixtures.map(f=>({fixtureId:f.id,fixture:f,pose:poses.get(f.id)??null}))};
 }

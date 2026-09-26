@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { CHASSIS_MATERIALS } from './chassisConceptBuilder.js';
+import { buildYardwalkerVisual } from './yardwalkerVisual.js';
 
 const steel=CHASSIS_MATERIALS.iron;
 const bright=CHASSIS_MATERIALS.machined;
@@ -39,9 +40,10 @@ function addMountFace(root,fixture){
 }
 
 /** Return an unpositioned part: (0,0,0) is the component envelope center. */
-export function buildFitFixture(fixture){
+export function buildFitFixture(fixture,{mobilityModel='engineered'}={}){
     if(!fixture?.envelope?.every(n=>Number.isFinite(n)&&n>0))
         throw new Error('An authored physical component envelope is required.');
+    if(fixture.id==='legs-yard'&&mobilityModel==='engineered')return buildYardwalkerVisual(fixture);
     const [w,h,d]=fixture.envelope;
     const root=new THREE.Group();root.name=`fit-fixture:${fixture.id}`;
     root.userData={fitFixtureId:fixture.id,previewOnly:true};

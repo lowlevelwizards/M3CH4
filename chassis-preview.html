@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#171d1b"/>
-  <title>M3CH4 — Equipment Fit Lab k.3a.2</title>
+  <title>M3CH4 — Mobility Anatomy Lab k.3a.3</title>
   <script type="importmap">{
     "imports": {"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}
   }</script>
@@ -30,7 +30,7 @@
     #fit-results .fit-event.review{border-left:3px solid #d0af55}
     #fit-results .fit-event.error{border-left:3px solid #cf8064}
     #fit-results .fit-event.pass{border-left:3px solid #699b7f}
-    #fit-panel[hidden],#fixture-visibility[hidden]{display:none!important}
+    #fit-panel[hidden],#fixture-visibility[hidden],#mobility-study[hidden]{display:none!important}
     h2{font-size:14px;margin:0 0 9px}h3{font-size:11px;letter-spacing:.12em;margin:14px 0 7px;color:#b7c9bb}
     button{color:inherit;background:#35433e;border:1px solid #586a62;padding:9px;border-radius:6px;text-align:left;cursor:pointer;font:inherit;min-height:38px}
     button[aria-pressed="true"]{border-color:#d5ad55;background:#5c5134}.frames{display:grid;gap:6px}
@@ -42,7 +42,7 @@
   </style>
 </head>
 <body>
-  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.2 · Three bare chassis + shared equipment fit · Preview only</small></div><a href="./index.html">← Main game</a></header>
+  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.3 · Engineered Yardwalker + real-length guide studies · Preview only</small></div><a href="./index.html">← Main game</a></header>
   <main>
     <div id="viewport" aria-label="3D bare chassis design preview">
       <div id="axis-hint">FRONT −Z · RIGHT +X · UP +Y</div>
@@ -57,6 +57,15 @@
         <button type="button" data-assembly-mode="assembled" aria-pressed="false">ASSEMBLED</button>
       </div>
       <div id="fixture-visibility" hidden aria-label="Equipment visibility (does not alter mounting)"></div>
+      <div id="mobility-study" hidden>
+        <h3>YARDWALKER ENGINEERING STUDY</h3>
+        <div class="fit-modes" role="group" aria-label="Compare Yardwalker models">
+          <button type="button" data-mobility-model="engineered" aria-pressed="true">ENGINEERED</button>
+          <button type="button" data-mobility-model="schematic" aria-pressed="false">OLD FIT BLOCK</button>
+        </div>
+        <label><input type="checkbox" id="show-mobility-guides" checked/> Show 2 measured, unrated frame-side guide brackets</label>
+        <p class="muted">Central U1 pad + side-guide receivers are visible real geometry. Guides bridge authored frame bosses to leg saddle; they are design-only, not mass-rated or a second playable leg mount. Turn guides off to inspect the original gaps.</p>
+      </div>
       <h3>CAMERA STUDY</h3>
       <div id="views" role="group" aria-label="Camera view presets">
         <button type="button" data-view="quarter" aria-pressed="true">3/4</button>
@@ -69,7 +78,7 @@
       <div id="fit-panel" hidden>
         <h3>STANDARD EQUIPMENT FIT</h3>
         <div id="fit-summary" role="status" aria-live="polite"></div>
-        <p class="muted">Envelopes and masses come from the live catalogue; component models are simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
+        <p class="muted">Envelopes and masses come from the live catalogue; Yardwalker now uses a named mechanical rest-pose; other components remain simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
         <div id="fit-selected" aria-live="polite"></div>
         <div id="fit-results"></div>
       </div>
@@ -82,7 +91,7 @@
       <p class="muted">The hip bosses are visible structure, not two independent functional leg slots. The debug rings sit on metal mount faces rather than floating in space. Provisional socket ratings have not been added to gameplay.</p>
     </aside>
   </main>
-  <footer>Design preview only · ASSEMBLED MODE uses temporary equipment maquettes · Original game, inventory, combat and saves untouched</footer>
-  <script type="module" src="./chassisPreview.js?v=k3a2"></script>
+  <footer>Design preview only · New Yardwalker rest-pose is NOT in live game · Existing garage, locomotion, combat and saves untouched</footer>
+  <script type="module" src="./chassisPreview.js?v=k3a3"></script>
 </body>
 </html>
