@@ -1,15 +1,17 @@
-# MECH ARENA 0.0.1i — Aim & Fire Together
+# MECH ARENA 0.0.1j.1 — First Moving Opponent
 
-Flat-directory compiled **mobile playtest patch** for the working 0.0.1h.1 project. Overlay these files on that version; keep all other files. The separate source ZIP contains editable TypeScript for Vite (`npm install` and `npm run dev`).
+This is a **flat-directory mobile playtest PATCH**, not a complete project. Overlay its files on your working **0.0.1i** static site. Keep all unchanged files and keep all other static files.
 
-## What to test on an iPhone (landscape)
+## Included
+- Existing hostile target now owns a real `RigState` and uses the same fixed-step `stepRig` movement and installed-component locomotion properties as the player.
+- Small deterministic maneuver: approach → strafe right → retreat → strafe left → brace, repeat. The heavy body turns toward your real position with limited torque and yaw inertia.
+- Moving target model, actual moving component hit volumes and actual moving cannon muzzle stay synchronized. Its existing weapon only fires while you're within its forward firing arc.
+- Its current pooled mobility integrity and generator condition reduce its *actual* drive and turning output; disabling mobility stops powered movement. The two leg sides remain one pooled target condition until a later build.
+- Both rigs see the other as a moving solid obstacle; existing arena walls and barriers still apply.
+- DEV readout shows hostile maneuver/position, and the HOSTILE panel shows maneuver and drive health.
 
-1. Deploy from the Garage. Move/strafe with the left thumb as before.
-2. Use the right LOOK area to aim without shooting; this is unchanged.
-3. **Touch FIRE and keep holding.** The cannon fires immediately, then continues at its normal rate. **Drag that same thumb anywhere**, including beyond the visible button, to track the target while firing. Drag left/right to traverse and up/down to adjust elevation. Your aim must not jump when your thumb first touches FIRE.
-4. At the horizontal traverse edge, the chassis should rotate to follow just as it does when dragging LOOK. Release FIRE to stop shooting without recentering the view.
-5. Test holding FIRE through an automatic reload, canceling a drag, and returning to the Garage. Keyboard F, separate LOOK, BRAKE and RELOAD remain available.
+## Explicitly deferred
+No pathfinding, obstacle navigation, tactical decision-making, gait animation, separate target-side leg damage, saved enemy state or new locomotion categories. Your existing player-owned garage save format is unchanged.
 
-This patch changes only combat touch ergonomics and the FIRE hint. It does not change locomotion, enemy behavior, damage, persistence, part definitions, or the flat-directory layout. Reload and empty-ammo restrictions still apply to the weapon itself, even while you keep aiming.
-
-**Installation:** The mobile playtest ZIP is an incremental patch, not a complete game. Upload it over the *working 0.0.1h.1 deployment* on the same static host, preserving unchanged files and the existing browser save. If Safari serves cached scripts, reload the URL (or add `?v=i1` to the URL).
+## Mobile installation
+Extract the **playtest PATCH** into your existing 0.0.1i hosted directory, replacing only matching files and retaining all others. Keep the same origin to preserve your Safari garage save. `index.html` must be replaced: it starts `main.js?v=j1` (not `main.ts`) and supplies the Three.js import map with a new `scene.js` revision.

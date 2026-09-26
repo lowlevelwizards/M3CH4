@@ -9,6 +9,7 @@ import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './
 import { createArenaScene } from './scene.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
+import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
 import { loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileOutput, hostileSpread, } from './hostileRig.js';
 const FIXED_DT = 1 / 60;
@@ -28,7 +29,7 @@ catch { /* Safari storage may be unavailable. */ }
 const loadedMachine = loadMachine(saveStorage);
 const assembly = loadedMachine.assembly;
 const damage = loadedMachine.damage;
-// A different, stationary target built with the same module definitions.
+// A separately owned hostile mech built with the same module definitions.
 const targetAssembly = makeRangeTarget();
 let targetCondition = createTargetCondition(targetAssembly);
 // Incoming fire uses the same localized armor/integrity representation, seeded from the owned player's current condition.
@@ -38,13 +39,41 @@ let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
 const hostileWeaponSpec = weaponFor(targetAssembly);
 let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
 let hostileController = createHostileController();
+let hostileMotion = createEnemyMotion();
+let hostileRig = createRigState();
+hostileRig.z = 0;
+hostileRig.yaw = Math.PI; // Face the player who deploys at z=8.
+const hostileBaseConfig = deriveRigConfig(targetAssembly);
+if (!hostileBaseConfig)
+    throw new Error('Hostile training assembly is not fieldable.');
+const hostileDriveDamage = { drives: {} };
 let testEnded = false;
 let testEndReason = null;
+// Each mech sees the other as a moving physical obstacle. Neither collides with itself.
+const hostileObstacle = { id: 'hostile-rig', minX: -1, maxX: 1, minZ: -.9, maxZ: .9 };
+const pilotObstacle = { id: 'pilot-rig', minX: -1, maxX: 1, minZ: 7.1, maxZ: 8.9 };
 const rangeWorld = {
     ...DEFAULT_WORLD,
-    obstacles: [...DEFAULT_WORLD.obstacles,
-        { id: 'stationary-target', minX: -1.0, maxX: 1.0, minZ: -.65, maxZ: .65 }],
+    obstacles: [...DEFAULT_WORLD.obstacles, hostileObstacle],
 };
+const hostileWorld = { ...DEFAULT_WORLD, obstacles: [...DEFAULT_WORLD.obstacles, pilotObstacle] };
+function placeMovingObstacle(box, x, z, radius) {
+    box.minX = x - radius;
+    box.maxX = x + radius;
+    box.minZ = z - radius;
+    box.maxZ = z + radius;
+}
+function hostileLocomotionConfig() {
+    // The target's existing local integrity remains authoritative. Its paired legs
+    // share the pooled mobility condition until independent side hits ship in j.3.
+    const mobility = installedPart(targetAssembly, 'mobility');
+    if (mobility) {
+        const part = targetCondition.parts.mobility;
+        const health = Math.max(0, part.integrity / Math.max(1, part.maxIntegrity));
+        hostileDriveDamage.drives[mobility.instance.serial] = { left: health, right: health };
+    }
+    return derateRigConfig(hostileBaseConfig, functionalOutput(targetAssembly, hostileDriveDamage));
+}
 let inspection = inspectAssembly(assembly);
 let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
@@ -133,6 +162,7 @@ let recoilFlash = 0;
 let reportFade = 0;
 let shotsFired = 0;
 let lastHit = 'NO SHOTS YET';
+let targetPanelRefresh = 0;
 const selectionButtons = new Map();
 function stopFireInput() {
     // Release capture before changing screens so an old touch cannot fire on redeploy.
@@ -427,6 +457,16 @@ function toggleInspection(force) {
         // Each deployment is a new training sortie. Owned damage persists; ammunition and
         // the automated range controller are reset for a clean test run.
         rig = createRigState();
+        hostileRig = createRigState();
+        hostileRig.z = 0;
+        hostileRig.yaw = Math.PI;
+        hostileMotion = createEnemyMotion();
+        // The opponent is a fresh training machine each sortie; player damage is NOT reset.
+        targetCondition = createTargetCondition(targetAssembly);
+        mirrorTargetCondition(targetAssembly, targetCondition);
+        arena.resetTargetDamage(targetCondition);
+        arena.updateTargetRigVisual(hostileRig);
+        placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
         controls.recenterLook();
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
@@ -614,6 +654,7 @@ function frame(now) {
         while (accumulator >= FIXED_DT && steps < 8) {
             const followSteer = bodyFollowSteer(input.lookYaw);
             const bodySteer = THREE.MathUtils.clamp(input.steer + followSteer, -1, 1);
+            placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
             const yawBefore = rig.yaw;
             stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, rangeWorld);
             // When aim drives the chassis, counter-rotate the weapon/camera by the exact
@@ -622,6 +663,13 @@ function frame(now) {
                 controls.compensateBodyTurn(rig.yaw - yawBefore);
                 input = controls.sample();
             }
+            placeMovingObstacle(pilotObstacle, rig.x, rig.z, 1);
+            const hostile = hostileOutput(targetCondition);
+            const canManeuver = !testEnded && hostile.structure > .05 && hostile.command > .05 &&
+                hostile.power > .12 && hostile.mobility > .05;
+            const maneuver = advanceEnemyMotion(hostileMotion, hostileRig, rig, FIXED_DT, canManeuver);
+            stepRig(hostileRig, maneuver, FIXED_DT, hostileLocomotionConfig(), hostileWorld);
+            arena.updateTargetRigVisual(hostileRig); // Shots and visible parts use the same physics pose.
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
                 if (fireHeld)
@@ -648,6 +696,13 @@ function frame(now) {
     input = controls.sample();
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt);
     arena.updateCombatEffects(frameDt);
+    if (!inspecting && !targetPanel.classList.contains('hidden')) {
+        targetPanelRefresh += frameDt;
+        if (targetPanelRefresh > .4) {
+            targetPanelRefresh = 0;
+            renderTarget();
+        }
+    }
     recoilFlash = Math.max(0, recoilFlash - frameDt);
     reportFade = Math.max(0, reportFade - frameDt);
     rangeCrosshair.classList.toggle('confirmed-hit', recoilFlash > 0);
@@ -687,6 +742,7 @@ function frame(now) {
             `ROUNDS    ${weaponState?.loaded ?? 0}/${weaponState?.reserve ?? 0}`,
             `SHOTS     ${shotsFired}`,
             `TARGET    ${targetCondition.shotsHit} HITS`,
+            `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `LAST HIT  ${lastHit}`,
         ].join('\n');
     }
@@ -723,6 +779,10 @@ function renderAmmo() {
 }
 function renderTarget() {
     targetReadout.replaceChildren();
+    const behavior = document.createElement('div');
+    behavior.className = 'target-row';
+    behavior.textContent = `MOTION: ${hostileMotion.phase} · ACTUAL DRIVE ${Math.round(hostileOutput(targetCondition).mobility * 100)}%`;
+    targetReadout.appendChild(behavior);
     for (const slot of SLOTS) {
         const part = targetCondition.parts[slot];
         const row = document.createElement('div');
@@ -749,6 +809,8 @@ function attemptHostileFire(shotIndex) {
     const hostile = hostileOutput(targetCondition);
     if (!hostile.operational)
         return;
+    if (!withinFiringArc(hostileRig, rig))
+        return; // No firing magically through its own back.
     const consumed = fireWeapon(hostileWeaponState, hostileWeaponSpec);
     if (consumed === null)
         return;
@@ -916,6 +978,12 @@ resetTarget.addEventListener('click', () => {
     mirrorTargetCondition(targetAssembly, targetCondition);
     hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
     hostileController = createHostileController(.7);
+    hostileMotion = createEnemyMotion();
+    hostileRig = createRigState();
+    hostileRig.z = 0;
+    hostileRig.yaw = Math.PI;
+    arena.updateTargetRigVisual(hostileRig);
+    placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
     arena.resetTargetDamage(targetCondition);
     lastHit = 'HOSTILE RIG REBUILT';
     shotReport.textContent = 'HOSTILE RIG RESET · ARMOR AND COMPONENTS RESTORED';

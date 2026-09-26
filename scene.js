@@ -22,7 +22,7 @@ export function createArenaScene(initial, targetAssembly) {
     const cockpit = buildCockpit(scene);
     const debugColliders = buildDebugColliders(scene);
     debugColliders.visible = false;
-    // The stationary target is assembled from the SAME definitions and geometry
+    // The moving target is assembled from the SAME definitions and geometry
     // as the player. It has its own installed serials and never inherits player swaps.
     let targetExterior = buildExteriorRig(targetAssembly);
     targetExterior.root.position.set(0, 0, 0);
@@ -209,6 +209,13 @@ export function createArenaScene(initial, targetAssembly) {
             camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
             camera.rotation.set(lookPitch + cockpitPitch * 0.35, renderYaw + lookYaw, cockpitRoll * 0.25, 'YXZ');
         }
+    }
+    function updateTargetRigVisual(state) {
+        // Use the fixed-step physics pose for both rendering and weapon raycasts.
+        // A visual-only translation would make moving parts impossible to hit accurately.
+        targetExterior.root.position.set(state.x, 0, state.z);
+        targetExterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
+        targetExterior.root.updateWorldMatrix(true, true);
     }
     function setInspection(enabled) {
         inspecting = enabled;
@@ -520,7 +527,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
     };
