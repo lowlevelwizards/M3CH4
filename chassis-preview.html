@@ -2,47 +2,59 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#171d1b"/>
-  <title>M3CH4 — Chassis Lab k.3a</title>
+  <title>M3CH4 — Bare Chassis Studies k.3a.1</title>
   <script type="importmap">{
-    "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js" }
+    "imports": {"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}
   }</script>
   <style>
     *{box-sizing:border-box}html,body{height:100%;margin:0;background:#151c1b;color:#f0ebdf;font:14px system-ui,-apple-system,sans-serif}
-    body{display:flex;flex-direction:column}header{padding:13px 17px 9px;border-bottom:1px solid #43504a;display:flex;justify-content:space-between;align-items:center;gap:8px}
-    header strong{font-size:18px;letter-spacing:.11em}header small,.muted{color:#aabbb1;font-size:11px}a{color:#b9d9d0}
-    main{display:flex;flex:1;min-height:0}#viewport{flex:1;min-width:0;min-height:240px;position:relative;touch-action:none}
-    #viewport canvas{display:block;width:100%;height:100%}#hint{position:absolute;left:10px;bottom:10px;color:#c8d5cd;font-size:10px;pointer-events:none}
-    aside{width:min(310px,38vw);padding:13px;overflow:auto;background:#222b28;border-left:1px solid #43504a}
-    h2{font-size:14px;margin:0 0 10px}h3{font-size:11px;letter-spacing:.12em;margin:15px 0 8px;color:#b4c6ba}
-    button{color:inherit;background:#35433e;border:1px solid #586a62;padding:9px;border-radius:7px;text-align:left;cursor:pointer;font:inherit;min-height:38px}
+    body{display:flex;flex-direction:column}header{padding:12px 16px 9px;border-bottom:1px solid #43504a;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    header strong{font-size:18px;letter-spacing:.11em}header small,.muted{color:#b4c4ba;font-size:11px}a{color:#bbd8cf}
+    main{display:flex;flex:1;min-height:0}#viewport{flex:1;min-width:0;min-height:230px;position:relative;touch-action:none}
+    #viewport canvas{display:block;width:100%;height:100%}#hint{position:absolute;left:12px;bottom:10px;color:#ccd7ce;font-size:10px;pointer-events:none}
+    #axis-hint{position:absolute;left:12px;top:12px;color:#d4e0d8;font-size:10px;pointer-events:none;background:#1b2622b3;padding:5px 7px;border-radius:3px}
+    aside{width:min(332px,38vw);padding:13px;overflow:auto;background:#222b28;border-left:1px solid #43504a}
+    h2{font-size:14px;margin:0 0 9px}h3{font-size:11px;letter-spacing:.12em;margin:14px 0 7px;color:#b7c9bb}
+    button{color:inherit;background:#35433e;border:1px solid #586a62;padding:9px;border-radius:6px;text-align:left;cursor:pointer;font:inherit;min-height:38px}
     button[aria-pressed="true"]{border-color:#d5ad55;background:#5c5134}.frames{display:grid;gap:6px}
-    label{display:block;padding:8px 0}#details{white-space:pre-wrap;line-height:1.55;background:#18211e;padding:10px;border-radius:6px;min-height:88px;font-size:12px}
+    #views{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#views button{text-align:center;font-size:11px;padding:7px 4px}
+    label{display:block;padding:9px 0}#details{white-space:pre-wrap;line-height:1.50;background:#18211e;padding:10px;border-radius:6px;min-height:110px;font-size:12px}
     .legend{display:grid;grid-template-columns:12px 1fr;gap:5px 8px;font-size:11px;color:#d0d8d2;align-items:center}
     .swatch{width:10px;height:10px;border-radius:50%}footer{padding:7px 15px;border-top:1px solid #43504a;color:#a6b3a9;font-size:11px}
-    @media(max-width:660px){main{flex-direction:column}aside{width:100%;max-height:43%;border-left:0;border-top:1px solid #43504a}header strong{font-size:14px}}
+    @media(max-width:660px){main{flex-direction:column}aside{width:100%;max-height:45%;border-left:0;border-top:1px solid #43504a}header strong{font-size:14px}}
   </style>
 </head>
 <body>
-  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a · Existing structures only · Schematic proxies</small></div><a href="./index.html">← Main game</a></header>
+  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.1 · Three new BARE structural studies · Not installed in the game</small></div><a href="./index.html">← Main game</a></header>
   <main>
-    <div id="viewport" aria-label="3D standalone chassis preview"><div id="hint">DRAG TO ROTATE · SCROLL/PINCH TO ZOOM · TAP A SOCKET</div></div>
+    <div id="viewport" aria-label="3D bare chassis design preview">
+      <div id="axis-hint">FRONT −Z · RIGHT +X · UP +Y</div>
+      <div id="hint">DRAG TO ROTATE · PINCH/SCROLL TO ZOOM · SOCKETS OFF BY DEFAULT</div>
+    </div>
     <aside>
-      <h2>EXISTING FRAME BASELINES</h2>
-      <div id="frames" class="frames" role="group" aria-label="Choose frame"></div>
-      <label><input id="show-sockets" type="checkbox" checked/> Show actual game socket gizmos</label>
-      <h3>SELECTED SOCKET</h3><div id="details" aria-live="polite">Select a colored socket to inspect its real mount definition.</div>
-      <h3>ROLE COLORS</h3>
+      <h2>BARE STRUCTURAL FRAMES</h2>
+      <div id="frames" class="frames" role="group" aria-label="Choose chassis concept"></div>
+      <h3>ORTHOGRAPHIC STUDY</h3>
+      <div id="views" role="group" aria-label="Camera view presets">
+        <button type="button" data-view="quarter" aria-pressed="true">3/4</button>
+        <button type="button" data-view="front" aria-pressed="false">Front</button>
+        <button type="button" data-view="side" aria-pressed="false">Right</button>
+        <button type="button" data-view="top" aria-pressed="false">Top</button>
+      </div>
+      <label><input id="show-sockets" type="checkbox"/> Overlay tiny socket role rings (tap to inspect)</label>
+      <h3>STRUCTURE / SELECTED MOUNT</h3><div id="details" aria-live="polite">Choose a bare chassis.</div>
+      <h3>DEBUG RING COLORS</h3>
       <div class="legend"><span class="swatch" style="background:#e2b13f"></span>Command
-      <span class="swatch" style="background:#829a66"></span>Power
-      <span class="swatch" style="background:#c47e5a"></span>Paired mobility
-      <span class="swatch" style="background:#579a9c"></span>Combat
-      <span class="swatch" style="background:#858e94"></span>Utility</div>
-      <p class="muted">Marker size shows light/medium/heavy standard. The paired-leg system still uses ONE functional mobility socket. This page never edits your build or save.</p>
+        <span class="swatch" style="background:#829a66"></span>Power
+        <span class="swatch" style="background:#c47e5a"></span>One paired-mobility input
+        <span class="swatch" style="background:#579a9c"></span>Combat / future tools
+        <span class="swatch" style="background:#858e94"></span>Utility</div>
+      <p class="muted">The hip bosses are visible structure, not two independent functional leg slots. The debug rings sit on metal mount faces rather than floating in space. Provisional socket ratings have not been added to gameplay.</p>
     </aside>
   </main>
-  <footer>Preview-only | No new parts installed | Original garage, AI, combat and saves unchanged</footer>
-  <script type="module" src="./chassisPreview.js?v=k3a"></script>
+  <footer>Design preview only · No legs, cabs, generator or weapons installed · Inventory, original game, combat and saves untouched</footer>
+  <script type="module" src="./chassisPreview.js?v=k3a1"></script>
 </body>
 </html>
