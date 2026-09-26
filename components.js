@@ -1,3 +1,4 @@
+import { defaultFrameSockets, ensureAssemblyGraph, graphFromStations, graphMatchesStations, graphWorldPoses, proposeAttachment, proposeRemoval, validateGraph, LEGACY_HIP_ADAPTER } from './assemblyGraph.js';
 export const SLOTS = ['structure', 'mobility', 'power', 'command', 'combat'];
 export const SLOT_CENTERS = {
     structure: [0, 1.82, 0.13],
@@ -28,7 +29,17 @@ export const CATALOG = [
     // b.6: one additional frame; earlier definition IDs, owned serials and physics are preserved.
     { id: 'frame-wedge', name: 'W-3 Wedge monocoque', slot: 'structure', massKg: 1450, center: SLOT_CENTERS.structure, envelope: [1.88, .84, 1.88], accepts: 'U1', description: 'Shallow tapered monocoque with a sloped armored nose, buried structural spine and low roof-mounted U1 station. Carries up to 4,850 kg.', powerKw: 0, loadLimitKg: 4850, functionReady: true },
 ];
+// Independent mechanical mounting metadata; mesh geometry and hit envelopes remain unchanged.
+for (const part of CATALOG) {
+    part.mountSize = part.slot === 'structure' ? null : part.accepts === 'H2' ? 'heavy' : 'medium';
+    part.sockets = part.slot === 'structure' ? defaultFrameSockets(SLOT_CENTERS, part.center) : [];
+}
 export const BY_ID = new Map(CATALOG.map(part => [part.id, part]));
+export const ADAPTER_DEFINITIONS = new Map([[LEGACY_HIP_ADAPTER.id, LEGACY_HIP_ADAPTER]]);
+export { graphWorldPoses, proposeAttachment, proposeRemoval, validateGraph };
+export function assemblyGraph(assembly) {
+    return assembly.graph || (assembly.graph = graphFromStations(assembly, BY_ID));
+}
 export function partsFor(slot) { return CATALOG.filter(part => part.slot === slot); }
 export function makeTestAssembly() {
     const owned = CATALOG.map((part, index) => ({
@@ -37,7 +48,7 @@ export function makeTestAssembly() {
         condition: 1, wear: 0, repairs: 0,
     }));
     const serialOf = (definitionId) => owned.find(p => p.definitionId === definitionId).serial;
-    return {
+    const assembly = {
         serial: 'SR-01', name: 'SCRAPYARD RIG', owned,
         installed: {
             structure: serialOf('frame-sr'), mobility: serialOf('legs-yard'),
@@ -45,6 +56,8 @@ export function makeTestAssembly() {
             combat: serialOf('gun-cannon'),
         },
     };
+    assembly.graph = graphFromStations(assembly, BY_ID);
+    return assembly;
 }
 export function installedPart(assembly, slot) {
     const serial = assembly.installed[slot];
@@ -54,6 +67,25 @@ export function installedPart(assembly, slot) {
     const definition = instance && BY_ID.get(instance.definitionId);
     return instance && definition && definition.slot === slot ? { instance, definition } : null;
 }
+/** The legacy garage can only safely rewrite the original five-station shape.
+ * Refuse an edit rather than erase unfamiliar nested branches or mounting rotations.
+ * The direct-builder will eventually handle reparenting these branches explicitly.
+ */
+function assertLegacyLayout(assembly, graph) {
+    const standard = graphFromStations(assembly, BY_ID);
+    if (!graphMatchesStations(assembly, graph, BY_ID) || graph.root !== standard.root ||
+        Object.keys(graph.nodes).length !== Object.keys(standard.nodes).length ||
+        Object.entries(standard.nodes).some(([serial, expected]) => {
+            const node = graph.nodes[serial];
+            return !node || node.definitionId !== expected.definitionId ||
+                node.parentSerial !== expected.parentSerial || node.parentSocket !== expected.parentSocket ||
+                node.rotationQuarterTurns !== 0;
+        })) throw new Error('Custom mounts are present. Rehome or remove them in the advanced builder before using the original station controls.');
+}
+/** Existing five-station garage bridge. Validate a proposed hierarchy before any
+ * installed serial or graph changes. A frame swap rehomes its known legacy stations.
+ * This intentionally does not yet expose arbitrary socket placement in the garage.
+ */
 export function equip(assembly, slot, definitionId) {
     const definition = BY_ID.get(definitionId);
     if (!definition || definition.slot !== slot)
@@ -61,10 +93,63 @@ export function equip(assembly, slot, definitionId) {
     const owned = assembly.owned.find(part => part.definitionId === definitionId);
     if (!owned)
         throw new Error(`Not owned: ${definitionId}`);
-    assembly.installed[slot] = owned.serial; // installing an old part preserves its identity
+    const current = ensureAssemblyGraph(assembly, BY_ID);
+    assertLegacyLayout(assembly, current);
+    const oldSerial = assembly.installed[slot];
+    if (oldSerial && oldSerial !== owned.serial && slot !== 'structure') {
+        // Never discard equipment mounted beneath a replaced module.
+        const removal = proposeRemoval(current, oldSerial);
+        if (!removal.ok) throw new Error(removal.reason);
+    }
+    // Frame swaps transfer all existing legacy stations; custom child branches must
+    // be explicitly removed/reparented by a later direct-builder workflow.
+    if (slot === 'structure' && oldSerial && oldSerial !== owned.serial) {
+        const nodes = Object.values(current.nodes);
+        const expected = new Set(Object.values(assembly.installed));
+        const adapters = new Set(nodes.filter(n => n.virtual).map(n => n.serial));
+        if (nodes.some(n => !expected.has(n.serial) && !adapters.has(n.serial)))
+            throw new Error('This frame supports custom assemblies; remove or rehome them before swapping frames.');
+    }
+    const installed = { ...assembly.installed, [slot]: owned.serial };
+    const candidate = { ...assembly, installed };
+    const graph = graphFromStations(candidate, BY_ID);
+    const verdict = validateGraph(graph, candidate, BY_ID);
+    if (!verdict.valid) throw new Error(verdict.errors.join(' '));
+    assembly.installed = installed;
+    assembly.graph = graph;
+    delete assembly.mountNotice;
+    return { ok: true, serial: owned.serial };
 }
+/** A parent with children is never silently unequipped. Existing parts stay owned.
+ * The legacy UI ignores our result for now; the inspector also surfaces the notice.
+ */
 export function remove(assembly, slot) {
-    delete assembly.installed[slot];
+    const fitted = installedPart(assembly, slot);
+    if (!fitted) return { ok: true, detached: [] };
+    const graph = ensureAssemblyGraph(assembly, BY_ID);
+    try { assertLegacyLayout(assembly, graph); }
+    catch (error) { assembly.mountNotice = error.message; return { ok: false, reason: error.message }; }
+    const node = graph.nodes[fitted.instance.serial];
+    const relevant = node && slot === 'mobility' && node.parentSerial?.startsWith('AD-')
+        ? node.parentSerial : fitted.instance.serial;
+    const result = proposeRemoval(graph, relevant);
+    // The legacy interface has no reparent confirmation yet; fail closed.
+    if (!result.ok) {
+        assembly.mountNotice = result.reason;
+        return result;
+    }
+    // Removing a frame with empty child sockets is safe; other legacy stations
+    // remain absent by construction because removal of occupied parents fails.
+    const installed = { ...assembly.installed };
+    delete installed[slot];
+    const candidate = { ...assembly, installed };
+    const next = graphFromStations(candidate, BY_ID);
+    const verdict = validateGraph(next, candidate, BY_ID);
+    if (!verdict.valid) return { ok: false, reason: verdict.errors.join(' ') };
+    assembly.installed = installed;
+    assembly.graph = next;
+    delete assembly.mountNotice;
+    return { ok: true, detached: result.detached };
 }
 /** One explicit, inspectable adapter proof. Never silently fabricate arbitrary universal geometry. */
 export function adapterFor(assembly, slot) {
@@ -96,8 +181,12 @@ export function inspectAssembly(assembly) {
         const part = installedPart(assembly, slot);
         return part && part.definition.accepts !== PORTS[slot] && !adapterFor(assembly, slot);
     });
+    // Check the authoritative structural graph alongside the legacy station view.
+    // Only old objects without a graph are migrated here; malformed graphs fail closed.
+    const graph = assemblyGraph(assembly);
+    const graphCheck = validateGraph(graph, assembly, BY_ID);
     const checks = [
-        { id: 'structure', label: 'Structure', passes: !!frame && noDuplicateOwnership && invalidSlotReferences.length === 0 && !repeatedInstall && mountErrors.length === 0 && massKg <= (frame?.loadLimitKg ?? 0), reason: !frame ? 'Install a connected frame.' : (!noDuplicateOwnership || invalidSlotReferences.length || repeatedInstall) ? 'Duplicate or invalid component identity.' : mountErrors.length ? `Unresolved mounts: ${mountErrors.join(', ')}.` : massKg > (frame.loadLimitKg ?? 0) ? `Frame exceeds ${frame.loadLimitKg} kg rating.` : 'Load-bearing frame and mount interfaces connected.' },
+        { id: 'structure', label: 'Structure', passes: !!frame && noDuplicateOwnership && invalidSlotReferences.length === 0 && !repeatedInstall && mountErrors.length === 0 && graphCheck.valid && massKg <= (frame?.loadLimitKg ?? 0), reason: !frame ? 'Install a connected frame.' : (!noDuplicateOwnership || invalidSlotReferences.length || repeatedInstall) ? 'Duplicate or invalid component identity.' : mountErrors.length ? `Unresolved mounts: ${mountErrors.join(', ')}.` : !graphCheck.valid ? graphCheck.errors[0] : assembly.mountNotice ? assembly.mountNotice : massKg > (frame.loadLimitKg ?? 0) ? `Frame exceeds ${frame.loadLimitKg} kg rating.` : 'Load-bearing frame and mount interfaces connected.' },
         { id: 'mobility', label: 'Mobility', passes: !!mover?.functionReady && massKg <= (mover?.loadLimitKg ?? 0), reason: !mover ? 'Install a walking or rolling assembly.' : massKg > (mover.loadLimitKg ?? 0) ? `Installed mass exceeds ${mover.loadLimitKg} kg leg rating.` : 'Powered, load-rated locomotion assembly installed.' },
         { id: 'power', label: 'Power', passes: powerAvailableKw >= powerUsedKw && powerAvailableKw > 0, reason: powerAvailableKw === 0 ? 'Install a power unit.' : powerUsedKw > powerAvailableKw ? `Demand ${powerUsedKw} kW exceeds ${powerAvailableKw} kW available.` : `${powerUsedKw}/${powerAvailableKw} kW nominal load.` },
         { id: 'command', label: 'Command', passes: !!installedPart(assembly, 'command')?.definition.functionReady, reason: installedPart(assembly, 'command') ? 'Pilot enclosure, optics and controls present.' : 'Install a pilot enclosure with controls.' },
@@ -110,5 +199,7 @@ export function inspectAssembly(assembly) {
         warnings.push(`Missing: ${missing.join(', ')}.`);
     if (mountErrors.length)
         warnings.push(`No adapter available for ${mountErrors.join(', ')}.`);
-    return { ready: checks.every(check => check.passes), checks, warnings, adapters, massKg, powerUsedKw, powerAvailableKw };
+    warnings.push(...graphCheck.errors);
+    if (assembly.mountNotice) warnings.push(assembly.mountNotice);
+    return { ready: checks.every(check => check.passes), checks, warnings, adapters, graphCheck, massKg, powerUsedKw, powerAvailableKw };
 }

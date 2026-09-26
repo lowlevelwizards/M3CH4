@@ -3,10 +3,11 @@
  * actual player armor/integrity. The hostile training rig remains disposable.
  * Export/import, historical logs and recovery UI belong to later builds. */
 import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
+import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
 export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1';
-export const MACHINE_SAVE_VERSION = 1;
+export const MACHINE_SAVE_VERSION = 2; // Read v1 from the same storage key; never discard garage progress.
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const fraction = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 const integer = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
@@ -26,7 +27,7 @@ export function decodeMachine(json) {
         return { ...blank, status: 'invalid' };
     try {
         const data = JSON.parse(json);
-        if (!object(data) || data.version !== MACHINE_SAVE_VERSION || !object(data.assembly) ||
+        if (!object(data) || ![1, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
             !object(data.drives) || !object(data.housing))
             throw new Error('Unknown save format');
         const savedAssembly = data.assembly;
@@ -62,6 +63,39 @@ export function decodeMachine(json) {
             installed[slot] = serial;
         }
         assembly.installed = installed;
+        if (data.version === 1) {
+            // 1 -> 2: preserve every owned serial, wear/repair state and equipped
+            // station. Build real sockets, including a deterministic H2 adapter.
+            assembly.graph = graphFromStations(assembly, BY_ID);
+        } else {
+            // Never 'repair' a corrupt v2 graph by silently rebuilding it from slots.
+            // An invalid save stays in localStorage for manual recovery.
+            if (!object(savedAssembly.graph) || savedAssembly.graph.version !== GRAPH_VERSION ||
+                !object(savedAssembly.graph.nodes) ||
+                Object.keys(savedAssembly.graph.nodes).length > assembly.owned.length + 1)
+                throw new Error('Invalid graph payload');
+            const graph = savedAssembly.graph;
+            if (typeof graph.root !== 'string' && graph.root !== null)
+                throw new Error('Invalid root reference');
+            const allowed = ['serial', 'definitionId', 'parentSerial', 'parentSocket',
+                'rotationQuarterTurns', 'virtual', 'staged'];
+            for (const [key, node] of Object.entries(graph.nodes)) {
+                if (!object(node) || !ownKeys(node, allowed) ||
+                    node.serial !== key || typeof node.definitionId !== 'string' ||
+                    !(typeof node.parentSerial === 'string' || node.parentSerial === null) ||
+                    !(typeof node.parentSocket === 'string' || node.parentSocket === null) ||
+                    !integer(node.rotationQuarterTurns) || node.rotationQuarterTurns > 3 ||
+                    (node.virtual !== undefined && node.virtual !== true) ||
+                    (node.staged !== undefined && node.staged !== true))
+                    throw new Error('Invalid graph node');
+            }
+            if (!graphMatchesStations(assembly, graph, BY_ID))
+                throw new Error('Graph and installed stations disagree');
+            assembly.graph = graph;
+        }
+        const verdict = validateGraph(assembly.graph, assembly, BY_ID);
+        if (!verdict.valid)
+            throw new Error(verdict.errors.join('; '));
         const damage = createFunctionalDamage();
         for (const [serial, value] of Object.entries(data.drives)) {
             if (!object(value) || !fraction(value.left) || !fraction(value.right) ||
@@ -94,7 +128,7 @@ export function decodeMachine(json) {
             hitPart.impacts = saved.impacts;
         }
         playerCondition.shotsHit = integer(data.shotsHit) ? data.shotsHit : 0;
-        return { assembly, damage, playerCondition, status: 'restored' };
+        return { assembly, damage, playerCondition, status: data.version === 1 ? 'migrated' : 'restored' };
     }
     catch {
         // Never partially restore a corrupt save or crash the mobile game at startup.
@@ -109,6 +143,7 @@ export function encodeMachine(state) {
             serial: state.assembly.serial,
             owned: state.assembly.owned.map(({ serial, definitionId, condition, wear, repairs }) => ({ serial, definitionId, condition, wear, repairs })),
             installed: { ...state.assembly.installed },
+            graph: state.assembly.graph || graphFromStations(state.assembly, BY_ID),
         },
         drives: Object.fromEntries(Object.entries(state.damage.drives).map(([serial, sides]) => [serial, { left: sides.left, right: sides.right }])),
         housing: Object.fromEntries(SLOTS.map(slot => {
