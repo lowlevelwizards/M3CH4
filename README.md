@@ -1,7 +1,7 @@
-# MECH ARENA 0.0.1j.2 — Spatial Awareness
+# M3CH4 0.0.1k.2 — First Real Assembly
 
-This is a **flat-directory mobile playtest PATCH**. Upload only these files over your existing working **0.0.1j.1** deployment, preserving all unchanged files. Do not delete the old files or deploy this partial ZIP on an empty host.
+**Changed/new files only**: overlay on the complete `0.0.1j.2 + 0.0.1k.1` project. Do NOT deploy this partial ZIP alone, and do not delete unchanged files.
 
-The hostile rig now looks ahead, avoids existing walls, barriers and warehouse pillars, and physically backs up/retries if it gets stuck. It still uses the same installed machinery and damage-dependent movement. The DEV readout displays its current navigation state and waypoint; enable **COLLIDERS** to see a teal floor-ring marker at the active waypoint. There are no new touch controls and your garage save format has not changed.
+Select **GARAGE → POWER** to move the existing generator between **REAR / DIRECT** and **LEFT OUTRIGGER / +85 KG**. This is a real nested structural mount: the physical generator model, hittable meshes, combat aim and persistent graph follow its new position. Heavy mobility's independent H2 adapter is still supported. Unsafe swaps and removal now show garage errors, and frame-less saves can reopen in the garage.
 
-This is local obstacle avoidance rather than full navigation or tactical AI. Long-range routes and purposeful circling remain later steps. The updated `index.html` launches the **compiled `main.js`**, includes the Three.js CDN import map, and cache-busts changed JavaScript modules.
+The new v3 save uses a **separate** localStorage key; the original v1/v2 key is preserved for rollback. Read `K2_NOTES.md` for migration, scope limitations and mobile smoke-test steps. Run `npm test` from your full project directory after overlay.

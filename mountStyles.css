@@ -1,0 +1,11 @@
+/* First working mounting choice. Scales inside the existing mobile garage panel. */
+.mount-panel { margin: 8px 0 6px; padding: 8px; border: 1px solid #b18c4a; background: #30392fe3; color: #e2dfc4; font: 10px/1.35 monospace; }
+.mount-panel > strong { display: block; color: #edc779; font-size: 10px; letter-spacing: .04em; }
+.mount-panel > small { display: block; font-size: 9px; margin-top: 4px; opacity: .86; }
+.mount-choices { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; margin-top: 8px; }
+.mount-choice { min-height: 42px; padding: 6px 4px; border: 1px solid #8b997e; border-radius: 3px; background: #343d38; color: #e7e0c7; text-align: center; font: 9px/1.25 monospace; touch-action: manipulation; }
+.mount-choice.mount-selected { background: #53654a; border-color: #d3b773; color: #ffe8ab; }
+.mount-choice:disabled { opacity: .78; }
+.mount-feedback:not(:empty), .mount-garage-note { color: #e8cb8c; margin: 6px 0; font: 9px/1.35 monospace; }
+.mount-feedback.mount-error, .mount-garage-note { color: #ffb58e; }
+@media (max-width: 730px) { .mount-choices { grid-template-columns: 1fr; } .mount-choice { min-height: 44px; } }

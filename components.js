@@ -1,4 +1,4 @@
-import { defaultFrameSockets, ensureAssemblyGraph, graphFromStations, graphMatchesStations, graphWorldPoses, proposeAttachment, proposeRemoval, validateGraph, LEGACY_HIP_ADAPTER } from './assemblyGraph.js';
+import { defaultFrameSockets, ensureAssemblyGraph, graphFromStations, graphMatchesStations, graphWorldPoses, proposeAttachment, proposeRemoval, validateGraph, LEGACY_HIP_ADAPTER, GENERATOR_OFFSET_BRACKET } from './assemblyGraph.js';
 export const SLOTS = ['structure', 'mobility', 'power', 'command', 'combat'];
 export const SLOT_CENTERS = {
     structure: [0, 1.82, 0.13],
@@ -35,7 +35,7 @@ for (const part of CATALOG) {
     part.sockets = part.slot === 'structure' ? defaultFrameSockets(SLOT_CENTERS, part.center) : [];
 }
 export const BY_ID = new Map(CATALOG.map(part => [part.id, part]));
-export const ADAPTER_DEFINITIONS = new Map([[LEGACY_HIP_ADAPTER.id, LEGACY_HIP_ADAPTER]]);
+export const ADAPTER_DEFINITIONS = new Map([[LEGACY_HIP_ADAPTER.id, LEGACY_HIP_ADAPTER], [GENERATOR_OFFSET_BRACKET.id, GENERATOR_OFFSET_BRACKET]]);
 export { graphWorldPoses, proposeAttachment, proposeRemoval, validateGraph };
 export function assemblyGraph(assembly) {
     return assembly.graph || (assembly.graph = graphFromStations(assembly, BY_ID));
@@ -94,6 +94,11 @@ export function equip(assembly, slot, definitionId) {
     if (!owned)
         throw new Error(`Not owned: ${definitionId}`);
     const current = ensureAssemblyGraph(assembly, BY_ID);
+    if (assembly.installed[slot] === owned.serial) {
+        const check = validateGraph(current, assembly, BY_ID);
+        if (!check.valid) throw new Error(check.errors.join(' '));
+        return { ok: true, serial: owned.serial, unchanged: true };
+    }
     assertLegacyLayout(assembly, current);
     const oldSerial = assembly.installed[slot];
     if (oldSerial && oldSerial !== owned.serial && slot !== 'structure') {
@@ -151,11 +156,60 @@ export function remove(assembly, slot) {
     delete assembly.mountNotice;
     return { ok: true, detached: result.detached };
 }
+/** The original garage can switch one generator between the original rear station and
+ * one real nested medium bracket. Future direct mounting uses the same graph primitives.
+ * Never replace a custom hierarchy with a guessed legacy reconstruction.
+ */
+export function generatorMount(assembly) {
+    const power = installedPart(assembly, 'power');
+    if (!power) return 'none';
+    const graph = assemblyGraph(assembly);
+    const node = graph.nodes[power.instance.serial];
+    return node?.parentSerial === `BK-${power.instance.serial}` ? 'offset' : 'standard';
+}
+export function setGeneratorMount(assembly, position) {
+    if (!['standard', 'offset'].includes(position)) return { ok: false, reason: 'Unknown generator mounting location.' };
+    const power = installedPart(assembly, 'power');
+    if (!power) return { ok: false, reason: 'Install a generator first.' };
+    if (!installedPart(assembly, 'structure')) return { ok: false, reason: 'Install a frame before positioning the generator.' };
+    const graph = assemblyGraph(assembly);
+    const canonical = graphFromStations(assembly, BY_ID);
+    const knownOffset = graphFromStations(assembly, BY_ID);
+    const powerId = power.instance.serial;
+    const bracketId = `BK-${powerId}`;
+    knownOffset.nodes[bracketId] = {
+        serial: bracketId, definitionId: GENERATOR_OFFSET_BRACKET.id,
+        parentSerial: knownOffset.root, parentSocket: 'left-rear-utility',
+        rotationQuarterTurns: 0, virtual: true,
+    };
+    knownOffset.nodes[powerId].parentSerial = bracketId;
+    knownOffset.nodes[powerId].parentSocket = 'medium-out';
+    const source = generatorMount(assembly) === 'offset' ? knownOffset : canonical;
+    const same = Object.keys(source.nodes).length === Object.keys(graph.nodes).length &&
+        Object.entries(source.nodes).every(([id, node]) => {
+            const actual = graph.nodes[id];
+            return actual && actual.definitionId === node.definitionId &&
+                actual.parentSerial === node.parentSerial && actual.parentSocket === node.parentSocket &&
+                actual.rotationQuarterTurns === node.rotationQuarterTurns;
+        });
+    if (!same) return { ok: false, reason: 'Custom attachments are present. Rehome them before changing the generator mount.' };
+    const next = position === 'offset' ? knownOffset : canonical;
+    const verdict = validateGraph(next, assembly, BY_ID);
+    if (!verdict.valid) return { ok: false, reason: verdict.errors.join(' ') };
+    assembly.graph = next;
+    delete assembly.mountNotice;
+    return { ok: true, position, bracketMassKg: position === 'offset' ? GENERATOR_OFFSET_BRACKET.massKg : 0 };
+}
+
 /** One explicit, inspectable adapter proof. Never silently fabricate arbitrary universal geometry. */
 export function adapterFor(assembly, slot) {
     const part = installedPart(assembly, slot);
-    if (!part || part.definition.accepts === PORTS[slot])
-        return null;
+    if (!part) return null;
+    if (slot !== 'power' && part.definition.accepts === PORTS[slot]) return null;
+    if (slot === 'power' && generatorMount(assembly) === 'offset') {
+        return { id: GENERATOR_OFFSET_BRACKET.id, serial: `BK-${part.instance.serial}`, slot,
+            massKg: GENERATOR_OFFSET_BRACKET.massKg, description: 'Left-rear outrigger: 85 kg of load-bearing bracket hardware.' };
+    }
     if (slot === 'mobility' && PORTS[slot] === 'U1' && part.definition.accepts === 'H2') {
         return { id: 'hip-h2-u1', serial: `AD-${part.instance.serial}`, slot, massKg: 110, description: 'H2/U1 hip conversion ring: 110 kg of real mounting hardware.' };
     }

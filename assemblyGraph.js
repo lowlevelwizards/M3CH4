@@ -20,6 +20,9 @@ export function defaultFrameSockets(centers, frameCenter) {
     }));
     sockets.push({ id: 'service-light', standard: 'light', roleHint: 'utility',
         position: [-0.65, 0.28, 0.49], rotation: [0, 0, 0], maxLoadKg: 150 });
+    // The first genuinely optional equipment location. Its offset is structural data, not a mesh coordinate.
+    sockets.push({ id: 'left-rear-utility', standard: 'medium', roleHint: 'utility',
+        position: [-0.88, 0.23, 0.50], rotation: [0, 0, 0], maxLoadKg: 800 });
     return sockets;
 }
 
@@ -33,7 +36,18 @@ export const LEGACY_HIP_ADAPTER = Object.freeze({
     sockets: [{ id: 'heavy-out', standard: 'heavy', position: [0, 0, 0],
         rotation: [0, 0, 0], maxLoadKg: 1900 }],
 });
-export const STRUCTURAL_ADAPTERS = new Map([[LEGACY_HIP_ADAPTER.id, LEGACY_HIP_ADAPTER]]);
+// The first optional nested assembly. A physical bracket carries an ordinary medium generator.
+// Its first iteration is derived hardware: no independent purchase or repair record yet.
+export const GENERATOR_OFFSET_BRACKET = Object.freeze({
+    id: 'bracket-generator-offset', name: 'Left-rear generator outrigger', slot: 'adapter',
+    mountSize: 'medium', massKg: 85, loadLimitKg: 700,
+    sockets: [{ id: 'medium-out', standard: 'medium', position: [-0.28, 0.10, 0.18],
+        rotation: [0, 0, 0], maxLoadKg: 700 }],
+});
+export const STRUCTURAL_ADAPTERS = new Map([
+    [LEGACY_HIP_ADAPTER.id, LEGACY_HIP_ADAPTER],
+    [GENERATOR_OFFSET_BRACKET.id, GENERATOR_OFFSET_BRACKET],
+]);
 
 export const emptyGraph = () => ({ version: GRAPH_VERSION, root: null, nodes: {} });
 const child = (serial, definitionId, parentSerial, parentSocket, rotation = 0, extra = {}) => ({
@@ -156,9 +170,17 @@ export function validateGraph(graph, assembly, byId, { allowStaged = true } = {}
         const ownedPart = owned.get(key);
         if (!node.virtual && (!ownedPart || ownedPart.definitionId !== node.definitionId))
             errors.push(`Installed node ${key} is not a known owned part.`);
-        if (node.virtual && (node.definitionId !== LEGACY_HIP_ADAPTER.id ||
-            graph.nodes[`AD-${Object.values(graph.nodes).find(n => n.parentSerial === key)?.serial}`]?.serial !== key))
-            errors.push(`Unrecognized virtual adapter ${key}.`);
+        if (node.virtual) {
+            const dependents = nodes.filter(n => n.parentSerial === key);
+            const hip = node.definitionId === LEGACY_HIP_ADAPTER.id &&
+                dependents.length === 1 && key === `AD-${dependents[0].serial}` &&
+                byId.get(dependents[0].definitionId)?.slot === 'mobility';
+            const generator = node.definitionId === GENERATOR_OFFSET_BRACKET.id &&
+                dependents.length === 1 && key === `BK-${dependents[0].serial}` &&
+                byId.get(dependents[0].definitionId)?.slot === 'power' &&
+                node.parentSocket === 'left-rear-utility';
+            if (!hip && !generator) errors.push(`Unrecognized virtual adapter ${key}.`);
+        }
         if (!Number.isInteger(node.rotationQuarterTurns) || node.rotationQuarterTurns < 0 || node.rotationQuarterTurns > 3)
             errors.push(`Invalid mounting rotation on ${key}.`);
         if (key === graph.root) continue;

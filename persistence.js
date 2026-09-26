@@ -6,8 +6,9 @@ import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
 import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
-export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1';
-export const MACHINE_SAVE_VERSION = 2; // Read v1 from the same storage key; never discard garage progress.
+export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1'; // Existing k.1/j.2 save remains untouched for rollback.
+export const MACHINE_SAVE_V3_KEY = 'mech-arena-machine-v3';
+export const MACHINE_SAVE_VERSION = 3; // Read v1/v2; write separately for rollback.
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const fraction = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 const integer = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
@@ -27,7 +28,7 @@ export function decodeMachine(json) {
         return { ...blank, status: 'invalid' };
     try {
         const data = JSON.parse(json);
-        if (!object(data) || ![1, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
+        if (!object(data) || ![1, 2, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
             !object(data.drives) || !object(data.housing))
             throw new Error('Unknown save format');
         const savedAssembly = data.assembly;
@@ -72,7 +73,7 @@ export function decodeMachine(json) {
             // An invalid save stays in localStorage for manual recovery.
             if (!object(savedAssembly.graph) || savedAssembly.graph.version !== GRAPH_VERSION ||
                 !object(savedAssembly.graph.nodes) ||
-                Object.keys(savedAssembly.graph.nodes).length > assembly.owned.length + 1)
+                Object.keys(savedAssembly.graph.nodes).length > assembly.owned.length + 2)
                 throw new Error('Invalid graph payload');
             const graph = savedAssembly.graph;
             if (typeof graph.root !== 'string' && graph.root !== null)
@@ -128,7 +129,7 @@ export function decodeMachine(json) {
             hitPart.impacts = saved.impacts;
         }
         playerCondition.shotsHit = integer(data.shotsHit) ? data.shotsHit : 0;
-        return { assembly, damage, playerCondition, status: data.version === 1 ? 'migrated' : 'restored' };
+        return { assembly, damage, playerCondition, status: data.version < MACHINE_SAVE_VERSION ? 'migrated' : 'restored' };
     }
     catch {
         // Never partially restore a corrupt save or crash the mobile game at startup.
@@ -157,7 +158,8 @@ export function loadMachine(storage) {
     if (!storage)
         return { ...fresh(), status: 'unavailable' };
     try {
-        return decodeMachine(storage.getItem(MACHINE_SAVE_KEY));
+        const newest = storage.getItem(MACHINE_SAVE_V3_KEY);
+        return decodeMachine(newest === null ? storage.getItem(MACHINE_SAVE_KEY) : newest);
     }
     catch {
         return { ...fresh(), status: 'unavailable' };
@@ -167,7 +169,9 @@ export function storeMachine(storage, state) {
     if (!storage)
         return false;
     try {
-        storage.setItem(MACHINE_SAVE_KEY, encodeMachine(state));
+        // Separate key ensures older deployed builds never read (or erase) a v3
+        // graph as if it were their own v1/v2 format.
+        storage.setItem(MACHINE_SAVE_V3_KEY, encodeMachine(state));
         return true;
     }
     catch {
