@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#151816" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MECH ARENA" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
+    <link rel="icon" type="image/png" href="./app-icon.png" />
+    <script type="importmap">{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+    "./assemblyPhysics.js": "./assemblyPhysics.js?v=g11",
+    "./components.js": "./components.js?v=k1",
+    "./persistence.js": "./persistence.js?v=k1",
+    "./assemblyGraph.js": "./assemblyGraph.js?v=k1",
+    "./controls.js": "./controls.js?v=i1",
+    "./functionalDamage.js": "./functionalDamage.js?v=g11",
+    "./locomotion.js": "./locomotion.js?v=j2",
+    "./scene.js": "./scene.js?v=j2",
+    "./enemyMotion.js": "./enemyMotion.js?v=j2"
+  }
+}</script>
+    <link rel="stylesheet" href="./styles.css?v=i1" />
+    <title>MECH ARENA — 0.0.1k.1 — Assembly Foundation + j.2 Spatial Awareness</title>
+  </head>
+  <body>
+    <div id="game" aria-label="3D warehouse test rig"></div>
+
+    <div class="toolbar left-tools">
+      <button id="assembly-toggle" class="utility-button" type="button">DEPLOY</button>
+      <button id="center-view" class="utility-button" type="button">CENTER VIEW</button>
+      <button id="inspect-reset" class="utility-button hidden" type="button">RESET ORBIT</button>
+      <button id="app-view" class="utility-button" type="button">APP VIEW</button>
+    </div>
+    <div class="toolbar right-tools">
+      <button id="target-toggle" class="utility-button" type="button" aria-pressed="false">HOSTILE</button>
+      <button id="resolution-toggle" class="utility-button" type="button">RES 70</button>
+      <button id="dev-toggle" class="utility-button" type="button">DEV</button>
+    </div>
+
+    <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
+    <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
+    <div id="shot-report" class="shot-report faded" aria-live="polite">LIVE-FIRE DUEL · HOSTILE RIG AHEAD</div>
+    <div id="fault-strip" class="fault-strip" aria-live="polite">SYSTEMS NOMINAL</div>
+    <div id="weapon-hud" class="weapon-hud" aria-live="polite">
+      <span id="weapon-label">TRAINING CANNON</span><strong id="ammo-count">12 / 60</strong>
+    </div>
+    <div id="cockpit-ui" aria-label="cockpit instruments">
+      <div class="instrument cluster-left">
+        <div class="instrument-label">GROUND SPEED</div>
+        <div class="instrument-value"><span id="speed">0.0</span><span class="unit"> m/s</span><small id="motion-direction" class="motion-direction">IDLE</small></div>
+      </div>
+      <div class="instrument cluster-mid">
+        <div class="instrument-label">DRIVE LOAD</div>
+        <div class="bar"><i id="load-bar"></i></div>
+      </div>
+      <div class="instrument cluster-right">
+        <div class="instrument-label">TURN RATE</div>
+        <div class="instrument-value"><span id="yaw-rate">0</span><span class="unit"> °/s</span></div>
+      </div>
+      <div class="rig-tag">SCRAPYARD RIG // SR-01</div>
+    </div>
+
+    <div id="controls">
+      <div id="drive-zone" class="stick-zone" aria-label="floating movement joystick: up forward, down reverse, left and right step">
+        <div class="stick-ring"><div class="stick-axis up">FWD</div><div class="stick-axis down">REV</div><div class="stick-axis left">STEP L</div><div class="stick-axis right">STEP R</div><div id="drive-knob" class="stick-knob"></div></div>
+        <div class="control-caption">FWD / REV · L/R STEP</div>
+      </div>
+      <div id="look-zone" class="look-zone" aria-label="drag to aim; the chassis follows when aim reaches the traverse edge">
+        <div class="look-reticle">⌁</div>
+        <div class="control-caption">LOOK WITHOUT FIRING</div>
+      </div>
+    </div>
+    <button id="brake" class="pedal" type="button">BRAKE</button>
+    <button id="reload" class="range-button reload-button" type="button">RELOAD</button>
+    <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire; drag to aim while firing">FIRE<span class="fire-hint" aria-hidden="true">DRAG TO AIM</span></button>
+    <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
+      <header>AUTOMATED HOSTILE RIG · TGT-01</header>
+      <p>It uses the same localized armor and component condition as your rig. Damage its weapon, generator or command system to degrade or stop its return fire.</p>
+      <div id="target-readout" class="target-readout"></div>
+      <button id="reset-target" type="button">REBUILD HOSTILE RIG</button>
+    </section>
+
+    <section id="inspection-panel" class="inspection-panel hidden" aria-label="garage and physical assembly builder">
+      <div class="garage-rail">
+        <div class="garage-brand"><strong>GARAGE</strong><small>SR-01</small></div>
+        <div id="field-status" class="field-status ready" aria-live="polite">READY</div>
+        <div id="part-list" class="part-list" aria-label="module categories"></div>
+      </div>
+      <div id="garage-context" class="garage-context">
+        <header><span>MODULE BAY</span><small>INSTALLED / AVAILABLE</small></header>
+        <div class="garage-summary">
+          <span>MASS <b id="assembly-mass">4,090 kg</b></span>
+          <span>POWER <b id="power-status">108 / 145 kW</b></span>
+        </div>
+        <div class="inspection-info" id="part-info" aria-live="polite"></div>
+        <div class="garage-meta" aria-hidden="true">
+          <div id="field-checks" class="field-checks"></div>
+          <div id="adapter-status" class="adapter-status"></div>
+        </div>
+      </div>
+    </section>
+    <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
+
+    <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
+      <header>RIG DIAGNOSTICS <span>0.0.1g.1</span></header>
+      <pre id="dev-readout"></pre>
+      <div class="damage-actions" aria-label="inject internal faults for testing">
+        <button data-damage="left" type="button">HIT L DRIVE −25%</button>
+        <button data-damage="right" type="button">HIT R DRIVE −25%</button>
+        <button data-damage="power" type="button">HIT GENERATOR −25%</button>
+        <button data-damage="weapon" type="button">HIT WEAPON −25%</button>
+        <button data-damage="restore" type="button">DEV RESET FAULTS</button>
+      </div>
+      <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
+    </section>
+
+    <div id="app-sheet" class="sheet hidden" role="dialog" aria-label="Install for app view" aria-modal="true" aria-hidden="true">
+      <div class="sheet-content">
+        <button type="button" id="app-close" class="sheet-close">✕</button>
+        <div class="sheet-label">LANDSCAPE TEST BAY</div>
+        <h1>HIDE SAFARI’S TABS</h1>
+        <p id="app-message">Open the hosted game in Safari. Tap <b>Share</b> → <b>Add to Home Screen</b>, keep <b>Open as Web App</b> enabled, and tap <b>Add</b>. Then launch MECH ARENA from its Home Screen icon.</p>
+        <p class="sheet-muted">Ordinary Safari tabs cannot be hidden by a website on demand. A Home Screen launch opens the dedicated web-app view. Landscape works best; rotate your phone.</p>
+        <button id="app-done" class="sheet-done" type="button">BACK TO TEST BAY</button>
+      </div>
+    </div>
+
+    <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
+    <script type="module" src="./main.js?v=j2"></script>
+  </body>
+</html>
