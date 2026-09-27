@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#171d1b"/>
+  <title>M3CH4 — 3×3 Assembly Audit</title>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+  <style>
+    *{box-sizing:border-box}
+    html,body{min-height:100%;margin:0;background:#151c1b;color:#f0eadf;font:14px system-ui,-apple-system,sans-serif}
+    button,a{font:inherit}a{color:#bbd8cf}
+    button{border-radius:5px;cursor:pointer;color:#eee6d6;background:#34443d;border:1px solid #65766c;padding:9px}
+    button[aria-pressed="true"],button.selected{background:#5a5033;border-color:#edc475}
+    button:focus-visible,a:focus-visible{outline:2px solid #edc475;outline-offset:2px}
+    [hidden]{display:none!important}
+    header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid #4a5b51}
+    header strong{font-size:17px;letter-spacing:.12em}header small,.muted{color:#b6c5b9;font-size:11px}
+    main{display:grid;grid-template-columns:minmax(0,1fr) minmax(265px,345px);min-height:0;max-width:1550px;margin:auto}
+    #stage{height:min(77vh,755px);min-height:360px;position:relative;overflow:hidden;background:#1e2924;touch-action:pan-y}
+    #audit-canvas{width:100%;height:100%;display:block;position:absolute;inset:0;pointer-events:none}
+    #matrix{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));}
+    .case-tile{position:relative;background:transparent;border:1px solid #465a50;border-radius:0;min-width:0;min-height:0;padding:5px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+    .case-tile.selected{border:2px solid #e7bb63;background:#e7bb6314}
+    .case-tile span{align-self:flex-start;background:#18221ecf;padding:3px 5px;border-radius:3px;max-width:100%;font-size:10px;letter-spacing:.01em}
+    .case-tile b{font-size:12px;white-space:normal;line-height:1.2}
+    .case-tile small{align-self:flex-start;background:#18221edb;color:#eddbb4;border-radius:3px;padding:3px 5px;font-size:10px}
+    .case-tile small[data-status="blocked"]{color:#f6aa98}
+    #focus-controls{position:absolute;left:8px;right:8px;top:8px;display:flex;gap:5px;align-items:center;justify-content:space-between;pointer-events:none}
+    #focus-controls>*{pointer-events:auto}#focus-controls span{background:#18221edf;padding:8px;font-size:11px}
+    aside{border-left:1px solid #4a5b51;padding:14px;max-height:calc(100vh - 70px);overflow:auto;background:#222b27}
+    h2{font-size:15px;margin:12px 0 7px}h3{font-size:12px;margin:12px 0 6px;color:#e2cf9e;letter-spacing:.04em}
+    .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:8px 0 14px}.controls button{font-size:11px;padding:8px 1px;min-height:37px}
+    .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0}
+    .metric{background:#17231d;border:1px solid #465a50;padding:9px;border-radius:5px;min-height:60px}.metric small{color:#b2c4b5;font-size:10px;display:block;margin-bottom:3px}.metric strong{font-size:17px;font-variant-numeric:tabular-nums}
+    .issue{display:block;width:100%;text-align:left;margin:5px 0;font-size:11px;line-height:1.4;padding:9px 10px;border-left:3px solid #ddb75a}
+    .issue.blocked{border-left-color:#d2776b}.issue.pass{border-left-color:#7fae91}
+    .issue:active{background:#546050}
+    #selection-status{padding:8px;border:1px solid #796b46;color:#f0d590;font-size:12px;background:#22271c;margin-top:8px}
+    #selection-status[data-status="blocked"]{border-color:#a95c52;color:#f1afa0}
+    .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+    label{display:flex;align-items:center;gap:7px;font-size:12px;padding:9px 0}input{accent-color:#d7af5c}
+    .micro{font-size:11px;color:#bccabf;line-height:1.55}
+    footer{padding:8px 14px;border-top:1px solid #43504a;font-size:11px;color:#b0bbaf}
+    @media(max-width:790px){main{display:flex;flex-direction:column}#stage{height:58vh;min-height:330px;max-height:620px}aside{max-height:none;border-left:0;border-top:1px solid #45574d}.case-tile b{font-size:10px}.case-tile span{font-size:9px}}
+    @media(max-width:390px){.case-tile{padding:3px}.case-tile span,.case-tile small{padding:2px 3px;font-size:9px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>M3CH4 / FIT AUDIT</strong><br/><small>k.3a.6 · Three chassis × three engineered mobility systems</small></div>
+    <a href="./chassis-preview.html">← Chassis Lab</a>
+  </header>
+  <main>
+    <section id="stage" aria-label="One shared-renderer nine-combination engineering study">
+      <canvas id="audit-canvas" aria-hidden="true"></canvas>
+      <div id="matrix" role="group" aria-label="Choose one of nine identical-scale mech comparisons"></div>
+      <div id="focus-controls" hidden>
+        <button id="return-grid" type="button">← All nine</button>
+        <span id="focus-name">INSPECTING</span>
+        <div class="row" style="flex:none"><button id="previous-case" type="button" aria-label="Previous configuration">◀</button><button id="next-case" type="button" aria-label="Next configuration">▶</button></div>
+      </div>
+    </section>
+    <aside>
+      <h2>Same equipment. Different structural fit.</h2>
+      <p class="micro">All nine are shown at the same scale and viewing angle. Tap any machine to inspect its measured rest pose. The normal game and your saves are untouched.</p>
+      <h3>STANDARD CAMERA</h3>
+      <div class="controls" role="group" aria-label="Comparison camera presets">
+        <button data-camera="quarter" type="button" aria-pressed="true">3/4</button>
+        <button data-camera="front" type="button" aria-pressed="false">Front</button>
+        <button data-camera="side" type="button" aria-pressed="false">Right</button>
+        <button data-camera="top" type="button" aria-pressed="false">Top</button>
+      </div>
+      <label><input id="hide-equipment" type="checkbox"/> Structural study: hide cab, generator and cannon</label>
+      <div id="selection-status" role="status" aria-live="polite">Calculating nine configurations…</div>
+      <h2 id="selection-title">Assembly measurements</h2>
+      <div id="metrics" class="metrics"></div>
+      <div class="row"><button id="copy-report" type="button">COPY NINE-CASE REPORT</button></div>
+      <p class="micro" id="copy-status" role="status"></p>
+      <h3>MECHANICAL FINDINGS</h3>
+      <p class="micro">Tap a warning in focused view to highlight its related structural member. Amber means a conservative fit review, not a confirmed polygon collision.</p>
+      <div id="findings" aria-live="polite"></div>
+    </aside>
+  </main>
+  <footer>Preview-only engineering study · Provisional socket ratings · Unrated guide brackets · Member proximity ≠ verified mesh collision · Frame masses are not assigned</footer>
+  <script type="module" src="./chassisAuditView.js?v=k3a6"></script>
+</body>
+</html>
