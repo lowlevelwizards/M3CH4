@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { CHASSIS_MATERIALS } from './chassisConceptBuilder.js';
 import { buildYardwalkerVisual } from './yardwalkerVisual.js';
 import { buildKestrelVisual } from './kestrelVisual.js';
+import { buildHaulerVisual } from './haulerVisual.js';
 
 const steel=CHASSIS_MATERIALS.iron;
 const bright=CHASSIS_MATERIALS.machined;
@@ -46,6 +47,7 @@ export function buildFitFixture(fixture,{mobilityModel='engineered'}={}){
         throw new Error('An authored physical component envelope is required.');
     if(fixture.id==='legs-yard'&&mobilityModel==='engineered')return buildYardwalkerVisual(fixture);
     if(fixture.id==='legs-compact'&&mobilityModel==='engineered')return buildKestrelVisual(fixture);
+    if(fixture.id==='legs-hauler'&&mobilityModel==='engineered')return buildHaulerVisual(fixture);
     const [w,h,d]=fixture.envelope;
     const root=new THREE.Group();root.name=`fit-fixture:${fixture.id}`;
     root.userData={fitFixtureId:fixture.id,previewOnly:true};
@@ -72,6 +74,19 @@ export function buildFitFixture(fixture,{mobilityModel='engineered'}={}){
             addCylinder(root,h*.075,w*.09,[side*w*.22,-h*.03,d*.12],'x',dark,`compact-knee-${side}`);
             addBox(root,[w*.09,h*.31,d*.14],[side*w*.28,-h*.19,.03],shell,`compact-lower-link-${side}`);
             addBox(root,[w*.16,h*.06,d*.33],[side*w*.29,-h*.39,-d*.12],steel,`compact-foot-${side}`);
+        }
+    }else if(fixture.id==='legs-hauler'){
+        addBox(root,[w*.70,h*.08,d*.42],[0,h*.41,0],bright,'adapter-upper-crown');
+        addBox(root,[w*.35,h*.08,d*.26],[0,h*.34,0],steel,'adapter-mid-collar');
+        addBox(root,[w*.76,h*.10,d*.52],[0,h*.27,.05],dark,'heavy-carriage');
+        addBox(root,[w*.52,h*.08,d*.34],[0,h*.20,.09],steel,'heavy-center-spine');
+        for(const side of [-1,1]){
+            const x=side*w*.32;
+            addCylinder(root,h*.14,w*.12,[x,h*.12,.08],'x',bright,`hauler-hip-${side}`);
+            addBox(root,[w*.17,h*.28,d*.20],[x,h*.02,.12],ochre,`hauler-thigh-${side}`);
+            addCylinder(root,h*.12,w*.12,[x,-h*.12,.12],'x',dark,`hauler-knee-${side}`);
+            addBox(root,[w*.15,h*.30,d*.19],[x,-h*.27,.08],shell,`hauler-shin-${side}`);
+            addBox(root,[w*.27,h*.07,d*.51],[x,-h*.42,-d*.04],steel,`hauler-foot-${side}`);
         }
     }else if(fixture.id==='cab-cyclops'){
         addBox(root,[w*.85,h*.74,d*.79],[0,h*.035,d*.055],shell,'cab-primary-occupied-volume');

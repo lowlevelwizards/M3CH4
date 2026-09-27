@@ -2,7 +2,7 @@
  * EXISTING outer hip-boss faces and authored outboard guide receivers.
  * The central U1 flange remains the ONLY playable mobility connection.
  */
-import { YARDWALKER_LAYOUT, KESTREL_LAYOUT } from './mobilityDefinitions.js';
+import { YARDWALKER_LAYOUT, KESTREL_LAYOUT, HAULER_LAYOUT } from './mobilityDefinitions.js';
 const add=(a,b)=>a.map((x,i)=>x+b[i]);
 const rotate=(columns,p)=>[0,1,2].map(i=>columns.reduce((sum,col,j)=>sum+col[i]*p[j],0));
 const distance=(a,b)=>Math.hypot(...a.map((x,i)=>x-b[i]));
@@ -30,5 +30,8 @@ export function planYardwalkerGuides(frame,pose,layout=YARDWALKER_LAYOUT){
     return planMobilityGuides(frame,pose,layout);
 }
 export function planKestrelGuides(frame,pose,layout=KESTREL_LAYOUT){
+    return planMobilityGuides(frame,pose,layout);
+}
+export function planHaulerGuides(frame,pose,layout=HAULER_LAYOUT){
     return planMobilityGuides(frame,pose,layout);
 }

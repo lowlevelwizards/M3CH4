@@ -5,3 +5,5 @@
 Select **GARAGE → POWER** to move the existing generator between **REAR / DIRECT** and **LEFT OUTRIGGER / +85 KG**. This is a real nested structural mount: the physical generator model, hittable meshes, combat aim and persistent graph follow its new position. Heavy mobility's independent H2 adapter is still supported. Unsafe swaps and removal now show garage errors, and frame-less saves can reopen in the garage.
 
 The new v3 save uses a **separate** localStorage key; the original v1/v2 key is preserved for rollback. Read `K2_NOTES.md` for migration, scope limitations and mobile smoke-test steps. Run `npm test` from your full project directory after overlay.
+
+Latest preview patch included here: **0.0.1k.3a.5 — Hauler H2 Heavy Mobility Preview**.

@@ -4,10 +4,11 @@
  */
 import * as THREE from 'three';
 import { standardFitFixtures, DEFAULT_MOBILITY_FIXTURE_ID, AVAILABLE_MOBILITY_FIXTURE_IDS } from './chassisFitFixtures.js';
-import { analyzeFit } from './chassisFitValidation.js?v=k3a4';
-import { buildFitFixture, disposeFitGeometry } from './chassisFitVisuals.js?v=k3a4';
+import { analyzeFit } from './chassisFitValidation.js?v=k3a5';
+import { buildFitFixture, disposeFitGeometry } from './chassisFitVisuals.js?v=k3a5';
 import { buildYardwalkerGuideVisuals } from './yardwalkerVisual.js';
 import { buildKestrelGuideVisuals } from './kestrelVisual.js';
+import { buildHaulerGuideVisuals } from './haulerVisual.js';
 
 export function createFitPreviewController({scene,onVisualChange=()=>{}}){
     const switchers=[...document.querySelectorAll('[data-assembly-mode]')];
@@ -46,7 +47,9 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
         }
     }
     function buildGuideVisuals(plan){
-        return mobilityFixtureId==='legs-compact'?buildKestrelGuideVisuals(plan):buildYardwalkerGuideVisuals(plan);
+        if(mobilityFixtureId==='legs-compact')return buildKestrelGuideVisuals(plan);
+        if(mobilityFixtureId==='legs-hauler')return buildHaulerGuideVisuals(plan);
+        return buildYardwalkerGuideVisuals(plan);
     }
     function applyVisibility(){
         for(const child of visual.children){
@@ -92,8 +95,9 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
         const errors=issues.filter(i=>i.severity==='error');
         const warnings=issues.filter(i=>i.severity==='review');
         const passes=issues.filter(i=>i.severity==='pass');
-        const equipmentKg=fixtures.reduce((sum,f)=>sum+f.massKg,0);
-        summary.textContent=`${analysis.status.toUpperCase()} · ${passes.length} passed · ${warnings.length} review · ${errors.length} blocked · ${equipmentKg.toLocaleString()} kg equipment (frame/guide hardware UNRATED)`;
+        const equipmentKg=fixtures.reduce((sum,f)=>sum+f.massKg+(f.previewAdapter?.massKg??0),0);
+        const adapterKg=fixtures.reduce((sum,f)=>sum+(f.previewAdapter?.massKg??0),0);
+        summary.textContent=`${analysis.status.toUpperCase()} · ${passes.length} passed · ${warnings.length} review · ${errors.length} blocked · ${equipmentKg.toLocaleString()} kg equipment${adapterKg?` incl. ${adapterKg} kg explicit adapter hardware`:''} (frame/guide hardware UNRATED)`;
         summary.dataset.status=analysis.status;
         for(const [title,list] of [['Needs review',warnings],['Mounting errors',errors],['Verified from preview data',passes]]){
             if(!list.length)continue;
@@ -115,13 +119,14 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
         if(!fixture||!pose)return;
         const socket=frame.sockets.find(s=>s.id===pose.socketId);
         const events=analysis.issues.filter(i=>i.severity!=='pass'&&i.fixtureIds.includes(focus));
+        const adapterText=fixture.previewAdapter?`\nADAPTER: ${fixture.previewAdapter.name} · ${fixture.previewAdapter.massKg} kg\nNative mobility standard: ${fixture.previewAdapter.nativeStandard.toUpperCase()} → frame ${socket.standard.toUpperCase()}`:'';
         let guideText='';
         if(fixture.slot==='mobility'&&analysis.guidePlan?.ok)
             guideText='\nFIXED SIDE GUIDES (PREVIEW ONLY): '+
                 analysis.guidePlan.bridges.map(b=>`${b.side<0?'L':'R'} ${b.span.toFixed(3)}m`).join(' · ')+
                 '\nThe chassis bosses are joined to the actual mobility receiver faces. Guide strength and mass are NOT simulated.';
-        selected.textContent=`${fixture.name}\n${fixture.massKg} kg · ${fixture.envelope.join(' × ')} m\n`+
-            `Mount: ${fixture.face} → ${socket.id} (${socket.standard})\n`+
+        selected.textContent=`${fixture.name}\n${fixture.massKg + (fixture.previewAdapter?.massKg??0)} kg installed · ${fixture.envelope.join(' × ')} m\n`+
+            `Mount: ${fixture.face} → ${socket.id} (${socket.standard})`+adapterText+`\n`+
             `Centre XYZ: ${pose.position.map(n=>n.toFixed(3)).join(', ')}\n`+
             `Interface XYZ: ${pose.matingWorld.map(n=>n.toFixed(3)).join(', ')}`+guideText+
             (events.length?`\n\nREVIEW:\n${events.map(i=>i.message).join('\n')}`:'\nNo envelope warnings for this component.');

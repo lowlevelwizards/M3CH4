@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CONCEPT_CHASSIS, getConceptChassis, validateConceptChassis } from './chassisConcepts.js';
 import { buildConceptChassis } from './chassisConceptBuilder.js';
 import { buildSocketGizmos } from './chassisVisualKit.js';
-import { createFitPreviewController } from './chassisFitPreview.js?v=k3a4';
+import { createFitPreviewController } from './chassisFitPreview.js?v=k3a5';
 
 const host=document.getElementById('viewport');
 const buttons=document.getElementById('frames');

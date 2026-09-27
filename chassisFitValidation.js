@@ -2,8 +2,8 @@
  * No Three.js, DOM, live assembly graph, inventory, physics or save mutations.
  */
 import { standardFitFixtures } from './chassisFitFixtures.js';
-import { YARDWALKER_LAYOUT, KESTREL_LAYOUT } from './mobilityDefinitions.js';
-import { planYardwalkerGuides, planKestrelGuides } from './mobilityGuide.js';
+import { YARDWALKER_LAYOUT, KESTREL_LAYOUT, HAULER_LAYOUT } from './mobilityDefinitions.js';
+import { planYardwalkerGuides, planKestrelGuides, planHaulerGuides } from './mobilityGuide.js';
 
 const UNIT_AXES = [
     [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1],
@@ -74,6 +74,7 @@ const significantOverlap=(a,b,tolerance=.035)=>intersectionDepths(a,b).every(dep
 function mobilityGuideDefinition(fixtureId){
     if(fixtureId==='legs-yard')return {layout:YARDWALKER_LAYOUT, plan:planYardwalkerGuides, shortName:'Yardwalker'};
     if(fixtureId==='legs-compact')return {layout:KESTREL_LAYOUT, plan:planKestrelGuides, shortName:'Kestrel'};
+    if(fixtureId==='legs-hauler')return {layout:HAULER_LAYOUT, plan:planHaulerGuides, shortName:'Hauler H2'};
     return null;
 }
 
@@ -108,9 +109,11 @@ export function analyzeFit(chassis, fixtures=standardFitFixtures(), options={}) 
         used.add(result.socketId);poses.set(fixture.id,result);sockets.set(fixture.id,chassis.sockets.find(s=>s.id===result.socketId));
         issues.push(issue('pass','aligned',[fixture.id],`${fixture.name}: mating faces meet at ${result.socketId}.`,result.socketId));
         const socket=sockets.get(fixture.id);
-        if(fixture.massKg>socket.maxLoadKg)
-            issues.push(issue('error','overload',[fixture.id],`${fixture.name}: ${fixture.massKg} kg exceeds ${socket.maxLoadKg} kg PROVISIONAL ${result.socketId} limit.`,result.socketId));
-        else issues.push(issue('pass','load',[fixture.id],`${fixture.name}: ${fixture.massKg} / ${socket.maxLoadKg} kg provisional socket capacity.`,result.socketId));
+        const mountedMassKg=fixture.massKg + (fixture.previewAdapter?.massKg ?? 0);
+        if(fixture.previewAdapter)issues.push(issue('review','adapter-preview',[fixture.id],`${fixture.name}: mounted through a visible ${fixture.previewAdapter.name} (${fixture.previewAdapter.massKg} kg) to convert ${fixture.previewAdapter.nativeStandard.toUpperCase()} to ${socket.standard.toUpperCase()} at ${result.socketId}.`,result.socketId));
+        if(mountedMassKg>socket.maxLoadKg)
+            issues.push(issue('error','overload',[fixture.id],`${fixture.name}${fixture.previewAdapter?' + adapter':''}: ${mountedMassKg} kg exceeds ${socket.maxLoadKg} kg PROVISIONAL ${result.socketId} limit.`,result.socketId));
+        else issues.push(issue('pass','load',[fixture.id],`${fixture.name}${fixture.previewAdapter?' + adapter':''}: ${mountedMassKg} / ${socket.maxLoadKg} kg provisional socket capacity.`,result.socketId));
     }
     for (let i=0;i<fixtures.length;i++) for(let j=i+1;j<fixtures.length;j++) {
         const a=fixtures[i],b=fixtures[j],pa=poses.get(a.id),pb=poses.get(b.id);
@@ -137,7 +140,7 @@ export function analyzeFit(chassis, fixtures=standardFitFixtures(), options={}) 
         if(def){
             guidePlan=def.plan(chassis,mobility);
             if(guidePlan.ok)issues.push(issue('review','guides-provisional',[mobilityFixture.id],
-                `Two REAL frame-side drop guides reach the ${def.shortName} receiver faces. Preview fit only: clamp strength and adapter mass are not yet rated.`, 'mobility'));
+                `Two REAL frame-side drop guides reach the ${def.shortName} receiver faces. Preview fit only: clamp strength${mobilityFixture.previewAdapter?' and adapter hardware':''} are not yet rated.`, 'mobility'));
             else issues.push(issue('review','guides-incompatible',[mobilityFixture.id],
                 `Guide brackets cannot be authored: ${guidePlan.errors.join(' ')}`,'mobility'));
         }

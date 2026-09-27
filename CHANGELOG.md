@@ -1,3 +1,8 @@
+## 0.0.1k.3a.5 — Hauler H2 Heavy Mobility Preview
+- Added Hauler H2 engineered mobility preview, explicit H2/U1 adapter and Chassis Lab switching.
+- Extended fit analysis and UI summaries to include adapter hardware mass and mounting notes.
+- Added Hauler guide planning and tests.
+
 # 0.0.1k.2 — First Real Assembly
 
 - Added one load-rated, 85 kg left-rear generator bracket with a nested medium output socket and safe rehoming back to the original mount.

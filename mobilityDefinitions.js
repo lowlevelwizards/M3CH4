@@ -63,6 +63,52 @@ export const KESTREL_LAYOUT = Object.freeze({
     intent: 'Lighter, narrower reverse-knee runner with compact feet and tighter hip spacing.',
 });
 
+
+export const HAULER_LAYOUT = Object.freeze({
+    catalogId: 'legs-hauler',
+    mountingStandard: 'medium',
+    nativeMobilityStandard: 'heavy',
+    requiresAdapter: true,
+    mountingFace: [0, 0.84, 0],
+    mountingNormal: [0, 1, 0],
+    primaryMounts: 1,
+    adapter: {
+        massKg: 110,
+        name: 'H2/U1 hip conversion ring',
+        crown: { center: [0, 0.795, 0], size: [0.58, 0.05, 0.36] },
+        collar: { center: [0, 0.7425, 0], size: [0.42, 0.055, 0.30] },
+        skirt: { center: [0, 0.69, 0], size: [0.78, 0.05, 0.46] },
+        sideLugs: [
+            { side: -1, center: [-0.42, 0.735, 0.05], size: [0.11, 0.10, 0.16] },
+            { side: +1, center: [+0.42, 0.735, 0.05], size: [0.11, 0.10, 0.16] },
+        ],
+    },
+    saddle: { center: [0, 0.60, 0.10], size: [1.92, 0.18, 0.48] },
+    pedestal: { center: [0, 0.655, 0.08], size: [0.52, 0.12, 0.32] },
+    pad: { center: [0, 0.8125, 0], size: [0.46, 0.035, 0.28] },
+    guideReceivers: [
+        { side: -1, center: [-0.89, 0.685, 0.10], size: [0.12, 0.11, 0.24], contact: [-0.95, 0.685, 0.10] },
+        { side: +1, center: [+0.89, 0.685, 0.10], size: [0.12, 0.11, 0.24], contact: [+0.95, 0.685, 0.10] },
+    ],
+    legs: [-1, 1].map(side => ({
+        side,
+        hip: [side * 0.82, 0.35, 0.10],
+        knee: [side * 0.82, -0.09, 0.15],
+        ankle: [side * 0.82, -0.60, 0.12],
+        foot: [side * 0.82, -0.75, -0.10],
+        actuatorTop: [side * 1.00, 0.26, 0.24],
+        actuatorBottom: [side * 0.97, -0.08, 0.23],
+    })),
+    hip: { radius: 0.24, width: 0.32 },
+    knee: { radius: 0.23, width: 0.30 },
+    ankle: { radius: 0.15, width: 0.22 },
+    thighWidth: 0.37,
+    shinWidth: 0.32,
+    footSize: [0.68, 0.17, 0.88],
+    coverSize: [0.34, 0.42, 0.14],
+    intent: 'Heavy wider industrial paired walker with a visible H2/U1 adapter, thicker load path and oversized feet.',
+});
+
 const vec3=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
 const inside=(p,envelope,epsilon=1e-6)=>p.every((n,i)=>Math.abs(n)<=envelope[i]/2+epsilon);
 const span=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
@@ -116,8 +162,26 @@ export function validateYardwalkerLayout(layout,fixture){
 export function validateKestrelLayout(layout,fixture){
     return validatePairedMobilityLayout(layout,fixture);
 }
+export function validateHaulerLayout(layout,fixture){
+    const base=validatePairedMobilityLayout(layout,fixture);
+    const errors=[...base.errors];
+    const adapter=layout?.adapter;
+    if(!layout?.requiresAdapter)errors.push('Heavy Hauler study must explicitly require an adapter.');
+    if(layout?.nativeMobilityStandard!=='heavy')errors.push('Heavy Hauler study must record the native H2 interface.');
+    if(!fixture?.previewAdapter)errors.push('Hauler fixture must include explicit preview adapter metadata.');
+    if(!adapter||!Number.isFinite(adapter.massKg)||adapter.massKg!==fixture?.previewAdapter?.massKg)
+        errors.push('Adapter mass must remain the explicit 110 kg conversion ring.');
+    for(const part of [adapter?.crown,adapter?.collar,adapter?.skirt,...(adapter?.sideLugs||[])]){
+        if(!part||!vec3(part.center)||!vec3(part.size)||!part.size.every(n=>n>0) ||
+            !part.center.every((v,i)=>Math.abs(v)+part.size[i]/2<=fixture.envelope[i]/2+.001))
+            errors.push('Adapter hardware exceeds the source envelope or is malformed.');
+    }
+    if(adapter?.sideLugs?.length!==2)errors.push('Adapter must expose a mirrored pair of side lugs.');
+    return {valid:errors.length===0,errors};
+}
 
 export const MOBILITY_LAYOUTS=Object.freeze({
     'legs-yard': YARDWALKER_LAYOUT,
     'legs-compact': KESTREL_LAYOUT,
+    'legs-hauler': HAULER_LAYOUT,
 });
