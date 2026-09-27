@@ -1,10 +1,11 @@
-/** k.3a.2 -- low-detail, source-envelope-accurate equipment fit maquettes.
+/** k.3a.4 -- low-detail, source-envelope-accurate equipment fit maquettes.
  * These are not original scene.js gameplay models. All geometry stays inside
  * its source catalogue envelope; attachment pads coincide with mountPoint.
  */
 import * as THREE from 'three';
 import { CHASSIS_MATERIALS } from './chassisConceptBuilder.js';
 import { buildYardwalkerVisual } from './yardwalkerVisual.js';
+import { buildKestrelVisual } from './kestrelVisual.js';
 
 const steel=CHASSIS_MATERIALS.iron;
 const bright=CHASSIS_MATERIALS.machined;
@@ -44,12 +45,11 @@ export function buildFitFixture(fixture,{mobilityModel='engineered'}={}){
     if(!fixture?.envelope?.every(n=>Number.isFinite(n)&&n>0))
         throw new Error('An authored physical component envelope is required.');
     if(fixture.id==='legs-yard'&&mobilityModel==='engineered')return buildYardwalkerVisual(fixture);
+    if(fixture.id==='legs-compact'&&mobilityModel==='engineered')return buildKestrelVisual(fixture);
     const [w,h,d]=fixture.envelope;
     const root=new THREE.Group();root.name=`fit-fixture:${fixture.id}`;
     root.userData={fitFixtureId:fixture.id,previewOnly:true};
     if(fixture.id==='legs-yard'){
-        // One mechanical module: single top saddle, one paired transverse drive
-        // beam, then two visibly connected limbs; no independent install slots.
         addBox(root,[w*.60,h*.11,d*.50],[0,h*.41,0],bright,'single-top-drive-saddle');
         addBox(root,[w*.33,h*.10,d*.34],[0,h*.45,0],steel,'central-mating-neck');
         addBox(root,[w*.68,h*.11,d*.38],[0,h*.31,.025],steel,'through-axle');
@@ -61,8 +61,19 @@ export function buildFitFixture(fixture,{mobilityModel='engineered'}={}){
             addBox(root,[w*.15,h*.26,d*.25],[x,-h*.33,d*.06],shell,`lower-leg-link-${side}`);
             addBox(root,[w*.235,h*.075,d*.48],[x,-h*.458,-d*.05],steel,`ground-foot-${side}`);
         }
+    }else if(fixture.id==='legs-compact'){
+        addBox(root,[w*.55,h*.10,d*.42],[0,h*.39,.02],bright,'compact-top-saddle');
+        addBox(root,[w*.28,h*.10,d*.24],[0,h*.44,0],steel,'compact-central-neck');
+        addBox(root,[w*.60,h*.08,d*.22],[0,h*.28,.09],steel,'compact-hip-crossmember');
+        for(const side of [-1,1]){
+            const x=side*w*.28;
+            addCylinder(root,h*.11,w*.10,[x,h*.23,.05],'x',bright,`compact-hip-housing-${side}`);
+            addBox(root,[w*.11,h*.26,d*.16],[x*0.92,h*.05,.12],ochre,`compact-upper-link-${side}`);
+            addCylinder(root,h*.075,w*.09,[side*w*.22,-h*.03,d*.12],'x',dark,`compact-knee-${side}`);
+            addBox(root,[w*.09,h*.31,d*.14],[side*w*.28,-h*.19,.03],shell,`compact-lower-link-${side}`);
+            addBox(root,[w*.16,h*.06,d*.33],[side*w*.29,-h*.39,-d*.12],steel,`compact-foot-${side}`);
+        }
     }else if(fixture.id==='cab-cyclops'){
-        // Single protected optic, not a humanoid head or completed mech torso.
         addBox(root,[w*.85,h*.74,d*.79],[0,h*.035,d*.055],shell,'cab-primary-occupied-volume');
         addBox(root,[w*.56,h*.34,d*.48],[0,-h*.29,0],steel,'cab-underbody-mount-pedestal');
         addBox(root,[w*.70,h*.20,d*.33],[0,h*.37,-d*.13],ochre,'cab-roof-lip');

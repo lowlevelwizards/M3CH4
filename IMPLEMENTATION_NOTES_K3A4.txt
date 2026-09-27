@@ -1,0 +1,19 @@
+M3CH4 k.3a.4 – Kestrel mobility study implementation
+
+Included changes:
+- Added authored Kestrel mobility layout and validation.
+- Generalized mobility guide planning for multiple engineered paired-leg modules.
+- Added new engineered visual builder: kestrelVisual.js.
+- Extended Chassis Lab fit preview to switch between Yardwalker and Kestrel.
+- Kept schematic/engineered comparison mode intact.
+- Updated fit diagnostics so guide-on / guide-off works for both mobility fixtures.
+- Updated Chassis Lab HTML copy and script version to k3a4.
+- Added/updated focused tests for the new mobility-family workflow.
+
+Focused test command run successfully:
+node --test tests/chassisFit.test.mjs tests/chassisFitUI.test.mjs tests/mobilityYardwalker.test.mjs
+
+Note:
+The repository-wide npm test still includes pre-existing failures unrelated to this change set
+because some broader test files reference missing modules (e.g. combat.js / functionalDamage.js).
+Those were not introduced by this implementation.

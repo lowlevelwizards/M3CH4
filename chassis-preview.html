@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#171d1b"/>
-  <title>M3CH4 — Mobility Anatomy Lab k.3a.3</title>
+  <title>M3CH4 — Mobility Anatomy Lab k.3a.4</title>
   <script type="importmap">{
     "imports": {"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}
   }</script>
@@ -42,7 +42,7 @@
   </style>
 </head>
 <body>
-  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.3 · Engineered Yardwalker + real-length guide studies · Preview only</small></div><a href="./index.html">← Main game</a></header>
+  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.4 · Yardwalker + Kestrel engineered mobility studies · Preview only</small></div><a href="./index.html">← Main game</a></header>
   <main>
     <div id="viewport" aria-label="3D bare chassis design preview">
       <div id="axis-hint">FRONT −Z · RIGHT +X · UP +Y</div>
@@ -58,13 +58,17 @@
       </div>
       <div id="fixture-visibility" hidden aria-label="Equipment visibility (does not alter mounting)"></div>
       <div id="mobility-study" hidden>
-        <h3>YARDWALKER ENGINEERING STUDY</h3>
-        <div class="fit-modes" role="group" aria-label="Compare Yardwalker models">
+        <h3>MOBILITY ENGINEERING STUDY</h3>
+        <div class="fit-modes" role="group" aria-label="Choose mobility fixture">
+          <button type="button" data-mobility-fixture="legs-yard" aria-pressed="true">YARDWALKER</button>
+          <button type="button" data-mobility-fixture="legs-compact" aria-pressed="false">KESTREL</button>
+        </div>
+        <div class="fit-modes" role="group" aria-label="Compare mobility models">
           <button type="button" data-mobility-model="engineered" aria-pressed="true">ENGINEERED</button>
           <button type="button" data-mobility-model="schematic" aria-pressed="false">OLD FIT BLOCK</button>
         </div>
         <label><input type="checkbox" id="show-mobility-guides" checked/> Show 2 measured, unrated frame-side guide brackets</label>
-        <p class="muted">Central U1 pad + side-guide receivers are visible real geometry. Guides bridge authored frame bosses to leg saddle; they are design-only, not mass-rated or a second playable leg mount. Turn guides off to inspect the original gaps.</p>
+        <p class="muted">The active mobility module keeps one real U1 centre mount and two visible outboard guide receivers. Guides bridge authored frame bosses to the module receiver faces; they are design-only, not mass-rated or a second playable leg mount. Turn guides off to inspect the original unsupported spans.</p>
       </div>
       <h3>CAMERA STUDY</h3>
       <div id="views" role="group" aria-label="Camera view presets">
@@ -78,7 +82,7 @@
       <div id="fit-panel" hidden>
         <h3>STANDARD EQUIPMENT FIT</h3>
         <div id="fit-summary" role="status" aria-live="polite"></div>
-        <p class="muted">Envelopes and masses come from the live catalogue; Yardwalker now uses a named mechanical rest-pose; other components remain simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
+        <p class="muted">Envelopes and masses come from the live catalogue; Yardwalker and Kestrel now use named mechanical rest-poses; other components remain simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
         <div id="fit-selected" aria-live="polite"></div>
         <div id="fit-results"></div>
       </div>
@@ -88,10 +92,10 @@
         <span class="swatch" style="background:#c47e5a"></span>One paired-mobility input
         <span class="swatch" style="background:#579a9c"></span>Combat / future tools
         <span class="swatch" style="background:#858e94"></span>Utility</div>
-      <p class="muted">The hip bosses are visible structure, not two independent functional leg slots. The debug rings sit on metal mount faces rather than floating in space. Provisional socket ratings have not been added to gameplay.</p>
+      <p class="muted">The hip bosses are visible structure, not two independent functional leg slots. The debug rings sit on metal mount faces rather than floating in space. Provisional socket ratings have not been added to gameplay, and neither engineered mobility module is live in saves.</p>
     </aside>
   </main>
-  <footer>Design preview only · New Yardwalker rest-pose is NOT in live game · Existing garage, locomotion, combat and saves untouched</footer>
-  <script type="module" src="./chassisPreview.js?v=k3a3"></script>
+  <footer>Design preview only · Engineered Yardwalker and Kestrel rest-poses are NOT in live game · Existing garage, locomotion, combat and saves untouched</footer>
+  <script type="module" src="./chassisPreview.js?v=k3a4"></script>
 </body>
 </html>
