@@ -1,17 +1,19 @@
-/** k.3a.7.1 standalone equal-scale gray anatomy lab.
+/** k.3a.8 standalone equal-scale silhouette separation lab.
  * No gameplay code, no persistence, exactly ONE shared WebGL context.
  */
 import * as THREE from 'three';
 import {fitFixtureFor} from './chassisFitFixtures.js';
-import {buildYardwalkerVisual} from './yardwalkerVisual.js?v=k3a71';
-import {buildKestrelVisual} from './kestrelVisual.js?v=k3a71';
-import {buildHaulerVisual} from './haulerVisual.js?v=k3a71';
-import {MOBILITY_LAYOUTS} from './mobilityDefinitions.js?v=k3a71';
-import {setMobilityGreybox} from './mobilityVisualKit.js?v=k3a71';
+import {buildYardwalkerVisual} from './yardwalkerVisual.js?v=k3a8';
+import {buildKestrelVisual} from './kestrelVisual.js?v=k3a8';
+import {buildHaulerVisual} from './haulerVisual.js?v=k3a8';
+import {MOBILITY_LAYOUTS,mobilitySilhouetteMetrics,validateMobilityFamilySeparation} from './mobilityDefinitions.js?v=k3a8';
+import {setMobilityGreybox} from './mobilityVisualKit.js?v=k3a8';
 const stage=document.getElementById('stage');
 const tiles=[...document.querySelectorAll('.tile[data-family]')];
 const greybox=document.getElementById('greybox');
 const envelopes=document.getElementById('envelopes');
+const labels=document.getElementById('labels');
+const status=document.getElementById('silhouette-status');
 const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('anatomy-canvas'),antialias:false,powerPreference:'low-power'});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -26,14 +28,27 @@ const builders={
     'legs-compact':buildKestrelVisual,
     'legs-hauler':buildHaulerVisual,
 };
+const role={
+    'legs-yard':'UTILITY WALKER',
+    'legs-compact':'REVERSE-KNEE RUNNER',
+    'legs-hauler':'PODDED LOAD-BEARER',
+};
 const subjects=tiles.map(tile=>{
     const id=tile.dataset.family,fixture=fitFixtureFor(id),layout=MOBILITY_LAYOUTS[id];
     if(!fixture||!layout)throw new Error(`Unknown source-backed mobility part: ${id}`);
     const root=builders[id](fixture);
     root.visible=false;scene.add(root);
     setMobilityGreybox(root,true);
+    const m=mobilitySilhouetteMetrics(layout);
+    const metric=tile.querySelector('.metric');
+    if(metric)metric.textContent=`${role[id]} · footprint ${m.footprintWidthM.toFixed(2)} × ${m.footprintDepthM.toFixed(2)} m`;
     return {tile,id,root,layout};
 });
+const separation=validateMobilityFamilySeparation();
+status.dataset.status=separation.valid?'pass':'fail';
+status.textContent=separation.valid?
+    'GEOMETRY GATE PASS · Kestrel < Yardwalker < Hauler in stance and footprint; reverse-knee and pod-span thresholds satisfied.':
+    `GEOMETRY GATE FAIL · ${separation.errors.join(' ')}`;
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,.05,35);
 const views={front:[0,0,-6],side:[6,0,0],quarter:[4.1,2.0,-4.7]};
 let view='front',scheduled=false;
@@ -77,6 +92,9 @@ greybox.addEventListener('change',()=>{
 envelopes.addEventListener('change',()=>{
     for(const {root} of subjects)root.userData.outline.visible=envelopes.checked;
     schedule();
+});
+labels.addEventListener('change',()=>{
+    stage.classList.toggle('labels-hidden',!labels.checked);
 });
 window.addEventListener('resize',schedule);
 if('ResizeObserver'in window)new ResizeObserver(schedule).observe(stage);

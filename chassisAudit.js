@@ -1,16 +1,17 @@
-/** k.3a.7.4 preview-only nine-combination engineering audit.
+/** k.3a.8 preview-only nine-combination engineering audit.
  * Original catalogue envelopes & frame poses remain authoritative.
  * Member proxies study REST geometry only: not triangle contact, swept gait,
  * collision physics, load strength or static tipping stability.
  */
 import {CONCEPT_CHASSIS,validateConceptChassis} from './chassisConcepts.js';
 import {AVAILABLE_MOBILITY_FIXTURE_IDS,standardFitFixtures} from './chassisFitFixtures.js';
-import {MOBILITY_LAYOUTS,validatePairedMobilityLayout,validateHaulerLayout} from './mobilityDefinitions.js';
+import {MOBILITY_LAYOUTS,validateYardwalkerLayout,validateKestrelLayout,validateHaulerLayout,
+    validateMobilityFamilySeparation,mobilitySilhouetteMetrics} from './mobilityDefinitions.js?v=k3a8';
 import {analyzeFit,structuralAabb,fixtureAabb,rotatePoint} from './chassisFitValidation.js';
 
 export const AUDIT_FRAMES=Object.freeze(CONCEPT_CHASSIS.map(frame=>frame.id));
 export const AUDIT_MOBILITY=Object.freeze(AVAILABLE_MOBILITY_FIXTURE_IDS.slice());
-export const AUDIT_VERSION='k.3a.7.4';
+export const AUDIT_VERSION='k.3a.8';
 const add=(a,b)=>a.map((n,i)=>n+b[i]);
 const sub=(a,b)=>a.map((n,i)=>n-b[i]);
 const distance=(a,b)=>Math.hypot(...sub(a,b));
@@ -69,28 +70,27 @@ function equipmentMemberBoxes(fixture,pose){
     ] : [];
     return defs.map(([id,c,s])=>({id,fixtureId:fixture.id,box:boxAt(c,s,pose)}));
 }
-/** New k.3a.7 member IDs correspond to ACTUAL mesh names in each dedicated
- * family constructor; click-to-highlight resolves the implicated object.
+/** Named IDs correspond to ACTUAL mesh names in each dedicated family
+ * constructor; click-to-highlight resolves the implicated object.
  */
 function limbMembers(layout,pose){
     const specs={
         'legs-yard':{upper:'Y4',upperName:'angled-upper-load-beam',
             lower:'Y7',lowerName:'shaped-olive-calf',drive:'Y6',driveName:'practical-linear-drive'},
         'legs-compact':{upper:'K5',upperName:'rearward-swept-cream-upper-spar',
-            lower:'K7',lowerName:'long-forward-cream-shin',drive:'K6',driveName:'short-knee-spring'},
+            lower:'K7',lowerName:'long-forward-cream-shin',drive:'K6',driveName:'exposed-knee-spring'},
         'legs-hauler':{upper:'H4',upperName:'recessed-short-yoke',
             lower:'H7',lowerName:'compression-column',drive:'H10',driveName:'short-drive-actuator'},
     };
     const s=specs[layout.catalogId];
-    // Conservative radial envelopes also include the *offset* protective
-    // calf/shock facets and working actuator lugs, not only the central rod.
-    // These are rest-pose proximity proxies, NEVER detailed OBB mesh fits.
+    // k.3a.8 proxies track the visibly changed family masses. They remain
+    // deliberately conservative centreline radii, NOT detailed mesh OBBs.
     const radial={
-        'legs-yard':{upper:.19,lower:.235,drive:.09},
-        'legs-compact':{upper:.12,lower:.11,drive:.07},
-        'legs-hauler':{upper:.22,lower:.22,drive:.10},
+        'legs-yard':{upper:.18,lower:.245,drive:.09},
+        'legs-compact':{upper:.09,lower:.085,drive:.055},
+        'legs-hauler':{upper:.19,lower:.25,drive:.115},
     }[layout.catalogId];
-    return layout.legs.flatMap(leg=>{ 
+    return layout.legs.flatMap(leg=>{
         const side=leg.side<0?'left':'right';
         return [
             {id:`${s.upper}-${side}-${s.upperName}`,from:world(leg.hip,pose),to:world(leg.knee,pose),
@@ -103,8 +103,8 @@ function limbMembers(layout,pose){
     });
 }
 /** Member AABB proxies for genuinely large solid masses. These are computed
- * from the NEW authored pads, PODS and actual multi-part sole union (the
- * wedge shoe + supported two-prong toes together occupy footSize exactly).
+ * from the authored PODS and the full multi-part sole union. Each constructor
+ * reaches the declared footSize limits without inventing proxy-only volume.
  */
 export function mobilitySolidProxies(layout,pose){
     const pods=(layout.pods||[]).map(p=>({
@@ -143,9 +143,7 @@ function memberChecks(frame,layout,pose,fixtures,fit){
     }
     for(const solid of solids){
         for(const other of others){
-            // Avoid calling the intentional structural mount/guide bosses collisions.
-            // The separately-authored pod or foot CAN still conflict with a gun,
-            // cab or other real structural member; preserve that review.
+            // Avoid calling intentional structural mount/guide bosses collisions.
             const p=boxBoxProximity(solid.box,other.box);
             if(p.clearanceM<-.025){
                 incidents.push(note('review',solid.kind==='fixed-drive-pod'?'fixed-pod-proximity':'foot-solid-proximity',
@@ -162,8 +160,9 @@ export function auditCombination(frame,mobilityId){
     const frameValidation=validateConceptChassis(frame);
     if(!frameValidation.valid)throw new Error(`Invalid authored frame: ${frameValidation.errors.join('; ')}`);
     const layout=MOBILITY_LAYOUTS[mobilityId],fixtures=standardFitFixtures({mobilityId}),mobility=fixtures[0];
-    const layoutValidation=mobilityId==='legs-hauler'?validateHaulerLayout(layout,mobility):
-        validatePairedMobilityLayout(layout,mobility);
+    const validate=mobilityId==='legs-hauler'?validateHaulerLayout:
+        mobilityId==='legs-compact'?validateKestrelLayout:validateYardwalkerLayout;
+    const layoutValidation=validate(layout,mobility);
     if(!layoutValidation.valid)throw new Error(`Invalid authored mobility: ${layoutValidation.errors.join('; ')}`);
     const fit=analyzeFit(frame,fixtures,{mobilityGuides:true}),pose=fit.poses.get(mobilityId),findings=[];
     if(!pose){
@@ -195,8 +194,6 @@ export function auditCombination(frame,mobilityId){
     if(mobility.nativeStandard==='heavy'){
         if(!mobility.previewAdapter||mobility.previewAdapter.massKg!==110)
             findings.push(note('blocked','missing-adapter','Hauler H2 must have one explicit 110 kg H2/U1 adapter.',null));
-        // Preserve k.3a.6's physical pad warning with STRICT 1mm tolerance.
-        // Layout validation also fails closed for mismatched pads.
         const contactTop=layout.pad.center[1]+layout.pad.size[1]/2,
             gapM=layout.mountingFace[1]-contactTop;
         if(Math.abs(gapM)>.001)
@@ -208,6 +205,7 @@ export function auditCombination(frame,mobilityId){
     const fitErrors=fit.issues.filter(i=>i.severity==='error');
     const status=fitErrors.length||findings.some(f=>f.level==='blocked')?'blocked':
         fit.issues.some(i=>i.severity==='review')||findings.some(f=>f.level==='review')?'review':'measured';
+    const silhouette=mobilitySilhouetteMetrics(layout);
     return {
         key:`${frame.id}/${mobilityId}`,frameId:frame.id,mobilityId,frame,fixtures,fit,findings,status,
         metrics:{
@@ -215,6 +213,10 @@ export function auditCombination(frame,mobilityId){
             stanceCentreSeparationM:round(distance(anchors[0],anchors[1])),
             footprintWidthM:round(footprint.max[0]-footprint.min[0]),
             footprintDepthM:round(footprint.max[2]-footprint.min[2]),
+            authoredFootprintAreaM2:round(silhouette.footprintAreaM2),
+            upperMassWidthM:round(silhouette.upperMassWidthM),
+            reverseKneeRearOffsetM:round(silhouette.kneeRearOffsetM),
+            forwardShinSweepM:round(silhouette.ankleForwardSweepM),
             chassisGroundClearanceM:round(chassisGroundClearanceM),
             heightFromGroundM:round(highest-groundY),
             equipmentMassKg:sumMass,adapterMassKg:mobility.previewAdapter?.massKg??0,
@@ -226,15 +228,19 @@ export function auditCombination(frame,mobilityId){
     };
 }
 export function buildNineCombinationAudit(){
+    const identity=validateMobilityFamilySeparation();
+    if(!identity.valid)throw new Error(`Mobility family silhouette invariants failed: ${identity.errors.join('; ')}`);
     return CONCEPT_CHASSIS.flatMap(frame=>AUDIT_MOBILITY.map(id=>auditCombination(frame,id)));
 }
 /** Same measured case records drive both UI and plain-text export. */
 export function auditTextReport(cases){
     return [`M3CH4 ${AUDIT_VERSION} — NINE-COMBINATION ENGINEERING AUDIT`,
         'Preview-only, rest pose, authored major-member proxies. No frame mass or full-mesh physics.',
+        'k.3a.8 silhouette identity gate: Kestrel < Yardwalker < Hauler in stance/footprint; Hauler pod span and Kestrel reverse-knee path are explicitly validated.',
         '',...cases.flatMap(c=>[
             `${c.frame.name} / ${c.fixtures[0].name} [${c.status.toUpperCase()}]`,
             `  Overall height ${c.metrics?.heightFromGroundM??'?'} m · stance ${c.metrics?.stanceCentreSeparationM??'?'} m · chassis clearance ${c.metrics?.chassisGroundClearanceM??'?'} m`,
+            `  Footprint ${c.metrics?.footprintWidthM??'?'} × ${c.metrics?.footprintDepthM??'?'} m · upper-mass width ${c.metrics?.upperMassWidthM??'?'} m`,
             `  Equipment mass ${c.metrics?.equipmentMassKg??'?'} kg (adapter ${c.metrics?.adapterMassKg??0} kg; frame/unrated guides excluded)`,
             `  Guide spans ${c.metrics?.guideSpansM?.join(', ')??'UNAVAILABLE'} m · foot-height mismatch ${c.metrics?.footMismatchM??'?'} m`,
             `  ${c.fit.issues.filter(i=>i.severity==='error').length} mounting errors · ${c.fit.issues.filter(i=>i.severity==='review').length} envelope/adapter reviews · ${c.findings.length} geometry findings`,

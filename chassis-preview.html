@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#171d1b"/>
-  <title>M3CH4 — Mobility Anatomy Lab k.3a.5</title>
+  <title>M3CH4 — Chassis Lab k.3a.8</title>
   <script type="importmap">{
     "imports": {"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}
   }</script>
@@ -37,12 +37,13 @@
     #views{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#views button{text-align:center;font-size:11px;padding:7px 4px}
     label{display:block;padding:9px 0}#details{white-space:pre-wrap;line-height:1.50;background:#18211e;padding:10px;border-radius:6px;min-height:110px;font-size:12px}
     .legend{display:grid;grid-template-columns:12px 1fr;gap:5px 8px;font-size:11px;color:#d0d8d2;align-items:center}
-    .swatch{width:10px;height:10px;border-radius:50%}footer{padding:7px 15px;border-top:1px solid #43504a;color:#a6b3a9;font-size:11px}
+    .swatch{width:10px;height:10px;border-radius:50%}.review-link{display:block;padding:10px 12px;background:#43543e;border:1px solid #8c9662;border-radius:5px;font-weight:700;text-align:center;letter-spacing:.04em;text-decoration:none;margin:6px 0}
+    footer{padding:7px 15px;border-top:1px solid #43504a;color:#a6b3a9;font-size:11px}
     @media(max-width:660px){main{flex-direction:column}aside{width:100%;max-height:45%;border-left:0;border-top:1px solid #43504a}header strong{font-size:14px}}
   </style>
 </head>
 <body>
-  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.5 · Yardwalker + Kestrel + Hauler engineered mobility studies · Preview only</small></div><a href="./index.html">← Main game</a></header>
+  <header><div><strong>M3CH4 / CHASSIS LAB</strong><br/><small>k.3a.8 · silhouette-separated Yardwalker + Kestrel + Hauler · Preview only</small></div><a href="./index.html">← Main game</a></header>
   <main>
     <div id="viewport" aria-label="3D bare chassis design preview">
       <div id="axis-hint">FRONT −Z · RIGHT +X · UP +Y</div>
@@ -71,9 +72,11 @@
         <label><input type="checkbox" id="show-mobility-guides" checked/> Show 2 measured, unrated frame-side guide brackets</label>
         <p class="muted">The active mobility module keeps one real centre mount and two visible outboard guide receivers. Hauler additionally exposes an explicit H2/U1 adapter between the frame saddle and heavy carriage. Guides bridge authored frame bosses to the module receiver faces; they are design-only, not mass-rated or a second playable leg mount. Turn guides off to inspect the original unsupported spans.</p>
       </div>
-      <h3>NINE-COMBINATION AUDIT</h3>
-      <a href="./chassis-audit.html" style="display:block;padding:10px 12px;background:#43543e;border:1px solid #8c9662;border-radius:5px;font-weight:700;text-align:center;letter-spacing:.04em;text-decoration:none">OPEN 3×3 FIT AUDIT →</a>
-      <p class="muted">Compare all three chassis × all three mobility systems at the same scale, inspect actual authored foot contacts, adapter mass, member clearances and mounting findings.</p>
+      <h3>K.3A.8 REVIEW</h3>
+      <a href="./mobility-anatomy.html" class="review-link">OPEN EQUAL-SCALE GRAY ANATOMY →</a>
+      <p class="muted">Approve front / right / 3/4 silhouettes here first: Yardwalker = utility middle, Kestrel = narrow reverse-knee runner, Hauler = squat podded load-bearer.</p>
+      <a href="./chassis-audit.html" class="review-link">OPEN 3×3 MOUNTED AUDIT →</a>
+      <p class="muted">Then compare all three chassis × all three mobility systems at the same scale, including authored foot contacts, adapter mass, member clearances and mounting findings.</p>
       <h3>CAMERA STUDY</h3>
       <div id="views" role="group" aria-label="Camera view presets">
         <button type="button" data-view="quarter" aria-pressed="true">3/4</button>
@@ -86,7 +89,7 @@
       <div id="fit-panel" hidden>
         <h3>STANDARD EQUIPMENT FIT</h3>
         <div id="fit-summary" role="status" aria-live="polite"></div>
-        <p class="muted">Envelopes and masses come from the live catalogue; Yardwalker and Kestrel now use named mechanical rest-poses; other components remain simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
+        <p class="muted">Envelopes and masses come from the live catalogue; all three engineered mobility families use named k.3a.8 rest poses. Other components remain simple test fixtures. Hiding parts changes only visibility. Review flags are conservative envelope checks, not confirmed mesh collisions. Mount capacities are provisional design values.</p>
         <div id="fit-selected" aria-live="polite"></div>
         <div id="fit-results"></div>
       </div>
@@ -99,7 +102,7 @@
       <p class="muted">The hip bosses are visible structure, not two independent functional leg slots. The debug rings sit on metal mount faces rather than floating in space. Provisional socket ratings have not been added to gameplay, and none of the engineered mobility modules or the Hauler adapter are live in saves.</p>
     </aside>
   </main>
-  <footer>Design preview only · Engineered Yardwalker, Kestrel and Hauler rest-poses are NOT in live game · Existing garage, locomotion, combat and saves untouched</footer>
-  <script type="module" src="./chassisPreview.js?v=k3a5"></script>
+  <footer>Design preview only · k.3a.8 mobility silhouette separation · Existing garage, locomotion, combat and saves untouched</footer>
+  <script type="module" src="./chassisPreview.js?v=k3a8"></script>
 </body>
 </html>

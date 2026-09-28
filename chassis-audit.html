@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#171d1b"/>
-  <title>M3CH4 — 3×3 Assembly Audit</title>
+  <title>M3CH4 — k.3a.8 3×3 Assembly Audit</title>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
   <style>
     *{box-sizing:border-box}
@@ -41,6 +41,7 @@
     .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.row>*{flex:1}
     label{display:flex;align-items:center;gap:7px;font-size:12px;padding:9px 0}input{accent-color:#d7af5c}
     .micro{font-size:11px;color:#bccabf;line-height:1.55}
+    .pass-note{padding:8px 9px;border:1px solid #58705c;background:#17231d;border-radius:5px;color:#cbd8cd;font-size:11px;line-height:1.45}
     footer{padding:8px 14px;border-top:1px solid #43504a;font-size:11px;color:#b0bbaf}
     @media(max-width:790px){main{display:flex;flex-direction:column}#stage{height:58vh;min-height:330px;max-height:620px}aside{max-height:none;border-left:0;border-top:1px solid #45574d}.case-tile b{font-size:10px}.case-tile span{font-size:9px}}
     @media(max-width:390px){.case-tile{padding:3px}.case-tile span,.case-tile small{padding:2px 3px;font-size:9px}}
@@ -48,7 +49,7 @@
 </head>
 <body>
   <header>
-    <div><strong>M3CH4 / FIT AUDIT</strong><br/><small>k.3a.6 · Three chassis × three engineered mobility systems</small></div>
+    <div><strong>M3CH4 / FIT AUDIT</strong><br/><small>k.3a.8 · silhouette-separation regression · three chassis × three engineered mobility systems</small></div>
     <a href="./chassis-preview.html">← Chassis Lab</a>
   </header>
   <main>
@@ -62,8 +63,9 @@
       </div>
     </section>
     <aside>
-      <h2>Same equipment. Different structural fit.</h2>
+      <h2>Same equipment. Different mobility character.</h2>
       <p class="micro">All nine are shown at the same scale and viewing angle. Tap any machine to inspect its measured rest pose. The normal game and your saves are untouched.</p>
+      <p class="pass-note">k.3a.8 review order: approve the isolated flat-gray silhouettes in <a href="./mobility-anatomy.html">Mobility Anatomy</a> first, then use this page to confirm the same chassis changes character when Yardwalker, Kestrel, or Hauler is installed.</p>
       <h3>STANDARD CAMERA</h3>
       <div class="controls" role="group" aria-label="Comparison camera presets">
         <button data-camera="quarter" type="button" aria-pressed="true">3/4</button>
@@ -82,7 +84,7 @@
       <div id="findings" aria-live="polite"></div>
     </aside>
   </main>
-  <footer>Preview-only engineering study · Provisional socket ratings · Unrated guide brackets · Member proximity ≠ verified mesh collision · Frame masses are not assigned</footer>
-  <script type="module" src="./chassisAuditView.js?v=k3a6"></script>
+  <footer>Preview-only engineering study · k.3a.8 silhouette pass · Provisional socket ratings · Unrated guide brackets · Member proximity ≠ verified mesh collision · Frame masses are not assigned</footer>
+  <script type="module" src="./chassisAuditView.js?v=k3a8"></script>
 </body>
 </html>

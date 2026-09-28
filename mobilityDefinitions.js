@@ -1,4 +1,4 @@
-/** k.3a.7: preview-only authored rest poses for the three existing mobility IDs.
+/** k.3a.8: preview-only authored rest poses for the three existing mobility IDs.
  * The component catalogue owns physical dimensions, masses and gameplay values.
  * Positive Z is rearward; negative Z is the forward direction.
  */
@@ -13,32 +13,32 @@ export const YARDWALKER_LAYOUT = Object.freeze({
         {side:+1,center:[+.76,.72,.10],size:[.10,.095,.22],contact:[+.81,.72,.10]},
     ],
     legs:[-1,1].map(side=>({
-        side, hip:[side*.64,.39,.10], knee:[side*.68,-.12,.20],
-        ankle:[side*.64,-.585,.10], foot:[side*.65,-.745,-.12],
-        actuatorTop:[side*.82,.285,.22],actuatorBottom:[side*.82,-.055,.25],
+        side, hip:[side*.64,.39,.08], knee:[side*.67,-.13,.18],
+        ankle:[side*.63,-.575,.08], foot:[side*.64,-.742,-.10],
+        actuatorTop:[side*.82,.285,.20],actuatorBottom:[side*.81,-.065,.23],
     })),
     hip:{radius:.20,width:.25},knee:{radius:.18,width:.23},ankle:{radius:.105,width:.19},
-    thighWidth:.29,shinWidth:.30,footSize:[.58,.155,.78],coverSize:[.29,.37,.115],
-    intent:'Balanced compact industrial paired walker, readable load path and broad feet.',
+    thighWidth:.29,shinWidth:.31,footSize:[.60,.16,.76],coverSize:[.31,.39,.125],
+    intent:'Neutral middle family: balanced industrial utility walker with protected calves and continuous work boots.',
 });
 export const KESTREL_LAYOUT = Object.freeze({
     catalogId:'legs-compact',mountingStandard:'medium',
     mountingFace:[0,.775,0],mountingNormal:[0,1,0],primaryMounts:1,
-    saddle:{center:[0,.615,.06],size:[1.18,.17,.26]},
-    pedestal:{center:[0,.71,0],size:[.31,.10,.24]},
-    pad:{center:[0,.7575,0],size:[.36,.035,.26]},
+    saddle:{center:[0,.615,.05],size:[1.10,.16,.24]},
+    pedestal:{center:[0,.71,0],size:[.29,.10,.22]},
+    pad:{center:[0,.7575,0],size:[.34,.035,.24]},
     guideReceivers:[
-        {side:-1,center:[-.56,.665,.09],size:[.09,.08,.18],contact:[-.605,.665,.09]},
-        {side:+1,center:[+.56,.665,.09],size:[.09,.08,.18],contact:[+.605,.665,.09]},
+        {side:-1,center:[-.52,.665,.07],size:[.085,.08,.17],contact:[-.5625,.665,.07]},
+        {side:+1,center:[+.52,.665,.07],size:[.085,.08,.17],contact:[+.5625,.665,.07]},
     ],
     legs:[-1,1].map(side=>({
-        side,hip:[side*.46,.36,.04],knee:[side*.40,-.02,.25],
-        ankle:[side*.50,-.54,-.05],foot:[side*.51,-.704,-.16],
-        actuatorTop:[side*.49,.22,.15],actuatorBottom:[side*.43,-.12,.16],
+        side,hip:[side*.43,.36,.00],knee:[side*.36,-.045,.33],
+        ankle:[side*.47,-.53,-.12],foot:[side*.48,-.708,-.20],
+        actuatorTop:[side*.46,.20,.13],actuatorBottom:[side*.39,-.10,.23],
     })),
-    hip:{radius:.16,width:.18},knee:{radius:.13,width:.15},ankle:{radius:.088,width:.13},
-    thighWidth:.155,shinWidth:.135,footSize:[.38,.13,.58],coverSize:[.16,.24,.085],
-    intent:'Lighter, narrower reverse-knee runner with compact feet and tighter hip spacing.',
+    hip:{radius:.145,width:.16},knee:{radius:.115,width:.13},ankle:{radius:.078,width:.11},
+    thighWidth:.13,shinWidth:.11,footSize:[.34,.12,.54],coverSize:[.14,.21,.075],
+    intent:'Narrow reverse-knee runner: rearward knee, long forward shin, maximum open negative space and tiny split toes.',
 });
 export const HAULER_LAYOUT = Object.freeze({
     catalogId:'legs-hauler',mountingStandard:'medium',nativeMobilityStandard:'heavy',
@@ -55,29 +55,49 @@ export const HAULER_LAYOUT = Object.freeze({
             {side:+1,center:[+.42,.735,.05],size:[.11,.10,.16]},
         ],
     },
-    saddle:{center:[0,.60,.10],size:[1.92,.18,.48]},
+    saddle:{center:[0,.59,.10],size:[2.05,.19,.50]},
     pedestal:{center:[0,.655,.08],size:[.52,.12,.32]},
-    // Fix: physical top .8225 + .035/2 === declared +.840 U1 face.
-    // Bottom .805 overlaps the adapter crown, whose top is .822.
+    // Physical top .840 m remains exactly coincident with the declared U1 face.
     pad:{center:[0,.8225,0],size:[.46,.035,.28]},
     guideReceivers:[
         {side:-1,center:[-.89,.685,.10],size:[.12,.11,.24],contact:[-.95,.685,.10]},
         {side:+1,center:[+.89,.685,.10],size:[.12,.11,.24],contact:[+.95,.685,.10]},
     ],
-    // Independent carriage-fixed drive pods, not inflated upper-leg links.
-    pods:[-1,1].map(side=>({side,center:[side*.96,.29,.10],size:[.55,.62,.58]})),
+    // Carriage-fixed suspension pods now occupy almost the full legal width.
+    pods:[-1,1].map(side=>({side,center:[side*.955,.29,.11],size:[.61,.70,.64]})),
     legs:[-1,1].map(side=>({
-        side,hip:[side*.90,.24,.10],knee:[side*.90,-.20,.17],
-        ankle:[side*.85,-.61,.08],foot:[side*.84,-.75,-.08],
-        actuatorTop:[side*1.05,.115,.23],actuatorBottom:[side*1.04,-.285,.23],
+        side,hip:[side*.91,.22,.10],knee:[side*.91,-.23,.15],
+        ankle:[side*.86,-.60,.05],foot:[side*.84,-.744,-.07],
+        actuatorTop:[side*1.05,.08,.22],actuatorBottom:[side*1.04,-.305,.21],
     })),
-    hip:{radius:.24,width:.29},knee:{radius:.25,width:.29},ankle:{radius:.15,width:.22},
-    thighWidth:.35,shinWidth:.38,footSize:[.77,.17,1.04],coverSize:[.34,.42,.14],
-    intent:'Heavy wider industrial paired walker with visible H2/U1 adapter and thicker load path.',
+    hip:{radius:.245,width:.29},knee:{radius:.27,width:.31},ankle:{radius:.17,width:.24},
+    thighWidth:.34,shinWidth:.43,footSize:[.86,.18,1.16],coverSize:[.35,.40,.15],
+    intent:'Squat podded load-bearer: dominant fixed side pods, buried upper linkage, low heavy knee and enormous split load shoes.',
 });
 const vec3=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
 const inside=(p,envelope,epsilon=1e-6)=>p.every((n,i)=>Math.abs(n)<=envelope[i]/2+epsilon);
 const span=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
+const approx=(a,b,eps=.0001)=>Math.abs(a-b)<=eps;
+
+/** Shape-only metrics used by preview diagnostics. They are not gameplay stats. */
+export function mobilitySilhouetteMetrics(layout){
+    const xs=layout.legs.map(l=>Math.abs(l.hip[0]));
+    const footXs=layout.legs.map(l=>Math.abs(l.foot[0]));
+    const first=layout.legs[0];
+    const podOuter=layout.pods?.length ? Math.max(...layout.pods.map(p=>Math.abs(p.center[0])+p.size[0]/2))*2 : 0;
+    const podBottom=layout.pods?.length ? Math.min(...layout.pods.map(p=>p.center[1]-p.size[1]/2)) : null;
+    return Object.freeze({
+        hipCentreSpanM:2*Math.max(...xs),
+        upperMassWidthM:podOuter||layout.saddle.size[0],
+        footCentreSpanM:2*Math.max(...footXs),
+        footprintWidthM:2*Math.max(...footXs)+layout.footSize[0],
+        footprintDepthM:layout.footSize[2],
+        footprintAreaM2:(2*Math.max(...footXs)+layout.footSize[0])*layout.footSize[2],
+        kneeRearOffsetM:first.knee[2]-first.hip[2],
+        ankleForwardSweepM:first.knee[2]-first.ankle[2],
+        exposedUpperBelowPodM:podBottom==null?null:podBottom-first.knee[1],
+    });
+}
 /** Conservative authored-rest checks; not proof of actual polygon or swept-gait clearance. */
 export function validatePairedMobilityLayout(layout,fixture){
     const errors=[];
@@ -146,8 +166,26 @@ export function validatePairedMobilityLayout(layout,fixture){
     }
     return {valid:errors.length===0,errors};
 }
-export function validateYardwalkerLayout(layout,fixture){return validatePairedMobilityLayout(layout,fixture);}
-export function validateKestrelLayout(layout,fixture){return validatePairedMobilityLayout(layout,fixture);}
+export function validateYardwalkerLayout(layout,fixture){
+    const base=validatePairedMobilityLayout(layout,fixture),errors=[...base.errors];
+    const m=mobilitySilhouetteMetrics(layout),k=mobilitySilhouetteMetrics(KESTREL_LAYOUT),h=mobilitySilhouetteMetrics(HAULER_LAYOUT);
+    if(!(m.hipCentreSpanM>k.hipCentreSpanM+.20&&m.hipCentreSpanM<h.hipCentreSpanM-.20))
+        errors.push('Yardwalker hip spacing must remain the intermediate family.');
+    if(!(m.footprintWidthM>k.footprintWidthM+.30&&m.footprintWidthM<h.footprintWidthM-.30))
+        errors.push('Yardwalker footprint width must remain the intermediate family.');
+    if(!(m.footprintDepthM>k.footprintDepthM+.10&&m.footprintDepthM<h.footprintDepthM-.20))
+        errors.push('Yardwalker foot depth must remain the intermediate family.');
+    return {valid:errors.length===0,errors};
+}
+export function validateKestrelLayout(layout,fixture){
+    const base=validatePairedMobilityLayout(layout,fixture),errors=[...base.errors];
+    const m=mobilitySilhouetteMetrics(layout),yard=mobilitySilhouetteMetrics(YARDWALKER_LAYOUT);
+    if(m.kneeRearOffsetM<.25)errors.push('Kestrel knee must sit clearly behind the hip in side profile.');
+    if(m.ankleForwardSweepM<.38)errors.push('Kestrel ankle must sweep clearly forward from the rearward knee.');
+    if(m.hipCentreSpanM>=yard.hipCentreSpanM-.20)errors.push('Kestrel must remain clearly narrower than Yardwalker.');
+    if(m.footprintAreaM2>=yard.footprintAreaM2*.68)errors.push('Kestrel footprint must remain substantially lighter than Yardwalker.');
+    return {valid:errors.length===0,errors};
+}
 export function validateHaulerLayout(layout,fixture){
     const base=validatePairedMobilityLayout(layout,fixture),errors=[...base.errors];
     const adapter=layout?.adapter;
@@ -173,8 +211,38 @@ export function validateHaulerLayout(layout,fixture){
         [adapter?.skirt,layout.pedestal,'skirt/pedestal']]){
         if(!a||!b||!overlap(a,b))errors.push(`H2/U1 adapter ${label} must physically overlap.`);
     }
+    const m=mobilitySilhouetteMetrics(layout),yard=mobilitySilhouetteMetrics(YARDWALKER_LAYOUT);
+    if(!layout.pods?.length||m.upperMassWidthM<yard.upperMassWidthM+.70)
+        errors.push('Hauler fixed pods must dominate the upper silhouette over Yardwalker.');
+    if(m.footprintWidthM<yard.footprintWidthM+.45||m.footprintAreaM2<yard.footprintAreaM2*1.75)
+        errors.push('Hauler load-shoe footprint must clearly exceed Yardwalker.');
+    if(m.exposedUpperBelowPodM==null||m.exposedUpperBelowPodM>.24)
+        errors.push('Hauler knee must remain close beneath the pod to suppress a normal exposed thigh silhouette.');
     return {valid:errors.length===0,errors};
 }
 export const MOBILITY_LAYOUTS=Object.freeze({
     'legs-yard':YARDWALKER_LAYOUT,'legs-compact':KESTREL_LAYOUT,'legs-hauler':HAULER_LAYOUT,
 });
+/** Cross-family k.3a.8 acceptance invariant; descriptive only, never gameplay. */
+export function validateMobilityFamilySeparation(layouts=MOBILITY_LAYOUTS){
+    const errors=[];
+    const yard=mobilitySilhouetteMetrics(layouts['legs-yard']);
+    const kestrel=mobilitySilhouetteMetrics(layouts['legs-compact']);
+    const hauler=mobilitySilhouetteMetrics(layouts['legs-hauler']);
+    if(!(kestrel.hipCentreSpanM<yard.hipCentreSpanM&&yard.hipCentreSpanM<hauler.hipCentreSpanM))
+        errors.push('Hip widths are not ordered Kestrel < Yardwalker < Hauler.');
+    if(!(kestrel.footprintWidthM<yard.footprintWidthM&&yard.footprintWidthM<hauler.footprintWidthM))
+        errors.push('Footprint widths are not ordered Kestrel < Yardwalker < Hauler.');
+    if(!(kestrel.footprintDepthM<yard.footprintDepthM&&yard.footprintDepthM<hauler.footprintDepthM))
+        errors.push('Foot depths are not ordered Kestrel < Yardwalker < Hauler.');
+    if(kestrel.kneeRearOffsetM<.25||kestrel.ankleForwardSweepM<.38)
+        errors.push('Kestrel reverse-knee zigzag is below silhouette threshold.');
+    if(hauler.upperMassWidthM<2.35)errors.push('Hauler pod span is below silhouette threshold.');
+    if(hauler.footprintAreaM2<yard.footprintAreaM2*1.75)
+        errors.push('Hauler footprint area does not sufficiently exceed Yardwalker.');
+    if(!approx(layouts['legs-yard'].mountingFace[1],.825)||
+       !approx(layouts['legs-compact'].mountingFace[1],.775)||
+       !approx(layouts['legs-hauler'].mountingFace[1],.84))
+        errors.push('A silhouette pass must not alter catalogue top mating planes.');
+    return {valid:errors.length===0,errors,metrics:{yard,kestrel,hauler}};
+}

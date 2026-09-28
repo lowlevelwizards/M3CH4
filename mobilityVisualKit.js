@@ -1,4 +1,4 @@
-/** k.3a.7 preview geometry grammar. Reusable primitives, NEVER a generic biped.
+/** k.3a.8 preview geometry grammar. Reusable primitives, NEVER a generic biped.
  * All dimensions are metres; every mesh is independently measured in its
  * own named limb's full world transform before an assembly is accepted.
  */
@@ -107,10 +107,16 @@ export function forkBracket(parent,name,top,bearingAnchor,spread=.11,width=.06,d
         [top[0]+spread/2,top[1],top[2]],width,depth,tone);
     return g;
 }
-/** Solid sloped shoe half with true polygon vertices contained inside size. */
-export function wedgeSole(parent,name,center,size,tone='olive'){
+/** Solid sloped shoe half with true polygon vertices contained inside size.
+ * k.3a.8 adds bounded profile controls so a load shoe can be much steeper
+ * without inventing a new shared leg skeleton. Values are fractions of size.
+ */
+export function wedgeSole(parent,name,center,size,tone='olive',profile={}){
     const [w,h,d]=size;
-    const yz=[[+d/2,-h/2],[+d/2,+h*.26],[+d*.045,+h/2],[-d/2,-h*.08],[-d/2,-h/2]];
+    const toeTop=Math.max(-.45,Math.min(.48,profile.toeTop??.26));
+    const crestZ=Math.max(-.40,Math.min(.40,profile.crestZ??.045));
+    const rearTop=Math.max(-.45,Math.min(.45,profile.rearTop??-.08));
+    const yz=[[+d/2,-h/2],[+d/2,+h*toeTop],[+d*crestZ,+h/2],[-d/2,+h*rearTop],[-d/2,-h/2]];
     const xyz=[];for(const x of [-w/2,w/2])for(const [z,y] of yz)xyz.push(x,y,z);
     const ix=[];for(let i=1;i<yz.length-1;i++){
         ix.push(0,i,i+1);ix.push(5,5+i+1,5+i);
@@ -127,14 +133,14 @@ export function wedgeSole(parent,name,center,size,tone='olive'){
 /** Toe pair with an honest open slot. The two pads overlap the rear parent sole
  * longitudinally; neither invents extra footprint outside the authored size.
  */
-export function splitToe(parent,name,size,gap,forwardFraction=.52,tone='cream'){
+export function splitToe(parent,name,size,gap,forwardFraction=.52,tone='cream',profile={}){
     const [w,h,d]=size,usable=w,each=(usable-gap)/2;
     if(each<=0||gap<=0)throw new Error(`Invalid split-toe dimensions: ${name}`);
     const len=d*forwardFraction,zc=-d/2+len/2;
     return [-1,1].map(side=>{
         const xc=side*(gap/2+each/2);
         return wedgeSole(parent,`${name}-${side<0?'inner':'outer'}`,
-            [xc,-h*.07,zc],[each,h*.86,len],tone);
+            [xc,-h*.07,zc],[each,h*.86,len],tone,profile);
     });
 }
 /** Neutral gray, still preserving the per-mesh palette for exact restoration. */
