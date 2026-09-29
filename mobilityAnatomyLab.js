@@ -3,7 +3,7 @@
  */
 import * as THREE from 'three';
 import {fitFixtureFor} from './chassisFitFixtures.js';
-import {buildYardwalkerVisual} from './yardwalkerVisual.js?v=k3a8';
+import {buildPartVisual} from './partVisuals.js';
 import {buildKestrelVisual} from './kestrelVisual.js?v=k3a8';
 import {buildHaulerVisual} from './haulerVisual.js?v=k3a8';
 import {MOBILITY_LAYOUTS,mobilitySilhouetteMetrics,validateMobilityFamilySeparation} from './mobilityDefinitions.js?v=k3a8';
@@ -24,7 +24,7 @@ const key=new THREE.DirectionalLight(0xffffff,2.15);key.position.set(-4,7,-5);sc
 const rim=new THREE.DirectionalLight(0xd9e8df,1.1);rim.position.set(4,4,5);scene.add(rim);
 const grid=new THREE.GridHelper(4.6,10,0x637469,0x35443b);scene.add(grid);
 const builders={
-    'legs-yard':buildYardwalkerVisual,
+    'legs-yard':()=>buildPartVisual('legs-yard'),
     'legs-compact':buildKestrelVisual,
     'legs-hauler':buildHaulerVisual,
 };

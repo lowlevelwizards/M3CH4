@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildPartVisual } from './partVisuals.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
 import { adapterFor, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
@@ -759,6 +760,23 @@ function buildExteriorRig(assembly) {
         };
         const cyl = (radiusTop, radiusBottom, height, material, sides = 10) => new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, sides), m(material));
         const round = (radius, material) => new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 6), m(material));
+        // k.3b.0: first shared model; keep legacy geometry as a safe fallback
+        // until the new Yardwalker passes the mobile gameplay smoke test.
+        let sharedVisual = null;
+        if (def.id === 'legs-yard') {
+            try { sharedVisual = buildPartVisual(def.id, { mode: 'gameplay' }); }
+            catch (error) { console.error('Shared Yardwalker visual failed; using legacy model.', error); }
+        }
+        if (sharedVisual) {
+            group.add(sharedVisual);
+            sharedVisual.traverse(node => {
+                if (!node.isMesh) return;
+                node.userData.slot = slot;
+                meshes.push(node);
+                pickMeshes.push(node);
+            });
+            continue;
+        }
         switch (def.id) {
             case 'frame-sr': {
                 // BRUISER: deep shoulder sockets, a layered armored belly and one obvious

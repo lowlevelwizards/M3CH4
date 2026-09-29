@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import { CHASSIS_MATERIALS } from './chassisConceptBuilder.js';
-import { buildYardwalkerVisual } from './yardwalkerVisual.js';
+import { buildPartVisual } from './partVisuals.js';
 import { buildKestrelVisual } from './kestrelVisual.js';
 import { buildHaulerVisual } from './haulerVisual.js';
 
@@ -45,7 +45,7 @@ function addMountFace(root,fixture){
 export function buildFitFixture(fixture,{mobilityModel='engineered'}={}){
     if(!fixture?.envelope?.every(n=>Number.isFinite(n)&&n>0))
         throw new Error('An authored physical component envelope is required.');
-    if(fixture.id==='legs-yard'&&mobilityModel==='engineered')return buildYardwalkerVisual(fixture);
+    if(fixture.id==='legs-yard'&&mobilityModel==='engineered')return buildPartVisual(fixture.id);
     if(fixture.id==='legs-compact'&&mobilityModel==='engineered')return buildKestrelVisual(fixture);
     if(fixture.id==='legs-hauler'&&mobilityModel==='engineered')return buildHaulerVisual(fixture);
     const [w,h,d]=fixture.envelope;
