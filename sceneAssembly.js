@@ -2,7 +2,7 @@
  * Kept separate so j.2 hostile pathfinding, weapon tracing and pooled effects
  * are not copied or forked into a second large renderer. */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=j2';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3b0';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 
 let active = null;
