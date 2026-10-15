@@ -298,3 +298,18 @@ export function storeMachine(storage, state) {
         return false;
     }
 }
+
+
+/** DEV utility: delete every machine-save generation so reload follows the exact
+ * same path as a first-time player. Session-only contract selection is cleared by
+ * the caller because it belongs to contracts.js rather than machine persistence. */
+export function clearMachineSave(storage) {
+    if (!storage) return false;
+    try {
+        for (const key of [MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY])
+            storage.removeItem(key);
+        return true;
+    } catch {
+        return false;
+    }
+}

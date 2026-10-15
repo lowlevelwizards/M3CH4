@@ -18,28 +18,54 @@ export const DEFAULT_RIG_CONFIG = {
     collisionTangentialDamping: 0.72,
     collisionImpactScale: 1,
 };
+
+/** k.3i.0 beginner yard: enough distance and occlusion for a real approach phase.
+ * Obstacles remain plain AABBs for collision/navigation, but optional render metadata
+ * lets scene.js draw the same authoritative shapes as useful cover rather than props. */
+export const PLAYER_SPAWN = Object.freeze({ x: 0, z: 22, yaw: 0 });
+export const HOSTILE_SPAWN = Object.freeze({ x: 0, z: -22, yaw: Math.PI });
 export const DEFAULT_WORLD = {
-    minX: -23,
-    maxX: 23,
-    minZ: -16,
-    maxZ: 16,
+    minX: -32,
+    maxX: 32,
+    minZ: -27,
+    maxZ: 27,
     obstacles: [
-        { id: 'barrier-west', minX: -14.5, maxX: -10.5, minZ: -2.2, maxZ: 2.2 },
-        { id: 'barrier-east', minX: 10.5, maxX: 14.5, minZ: -2.2, maxZ: 2.2 },
-        { id: 'crate-north', minX: -2.1, maxX: 2.1, minZ: -11.8, maxZ: -9.2 },
-        // The eight rendered warehouse columns are solid for BOTH rigs and navigation.
-        ...[-18, -6, 6, 18].flatMap(x => [-13, 13].map(z => ({
-            id: `pillar-${x}-${z}`, minX: x - .275, maxX: x + .275, minZ: z - .275, maxZ: z + .275,
+        // The central loading house deliberately breaks spawn-to-spawn line of sight.
+        { id: 'loading-house', minX: -5.2, maxX: 5.2, minZ: -4.4, maxZ: 4.4, height: 4.4, kind: 'building' },
+
+        // Offset concrete screens make two readable lanes without turning the yard
+        // into a maze. They are tall enough to hide most of a mech at combat range.
+        { id: 'screen-north-west', minX: -20.5, maxX: -12.0, minZ: -13.0, maxZ: -10.3, height: 2.7, kind: 'barrier' },
+        { id: 'screen-north-east', minX: 11.5, maxX: 19.5, minZ: -9.2, maxZ: -6.5, height: 2.7, kind: 'barrier' },
+        { id: 'screen-south-west', minX: -20.0, maxX: -12.0, minZ: 7.0, maxZ: 9.7, height: 2.7, kind: 'barrier' },
+        { id: 'screen-south-east', minX: 12.5, maxX: 20.5, minZ: 11.0, maxZ: 13.7, height: 2.7, kind: 'barrier' },
+
+        // Two container stacks create outer flanking cover and visually widen the yard.
+        { id: 'container-west', minX: -27.0, maxX: -22.3, minZ: -3.6, maxZ: 3.6, height: 3.0, kind: 'container' },
+        { id: 'container-east', minX: 22.3, maxX: 27.0, minZ: -3.6, maxZ: 3.6, height: 3.0, kind: 'container' },
+
+        // Lower home-side barricades give each spawn somewhere to fall back to without
+        // fully blocking the forward view from the cockpit.
+        { id: 'home-cover-west', minX: -10.0, maxX: -3.5, minZ: 15.2, maxZ: 17.0, height: 1.65, kind: 'barrier-low' },
+        { id: 'home-cover-east', minX: 4.0, maxX: 10.5, minZ: 14.0, maxZ: 15.8, height: 1.65, kind: 'barrier-low' },
+        { id: 'away-cover-west', minX: -10.5, maxX: -4.0, minZ: -15.8, maxZ: -14.0, height: 1.65, kind: 'barrier-low' },
+        { id: 'away-cover-east', minX: 3.5, maxX: 10.0, minZ: -17.0, maxZ: -15.2, height: 1.65, kind: 'barrier-low' },
+
+        // Perimeter steel supports keep the industrial-bay language from the first map.
+        ...[-27, -13, 13, 27].flatMap(x => [-23.5, 23.5].map(z => ({
+            id: `pillar-${x}-${z}`, minX: x - .3, maxX: x + .3, minZ: z - .3, maxZ: z + .3,
+            height: 7.5, kind: 'pillar',
         }))),
     ],
 };
-export function createRigState() {
+
+export function createRigState(spawn = PLAYER_SPAWN) {
     return {
-        x: 0,
-        z: 8,
+        x: Number.isFinite(spawn?.x) ? spawn.x : PLAYER_SPAWN.x,
+        z: Number.isFinite(spawn?.z) ? spawn.z : PLAYER_SPAWN.z,
         vx: 0,
         vz: 0,
-        yaw: 0,
+        yaw: Number.isFinite(spawn?.yaw) ? spawn.yaw : PLAYER_SPAWN.yaw,
         yawRate: 0,
         driveLoad: 0,
         forwardSpeed: 0,

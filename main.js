@@ -6,12 +6,12 @@ import { equip, inspectAssembly, installedPart, partsFor, remove, SLOTS, } from 
 import { bodyFollowSteer, Controls } from './controls.js';
 import { repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
-import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
+import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
-import { loadMachine, storeMachine } from './persistence.js';
+import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileOutput, hostileSpread, } from './hostileRig.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
@@ -42,9 +42,7 @@ const hostileWeaponSpec = weaponFor(targetAssembly);
 let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
 let hostileController = createHostileController();
 let hostileMotion = createEnemyMotion();
-let hostileRig = createRigState();
-hostileRig.z = 0;
-hostileRig.yaw = Math.PI; // Face the player who deploys at z=8.
+let hostileRig = createRigState(HOSTILE_SPAWN);
 const hostileBaseConfig = deriveRigConfig(targetAssembly);
 if (!hostileBaseConfig)
     throw new Error('Hostile training assembly is not fieldable.');
@@ -53,8 +51,12 @@ let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
 // Each mech sees the other as a moving physical obstacle. Neither collides with itself.
-const hostileObstacle = { id: 'hostile-rig', minX: -1, maxX: 1, minZ: -.9, maxZ: .9 };
-const pilotObstacle = { id: 'pilot-rig', minX: -1, maxX: 1, minZ: 7.1, maxZ: 8.9 };
+const movingObstacleAt = (id, spawn, radius = 1) => ({
+    id, minX: spawn.x - radius, maxX: spawn.x + radius,
+    minZ: spawn.z - radius, maxZ: spawn.z + radius,
+});
+const hostileObstacle = movingObstacleAt('hostile-rig', HOSTILE_SPAWN);
+const pilotObstacle = movingObstacleAt('pilot-rig', PLAYER_SPAWN);
 const rangeWorld = {
     ...DEFAULT_WORLD,
     obstacles: [...DEFAULT_WORLD.obstacles, hostileObstacle],
@@ -115,6 +117,7 @@ const devToggle = required('#dev-toggle');
 const devPanel = required('#dev-panel');
 const devReadout = required('#dev-readout');
 const resetRig = required('#reset-rig');
+const wipeSave = required('#wipe-save');
 const toggleColliders = required('#toggle-colliders');
 const resolutionToggle = required('#resolution-toggle');
 const assemblyToggle = required('#assembly-toggle');
@@ -194,7 +197,9 @@ function showStatus(message) {
     renderFieldStatus();
 }
 let saveErrorShown = false;
+let persistenceSuppressed = false;
 function persistMachine() {
+    if (persistenceSuppressed) return;
     const saved = storeMachine(saveStorage, { assembly, damage, playerCondition, economy });
     if (!saved && !saveErrorShown) {
         saveErrorShown = true;
@@ -482,9 +487,7 @@ function toggleInspection(force) {
         debriefSheet.classList.add('hidden');
         debriefSheet.setAttribute('aria-hidden', 'true');
         rig = createRigState();
-        hostileRig = createRigState();
-        hostileRig.z = 0;
-        hostileRig.yaw = Math.PI;
+        hostileRig = createRigState(HOSTILE_SPAWN);
         hostileMotion = createEnemyMotion();
         arena.updateHostileNavigation(null);
         // The opponent is a fresh contract machine each sortie; player damage is NOT reset.
@@ -785,6 +788,35 @@ function frame(now) {
 }
 devToggle.addEventListener('click', () => devPanel.classList.toggle('hidden'));
 resetRig.addEventListener('click', () => { rig = createRigState(); controls.recenterLook(); });
+let wipeArmed = false;
+let wipeTimer = null;
+wipeSave.addEventListener('click', () => {
+    if (!wipeArmed) {
+        wipeArmed = true;
+        wipeSave.textContent = 'CONFIRM WIPE · NEW SAVE';
+        wipeSave.setAttribute('aria-pressed', 'true');
+        if (wipeTimer !== null) window.clearTimeout(wipeTimer);
+        wipeTimer = window.setTimeout(() => {
+            wipeArmed = false;
+            wipeTimer = null;
+            wipeSave.textContent = 'WIPE SAVE / START FRESH';
+            wipeSave.setAttribute('aria-pressed', 'false');
+        }, 4200);
+        return;
+    }
+    persistenceSuppressed = true;
+    if (!clearMachineSave(saveStorage)) {
+        persistenceSuppressed = false;
+        showStatus('SAVE WIPE FAILED · LOCAL STORAGE UNAVAILABLE');
+        return;
+    }
+    try {
+        window.sessionStorage.removeItem('m3ch4-contract-v1');
+        window.sessionStorage.removeItem('m3ch4-recovered-part');
+        window.sessionStorage.removeItem('m3ch4-contract-changed');
+    } catch { /* machine save is already cleared */ }
+    window.location.reload();
+});
 toggleColliders.addEventListener('click', () => {
     showColliders = !showColliders;
     arena.debugColliders.visible = showColliders;
@@ -895,19 +927,19 @@ function attemptHostileFire(shotIndex) {
         return;
     if (!withinFiringArc(hostileRig, rig))
         return; // No firing magically through its own back.
-    const consumed = fireWeapon(hostileWeaponState, hostileWeaponSpec);
-    if (consumed === null)
-        return;
-    // The test controller is intentionally slower than the weapon's raw cyclic rate.
-    hostileWeaponState.cooldown = Math.max(hostileWeaponState.cooldown, hostile.triggerSeconds * .55);
     const [spreadX, spreadY] = hostileSpread(shotIndex, hostile.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex);
     const contact = arena.traceHostileShot(rig, aimSlot, spreadX, spreadY);
-    soundFire();
-    if (contact.slot === null) {
-        arena.showHostileShot(contact, null);
+    // Cover creates a real contact phase: the hostile does not spend ammunition or
+    // announce its position by firing blindly into an occluding arena structure.
+    if (contact.slot === null)
         return;
-    }
+    const consumed = fireWeapon(hostileWeaponState, hostileWeaponSpec);
+    if (consumed === null)
+        return;
+    // The controller remains slower than the weapon's raw cyclic rate.
+    hostileWeaponState.cooldown = Math.max(hostileWeaponState.cooldown, hostile.triggerSeconds * .55);
+    soundFire();
     const partBefore = playerCondition.parts[contact.slot];
     const beforeIntegrity = partBefore.integrity;
     const hit = applyTargetHit(playerCondition, contact.slot, hostileWeaponSpec.damage);
@@ -1060,9 +1092,7 @@ resetTarget.addEventListener('click', () => {
     hostileController = createHostileController(.7);
     hostileMotion = createEnemyMotion();
     arena.updateHostileNavigation(null);
-    hostileRig = createRigState();
-    hostileRig.z = 0;
-    hostileRig.yaw = Math.PI;
+    hostileRig = createRigState(HOSTILE_SPAWN);
     arena.updateTargetRigVisual(hostileRig);
     placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
     arena.resetTargetDamage(targetCondition);

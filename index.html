@@ -21,20 +21,20 @@
     "./progression.js": "./progression.js?v=k3h0",
     "./economy.js": "./economy.js?v=k3f0",
     "./acquisition.js": "./acquisition.js?v=k3f0",
-    "./persistence.js": "./persistence.js?v=k3h0",
+    "./persistence.js": "./persistence.js?v=k3i0",
     "./assemblyGraph.js": "./assemblyGraph.js?v=k2",
     "./controls.js": "./controls.js?v=i1",
     "./functionalDamage.js": "./functionalDamage.js?v=g11",
     "./hostileRig.js": "./hostileRig.js?v=k3g0",
-    "./locomotion.js": "./locomotion.js?v=k3c0",
-    "./scene.js": "./sceneAssembly.js?v=k3b1",
+    "./locomotion.js": "./locomotion.js?v=k3i0",
+    "./scene.js": "./sceneAssembly.js?v=k3i0",
     "./enemyMotion.js": "./enemyMotion.js?v=k3g0"
   }
 }</script>
     <link rel="stylesheet" href="./styles.css?v=k3d0" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3h.0 — Scrapyard Circuit</title>
+    <title>MECH ARENA — 0.0.1k.3i.0 — Beginner Arena</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -117,7 +117,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1k.3h.0</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1k.3i.0</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -126,7 +126,7 @@
         <button data-damage="weapon" type="button">HIT WEAPON −25%</button>
         <button data-damage="restore" type="button">DEV RESET FAULTS</button>
       </div>
-      <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
+      <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button><button id="wipe-save" type="button" aria-pressed="false">WIPE SAVE / START FRESH</button></div>
     </section>
 
     <div id="sortie-debrief" class="sheet hidden" role="dialog" aria-label="Sortie result" aria-modal="true" aria-hidden="true">
@@ -151,7 +151,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3g0"></script>
+    <script type="module" src="./main.js?v=k3i0"></script>
     <script type="module" src="./garageMountUI.js?v=k3h0"></script>
   </body>
 </html>
