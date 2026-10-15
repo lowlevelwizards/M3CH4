@@ -15,12 +15,12 @@ export const CONTRACTS = Object.freeze([
         role: 'BALANCED SCRAPPER',
         payout: 850,
         loadout: Object.freeze({
-            structure: 'frame-sr', mobility: 'legs-yard', power: 'power-dynamo',
+            structure: 'frame-sr', mobility: 'legs-yard', power: 'power-air',
             command: 'cab-cyclops', combat: 'gun-short',
         }),
         salvagePriority: Object.freeze(['combat', 'power', 'mobility', 'command', 'structure']),
-        knownEquipment: Object.freeze(['Yardwalker', 'Stump Cannon']),
-        briefing: 'Conventional yard rig. Predictable movement, solid power margin, heavy short cannon.',
+        knownEquipment: Object.freeze(['Yardwalker', 'Stump Cannon', 'A-1 Generator']),
+        briefing: 'Conventional yard rig. Predictable movement, modest power margin and a heavy short cannon.',
     }),
     Object.freeze({
         id: 'cutter',
