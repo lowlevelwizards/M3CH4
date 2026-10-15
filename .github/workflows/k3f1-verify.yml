@@ -1,0 +1,21 @@
+name: Verify k.3f.1 garage contract home
+
+on:
+  push:
+    branches: ["fix/k3f1-contract-board-garage-home"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check garage contract modules
+        run: node --check contractUI.js && node --check garageMountUI.js
+      - name: Run unit tests
+        run: npm test
