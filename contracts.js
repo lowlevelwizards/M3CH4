@@ -1,10 +1,71 @@
-/** k.3f.0: tiny authored contract roster.
+/** k.3g.0: tiny authored contract roster with equally small tactical profiles.
  *
- * A contract is only an opponent recipe + payout + presentation. Combat, damage,
- * salvage and persistence remain owned by their existing systems. Selection lives
- * in sessionStorage so choosing a new opponent can rebuild the arena cleanly.
+ * A contract remains only an opponent recipe + payout + presentation + behavior.
+ * Combat, damage, salvage and persistence remain owned by their existing systems.
+ * Behavior profiles express intent; real mobility physics still decides what each
+ * machine can actually achieve once damaged, overloaded or pushed around.
  */
 export const CONTRACT_STORAGE_KEY = 'm3ch4-contract-v1';
+
+const YARD_DOG_BEHAVIOR = Object.freeze({
+    id: 'pressure',
+    label: 'PRESSURE FIGHTER',
+    preferredRangeM: 6.2,
+    rangeBandM: 1.0,
+    approachThrottle: .72,
+    approachStrafe: .10,
+    retreatThrottle: .62,
+    strafeThrottle: .68,
+    strafeSeconds: 2.2,
+    braceSeconds: .75,
+    closeAction: 'retreat',
+    closeRetreatM: 0,
+    steerGain: 1.75,
+    yawRateDamping: 1.15,
+    fireCadenceScale: 1.0,
+    spreadScale: 1.0,
+    aimPriority: Object.freeze(['structure', 'mobility', 'combat', 'structure', 'power', 'command']),
+});
+
+const CUTTER_BEHAVIOR = Object.freeze({
+    id: 'skirmisher',
+    label: 'MOBILE SKIRMISHER',
+    preferredRangeM: 8.4,
+    rangeBandM: 1.0,
+    approachThrottle: .82,
+    approachStrafe: .34,
+    retreatThrottle: .86,
+    strafeThrottle: .96,
+    strafeSeconds: 3.4,
+    braceSeconds: .18,
+    closeAction: 'retreat',
+    closeRetreatM: 0,
+    steerGain: 2.05,
+    yawRateDamping: 1.0,
+    fireCadenceScale: .78,
+    spreadScale: 1.10,
+    aimPriority: Object.freeze(['mobility', 'combat', 'power', 'mobility', 'command', 'combat']),
+});
+
+const MULE_BEHAVIOR = Object.freeze({
+    id: 'bruiser',
+    label: 'ADVANCING BRUISER',
+    preferredRangeM: 4.8,
+    rangeBandM: .8,
+    approachThrottle: .88,
+    approachStrafe: 0,
+    retreatThrottle: .38,
+    strafeThrottle: .28,
+    strafeSeconds: .55,
+    braceSeconds: 2.35,
+    closeAction: 'brace',
+    closeRetreatM: 1.55,
+    steerGain: 1.45,
+    yawRateDamping: 1.35,
+    fireCadenceScale: 1.22,
+    spreadScale: .82,
+    aimPriority: Object.freeze(['structure', 'structure', 'mobility', 'command', 'structure', 'power']),
+});
 
 export const CONTRACTS = Object.freeze([
     Object.freeze({
@@ -18,9 +79,10 @@ export const CONTRACTS = Object.freeze([
             structure: 'frame-sr', mobility: 'legs-yard', power: 'power-air',
             command: 'cab-cyclops', combat: 'gun-short',
         }),
+        behavior: YARD_DOG_BEHAVIOR,
         salvagePriority: Object.freeze(['combat', 'power', 'mobility', 'command', 'structure']),
         knownEquipment: Object.freeze(['Yardwalker', 'Stump Cannon', 'A-1 Generator']),
-        briefing: 'Conventional yard rig. Predictable movement, modest power margin and a heavy short cannon.',
+        briefing: 'Conventional yard rig. Predictable pressure, measured sidesteps and a heavy short cannon.',
     }),
     Object.freeze({
         id: 'cutter',
@@ -33,9 +95,10 @@ export const CONTRACTS = Object.freeze([
             structure: 'frame-utility', mobility: 'legs-compact', power: 'power-air',
             command: 'cab-utility', combat: 'gun-light',
         }),
+        behavior: CUTTER_BEHAVIOR,
         salvagePriority: Object.freeze(['mobility', 'combat', 'command', 'power', 'structure']),
         knownEquipment: Object.freeze(['Kestrel', 'Needle Cannon']),
-        briefing: 'Light utility build. Fast response and long gun reach, but less planted under damage.',
+        briefing: 'Light skirmisher. Keeps distance, changes lateral direction often and hunts exposed systems.',
     }),
     Object.freeze({
         id: 'mule',
@@ -48,9 +111,10 @@ export const CONTRACTS = Object.freeze([
             structure: 'frame-wedge', mobility: 'legs-hauler', power: 'power-dynamo',
             command: 'cab-cyclops', combat: 'gun-short',
         }),
+        behavior: MULE_BEHAVIOR,
         salvagePriority: Object.freeze(['mobility', 'structure', 'combat', 'power', 'command']),
         knownEquipment: Object.freeze(['Hauler H2', 'W-3 Wedge']),
-        briefing: 'Slow heavy carrier. High inertia, planted drive and a stubborn load-bearing chassis.',
+        briefing: 'Heavy bruiser. Walks down space, braces in cannon range and favors deliberate center-mass fire.',
     }),
 ]);
 
