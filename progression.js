@@ -2,12 +2,22 @@
  *
  * Progression is physical-opponent access only: no XP, levels, reputation, or
  * abstract stats. Fresh players start with Yard Dog; each first clear unlocks the
- * next authored contract. Older saves can migrate with the whole current roster
- * unlocked so an update never removes fights they already had access to.
+ * next authored contract. Older saves keep the whole current roster unlocked so
+ * an update never removes fights they already had access to.
+ *
+ * This module deliberately does not import contracts.js. contracts.js may consult
+ * progression when resolving the selected opponent without creating a cycle through
+ * persistence/economy/combat.
  */
-import { CONTRACTS, DEFAULT_CONTRACT_ID, contractById } from './contracts.js';
-
-export const CIRCUIT_ORDER = Object.freeze(CONTRACTS.map(contract => contract.id));
+export const CIRCUIT_ORDER = Object.freeze(['yard-dog', 'cutter', 'mule']);
+export const DEFAULT_CONTRACT_ID = CIRCUIT_ORDER[0];
+export const MACHINE_PROGRESS_V6_KEY = 'mech-arena-machine-v6';
+const LEGACY_MACHINE_KEYS = Object.freeze([
+    'mech-arena-machine-v5',
+    'mech-arena-machine-v4',
+    'mech-arena-machine-v3',
+    'mech-arena-machine-v1',
+]);
 const KNOWN = new Set(CIRCUIT_ORDER);
 
 const uniqueKnown = values => {
@@ -20,6 +30,11 @@ const uniqueKnown = values => {
     }
     return result;
 };
+
+function browserLocalStorage() {
+    try { return typeof window !== 'undefined' ? window.localStorage : null; }
+    catch { return null; }
+}
 
 export function createProgressionState({ unlockedContracts = [DEFAULT_CONTRACT_ID], clearedContracts = [] } = {}) {
     const unlocked = uniqueKnown(unlockedContracts);
@@ -42,11 +57,10 @@ export function isContractCleared(progression, id) {
     return !!progression?.clearedContracts?.includes(id);
 }
 
-export function accessibleContract(progression, requestedId) {
+export function accessibleContractId(progression, requestedId) {
     if (KNOWN.has(requestedId) && isContractUnlocked(progression, requestedId))
-        return contractById(requestedId);
-    const first = CIRCUIT_ORDER.find(id => isContractUnlocked(progression, id)) ?? DEFAULT_CONTRACT_ID;
-    return contractById(first);
+        return requestedId;
+    return CIRCUIT_ORDER.find(id => isContractUnlocked(progression, id)) ?? DEFAULT_CONTRACT_ID;
 }
 
 export function prerequisiteFor(id) {
@@ -63,11 +77,52 @@ export function circuitSummary(progression) {
     };
 }
 
-/** Mutate the loaded progression object in-place so persistence and the garage UI
- * observe one authority. Replays are idempotent and never relock anything. */
+/** Read only enough of the machine save to resolve contract access. If no v6 save
+ * exists but any older machine save does, this is an existing prototype player and
+ * all three current fights remain available. */
+export function loadProgression(storage = browserLocalStorage()) {
+    if (!storage) return createProgressionState();
+    try {
+        const current = storage.getItem(MACHINE_PROGRESS_V6_KEY);
+        if (current) {
+            const data = JSON.parse(current);
+            if (data?.version === 6 && data.progression)
+                return createProgressionState(data.progression);
+        }
+        if (LEGACY_MACHINE_KEYS.some(key => storage.getItem(key) !== null))
+            return createLegacyProgressionState();
+    } catch { /* corrupted/unavailable storage falls back to the fresh ladder */ }
+    return createProgressionState();
+}
+
+/** Patch only the progression field in an already-created v6 machine save. Combat
+ * settlement writes the machine before the debrief becomes visible, so this remains
+ * atomic from the player's point of view and cannot invent a partial machine save. */
+export function storeProgression(progression, storage = browserLocalStorage()) {
+    if (!storage) return false;
+    try {
+        const raw = storage.getItem(MACHINE_PROGRESS_V6_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (data?.version !== 6) return false;
+        const next = createProgressionState(progression);
+        data.progression = {
+            unlockedContracts: [...next.unlockedContracts],
+            clearedContracts: [...next.clearedContracts],
+        };
+        storage.setItem(MACHINE_PROGRESS_V6_KEY, JSON.stringify(data));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** Mutate one loaded progression object in-place. Replays are idempotent and never
+ * relock anything. */
 export function recordContractClear(progression, contractId) {
     if (!progression || !KNOWN.has(contractId) || !isContractUnlocked(progression, contractId)) {
-        return { firstClear: false, unlockedContractId: null, circuitCleared: circuitSummary(progression).complete };
+        const summary = circuitSummary(progression);
+        return { firstClear: false, unlockedContractId: null, circuitCleared: false, ...summary };
     }
     const firstClear = !isContractCleared(progression, contractId);
     let unlockedContractId = null;
@@ -85,7 +140,6 @@ export function recordContractClear(progression, contractId) {
         firstClear,
         unlockedContractId,
         circuitCleared: firstClear && summary.complete,
-        clearedCount: summary.clearedCount,
-        total: summary.total,
+        ...summary,
     };
 }
