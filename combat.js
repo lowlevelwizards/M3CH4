@@ -99,9 +99,23 @@ export function makeRangeTarget(contractId = selectedContract().id) {
     delete target.graph;
     return target;
 }
-/** Initial armor represents each installed assembly's housing; no separate armor slots yet. */
+/**
+ * k.3j.1 durability normalization.
+ *
+ * Armor now carries most of the fresh-machine survivability so combat has a real
+ * housing -> breach -> degraded internals arc instead of simply inflating internal
+ * HP. At full condition the three current weapons require roughly three seconds of
+ * perfect focused fire to mission-kill a critical subsystem. Center-mass frame
+ * kills exceed every current magazine and therefore force a reload (about 7-8 s
+ * of mathematically perfect held fire). Mobility keeps its family damage scale,
+ * making Kestrel meaningfully fragile and Hauler meaningfully stubborn.
+ */
 export const TARGET_RESILIENCE = {
-    structure: [230, 70], mobility: [150, 38], power: [95, 24], command: [105, 32], combat: [115, 26],
+    structure: [260, 250],
+    mobility: [170, 185],
+    power: [110, 190],
+    command: [120, 185],
+    combat: [130, 180],
 };
 function targetPartFor(assembly, slot, useOwnedCondition = false) {
     const installed = installedPart(assembly, slot);
