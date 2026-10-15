@@ -1,0 +1,14 @@
+/* k.3d.0 — one compact post-sortie accounting surface. */
+.debrief-content { width:min(430px,100%); }
+.debrief-lines { display:grid; gap:5px; margin:12px 0 14px; }
+.debrief-row {
+  display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+  padding:7px 8px; border:1px solid #73816a55; background:#1d2821c7;
+  color:#aebbad; font:9px/1.25 ui-monospace,monospace;
+}
+.debrief-row strong { color:#e7cf9d; font:800 11px/1 ui-monospace,monospace; white-space:nowrap; }
+.debrief-row.primary { border-color:#b994526f; background:#352f20d9; color:#e4c47f; }
+.debrief-row.primary strong { color:#ffd98d; }
+.debrief-row.repair { border-color:#a46d4d70; color:#d6a77d; background:#33231dde; }
+.debrief-row.repair strong { color:#f0ba8c; }
+#credit-balance { color:#e7c976; }
