@@ -17,7 +17,8 @@
     "./assemblyPhysics.js": "./assemblyPhysics.js?v=k3c0",
     "./combat.js": "./combat.js?v=k3c0",
     "./components.js": "./components.js?v=k2",
-    "./persistence.js": "./persistence.js?v=k2",
+    "./economy.js": "./economy.js?v=k3d0",
+    "./persistence.js": "./persistence.js?v=k3d0",
     "./assemblyGraph.js": "./assemblyGraph.js?v=k2",
     "./controls.js": "./controls.js?v=i1",
     "./functionalDamage.js": "./functionalDamage.js?v=g11",
@@ -26,9 +27,10 @@
     "./enemyMotion.js": "./enemyMotion.js?v=j2"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=i1" />
+    <link rel="stylesheet" href="./styles.css?v=k3d0" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
-    <title>MECH ARENA — 0.0.1k.3c.0 — Mobility Character Pass + j.2 Spatial Awareness</title>
+    <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
+    <title>MECH ARENA — 0.0.1k.3d.0 — First Recovery Loop</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -99,6 +101,7 @@
         <div class="garage-summary">
           <span>MASS <b id="assembly-mass">4,090 kg</b></span>
           <span>POWER <b id="power-status">108 / 145 kW</b></span>
+          <span>CREDITS <b id="credit-balance">₡600</b></span>
         </div>
         <div class="inspection-info" id="part-info" aria-live="polite"></div>
         <div class="garage-meta" aria-hidden="true">
@@ -122,6 +125,16 @@
       <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button></div>
     </section>
 
+    <div id="sortie-debrief" class="sheet hidden" role="dialog" aria-label="Sortie result" aria-modal="true" aria-hidden="true">
+      <div class="sheet-content debrief-content">
+        <div class="sheet-label">SCRAPYARD CONTRACT / RECOVERY</div>
+        <h1 id="debrief-title">SORTIE COMPLETE</h1>
+        <div id="debrief-lines" class="debrief-lines" aria-live="polite"></div>
+        <p class="sheet-muted">Repair estimate is informational only. Nothing is repaired or charged until you choose a module in the garage.</p>
+        <button id="debrief-garage" class="sheet-done" type="button">RETURN TO GARAGE</button>
+      </div>
+    </div>
+
     <div id="app-sheet" class="sheet hidden" role="dialog" aria-label="Install for app view" aria-modal="true" aria-hidden="true">
       <div class="sheet-content">
         <button type="button" id="app-close" class="sheet-close">✕</button>
@@ -134,7 +147,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3c0"></script>
+    <script type="module" src="./main.js?v=k3d0"></script>
     <script type="module" src="./garageMountUI.js?v=k2"></script>
   </body>
 </html>

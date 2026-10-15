@@ -4,6 +4,7 @@ import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { equip, inspectAssembly, installedPart, partsFor, remove, SLOTS, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
+import { repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
@@ -29,6 +30,7 @@ catch { /* Safari storage may be unavailable. */ }
 const loadedMachine = loadMachine(saveStorage);
 const assembly = loadedMachine.assembly;
 const damage = loadedMachine.damage;
+const economy = loadedMachine.economy;
 // A separately owned hostile mech built with the same module definitions.
 const targetAssembly = makeRangeTarget();
 let targetCondition = createTargetCondition(targetAssembly);
@@ -49,6 +51,7 @@ if (!hostileBaseConfig)
 const hostileDriveDamage = { drives: {} };
 let testEnded = false;
 let testEndReason = null;
+let sortieRoundsFired = 0;
 // Each mech sees the other as a moving physical obstacle. Neither collides with itself.
 const hostileObstacle = { id: 'hostile-rig', minX: -1, maxX: 1, minZ: -.9, maxZ: .9 };
 const pilotObstacle = { id: 'pilot-rig', minX: -1, maxX: 1, minZ: 7.1, maxZ: 8.9 };
@@ -122,6 +125,7 @@ const checkList = required('#field-checks');
 const fieldStatus = required('#field-status');
 const assemblyMass = required('#assembly-mass');
 const powerStatus = required('#power-status');
+const creditBalance = required('#credit-balance');
 const adapterStatus = required('#adapter-status');
 const orbitHelp = required('#orbit-help');
 const resetOrbitButton = required('#inspect-reset');
@@ -129,6 +133,10 @@ const centerView = required('#center-view');
 const appView = required('#app-view');
 const appSheet = required('#app-sheet');
 const appMessage = required('#app-message');
+const debriefSheet = required('#sortie-debrief');
+const debriefTitle = required('#debrief-title');
+const debriefLines = required('#debrief-lines');
+const debriefGarage = required('#debrief-garage');
 const fireButton = required('#fire');
 const reloadButton = required('#reload');
 const weaponLabel = required('#weapon-label');
@@ -187,11 +195,14 @@ function showStatus(message) {
 }
 let saveErrorShown = false;
 function persistMachine() {
-    const saved = storeMachine(saveStorage, { assembly, damage, playerCondition });
+    const saved = storeMachine(saveStorage, { assembly, damage, playerCondition, economy });
     if (!saved && !saveErrorShown) {
         saveErrorShown = true;
         showStatus('LOCAL SAVE UNAVAILABLE · THIS SESSION WILL NOT PERSIST');
     }
+}
+function renderEconomy() {
+    creditBalance.textContent = `₡${economy.credits.toLocaleString()}`;
 }
 function renderFieldStatus() {
     fieldStatus.classList.toggle('ready', inspection.ready);
@@ -279,24 +290,35 @@ function renderPartInfo() {
         const repair = document.createElement('button');
         repair.type = 'button';
         repair.className = 'garage-repair';
-        repair.disabled = condition >= 1 - 1e-6;
-        repair.textContent = repair.disabled ? 'NO REPAIR REQUIRED' : `REPAIR ${labels[selectedPart]} · NO COST (TEST)`;
+        const quotedRepair = repairQuote(playerCondition.parts[selectedPart]);
+        const affordable = quotedRepair <= economy.credits;
+        repair.disabled = quotedRepair <= 0 || !affordable;
+        repair.textContent = quotedRepair <= 0 ? 'NO REPAIR REQUIRED' :
+            affordable ? `REPAIR ${labels[selectedPart]} · ₡${quotedRepair}` :
+                `REPAIR ${labels[selectedPart]} · ₡${quotedRepair} · INSUFFICIENT`;
         repair.addEventListener('click', () => {
             if (!selectedPart)
                 return;
-            const result = repairInstalledPart(assembly, damage, selectedPart);
-            if (result.repaired) {
-                restoreTargetPart(playerCondition, assembly, selectedPart);
-                arena.updatePilotDamage(playerCondition);
-                testEndReason = disabledReason(playerCondition, functionalOutput(assembly, damage));
-                updateFunctionalStatus();
-                renderPartsList();
-                renderPartInfo();
-                renderChecks();
-                showStatus(`${result.serial} REPAIRED · SAME PHYSICAL MODULE`);
-                renderAmmo();
-                persistMachine();
+            const cost = repairQuote(playerCondition.parts[selectedPart]);
+            if (cost <= 0)
+                return;
+            if (cost > economy.credits) {
+                showStatus(`INSUFFICIENT CREDITS · NEED ₡${cost}`);
+                return;
             }
+            economy.credits -= cost;
+            const result = repairInstalledPart(assembly, damage, selectedPart);
+            restoreTargetPart(playerCondition, assembly, selectedPart);
+            arena.updatePilotDamage(playerCondition);
+            testEndReason = disabledReason(playerCondition, functionalOutput(assembly, damage));
+            updateFunctionalStatus();
+            renderEconomy();
+            renderPartsList();
+            renderPartInfo();
+            renderChecks();
+            showStatus(`${result.serial} SERVICED · −₡${cost}`);
+            renderAmmo();
+            persistMachine();
         });
         partInfo.append(repair);
     }
@@ -411,6 +433,7 @@ function renderChecks() {
     }
     assemblyMass.textContent = `${inspection.massKg.toLocaleString()} kg`;
     powerStatus.textContent = `${inspection.powerUsedKw} / ${inspection.powerAvailableKw} kW`;
+    renderEconomy();
     adapterStatus.textContent = inspection.adapters.length
         ? inspection.adapters.map(a => `${a.description} · ${a.serial}`).join(' · ')
         : 'Direct-mount stations · no adapters';
@@ -454,15 +477,17 @@ function toggleInspection(force) {
         renderPartInfo();
     }
     else {
-        // Each deployment is a new training sortie. Owned damage persists; ammunition and
-        // the automated range controller are reset for a clean test run.
+        // Each deployment is a new paid sortie. Owned damage persists; ammunition and
+        // the automated opponent reset, while operating credits do not.
+        debriefSheet.classList.add('hidden');
+        debriefSheet.setAttribute('aria-hidden', 'true');
         rig = createRigState();
         hostileRig = createRigState();
         hostileRig.z = 0;
         hostileRig.yaw = Math.PI;
         hostileMotion = createEnemyMotion();
         arena.updateHostileNavigation(null);
-        // The opponent is a fresh training machine each sortie; player damage is NOT reset.
+        // The opponent is a fresh contract machine each sortie; player damage is NOT reset.
         targetCondition = createTargetCondition(targetAssembly);
         mirrorTargetCondition(targetAssembly, targetCondition);
         arena.resetTargetDamage(targetCondition);
@@ -472,6 +497,7 @@ function toggleInspection(force) {
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
         hostileController = createHostileController();
+        sortieRoundsFired = 0;
         testEnded = false;
         testEndReason = null;
         updateFunctionalStatus();
@@ -634,6 +660,8 @@ resize();
 toggleInspection(true); // Always reopen in the garage, never in an active hostile firefight.
 if (loadedMachine.status === 'restored')
     showStatus('OWNED RIG RESTORED · LOCAL SAVE');
+else if (loadedMachine.status === 'migrated')
+    showStatus('SAVE MIGRATED · STARTER OPERATING FUND ADDED');
 else if (loadedMachine.status === 'invalid')
     showStatus('INVALID LOCAL SAVE · STARTING FRESH TEST RIG');
 else if (loadedMachine.status === 'unavailable')
@@ -736,14 +764,15 @@ function frame(now) {
             `LOAD      ${(rig.driveLoad * 100).toFixed(0)}%`,
             `MASS      ${inspection.massKg.toLocaleString()} kg`,
             `POWER     ${output.powerAvailableKw.toFixed(0)}/${output.nominalDemandKw} kW effective`,
+            `CREDITS   ₡${economy.credits}`,
             `LEFT LEG  ${(output.left * 100).toFixed(0)}%`,
             `RIGHT LEG ${(output.right * 100).toFixed(0)}%`,
             `WEAPON    ${(output.weapon * 100).toFixed(0)}%`,
-            `FIELDED   ${inspection.ready ? 'YES (TRAINING)' : 'NO'}`,
+            `FIELDED   ${inspection.ready ? 'YES (CONTRACT)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    ${Math.round(renderScale * 100)}%`,
             `ROUNDS    ${weaponState?.loaded ?? 0}/${weaponState?.reserve ?? 0}`,
-            `SHOTS     ${shotsFired}`,
+            `SHOTS     ${shotsFired} · SORTIE ${sortieRoundsFired}`,
             `TARGET    ${targetCondition.shotsHit} HITS`,
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
@@ -772,7 +801,7 @@ const targetLabels = {
     structure: 'HULL', mobility: 'LEGS', power: 'POWER', command: 'CAB', combat: 'WEAPON',
 };
 function renderAmmo() {
-    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${testEnded ? ' · TEST ENDED' : !output.weaponOperational ? ' · OFFLINE' : output.weapon < .95 ? ' · DAMAGED' : ''}` : 'NO WEAPON';
+    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${testEnded ? ' · SORTIE ENDED' : !output.weaponOperational ? ' · OFFLINE' : output.weapon < .95 ? ' · DAMAGED' : ''}` : 'NO WEAPON';
     ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
@@ -807,6 +836,56 @@ function renderTarget() {
         row.append(label, metrics, bar);
         targetReadout.append(row);
     }
+}
+function renderDebrief(summary, reason) {
+    debriefTitle.textContent = summary.victory ? 'CONTRACT CLEARED' : 'RIG RECOVERED';
+    debriefLines.replaceChildren();
+    const rows = [
+        ['RESULT', summary.victory ? 'VICTORY' : reason, 'primary'],
+        ['CONTRACT / RECOVERY', `+₡${summary.grossPayout}`, ''],
+        [`AMMUNITION · ${summary.roundsFired} RDS`, `−₡${summary.ammoCost}`, ''],
+        ['WALLET CHANGE', `${summary.netPayout >= 0 ? '+' : '−'}₡${Math.abs(summary.netPayout)}`, 'primary'],
+        ['REPAIR ESTIMATE · NOT SPENT', `₡${summary.repairEstimate}`, 'repair'],
+        ['BALANCE', `₡${summary.creditsAfter}`, ''],
+    ];
+    for (const [label, value, kind] of rows) {
+        const row = document.createElement('div');
+        row.className = `debrief-row ${kind}`.trim();
+        const name = document.createElement('span');
+        name.textContent = label;
+        const amount = document.createElement('strong');
+        amount.textContent = value;
+        row.append(name, amount);
+        debriefLines.append(row);
+    }
+    debriefSheet.classList.remove('hidden');
+    debriefSheet.setAttribute('aria-hidden', 'false');
+}
+function finishSortie(victory, reason) {
+    if (testEnded)
+        return;
+    testEnded = true;
+    testEndReason = victory ? null : reason;
+    stopFireInput();
+    controls.setEnabled(false);
+    const summary = settleSortie({
+        credits: economy.credits,
+        victory,
+        roundsFired: sortieRoundsFired,
+        repairEstimate: totalRepairQuote(playerCondition),
+    });
+    economy.credits = summary.creditsAfter;
+    renderEconomy();
+    persistMachine();
+    faultStrip.textContent = victory ? 'CONTRACT CLEARED · HOSTILE COMBAT CAPABILITY LOST' : `RIG DISABLED · ${reason}`;
+    faultStrip.classList.toggle('faulted', !victory);
+    shotReport.classList.remove('faded');
+    shotReport.classList.toggle('disabled-part', !victory);
+    shotReport.classList.toggle('penetrated', victory);
+    shotReport.textContent = victory ? 'SORTIE COMPLETE · CONTRACT CLEARED · ACCOUNTING READY' : `SORTIE ENDED · ${reason} · RECOVERY CREW DISPATCHED`;
+    reportFade = 9999;
+    renderAmmo();
+    renderDebrief(summary, reason);
 }
 function attemptHostileFire(shotIndex) {
     if (!hostileWeaponSpec || !hostileWeaponState || inspecting || testEnded || !appSheet.classList.contains('hidden'))
@@ -854,17 +933,8 @@ function attemptHostileFire(shotIndex) {
     renderPartInfo();
     renderAmmo();
     testEndReason = disabledReason(playerCondition, output);
-    if (testEndReason) {
-        testEnded = true;
-        stopFireInput();
-        controls.setEnabled(false);
-        faultStrip.textContent = `RIG DISABLED · ${testEndReason}`;
-        faultStrip.classList.add('faulted');
-        shotReport.classList.remove('faded');
-        shotReport.classList.add('disabled-part');
-        shotReport.textContent = `TEST ENDED · ${testEndReason} · RETURN TO GARAGE`;
-        reportFade = 9999;
-    }
+    if (testEndReason)
+        finishSortie(false, testEndReason);
 }
 function attemptFire() {
     if (!weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
@@ -889,6 +959,7 @@ function attemptFire() {
     const directionZ = (contact.point.z - contact.muzzle.z) / Math.max(contact.distance, .001);
     applyRecoil(rig, effectiveConfig, directionX, directionZ, weaponSpec.recoilImpulseNs);
     shotsFired++;
+    sortieRoundsFired++;
     soundFire();
     if (contact.slot !== null) {
         const beforeIntegrity = targetCondition.parts[contact.slot].integrity;
@@ -905,6 +976,10 @@ function attemptFire() {
         const outcome = hit.disabled ? 'MODULE DISABLED' : hit.internalDamage > 0 ? 'ARMOR BREACHED' : 'ARMOR IMPACT';
         shotReport.textContent = `${outcome} · ${lastHit} · ARMOR −${hit.armorAbsorbed} · INTERNAL −${hit.internalDamage}`;
         renderTarget();
+        if (!hostileOutput(targetCondition).operational) {
+            finishSortie(true, 'HOSTILE COMBAT CAPABILITY LOST');
+            return;
+        }
     }
     else {
         arena.showShot(contact, null);
@@ -996,8 +1071,13 @@ resetTarget.addEventListener('click', () => {
     reportFade = 2;
     renderTarget();
 });
-// Direct internal-damage injections: intentionally DEV-only, without implementing
-// enemy fire, armor penetration against the player, or a pretend repair economy.
+debriefGarage.addEventListener('click', () => {
+    debriefSheet.classList.add('hidden');
+    debriefSheet.setAttribute('aria-hidden', 'true');
+    toggleInspection(true);
+});
+// Direct internal-damage injections remain DEV-only and intentionally bypass the
+// operating wallet so balance testing never makes diagnostics inaccessible.
 for (const button of document.querySelectorAll('[data-damage]')) {
     button.addEventListener('click', () => {
         const type = button.dataset.damage;
@@ -1029,7 +1109,8 @@ for (const button of document.querySelectorAll('[data-damage]')) {
     });
 }
 updateFunctionalStatus();
+renderEconomy();
 renderAmmo();
 renderTarget();
-// Stage e.2: compact category-based garage UI over the same in-session repair/assembly mechanics.
+// k.3d.0: first closed fight -> accounting -> repair loop over the existing garage.
 requestAnimationFrame(frame);

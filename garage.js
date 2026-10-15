@@ -1,6 +1,7 @@
-/** Garage servicing is deliberately a single assembly-level operation in 0.0.1e.1.
- * The existing unique owned part is restored; it is not replaced or re-created.
- * No shop, currencies, wear reset, or persistence in this stage. */
+/** Garage servicing mutates the existing owned physical part; it never replaces
+ * or re-creates the serial. k.3d.0 prices/authorizes that service in the recovery
+ * economy before calling this module, so the mechanical repair operation remains
+ * deterministic and independent of UI/currency bookkeeping. */
 import { installedPart } from './components.js';
 const clamp01 = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 /** Both sections of the paired leg unit belong to the same owned assembly.
