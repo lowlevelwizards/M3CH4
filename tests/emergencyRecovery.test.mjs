@@ -36,7 +36,7 @@ test('first catastrophic weapon hit becomes a recoverable fault instead of dead 
 
     assert.equal(latched, true);
     assert.equal(weaponFailureState(player, service), 'faulted');
-    assert.equal(weaponIntegrityRatio(player), WEAPON_FAULT_FLOOR);
+    assert.ok(Math.abs(weaponIntegrityRatio(player) - WEAPON_FAULT_FLOOR) < 1e-9);
     assert.equal(canFieldService(player, service), true);
     assert.equal(weaponMissionKillReason(player, service), null);
 
