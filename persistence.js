@@ -9,7 +9,7 @@ import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
 import { createEconomyState } from './economy.js';
 import { hasStarterInventory, makeStarterAssembly, STARTER_DEFINITION_IDS } from './acquisition.js';
-import { CIRCUIT_ORDER, createLegacyProgressionState, createProgressionState } from './progression.js';
+import { CIRCUIT_ORDER, createLegacyProgressionState, createProgressionState, loadProgression } from './progression.js';
 
 export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1';
 export const MACHINE_SAVE_V3_KEY = 'mech-arena-machine-v3';
@@ -287,7 +287,11 @@ export function storeMachine(storage, state) {
     if (!storage)
         return false;
     try {
-        storage.setItem(MACHINE_SAVE_V6_KEY, encodeMachine(state));
+        // main.js predates contract progression and intentionally need not thread it
+        // through every repair/hit save call. Preserve the current v6 progression
+        // unless a newer caller explicitly supplies one.
+        const progression = state.progression ?? loadProgression(storage);
+        storage.setItem(MACHINE_SAVE_V6_KEY, encodeMachine({ ...state, progression }));
         return true;
     }
     catch {
