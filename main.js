@@ -636,6 +636,7 @@ function showAppGuide() {
     appSheet.setAttribute('aria-hidden', 'false');
     controls.setEnabled(false);
     stopFireInput();
+    stopFieldServiceInput();
 }
 function hideAppGuide() {
     appSheet.classList.add('hidden');
@@ -1165,7 +1166,7 @@ window.addEventListener('keydown', event => {
         attemptFire();
     }
     if (event.code === 'KeyR' && weaponState && weaponSpec && !event.repeat) {
-        if (canFieldService(playerCondition, fieldService)) {
+        if (!inspecting && !testEnded && canFieldService(playerCondition, fieldService)) {
             if (beginFieldService(playerCondition, fieldService, rig)) {
                 serviceKeyHeld = true;
                 soundReload();
