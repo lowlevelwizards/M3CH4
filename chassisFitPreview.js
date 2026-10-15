@@ -1,18 +1,17 @@
-/** k.3a.4: isolated Chassis Lab fit controller. NOT the production garage.
- * Swap between Yardwalker and Kestrel engineered mobility previews while the
- * rest of the frame study remains a non-destructive preview-only lab.
+/** Isolated Chassis Lab fit controller. NOT the production garage.
+ * All current mobility families now render through the same shared part registry
+ * used by gameplay; this page only controls fixture choice and diagnostics.
  */
 import * as THREE from 'three';
 import { standardFitFixtures, DEFAULT_MOBILITY_FIXTURE_ID, AVAILABLE_MOBILITY_FIXTURE_IDS } from './chassisFitFixtures.js';
 import { analyzeFit } from './chassisFitValidation.js?v=k3a5';
-import { buildFitFixture, disposeFitGeometry } from './chassisFitVisuals.js?v=k3a5';
+import { buildFitFixture, disposeFitGeometry } from './chassisFitVisuals.js?v=k3b1';
 import { buildYardwalkerGuideVisuals } from './yardwalkerVisual.js';
 import { buildKestrelGuideVisuals } from './kestrelVisual.js';
 import { buildHaulerGuideVisuals } from './haulerVisual.js';
 
 export function createFitPreviewController({scene,onVisualChange=()=>{}}){
     const switchers=[...document.querySelectorAll('[data-assembly-mode]')];
-    const mobilityModels=[...document.querySelectorAll('[data-mobility-model]')];
     const mobilityFixtures=[...document.querySelectorAll('[data-mobility-fixture]')];
     const guidesToggle=document.getElementById('show-mobility-guides');
     const mobilityStudy=document.getElementById('mobility-study');
@@ -23,13 +22,13 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
     const enabled=new Map();
     let fixtures=standardFitFixtures({mobilityId:DEFAULT_MOBILITY_FIXTURE_ID});
     let frame=null,analysis=null,visual=new THREE.Group(),guides=new THREE.Group();
-    let mode='bare',mobilityModel='engineered',mobilityFixtureId=DEFAULT_MOBILITY_FIXTURE_ID,focus=null;
+    let mode='bare',mobilityFixtureId=DEFAULT_MOBILITY_FIXTURE_ID,focus=null;
     visual.name='installed-fit-components';guides.name='frame-side-unrated-guide-brackets';
     scene.add(visual);scene.add(guides);
 
     const currentFixtures=()=>standardFitFixtures({mobilityId:mobilityFixtureId});
     const currentMobilityFixture=()=>fixtures.find(f=>f.slot==='mobility');
-    function guideRequested(){return mobilityModel==='engineered'&&guidesToggle.checked;}
+    const guideRequested=()=>guidesToggle.checked;
     function ensureEnabled(){
         for(const fixture of fixtures)if(!enabled.has(fixture.id))enabled.set(fixture.id,true);
         for(const key of [...enabled.keys()])if(!fixtures.some(f=>f.id===key))enabled.delete(key);
@@ -73,7 +72,7 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
         analysis=analyzeFit(frame,fixtures,{mobilityGuides:guideRequested()});
         for(const item of analysis.components){
             if(!item.pose)continue;
-            const model=buildFitFixture(item.fixture,{mobilityModel});
+            const model=buildFitFixture(item.fixture);
             const x=new THREE.Vector3(...item.pose.rotation[0]);
             const y=new THREE.Vector3(...item.pose.rotation[1]);
             const z=new THREE.Vector3(...item.pose.rotation[2]);
@@ -145,13 +144,6 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
         results.parentElement.hidden=mode!=='assembled';
         applyVisibility();onVisualChange('mode');
     }
-    function setMobilityModel(next){
-        if(next!=='engineered'&&next!=='schematic')return;
-        mobilityModel=next;
-        for(const button of mobilityModels)button.setAttribute('aria-pressed',String(button.dataset.mobilityModel===next));
-        guidesToggle.disabled=next!=='engineered';
-        if(frame)rebuild();
-    }
     function setMobilityFixture(next){
         if(!AVAILABLE_MOBILITY_FIXTURE_IDS.includes(next))return;
         mobilityFixtureId=next;
@@ -160,7 +152,6 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
         rebuild();
     }
     for(const button of switchers)button.addEventListener('click',()=>setMode(button.dataset.assemblyMode));
-    for(const button of mobilityModels)button.addEventListener('click',()=>setMobilityModel(button.dataset.mobilityModel));
     for(const button of mobilityFixtures)button.addEventListener('click',()=>setMobilityFixture(button.dataset.mobilityFixture));
     guidesToggle.addEventListener('change',()=>{if(frame)rebuild();});
     function setFrame(next){
@@ -180,7 +171,7 @@ export function createFitPreviewController({scene,onVisualChange=()=>{}}){
     renderVisibilityControls();
     setMobilityFixture(mobilityFixtureId);
     setMode('bare');
-    return {setFrame,setMode,setMobilityModel,setMobilityFixture,pick,
-        get mode(){return mode;},get mobilityModel(){return mobilityModel;},get mobilityFixtureId(){return mobilityFixtureId;},
+    return {setFrame,setMode,setMobilityFixture,pick,
+        get mode(){return mode;},get mobilityFixtureId(){return mobilityFixtureId;},
         get visual(){return visual;},get guides(){return guides;},get analysis(){return analysis;}};
 }
