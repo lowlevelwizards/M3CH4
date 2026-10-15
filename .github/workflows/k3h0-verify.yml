@@ -1,0 +1,21 @@
+name: Verify k.3h.0 contract ladder
+
+on:
+  push:
+    branches: ["feature/k3h0-contract-ladder"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check progression modules
+        run: node --check progression.js && node --check contracts.js && node --check persistence.js && node --check contractUI.js && node --check garageMountUI.js && node --check tests/progression.test.mjs
+      - name: Run unit tests
+        run: npm test
