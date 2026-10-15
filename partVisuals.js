@@ -1,12 +1,16 @@
-/** First shared M3CH4 part model. Gameplay and preview use the same authored
- * Yardwalker geometry. Other parts deliberately retain their existing paths.
- * This is a small registry, not a procedural generator or a new assembly graph.
+/** Shared M3CH4 mobility models. Gameplay and preview use the same authored
+ * geometry for every current mobility family. This remains a deliberately tiny
+ * registry, not a procedural generator or a second assembly graph.
  */
 import { fitFixtureFor } from './chassisFitFixtures.js';
 import { buildYardwalkerVisual } from './yardwalkerVisual.js';
+import { buildKestrelVisual } from './kestrelVisual.js';
+import { buildHaulerVisual } from './haulerVisual.js';
 
 const BUILDERS = Object.freeze({
     'legs-yard': buildYardwalkerVisual,
+    'legs-compact': buildKestrelVisual,
+    'legs-hauler': buildHaulerVisual,
 });
 
 export const SHARED_PART_IDS = Object.freeze(Object.keys(BUILDERS));
@@ -23,10 +27,11 @@ export function buildPartVisual(definitionId, { mode = 'preview' } = {}) {
         throw new Error(`Unknown part visual mode: ${mode}`);
 
     // The live catalogue, rather than an additional visual balance sheet,
-    // supplies the envelope and mounting facts to the authored constructor.
+    // supplies envelope, mass and mounting facts to the authored constructor.
     const fixture = fitFixtureFor(definitionId);
     if (!fixture) throw new Error(`Missing catalogue-backed fixture: ${definitionId}`);
     const root = builder(fixture);
+    root.userData.definitionId = definitionId;
     if (mode === 'preview') return root;
 
     // Selection wireframes are editor-only, not meshes for shots or inspection.
