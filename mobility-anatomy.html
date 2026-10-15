@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="theme-color" content="#202c26"/>
-<title>M3CH4 — k.3a.8 Silhouette Lab</title>
+<title>M3CH4 — k.3b.1 Shared Mobility Lab</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
 <style>
   :root{color-scheme:dark;font:13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#19231e;color:#f0ecdc}
@@ -34,8 +34,8 @@
 </style>
 </head>
 <body>
-<header><div><strong>M3CH4 / MOBILITY SILHOUETTE LAB</strong><br/><small>k.3a.8 — isolated, equal-scale rest poses</small></div><a href="./chassis-preview.html">CHASSIS LAB →</a></header>
-<p class="intro">Primary approval gate for the silhouette separation pass. One shared renderer, identical camera/world scale per view, and gray mode on by default. Use <b>Hide labels</b> for the strict shape-only read. Existing catalogue envelopes, mounting faces, masses and gameplay values remain authoritative and unchanged.</p>
+<header><div><strong>M3CH4 / SHARED MOBILITY LAB</strong><br/><small>k.3b.1 — same models as gameplay, isolated at equal scale</small></div><a href="./chassis-preview.html">CHASSIS LAB →</a></header>
+<p class="intro">Comparison view for the three authoritative mobility models. These exact builders are now used by gameplay and the chassis preview. Camera/world scale is identical per view and gray mode is on by default. Existing catalogue envelopes, mounting faces, masses and gameplay values remain authoritative and unchanged.</p>
 <div class="toolbar" role="group" aria-label="Anatomy comparison controls">
   <button type="button" data-view="front" aria-pressed="true">FRONT</button>
   <button type="button" data-view="side" aria-pressed="false">RIGHT SIDE</button>
@@ -45,7 +45,7 @@
   <label><input id="labels" type="checkbox" checked/> Labels</label>
 </div>
 <div id="silhouette-status" role="status" aria-live="polite">Checking family-separation invariants…</div>
-<section id="stage" aria-label="Three independently authored mobility systems, drawn at the same scale">
+<section id="stage" aria-label="Three shared mobility systems, drawn at the same scale">
   <canvas id="anatomy-canvas" aria-hidden="true"></canvas>
   <div id="tiles">
     <div class="tile" data-family="legs-yard"><div class="name">YARDWALKER / UTILITY WALKER</div><div class="sub">Neutral middle · protected tapering calf · continuous work boot + squared wear pads<span class="metric"></span></div></div>
@@ -53,8 +53,8 @@
     <div class="tile" data-family="legs-hauler"><div class="name">HAULER H2 / LOAD-BEARER</div><div class="sub">Dominant fixed pods · buried upper yoke · low knee hub · compression column · giant split load shoes<span class="metric"></span></div></div>
   </div>
 </section>
-<p class="check"><b>Strict review:</b> Gray + labels off → FRONT, RIGHT SIDE, 3/4. Yardwalker should read as the practical middle; Kestrel as a springy reverse-knee runner; Hauler as a squat pod-and-shoe industrial suspension. If Hauler reads as “wide Yardwalker,” this pass fails.</p>
-<p class="micro">Preview-only authoring geometry. Source envelopes remain Yardwalker 2.00 × 1.65 × 1.18 m, Kestrel 1.67 × 1.55 × 1.00 m, Hauler 2.55 × 1.68 × 1.35 m. Hauler's existing 110 kg H2→U1 conversion ring is displayed once. This is not IK, gait, impact, load, or swept-clearance certification.</p>
-<script type="module" src="./mobilityAnatomyLab.js?v=k3a8"></script>
+<p class="check"><b>Strict review:</b> Gray + labels off → FRONT, RIGHT SIDE, 3/4. Yardwalker should read as the practical middle; Kestrel as a springy reverse-knee runner; Hauler as a squat pod-and-shoe industrial suspension.</p>
+<p class="micro">Shared visual geometry only. Source envelopes remain Yardwalker 2.00 × 1.65 × 1.18 m, Kestrel 1.67 × 1.55 × 1.00 m, Hauler 2.55 × 1.68 × 1.35 m. Hauler's existing 110 kg H2→U1 conversion ring is displayed once. This is not IK, gait, impact, load, or swept-clearance certification.</p>
+<script type="module" src="./mobilityAnatomyLab.js?v=k3b1"></script>
 </body>
 </html>

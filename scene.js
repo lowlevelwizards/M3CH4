@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { buildPartVisual } from './partVisuals.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
-import { adapterFor, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
+import { installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
@@ -758,7 +759,17 @@ function buildExteriorRig(assembly) {
             return mesh;
         };
         const cyl = (radiusTop, radiusBottom, height, material, sides = 10) => new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, sides), m(material));
-        const round = (radius, material) => new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 6), m(material));
+        const sharedVisual = buildPartVisual(def.id, { mode: 'gameplay' });
+        if (sharedVisual) {
+            group.add(sharedVisual);
+            sharedVisual.traverse(node => {
+                if (!node.isMesh) return;
+                node.userData.slot = slot;
+                meshes.push(node);
+                pickMeshes.push(node);
+            });
+            continue;
+        }
         switch (def.id) {
             case 'frame-sr': {
                 // BRUISER: deep shoulder sockets, a layered armored belly and one obvious
@@ -843,68 +854,6 @@ function buildExteriorRig(assembly) {
                 crossbar.rotation.z = Math.PI / 2;
                 // Low-slung front crash hoop reads as chassis, not a second cockpit.
                 add(plate(1.04, .12, .14, m(0x5b645d)), 0, -.31, -.92);
-                break;
-            }
-            case 'legs-yard':
-            case 'legs-hauler': {
-                const wide = def.id === 'legs-hauler';
-                const spread = wide ? .86 : .69;
-                const thick = wide ? 1.23 : 1;
-                // Each limb has a load path: hip pivot → canted thigh → knee → shin → ankle → broad foot.
-                for (const side of [-1, 1]) {
-                    const hip = add(cyl(.34 * thick, .34 * thick, .32 * thick, steel), side * spread, .51, .03);
-                    hip.rotation.z = Math.PI / 2;
-                    const thigh = add(plate(.49 * thick, .64, .45 * thick, m(0x525750)), side * spread, .12, .08);
-                    thigh.rotation.z = side * -.075;
-                    const piston = add(cyl(.092, .12, .58, brightSteel), side * (spread + .25 * thick), -.07, .13);
-                    piston.rotation.z = side * .19;
-                    const knee = add(cyl(.27 * thick, .27 * thick, .25 * thick, steel), side * spread, -.25, .04);
-                    knee.rotation.z = Math.PI / 2;
-                    const kneeArmor = add(plate(.55 * thick, .50, .20, m(wide ? yellow : teal)), side * spread, -.27, -.23);
-                    kneeArmor.rotation.x = -.10;
-                    add(plate(.46 * thick, .55, .42 * thick, m(steel)), side * spread, -.51, .15);
-                    const ankle = add(round(.20 * thick, brightSteel), side * spread, -.75, .14);
-                    ankle.scale.set(1.0, .75, .8);
-                    const foot = add(plate(.74 * thick, .23, 1.08 * thick, m(0x55584c)), side * spread, -.89, -.24);
-                    foot.rotation.x = -.025;
-                    add(plate(.52 * thick, .11, .36, m(yellow)), side * spread, -.78, -.60);
-                }
-                if (wide) {
-                    const brace = add(plate(1.78, .23, .38, m(steel)), 0, .52, .17);
-                    brace.rotation.x = -.08;
-                }
-                if (adapterFor(assembly, 'mobility')) {
-                    add(cyl(.39, .39, .18, 0xd8ad60), 0, .58, .04);
-                    for (const side of [-1, 1]) {
-                        const flange = add(cyl(.39, .39, .13, 0xb7bcb1), side * spread, .53, .05);
-                        flange.rotation.z = Math.PI / 2;
-                    }
-                }
-                break;
-            }
-            case 'legs-compact': {
-                // Inboard hip, reverse-canted knees and short piston pairs: a genuinely narrower stance.
-                for (const side of [-1, 1]) {
-                    const hip = add(cyl(.28, .28, .26, steel), side * .57, .49, .04);
-                    hip.rotation.z = Math.PI / 2;
-                    const thigh = add(plate(.36, .52, .40, m(0x77766b)), side * .68, .12, -.08);
-                    thigh.rotation.z = side * -.24;
-                    const rearLink = add(plate(.22, .58, .26, m(steel)), side * .80, -.30, .26);
-                    rearLink.rotation.z = side * .18;
-                    const knee = add(cyl(.25, .25, .23, brightSteel), side * .83, -.21, .03);
-                    knee.rotation.z = Math.PI / 2;
-                    const kneecap = add(plate(.42, .38, .14, m(teal)), side * .83, -.24, -.19);
-                    kneecap.rotation.x = -.16;
-                    const shin = add(plate(.35, .58, .35, m(steel)), side * .64, -.57, .19);
-                    shin.rotation.z = side * .22;
-                    const piston = add(cyl(.065, .10, .50, brightSteel), side * .76, -.49, -.03);
-                    piston.rotation.z = side * .30;
-                    const ankle = add(round(.17, brightSteel), side * .59, -.79, .17);
-                    ankle.scale.set(1, .8, .8);
-                    const foot = add(plate(.56, .17, .90, m(0x555c57)), side * .59, -.88, -.25);
-                    foot.rotation.y = side * -.07;
-                    add(plate(.36, .08, .34, m(yellow)), side * .59, -.77, -.55);
-                }
                 break;
             }
             case 'power-dynamo': {
@@ -1033,8 +982,8 @@ function buildExteriorRig(assembly) {
             }
         }
     }
-    // Mount subassemblies to the real hull group. The adapter is a derived physical
-    // object on the heavy leg geometry; its mass is added by the mechanical inspector.
+    // Mount subassemblies to the real hull group. Shared mobility visuals carry
+    // their authored interface hardware; mass and compatibility remain graph data.
     const hull = partGroups.get('structure');
     if (hull) {
         for (const [slot, group] of partGroups) {

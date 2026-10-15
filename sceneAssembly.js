@@ -1,8 +1,9 @@
-/** 0.0.1k.2: Thin graph-to-Three bridge around the unchanged j.2 arena scene.
- * Kept separate so j.2 hostile pathfinding, weapon tracing and pooled effects
- * are not copied or forked into a second large renderer. */
+/** Thin graph-to-Three bridge around the arena renderer.
+ * Keeps graph-derived physical mounting separate from combat, navigation and
+ * the shared part-model construction now handled inside scene.js.
+ */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=j2';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3b1';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 
 let active = null;
@@ -79,7 +80,7 @@ export function createArenaScene(assembly, targetAssembly) {
             .get(power.instance.serial)?.position ?? null;
     }
     function withAccurateAimCenter(slot, callback) {
-        // j.2's camera focus and hostile aiming still read SLOT_CENTERS. Temporarily
+        // The camera focus and hostile aiming still read SLOT_CENTERS. Temporarily
         // supply the graph pose for this one call; leave the shared baseline untouched.
         const center = slot === 'power' ? adjustedPowerCenter() : null;
         if (!center) return callback();
@@ -95,8 +96,8 @@ export function createArenaScene(assembly, targetAssembly) {
     arena.focusPart = slot => withAccurateAimCenter(slot, () => focus(slot));
     arena.traceHostileShot = (state, slot, ...args) => withAccurateAimCenter(slot,
         () => hostileShot(state, slot, ...args));
-    // The original main.js calls rebuildAssembly before the garage is displayed.
-    // Retain the original scene's complete enemy nav and combat behavior.
+    // main.js calls rebuildAssembly before the garage is displayed, so graph poses
+    // are applied to the shared gameplay models before the player inspects them.
     active = { arena, assembly };
     return arena;
 }

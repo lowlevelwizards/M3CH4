@@ -1,11 +1,10 @@
-/** k.3a.8 standalone equal-scale silhouette separation lab.
+/** k.3b.1 standalone equal-scale mobility comparison.
  * No gameplay code, no persistence, exactly ONE shared WebGL context.
+ * Every mobility family is rendered by the same registry used by gameplay.
  */
 import * as THREE from 'three';
 import {fitFixtureFor} from './chassisFitFixtures.js';
-import {buildYardwalkerVisual} from './yardwalkerVisual.js?v=k3a8';
-import {buildKestrelVisual} from './kestrelVisual.js?v=k3a8';
-import {buildHaulerVisual} from './haulerVisual.js?v=k3a8';
+import {buildPartVisual} from './partVisuals.js';
 import {MOBILITY_LAYOUTS,mobilitySilhouetteMetrics,validateMobilityFamilySeparation} from './mobilityDefinitions.js?v=k3a8';
 import {setMobilityGreybox} from './mobilityVisualKit.js?v=k3a8';
 const stage=document.getElementById('stage');
@@ -23,11 +22,6 @@ scene.add(new THREE.HemisphereLight(0xf9f4e5,0x3d4b44,2.9));
 const key=new THREE.DirectionalLight(0xffffff,2.15);key.position.set(-4,7,-5);scene.add(key);
 const rim=new THREE.DirectionalLight(0xd9e8df,1.1);rim.position.set(4,4,5);scene.add(rim);
 const grid=new THREE.GridHelper(4.6,10,0x637469,0x35443b);scene.add(grid);
-const builders={
-    'legs-yard':buildYardwalkerVisual,
-    'legs-compact':buildKestrelVisual,
-    'legs-hauler':buildHaulerVisual,
-};
 const role={
     'legs-yard':'UTILITY WALKER',
     'legs-compact':'REVERSE-KNEE RUNNER',
@@ -36,7 +30,8 @@ const role={
 const subjects=tiles.map(tile=>{
     const id=tile.dataset.family,fixture=fitFixtureFor(id),layout=MOBILITY_LAYOUTS[id];
     if(!fixture||!layout)throw new Error(`Unknown source-backed mobility part: ${id}`);
-    const root=builders[id](fixture);
+    const root=buildPartVisual(id);
+    if(!root)throw new Error(`No shared mobility visual registered: ${id}`);
     root.visible=false;scene.add(root);
     setMobilityGreybox(root,true);
     const m=mobilitySilhouetteMetrics(layout);
