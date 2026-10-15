@@ -1,9 +1,9 @@
-/** Standalone k.3a.3 design study. Production scene/main/garage never import it. */
+/** Standalone chassis design study. Production scene/main/garage never import it. */
 import * as THREE from 'three';
 import { CONCEPT_CHASSIS, getConceptChassis, validateConceptChassis } from './chassisConcepts.js';
 import { buildConceptChassis } from './chassisConceptBuilder.js';
 import { buildSocketGizmos } from './chassisVisualKit.js';
-import { createFitPreviewController } from './chassisFitPreview.js?v=k3a5';
+import { createFitPreviewController } from './chassisFitPreview.js?v=k3b1';
 
 const host=document.getElementById('viewport');
 const buttons=document.getElementById('frames');
@@ -49,7 +49,7 @@ function frameInfo(f){
     return `${f.name}\n\n${f.structure}\n\n`+
         `${f.pieces.length} named structural members · ${f.sockets.length} authored mounting faces\n`+
         `Preview-only structural chassis; BARE mode contains no installed modules.\n`+
-        `ASSEMBLED mode adds the same four existing part envelopes on each frame.\n`+
+        `ASSEMBLED mode adds the shared mobility model plus simple fixtures for remaining equipment.\n`+
         `No invented gameplay mass or frame rating. Socket capacities are provisional.`;
 }
 function reframe(resetRadius=true){
