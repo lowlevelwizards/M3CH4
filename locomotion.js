@@ -10,11 +10,13 @@ export const DEFAULT_RIG_CONFIG = {
     turnTorqueNm: 23_000,
     yawDampingNms: 26_000,
     yawInertiaKgM2: 9_200,
+    turnAuthorityAtZero: .68,
     maxForwardSpeedMps: 7.4,
     maxReverseSpeedMps: 3.5,
     collisionRadiusM: 0.95,
     collisionRestitution: 0.08,
     collisionTangentialDamping: 0.72,
+    collisionImpactScale: 1,
 };
 export const DEFAULT_WORLD = {
     minX: -23,
@@ -87,7 +89,8 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     state.vx += ax * dt;
     state.vz += az * dt;
     const speedFraction = clamp(Math.abs(previousForwardSpeed) / config.maxForwardSpeedMps, 0, 1);
-    const turnAuthority = 0.68 + speedFraction * 0.32;
+    const zeroSpeedAuthority = clamp(config.turnAuthorityAtZero ?? .68, 0, 1);
+    const turnAuthority = zeroSpeedAuthority + speedFraction * (1 - zeroSpeedAuthority);
     const directionalTurnScale = steer >= 0 ? (config.turnRightScale ?? 1) : (config.turnLeftScale ?? 1);
     const yawTorque = steer * config.turnTorqueNm * turnAuthority * directionalTurnScale
         + throttle * (config.driveAsymmetryTorqueNm ?? 0)
@@ -201,5 +204,5 @@ function applyCollisionVelocity(state, nx, nz, config) {
     state.vx = nx * reboundVelocity + tx * tangentVelocity * config.collisionTangentialDamping;
     state.vz = nz * reboundVelocity + tz * tangentVelocity * config.collisionTangentialDamping;
     state.yawRate *= 0.82;
-    state.impact = clamp(state.impact + impactSpeed / 6, 0, 1);
+    state.impact = clamp(state.impact + impactSpeed / 6 * (config.collisionImpactScale ?? 1), 0, 1);
 }
