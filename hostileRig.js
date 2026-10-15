@@ -64,7 +64,8 @@ export function hostileAimSlot(index, aimPriority = selectedContract().behavior.
 }
 
 /** A training sortie ends only when the machine can no longer be safely operated.
- * Losing the weapon alone is not a defeat; the player can still limp home. */
+ * Weapon shutdown is handled separately by k.3j field service so a recoverable
+ * first fault does not become dead time. */
 export function disabledReason(condition, output) {
     if (ratio(condition, 'structure') <= .05)
         return 'FRAME DISABLED';
@@ -74,5 +75,20 @@ export function disabledReason(condition, output) {
         return 'POWER LOST';
     if (output.left <= .05 && output.right <= .05)
         return 'MOBILITY LOST';
+    return null;
+}
+
+/** Explain why an opponent has lost combat capability. Mobility alone is not a
+ * mission kill: an immobilized rig with a working gun can still fight like a turret. */
+export function hostileMissionKillReason(condition, behavior = null) {
+    const output = hostileOutput(condition, behavior);
+    if (output.structure <= .05)
+        return 'FRAME DISABLED';
+    if (output.command <= .05)
+        return 'COMMAND COMPARTMENT DISABLED';
+    if (output.power <= .12)
+        return 'POWER LOST';
+    if (output.weapon <= .12)
+        return 'WEAPON DISABLED';
     return null;
 }
