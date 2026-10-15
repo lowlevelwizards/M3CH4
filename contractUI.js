@@ -1,16 +1,20 @@
-/** k.3f.0 touch-friendly contract selector layered onto the existing garage.
+/** k.3f.1 touch-friendly contract selector on the garage home surface.
  * Selecting a different opponent reloads the arena so every existing combat,
  * rendering and salvage system initializes against the same authored assembly.
+ *
+ * The compact garage keeps module details in a contextual drawer. Contracts live
+ * beside that drawer instead: visible immediately on garage entry, replaced by
+ * module details while a module is selected, and never shown during a sortie.
  */
 import { CONTRACTS, selectContract, selectedContract } from './contracts.js';
 
-const garageContext = document.querySelector('#garage-context');
-const summary = garageContext?.querySelector('.garage-summary');
+const inspectionPanel = document.querySelector('#inspection-panel');
+const garageRail = inspectionPanel?.querySelector('.garage-rail');
 const targetPanel = document.querySelector('#target-panel');
 const targetToggle = document.querySelector('#target-toggle');
 const fieldStatus = document.querySelector('#field-status');
 
-if (!garageContext || !summary || !targetPanel || !targetToggle)
+if (!inspectionPanel || !garageRail || !targetPanel || !targetToggle)
     throw new Error('Contract board needs the existing garage and hostile surfaces.');
 
 function injectStyles() {
@@ -18,10 +22,13 @@ function injectStyles() {
     const style = document.createElement('style');
     style.id = 'contract-board-styles';
     style.textContent = `
-.contract-board{margin:8px 0 10px;padding:8px;border:1px solid #59645a;background:#161b18;color:#d7d0bd;font:8px/1.3 ui-monospace,monospace}
-.contract-board-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px}.contract-board-head strong{color:#d8b56c;font-size:9px;letter-spacing:.12em}.contract-board-head span{color:#839287;letter-spacing:.08em}
-.contract-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.contract-card{min-width:0;min-height:70px;padding:6px;border:1px solid #465149;background:#202622;color:#bfc8bb;text-align:left;font:700 7px/1.25 ui-monospace,monospace}.contract-card strong,.contract-card span,.contract-card small{display:block}.contract-card strong{color:#e0c17e;font-size:9px;letter-spacing:.08em}.contract-card span{margin-top:2px;color:#93aa99}.contract-card small{margin-top:5px;color:#899188;font-size:6.5px}.contract-card b{display:block;margin-top:5px;color:#d7d7c6;font-size:8px}.contract-card.selected{border-color:#d0a85f;background:#2a2a20;box-shadow:inset 0 0 0 1px #816d42}.contract-card:disabled{opacity:1}.contract-card.loading{opacity:.55}
-@media(max-width:700px){.contract-board{padding:6px}.contract-cards{gap:3px}.contract-card{padding:5px;min-height:66px}.contract-card small{font-size:6px}}
+body.inspecting .inspection-panel:not(.expanded){width:min(300px,40vw)}
+.contract-board{display:none;min-width:0;flex:1 1 auto;height:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:10px;background:rgba(14,20,18,.95);border:1px solid #71866d73;border-left:0;box-shadow:10px 8px 36px #0009;color:#d7d0bd;font:8px/1.3 ui-monospace,monospace}
+body.inspecting .inspection-panel:not(.expanded)>.contract-board{display:block}
+.contract-board-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding-bottom:7px;margin-bottom:8px;border-bottom:1px solid #8d784743}.contract-board-head strong{color:#d8b56c;font-size:10px;letter-spacing:.12em}.contract-board-head span{color:#839287;letter-spacing:.08em;font-size:7px;text-align:right}
+.contract-board-intro{margin:0 0 8px;color:#9baa9e;font:8px/1.4 ui-monospace,monospace}
+.contract-cards{display:grid;grid-template-columns:1fr;gap:6px}.contract-card{min-width:0;min-height:58px;padding:7px 8px;border:1px solid #465149;background:#202622;color:#bfc8bb;text-align:left;font:700 7px/1.25 ui-monospace,monospace;touch-action:manipulation}.contract-card strong,.contract-card span,.contract-card small{display:block}.contract-card strong{color:#e0c17e;font-size:10px;letter-spacing:.08em}.contract-card span{margin-top:2px;color:#93aa99}.contract-card small{margin-top:4px;color:#899188;font-size:6.5px}.contract-card b{display:block;margin-top:5px;color:#d7d7c6;font-size:8px}.contract-card.selected{border-color:#d0a85f;background:#2a2a20;box-shadow:inset 0 0 0 1px #816d42}.contract-card:disabled{opacity:1}.contract-card.loading{opacity:.55}
+@media(max-width:730px){body.inspecting .inspection-panel:not(.expanded){width:min(270px,43vw)}.contract-board{padding:8px}.contract-card{padding:6px 7px}.contract-card small{font-size:6px}}
 `;
     document.head.append(style);
 }
@@ -55,7 +62,7 @@ function announce(contract) {
 }
 
 function renderBoard() {
-    garageContext.querySelector('.contract-board')?.remove();
+    inspectionPanel.querySelector(':scope > .contract-board')?.remove();
     const active = selectedContract();
     const board = document.createElement('section');
     board.className = 'contract-board';
@@ -66,8 +73,12 @@ function renderBoard() {
     const title = document.createElement('strong');
     title.textContent = 'SCRAPYARD CONTRACTS';
     const note = document.createElement('span');
-    note.textContent = 'CHOOSE OPPONENT / SALVAGE ROUTE';
+    note.textContent = 'OPPONENT / SALVAGE ROUTE';
     head.append(title, note);
+
+    const intro = document.createElement('p');
+    intro.className = 'contract-board-intro';
+    intro.textContent = 'Choose the machine you want to face next. Payout and recoverable hardware follow the selected contract.';
 
     const cards = document.createElement('div');
     cards.className = 'contract-cards';
@@ -83,7 +94,7 @@ function renderBoard() {
         const role = document.createElement('span');
         role.textContent = contract.role;
         const known = document.createElement('small');
-        known.textContent = contract.knownEquipment.join(' · ');
+        known.textContent = `KNOWN · ${contract.knownEquipment.join(' · ')}`;
         const payout = document.createElement('b');
         payout.textContent = contract.id === active.id ? `SELECTED · ₡${contract.payout}` : `TAKE CONTRACT · ₡${contract.payout}`;
         button.append(name, role, known, payout);
@@ -99,8 +110,8 @@ function renderBoard() {
         });
         cards.append(button);
     }
-    board.append(head, cards);
-    summary.after(board);
+    board.append(head, intro, cards);
+    garageRail.after(board);
     updateHostileCopy(active);
     announce(active);
 }
