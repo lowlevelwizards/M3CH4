@@ -9,10 +9,11 @@ import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
+import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
-import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileOutput, hostileSpread, } from './hostileRig.js';
+import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -50,6 +51,9 @@ const hostileDriveDamage = { drives: {} };
 let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
+let fieldService = createFieldServiceState();
+let servicePointerId = null;
+let serviceKeyHeld = false;
 // Each mech sees the other as a moving physical obstacle. Neither collides with itself.
 const movingObstacleAt = (id, spawn, radius = 1) => ({
     id, minX: spawn.x - radius, maxX: spawn.x + radius,
@@ -85,6 +89,23 @@ if (!rigConfig)
     throw new Error('Starting test rig must be fieldable.');
 let output = functionalOutput(assembly, damage);
 let effectiveConfig = derateRigConfig(rigConfig, output);
+function syncOwnedWeaponCondition(addWear = false) {
+    const installed = installedPart(assembly, 'combat');
+    const part = playerCondition.parts.combat;
+    if (!installed || !part)
+        return;
+    installed.instance.condition = weaponIntegrityRatio(playerCondition);
+    if (addWear)
+        installed.instance.wear = Math.min(1, (Number(installed.instance.wear) || 0) + .08);
+}
+function currentSortieFailureReason() {
+    return disabledReason(playerCondition, functionalOutput(assembly, damage)) ??
+        weaponMissionKillReason(playerCondition, fieldService);
+}
+function deploymentBlockReason() {
+    const current = functionalOutput(assembly, damage);
+    return disabledReason(playerCondition, current) ?? (!current.weaponOperational ? 'WEAPON OFFLINE' : null);
+}
 function updateFunctionalStatus() {
     output = functionalOutput(assembly, damage);
     if (rigConfig)
@@ -96,7 +117,12 @@ function updateFunctionalStatus() {
         faults.push(`R DRIVE ${Math.round(output.right * 100)}%`);
     if (output.power < .99)
         faults.push(`GENERATOR ${Math.round(output.power * 100)}%`);
-    if (output.weapon < .99)
+    const weaponFailure = weaponFailureState(playerCondition, fieldService);
+    if (weaponFailure === 'faulted')
+        faults.push('WEAPON FAULT · FIELD SERVICE AVAILABLE');
+    else if (weaponFailure === 'destroyed' || weaponFailure === 'unrecoverable')
+        faults.push('WEAPON LOST');
+    else if (output.weapon < .99)
         faults.push(`WEAPON ${Math.round(output.weapon * 100)}%`);
     faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
     faultStrip.classList.toggle('faulted', faults.length > 0);
@@ -185,6 +211,15 @@ function stopFireInput() {
     if (captured !== null && fireButton.hasPointerCapture(captured)) {
         fireButton.releasePointerCapture(captured);
     }
+}
+function stopFieldServiceInput() {
+    const captured = servicePointerId;
+    servicePointerId = null;
+    serviceKeyHeld = false;
+    cancelFieldService(fieldService);
+    reloadButton.classList.remove('servicing');
+    if (captured !== null && reloadButton.hasPointerCapture(captured))
+        reloadButton.releasePointerCapture(captured);
 }
 function showStatus(message) {
     fieldStatus.dataset.message = message;
@@ -467,13 +502,14 @@ refreshAssembly();
 selectPart(null, false);
 function toggleInspection(force) {
     const requested = force ?? !inspecting;
-    testEndReason = disabledReason(playerCondition, functionalOutput(assembly, damage));
+    testEndReason = deploymentBlockReason();
     if (!requested && (!inspection.ready || testEndReason)) {
         showStatus(testEndReason ? `NOT READY · ${testEndReason} · REPAIR REQUIRED` : 'NOT READY · RESTORE ALL FIVE FUNCTIONS');
         return;
     }
     inspecting = requested;
     stopFireInput();
+    stopFieldServiceInput();
     if (inspecting) {
         devPanel.classList.add('hidden');
         targetPanel.classList.add('hidden');
@@ -500,6 +536,7 @@ function toggleInspection(force) {
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
         hostileController = createHostileController();
+        fieldService = createFieldServiceState();
         sortieRoundsFired = 0;
         testEnded = false;
         testEndReason = null;
@@ -695,6 +732,11 @@ function frame(now) {
                 controls.compensateBodyTurn(rig.yaw - yawBefore);
                 input = controls.sample();
             }
+            const serviceStep = advanceFieldService(playerCondition, fieldService, rig, FIXED_DT);
+            if (serviceStep.event === 'completed')
+                handleFieldServiceCompleted();
+            else if (serviceStep.event === 'interrupted')
+                handleFieldServiceInterrupted();
             placeMovingObstacle(pilotObstacle, rig.x, rig.z, 1);
             const hostile = hostileOutput(targetCondition);
             const canManeuver = !testEnded && hostile.structure > .05 && hostile.command > .05 &&
@@ -771,6 +813,7 @@ function frame(now) {
             `LEFT LEG  ${(output.left * 100).toFixed(0)}%`,
             `RIGHT LEG ${(output.right * 100).toFixed(0)}%`,
             `WEAPON    ${(output.weapon * 100).toFixed(0)}%`,
+            `FIELD SVC ${fieldService.used ? 'SPENT' : fieldService.held ? `${Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100)}%` : canFieldService(playerCondition, fieldService) ? 'READY' : '—'}`,
             `FIELDED   ${inspection.ready ? 'YES (CONTRACT)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    ${Math.round(renderScale * 100)}%`,
@@ -832,12 +875,54 @@ resolutionToggle.addEventListener('click', () => {
 const targetLabels = {
     structure: 'HULL', mobility: 'LEGS', power: 'POWER', command: 'CAB', combat: 'WEAPON',
 };
+function handleFieldServiceCompleted() {
+    syncOwnedWeaponCondition(true);
+    if (weaponState) {
+        weaponState.reloadLeft = 0;
+        weaponState.cooldown = Math.max(weaponState.cooldown, .55);
+    }
+    updateFunctionalStatus();
+    arena.updatePilotDamage(playerCondition);
+    renderPartsList();
+    renderPartInfo();
+    soundReload();
+    shotReport.classList.remove('faded', 'disabled-part');
+    shotReport.classList.add('penetrated');
+    shotReport.textContent = 'FIELD SERVICE COMPLETE · WEAPON BYPASS ONLINE · 20% CONDITION';
+    reportFade = 3.2;
+    persistMachine();
+}
+function handleFieldServiceInterrupted() {
+    shotReport.classList.remove('faded', 'penetrated');
+    shotReport.classList.add('disabled-part');
+    shotReport.textContent = 'FIELD SERVICE INTERRUPTED · STOP COMPLETELY AND HOLD';
+    reportFade = 1.8;
+}
 function renderAmmo() {
-    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${testEnded ? ' · SORTIE ENDED' : !output.weaponOperational ? ' · OFFLINE' : output.weapon < .95 ? ' · DAMAGED' : ''}` : 'NO WEAPON';
+    const failure = weaponFailureState(playerCondition, fieldService);
+    const serviceAvailable = canFieldService(playerCondition, fieldService);
+    const stationary = fieldServiceStationary(rig);
+    const suffix = testEnded ? ' · SORTIE ENDED' :
+        failure === 'destroyed' ? ' · DESTROYED' :
+        failure === 'unrecoverable' ? ' · FAULT · BYPASS SPENT' :
+        failure === 'faulted' ? ' · FAULTED' :
+        output.weapon < .95 ? ' · DAMAGED' : '';
+    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${suffix}` : 'NO WEAPON';
     ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
+        serviceAvailable ? `FAULT ${Math.round(weaponIntegrityRatio(playerCondition) * 100)}%` :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
-    reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
+    if (serviceAvailable) {
+        const percent = Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100);
+        reloadButton.textContent = fieldService.held ? `FIELD SERVICE ${percent}%` : stationary ? 'HOLD FIELD SERVICE' : 'STOP TO FIELD SERVICE';
+        reloadButton.disabled = inspecting || testEnded || !stationary;
+        reloadButton.classList.toggle('servicing', fieldService.held);
+    }
+    else {
+        reloadButton.textContent = 'RELOAD';
+        reloadButton.classList.remove('servicing');
+        reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
+    }
     // Preserve touch capture if an empty magazine starts reloading during a held
     // FIRE drag. Aim remains usable; the weapon itself still refuses to fire.
     fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational ||
@@ -870,7 +955,7 @@ function renderTarget() {
     }
 }
 function renderDebrief(summary, reason) {
-    debriefTitle.textContent = summary.victory ? 'CONTRACT CLEARED' : 'RIG RECOVERED';
+    debriefTitle.textContent = summary.victory ? 'CONTRACT CLEARED' : 'MISSION KILL';
     debriefLines.replaceChildren();
     const rows = [
         ['RESULT', summary.victory ? 'VICTORY' : reason, 'primary'],
@@ -899,6 +984,7 @@ function finishSortie(victory, reason) {
     testEnded = true;
     testEndReason = victory ? null : reason;
     stopFireInput();
+    stopFieldServiceInput();
     controls.setEnabled(false);
     const summary = settleSortie({
         credits: economy.credits,
@@ -909,12 +995,12 @@ function finishSortie(victory, reason) {
     economy.credits = summary.creditsAfter;
     renderEconomy();
     persistMachine();
-    faultStrip.textContent = victory ? 'CONTRACT CLEARED · HOSTILE COMBAT CAPABILITY LOST' : `RIG DISABLED · ${reason}`;
+    faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE MISSION KILL · ${reason}` : `MISSION KILL · ${reason}`;
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');
     shotReport.classList.toggle('disabled-part', !victory);
     shotReport.classList.toggle('penetrated', victory);
-    shotReport.textContent = victory ? 'SORTIE COMPLETE · CONTRACT CLEARED · ACCOUNTING READY' : `SORTIE ENDED · ${reason} · RECOVERY CREW DISPATCHED`;
+    shotReport.textContent = victory ? `SORTIE COMPLETE · HOSTILE MISSION KILL · ${reason}` : `SORTIE ENDED · MISSION KILL · ${reason} · RECOVERY CREW DISPATCHED`;
     reportFade = 9999;
     renderAmmo();
     renderDebrief(summary, reason);
@@ -940,6 +1026,7 @@ function attemptHostileFire(shotIndex) {
     // The controller remains slower than the weapon's raw cyclic rate.
     hostileWeaponState.cooldown = Math.max(hostileWeaponState.cooldown, hostile.triggerSeconds * .55);
     soundFire();
+    stopFieldServiceInput(); // Any incoming hit interrupts an exposed emergency procedure.
     const partBefore = playerCondition.parts[contact.slot];
     const beforeIntegrity = partBefore.integrity;
     const hit = applyTargetHit(playerCondition, contact.slot, hostileWeaponSpec.damage);
@@ -954,6 +1041,12 @@ function attemptHostileFire(shotIndex) {
         if (installed)
             playerCondition.parts[contact.slot].integrity = playerCondition.parts[contact.slot].maxIntegrity * installed.instance.condition;
     }
+    let weaponFaulted = false;
+    if (contact.slot === 'combat') {
+        weaponFaulted = arrestFirstWeaponFailure(playerCondition, fieldService, beforeIntegrity);
+        if (weaponFaulted)
+            syncOwnedWeaponCondition(false);
+    }
     const nowDisabled = playerCondition.parts[contact.slot].integrity <= 0;
     arena.showHostileShot(contact, { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled });
     arena.updatePilotDamage(playerCondition);
@@ -964,7 +1057,13 @@ function attemptHostileFire(shotIndex) {
     renderPartsList();
     renderPartInfo();
     renderAmmo();
-    testEndReason = disabledReason(playerCondition, output);
+    if (weaponFaulted) {
+        shotReport.classList.remove('faded', 'penetrated');
+        shotReport.classList.add('disabled-part');
+        shotReport.textContent = 'WEAPON FAULT · EMERGENCY BYPASS AVAILABLE · STOP BEHIND COVER AND HOLD FIELD SERVICE';
+        reportFade = 5.0;
+    }
+    testEndReason = currentSortieFailureReason();
     if (testEndReason)
         finishSortie(false, testEndReason);
 }
@@ -1008,8 +1107,9 @@ function attemptFire() {
         const outcome = hit.disabled ? 'MODULE DISABLED' : hit.internalDamage > 0 ? 'ARMOR BREACHED' : 'ARMOR IMPACT';
         shotReport.textContent = `${outcome} · ${lastHit} · ARMOR −${hit.armorAbsorbed} · INTERNAL −${hit.internalDamage}`;
         renderTarget();
-        if (!hostileOutput(targetCondition).operational) {
-            finishSortie(true, 'HOSTILE COMBAT CAPABILITY LOST');
+        const hostileKill = hostileMissionKillReason(targetCondition);
+        if (hostileKill) {
+            finishSortie(true, hostileKill);
             return;
         }
     }
@@ -1065,7 +1165,15 @@ window.addEventListener('keydown', event => {
         attemptFire();
     }
     if (event.code === 'KeyR' && weaponState && weaponSpec && !event.repeat) {
-        if (startReload(weaponState, weaponSpec))
+        if (canFieldService(playerCondition, fieldService)) {
+            if (beginFieldService(playerCondition, fieldService, rig)) {
+                serviceKeyHeld = true;
+                soundReload();
+                shotReport.textContent = 'FIELD SERVICE STARTED · HOLD STILL';
+                reportFade = 5;
+            }
+        }
+        else if (startReload(weaponState, weaponSpec))
             soundReload();
     }
 });
@@ -1074,12 +1182,54 @@ window.addEventListener('keyup', event => {
         fireKeyHeld = false;
         fireHeld = firePointerId !== null;
     }
+    if (event.code === 'KeyR' && serviceKeyHeld) {
+        serviceKeyHeld = false;
+        if (fieldService.held)
+            cancelFieldService(fieldService);
+    }
 });
-window.addEventListener('blur', stopFireInput);
-reloadButton.addEventListener('click', () => {
+window.addEventListener('blur', () => {
+    stopFireInput();
+    stopFieldServiceInput();
+});
+reloadButton.addEventListener('pointerdown', event => {
+    if (canFieldService(playerCondition, fieldService)) {
+        if (!beginFieldService(playerCondition, fieldService, rig)) {
+            renderAmmo();
+            return;
+        }
+        event.preventDefault();
+        servicePointerId = event.pointerId;
+        reloadButton.setPointerCapture(event.pointerId);
+        soundReload();
+        shotReport.classList.remove('faded', 'penetrated');
+        shotReport.classList.add('disabled-part');
+        shotReport.textContent = 'FIELD SERVICE STARTED · HOLD STILL · RELEASE OR MOVE TO ABORT';
+        reportFade = 5;
+        renderAmmo();
+        return;
+    }
     if (weaponState && weaponSpec && startReload(weaponState, weaponSpec))
         soundReload();
     renderAmmo();
+});
+const endServicePointer = event => {
+    if (event.pointerId !== servicePointerId)
+        return;
+    servicePointerId = null;
+    if (fieldService.held)
+        cancelFieldService(fieldService);
+    renderAmmo();
+};
+reloadButton.addEventListener('pointerup', endServicePointer);
+reloadButton.addEventListener('pointercancel', endServicePointer);
+reloadButton.addEventListener('lostpointercapture', endServicePointer);
+reloadButton.addEventListener('click', event => {
+    if (event.detail === 0 && !canFieldService(playerCondition, fieldService)) {
+        if (weaponState && weaponSpec && startReload(weaponState, weaponSpec))
+            soundReload();
+        renderAmmo();
+    }
 });
 targetToggle.addEventListener('click', () => {
     const isOpen = targetPanel.classList.toggle('hidden') === false;
