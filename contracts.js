@@ -1,10 +1,11 @@
-/** k.3g.0: tiny authored contract roster with equally small tactical profiles.
+/** k.3g.0 roster, extended in k.3h.0 with progression-gated selection.
  *
  * A contract remains only an opponent recipe + payout + presentation + behavior.
- * Combat, damage, salvage and persistence remain owned by their existing systems.
- * Behavior profiles express intent; real mobility physics still decides what each
- * machine can actually achieve once damaged, overloaded or pushed around.
+ * Combat, damage and salvage remain owned by their existing systems. Progression
+ * only decides which authored opponent may currently be selected.
  */
+import { accessibleContractId, isContractUnlocked, loadProgression } from './progression.js';
+
 export const CONTRACT_STORAGE_KEY = 'm3ch4-contract-v1';
 
 const YARD_DOG_BEHAVIOR = Object.freeze({
@@ -130,18 +131,26 @@ function browserSessionStorage() {
     catch { return null; }
 }
 
-export function selectedContract(storage = browserSessionStorage()) {
+function browserProgression() {
+    return typeof window !== 'undefined' ? loadProgression() : null;
+}
+
+export function selectedContract(storage = browserSessionStorage(), progression = browserProgression()) {
     let id = DEFAULT_CONTRACT_ID;
     try { id = storage?.getItem(CONTRACT_STORAGE_KEY) || DEFAULT_CONTRACT_ID; }
     catch { /* Session storage is optional; fall back to Yard Dog. */ }
+    if (progression)
+        id = accessibleContractId(progression, id);
     return contractById(id);
 }
 
-export function selectContract(id, storage = browserSessionStorage()) {
+export function selectContract(id, storage = browserSessionStorage(), progression = browserProgression()) {
     const contract = BY_ID.get(id);
     if (!contract)
-        return { ok: false, reason: 'UNKNOWN CONTRACT', contract: selectedContract(storage) };
+        return { ok: false, reason: 'UNKNOWN CONTRACT', contract: selectedContract(storage, progression) };
+    if (progression && !isContractUnlocked(progression, id))
+        return { ok: false, reason: 'CONTRACT LOCKED', contract: selectedContract(storage, progression) };
     try { storage?.setItem(CONTRACT_STORAGE_KEY, contract.id); }
-    catch { return { ok: false, reason: 'CONTRACT SELECTION UNAVAILABLE', contract: selectedContract(storage) }; }
+    catch { return { ok: false, reason: 'CONTRACT SELECTION UNAVAILABLE', contract: selectedContract(storage, progression) }; }
     return { ok: true, contract };
 }

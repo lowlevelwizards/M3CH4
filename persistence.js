@@ -1,7 +1,7 @@
 /** One locally owned rig, persisted without coupling storage to physics/rendering.
  * Save physical part identities, installed configuration, acute drive faults,
- * player armor/integrity, operating credits, and now the genuinely owned inventory.
- * Older save keys stay untouched so cached/rolled-back builds never read v5 data.
+ * player armor/integrity, operating credits, owned inventory, and contract progress.
+ * Older save keys stay untouched so cached/rolled-back builds never read newer data.
  */
 import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
 import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
@@ -9,12 +9,15 @@ import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
 import { createEconomyState } from './economy.js';
 import { hasStarterInventory, makeStarterAssembly, STARTER_DEFINITION_IDS } from './acquisition.js';
+import { CIRCUIT_ORDER, createLegacyProgressionState, createProgressionState, loadProgression } from './progression.js';
 
 export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1';
 export const MACHINE_SAVE_V3_KEY = 'mech-arena-machine-v3';
 export const MACHINE_SAVE_V4_KEY = 'mech-arena-machine-v4';
 export const MACHINE_SAVE_V5_KEY = 'mech-arena-machine-v5';
-export const MACHINE_SAVE_VERSION = 5; // Read v1-v4; write v5 separately for rollback.
+export const MACHINE_SAVE_V6_KEY = 'mech-arena-machine-v6';
+export const MACHINE_SAVE_VERSION = 6; // Read v1-v5; write v6 separately for rollback.
+const REAL_OWNERSHIP_VERSION = 5;
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const fraction = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
@@ -31,6 +34,7 @@ function fresh() {
         damage: createFunctionalDamage(),
         playerCondition: createTargetCondition(assembly, true),
         economy: createEconomyState(),
+        progression: createProgressionState(),
     };
 }
 
@@ -47,8 +51,7 @@ function validateSavedPart(saved, seenSerials, seenDefinitions = null) {
 
 /** v1-v4 treated every catalogue definition as owned. On migration, keep the real
  * starter set plus anything actually fitted (or still represented by a saved housing
- * state). This preserves the player's current machine without grandfathering every
- * unused developer-sandbox alternative into the progression inventory. */
+ * state). v5+ already contains genuine recovered inventory and must never pass here. */
 function migrateLegacyOwned(data) {
     const savedAssembly = data.assembly;
     const legacy = makeTestAssembly();
@@ -88,7 +91,7 @@ function restoreOwned(data) {
     const saved = data.assembly.owned;
     if (!Array.isArray(saved) || saved.length < 1 || saved.length > MAX_OWNED_PARTS)
         throw new Error('Invalid owned inventory');
-    if (data.version < MACHINE_SAVE_VERSION)
+    if (data.version < REAL_OWNERSHIP_VERSION)
         return migrateLegacyOwned(data);
     const seenSerials = new Set();
     const seenDefinitions = new Set();
@@ -100,6 +103,22 @@ function restoreOwned(data) {
     return owned;
 }
 
+function restoreProgression(data) {
+    if (data.version < MACHINE_SAVE_VERSION)
+        return createLegacyProgressionState();
+    if (!object(data.progression) || !ownKeys(data.progression, ['unlockedContracts', 'clearedContracts']) ||
+        !Array.isArray(data.progression.unlockedContracts) || !Array.isArray(data.progression.clearedContracts))
+        throw new Error('Invalid progression state');
+    const known = new Set(CIRCUIT_ORDER);
+    const unique = values => new Set(values).size === values.length && values.every(id => typeof id === 'string' && known.has(id));
+    if (!unique(data.progression.unlockedContracts) || !unique(data.progression.clearedContracts))
+        throw new Error('Unknown contract progress');
+    if (!data.progression.unlockedContracts.includes(CIRCUIT_ORDER[0]) ||
+        data.progression.clearedContracts.some(id => !data.progression.unlockedContracts.includes(id)))
+        throw new Error('Impossible contract progress');
+    return createProgressionState(data.progression);
+}
+
 /** Pure decoder: invalid input always falls back to a clean starter rig. */
 export function decodeMachine(json) {
     const blank = fresh();
@@ -109,7 +128,7 @@ export function decodeMachine(json) {
         return { ...blank, status: 'invalid' };
     try {
         const data = JSON.parse(json);
-        if (!object(data) || ![1, 2, 3, 4, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
+        if (!object(data) || ![1, 2, 3, 4, 5, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
             !object(data.drives) || !object(data.housing))
             throw new Error('Unknown save format');
         const savedAssembly = data.assembly;
@@ -173,7 +192,7 @@ export function decodeMachine(json) {
                 throw new Error('Invalid drive sections');
             const owned = ownedBySerial.get(serial);
             if (!owned || BY_ID.get(owned.definitionId)?.slot !== 'mobility') {
-                if (data.version < MACHINE_SAVE_VERSION) continue; // dropped sandbox-only part
+                if (data.version < REAL_OWNERSHIP_VERSION) continue; // dropped sandbox-only part
                 throw new Error('Drive damage references unowned mobility');
             }
             damage.drives[serial] = { left: value.left, right: value.right };
@@ -212,8 +231,9 @@ export function decodeMachine(json) {
                 throw new Error('Invalid economy state');
             economy = createEconomyState(data.economy.credits);
         }
+        const progression = restoreProgression(data);
         return {
-            assembly, damage, playerCondition, economy,
+            assembly, damage, playerCondition, economy, progression,
             status: data.version < MACHINE_SAVE_VERSION ? 'migrated' : 'restored',
         };
     }
@@ -225,6 +245,7 @@ export function decodeMachine(json) {
 /** Pure encode: useful in tests and independent of browser availability. */
 export function encodeMachine(state) {
     const economy = createEconomyState(state.economy?.credits);
+    const progression = createProgressionState(state.progression);
     return JSON.stringify({
         version: MACHINE_SAVE_VERSION,
         assembly: {
@@ -240,6 +261,10 @@ export function encodeMachine(state) {
         })),
         shotsHit: state.playerCondition.shotsHit,
         economy: { credits: economy.credits },
+        progression: {
+            unlockedContracts: [...progression.unlockedContracts],
+            clearedContracts: [...progression.clearedContracts],
+        },
     });
 }
 
@@ -247,10 +272,11 @@ export function loadMachine(storage) {
     if (!storage)
         return { ...fresh(), status: 'unavailable' };
     try {
+        const v6 = storage.getItem(MACHINE_SAVE_V6_KEY);
         const v5 = storage.getItem(MACHINE_SAVE_V5_KEY);
         const v4 = storage.getItem(MACHINE_SAVE_V4_KEY);
         const v3 = storage.getItem(MACHINE_SAVE_V3_KEY);
-        return decodeMachine(v5 ?? v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
+        return decodeMachine(v6 ?? v5 ?? v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
     }
     catch {
         return { ...fresh(), status: 'unavailable' };
@@ -261,7 +287,11 @@ export function storeMachine(storage, state) {
     if (!storage)
         return false;
     try {
-        storage.setItem(MACHINE_SAVE_V5_KEY, encodeMachine(state));
+        // main.js predates contract progression and intentionally need not thread it
+        // through every repair/hit save call. Preserve the current v6 progression
+        // unless a newer caller explicitly supplies one.
+        const progression = state.progression ?? loadProgression(storage);
+        storage.setItem(MACHINE_SAVE_V6_KEY, encodeMachine({ ...state, progression }));
         return true;
     }
     catch {
