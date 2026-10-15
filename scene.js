@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildPartVisual } from './partVisuals.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
-import { DEFAULT_WORLD, physicsYawToViewYaw } from './locomotion.js';
+import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 const C = {
@@ -12,8 +12,8 @@ const C = {
 export function createArenaScene(initial, targetAssembly) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x171915);
-    scene.fog = new THREE.FogExp2(0x171915, 0.018);
-    const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 95);
+    scene.fog = new THREE.FogExp2(0x171915, 0.0125);
+    const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(new THREE.HemisphereLight(0xb2b59d, 0x26231d, 1.1));
     const sun = new THREE.DirectionalLight(0xffd69a, 2.1);
@@ -35,7 +35,7 @@ export function createArenaScene(initial, targetAssembly) {
     // The moving target is assembled from the SAME definitions and geometry
     // as the player. It has its own installed serials and never inherits player swaps.
     let targetExterior = buildExteriorRig(targetAssembly);
-    targetExterior.root.position.set(0, 0, 0);
+    targetExterior.root.position.set(HOSTILE_SPAWN.x, 0, HOSTILE_SPAWN.z);
     targetExterior.root.rotation.y = Math.PI; // Look back toward the pilot.
     scene.add(targetExterior.root);
     const rangeMarks = new THREE.Group();
@@ -141,8 +141,12 @@ export function createArenaScene(initial, targetAssembly) {
     // Ring, not another obstacle or an invisible hit volume.
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(0, .035, 0);
+    ring.position.set(HOSTILE_SPAWN.x, .035, HOSTILE_SPAWN.z);
     scene.add(ring);
+    const pilotRing = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: C.green, side: THREE.DoubleSide, transparent: true, opacity: .26 }));
+    pilotRing.rotation.x = -Math.PI / 2;
+    pilotRing.position.set(PLAYER_SPAWN.x, .034, PLAYER_SPAWN.z);
+    scene.add(pilotRing);
     let muzzleKick = 0;
     let muzzleFlash = 0;
     let exterior = buildExteriorRig(initial);
@@ -331,15 +335,15 @@ export function createArenaScene(initial, targetAssembly) {
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
         sightDir.addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
         raycaster.set(camera.position, sightDir);
-        raycaster.far = 70;
+        raycaster.far = 100;
         const visible = raycaster.intersectObjects([...targetExterior.pickMeshes, ...worldSolids], false)[0];
-        const aimPoint = visible ? visible.point : camera.position.clone().addScaledVector(sightDir, 70);
+        const aimPoint = visible ? visible.point : camera.position.clone().addScaledVector(sightDir, 100);
         const muzzle = gunPivot.localToWorld(new THREE.Vector3(0, -.04, muzzleZ + .62));
         const bore = aimPoint.clone().sub(muzzle).normalize();
         raycaster.set(muzzle, bore);
-        raycaster.far = 70;
+        raycaster.far = 100;
         const actual = raycaster.intersectObjects([...targetExterior.pickMeshes, ...worldSolids], false)[0];
-        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 70);
+        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
@@ -370,9 +374,9 @@ export function createArenaScene(initial, targetAssembly) {
         const up = new THREE.Vector3().crossVectors(right, forward).normalize();
         const bore = forward.clone().addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
         raycaster.set(muzzle, bore);
-        raycaster.far = 70;
+        raycaster.far = 100;
         const actual = raycaster.intersectObjects([...exterior.pickMeshes, ...worldSolids], false)[0];
-        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 70);
+        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
@@ -551,90 +555,106 @@ function box(w, h, d, material) {
 }
 function buildWarehouse(scene) {
     const solids = [];
-    const floor = box(50, 0.35, 36, mat(C.concreteDark, 1, 0));
-    floor.position.y = -0.18;
+    const width = DEFAULT_WORLD.maxX - DEFAULT_WORLD.minX;
+    const depth = DEFAULT_WORLD.maxZ - DEFAULT_WORLD.minZ;
+    const floor = box(width + 3, 0.35, depth + 3, mat(C.concreteDark, 1, 0));
+    floor.position.set((DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2, -0.18, (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2);
     scene.add(floor);
     solids.push(floor);
-    const grid = new THREE.GridHelper(48, 24, 0x4d4a3e, 0x34342f);
+    const gridSize = Math.max(width, depth);
+    const grid = new THREE.GridHelper(gridSize, Math.max(16, Math.round(gridSize / 2)), 0x4d4a3e, 0x34342f);
     grid.position.y = 0.01;
     scene.add(grid);
+
     const wallMat = mat(C.concrete, 0.98, 0.02);
-    const wallThickness = 0.55;
+    const wallThickness = 0.6;
     const wallHeight = 8;
-    const north = box(50, wallHeight, wallThickness, wallMat);
-    north.position.set(0, wallHeight / 2, -17);
+    const wallOffset = 1.0;
+    const centerX = (DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2;
+    const centerZ = (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2;
+    const north = box(width + 2, wallHeight, wallThickness, wallMat);
+    north.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.minZ - wallOffset);
     scene.add(north);
     solids.push(north);
-    const south = box(50, wallHeight, wallThickness, wallMat);
-    south.position.set(0, wallHeight / 2, 17);
+    const south = box(width + 2, wallHeight, wallThickness, wallMat);
+    south.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.maxZ + wallOffset);
     scene.add(south);
     solids.push(south);
-    const west = box(wallThickness, wallHeight, 34, wallMat);
-    west.position.set(-24, wallHeight / 2, 0);
+    const west = box(wallThickness, wallHeight, depth + 2, wallMat);
+    west.position.set(DEFAULT_WORLD.minX - wallOffset, wallHeight / 2, centerZ);
     scene.add(west);
     solids.push(west);
-    const east = west.clone();
-    east.position.x = 24;
+    const east = box(wallThickness, wallHeight, depth + 2, wallMat);
+    east.position.set(DEFAULT_WORLD.maxX + wallOffset, wallHeight / 2, centerZ);
     scene.add(east);
     solids.push(east);
+
     const stripeMat = mat(C.yellow, 0.9, 0.08);
-    for (let x = -20; x <= 20; x += 8) {
-        const stripe = box(3.5, 0.03, 0.22, stripeMat);
-        stripe.position.set(x, 0.03, -15.4);
-        scene.add(stripe);
+    for (const z of [PLAYER_SPAWN.z + 2.6, HOSTILE_SPAWN.z - 2.6]) {
+        for (let x = DEFAULT_WORLD.minX + 4; x <= DEFAULT_WORLD.maxX - 4; x += 8) {
+            const stripe = box(3.5, 0.03, 0.22, stripeMat);
+            stripe.position.set(x, 0.03, z);
+            scene.add(stripe);
+        }
     }
+
+    const obstacleMaterial = obstacle => {
+        if (obstacle.kind === 'pillar') return mat(C.metal, .70, .65);
+        if (obstacle.kind === 'container') return mat(obstacle.id.endsWith('east') ? C.teal : C.rust, .82, .20);
+        if (obstacle.kind === 'building') return mat(0x565750, .96, .05);
+        return mat(C.concreteDark, .98, .02);
+    };
     for (const obstacle of DEFAULT_WORLD.obstacles) {
-        // Physical columns are rendered below at their full 7.5 m height.
-        if (obstacle.id.startsWith('pillar-'))
-            continue;
         const w = obstacle.maxX - obstacle.minX;
         const d = obstacle.maxZ - obstacle.minZ;
-        const h = obstacle.id.startsWith('crate') ? 1.8 : 1.1;
-        const material = obstacle.id.startsWith('crate') ? mat(C.rust) : mat(C.concreteDark);
-        const object = box(w, h, d, material);
+        const h = Number.isFinite(obstacle.height) ? obstacle.height : 1.1;
+        const object = box(w, h, d, obstacleMaterial(obstacle));
         object.position.set((obstacle.minX + obstacle.maxX) / 2, h / 2, (obstacle.minZ + obstacle.maxZ) / 2);
+        object.userData.arenaObstacleId = obstacle.id;
         scene.add(object);
         solids.push(object);
-        if (!obstacle.id.startsWith('crate')) {
-            const cap = box(w * 0.8, 0.08, d * 1.03, stripeMat);
-            cap.position.set(object.position.x, h + 0.04, object.position.z);
+        if (obstacle.kind === 'barrier' || obstacle.kind === 'barrier-low' || obstacle.kind === 'building') {
+            const cap = box(w * .88, .08, d * 1.02, stripeMat);
+            cap.position.set(object.position.x, h + .04, object.position.z);
             scene.add(cap);
         }
-    }
-    const columnMat = mat(C.metal, 0.7, 0.65);
-    for (const x of [-18, -6, 6, 18]) {
-        for (const z of [-13, 13]) {
-            const column = box(0.55, 7.5, 0.55, columnMat);
-            column.position.set(x, 3.75, z);
-            scene.add(column);
-            solids.push(column);
+        if (obstacle.kind === 'container') {
+            for (const side of [-1, 1]) {
+                const rib = box(.08, h * .86, d * .92, mat(0x303734, .84, .32));
+                rib.position.set(object.position.x + side * (w / 2 - .10), h * .5, object.position.z);
+                scene.add(rib);
+            }
         }
     }
+
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffcf8a, emissive: 0xffa43a, emissiveIntensity: 2.4 });
-    for (const x of [-16, -8, 0, 8, 16]) {
-        const fixture = box(3.6, 0.12, 0.28, lightMaterial);
-        fixture.position.set(x, 7.2, 0);
-        scene.add(fixture);
-        const light = new THREE.PointLight(0xffb65f, 14, 12, 1.8);
-        light.position.set(x, 6.8, 0);
-        scene.add(light);
+    for (const z of [-14, 14]) {
+        for (const x of [-22, 0, 22]) {
+            const fixture = box(3.6, 0.12, 0.28, lightMaterial);
+            fixture.position.set(x, 7.2, z);
+            scene.add(fixture);
+            const light = new THREE.PointLight(0xffb65f, 15, 20, 1.8);
+            light.position.set(x, 6.8, z);
+            scene.add(light);
+        }
     }
+
     const signCanvas = document.createElement('canvas');
-    signCanvas.width = 256;
+    signCanvas.width = 384;
     signCanvas.height = 64;
     const ctx = signCanvas.getContext('2d');
     if (ctx) {
         ctx.fillStyle = '#161a18';
-        ctx.fillRect(0, 0, 256, 64);
+        ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
         ctx.fillStyle = '#d6a64a';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText('SCRAPYARD BAY 03', 18, 39);
+        ctx.font = 'bold 23px monospace';
+        ctx.fillText('SCRAPYARD BEGINNER YARD', 20, 39);
     }
     const texture = new THREE.CanvasTexture(signCanvas);
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: texture }));
-    sign.position.set(0, 5, -16.68);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
+    sign.position.set(centerX, 5, DEFAULT_WORLD.minZ - .67);
     scene.add(sign);
     return solids;
 }
