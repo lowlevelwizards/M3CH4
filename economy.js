@@ -1,11 +1,8 @@
-/** k.3d.0: deliberately small first recovery economy.
- *
- * Credits answer one question only: what does it cost to keep the same owned
- * machine fieldable after a sortie? Acquisition, markets, rarity and salvage
- * inventory belong to later builds.
- */
+/** k.3d.0 recovery economy, extended in k.3f.0 with authored contract payouts. */
+import { selectedContract } from './contracts.js';
+
 export const STARTING_CREDITS = 600;
-export const VICTORY_PAYOUT = 850;
+export const VICTORY_PAYOUT = 850; // Yard Dog / fallback contract value.
 export const RECOVERY_PAYOUT = 350;
 export const AMMO_COST_PER_ROUND = 1;
 
@@ -41,10 +38,11 @@ export function totalRepairQuote(condition) {
     return Object.values(condition.parts).reduce((sum, part) => sum + repairQuote(part), 0);
 }
 
-export function settleSortie({ credits, victory, roundsFired, repairEstimate = 0 }) {
+export function settleSortie({ credits, victory, roundsFired, repairEstimate = 0, victoryPayout = null }) {
     const before = nonNegativeInteger(credits);
     const rounds = nonNegativeInteger(roundsFired);
-    const grossPayout = victory ? VICTORY_PAYOUT : RECOVERY_PAYOUT;
+    const selectedPayout = nonNegativeInteger(victoryPayout ?? selectedContract().payout) || VICTORY_PAYOUT;
+    const grossPayout = victory ? selectedPayout : RECOVERY_PAYOUT;
     const ammoCost = rounds * AMMO_COST_PER_ROUND;
     const nominalNet = grossPayout - ammoCost;
     const after = Math.max(0, before + nominalNet);
