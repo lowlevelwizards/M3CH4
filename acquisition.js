@@ -50,13 +50,16 @@ export function salvageRecoveryFee(definition, condition) {
 }
 
 /** Offer one actually fitted enemy component the player does not already own.
- * Priority is deterministic for this first slice: weapon, power, mobility, cab,
- * frame. Once a definition is owned it falls out of the candidate pool. */
+ * Contracts may put their signature hardware first; old/debug targets retain the
+ * original deterministic weapon -> power -> mobility -> cab -> frame priority. */
 export function salvageOffer(playerAssembly, targetAssembly, targetCondition) {
     if (!playerAssembly?.owned || !targetAssembly || !targetCondition?.parts)
         return null;
     const ownedDefinitions = new Set(playerAssembly.owned.map(part => part.definitionId));
-    for (const slot of SALVAGE_PRIORITY) {
+    const priority = Array.isArray(targetAssembly.salvagePriority) && targetAssembly.salvagePriority.length
+        ? targetAssembly.salvagePriority
+        : SALVAGE_PRIORITY;
+    for (const slot of priority) {
         const fitted = installedPart(targetAssembly, slot);
         const conditionPart = targetCondition.parts[slot];
         if (!fitted || !conditionPart || ownedDefinitions.has(fitted.definition.id))

@@ -3,6 +3,7 @@
  * resolves only the owned component serial behind that mesh. No AI or repairs. */
 import { equip, installedPart, makeTestAssembly, SLOTS } from './components.js';
 import { mobilityPerformance } from './mobilityPerformance.js';
+import { contractById, selectedContract } from './contracts.js';
 export const WEAPONS = {
     'gun-cannon': { id: 'gun-cannon', label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1350, spread: .004, muzzleZ: -1.90 },
     'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 1950, spread: .012, muzzleZ: -1.31 },
@@ -66,14 +67,27 @@ export function applyRecoil(rig, config, aimX, aimZ, impulseNs, mountX = 1.17, m
     rig.yawRate -= yTorqueImpulse / config.yawInertiaKgM2;
     rig.impact = Math.min(1, rig.impact + impulseNs / (config.massKg * 4));
 }
-/** Deterministic second owned machine, not an alias of the player's serials. */
-export function makeRangeTarget() {
+/** Build one authored opponent from the selected contract. The target still uses
+ * the same real catalogue definitions, mounting validation and localized damage
+ * as the player's machine; only the recipe changes between contracts. */
+export function makeRangeTarget(contractId = selectedContract().id) {
+    const contract = contractById(contractId);
     const target = makeTestAssembly();
-    target.serial = 'TGT-01';
-    target.name = 'SCRAPYARD TARGET';
+    for (const slot of SLOTS) {
+        const definitionId = contract.loadout[slot];
+        if (definitionId)
+            equip(target, slot, definitionId);
+    }
+    target.serial = contract.opponentSerial;
+    target.name = contract.name;
+    target.contractId = contract.id;
+    target.salvagePriority = [...contract.salvagePriority];
+
+    // Rename after the recipe is fully mounted, then let graph consumers rebuild
+    // from those final physical serials rather than carrying the test-rig graph.
     const serials = new Map();
     target.owned.forEach((part, index) => {
-        const next = `TGT01-${String(index + 1).padStart(3, '0')}`;
+        const next = `${contract.serialPrefix}-${String(index + 1).padStart(3, '0')}`;
         serials.set(part.serial, next);
         part.serial = next;
     });
@@ -82,8 +96,7 @@ export function makeRangeTarget() {
         if (current)
             target.installed[slot] = serials.get(current);
     }
-    equip(target, 'combat', 'gun-short');
-    equip(target, 'power', 'power-air');
+    delete target.graph;
     return target;
 }
 /** Initial armor represents each installed assembly's housing; no separate armor slots yet. */

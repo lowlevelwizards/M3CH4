@@ -4,6 +4,7 @@
 import { activePlayerArena } from './scene.js';
 import { generatorMount, installedPart, setGeneratorMount, partsFor, equip, inspectAssembly } from './components.js';
 import './acquisitionUI.js';
+import './contractUI.js';
 
 const info = document.querySelector('#part-info');
 const status = document.querySelector('#field-status');
