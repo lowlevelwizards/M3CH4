@@ -1,0 +1,25 @@
+name: Verify k.3j.1 combat durability
+
+on:
+  push:
+    branches: ["balance/k3j1-combat-durability"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: balance/k3j1-combat-durability
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check combat balance modules
+        run: |
+          node --check combat.js
+          node --check tests/combatBalance.test.mjs
+      - name: Run unit tests
+        run: npm test
