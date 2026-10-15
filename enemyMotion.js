@@ -1,21 +1,31 @@
+import { selectedContract } from './contracts.js';
 import { DEFAULT_WORLD } from './locomotion.js';
-const PHASES = [
-    { seconds: 2.8, throttle: .7, strafe: 0, phase: 'APPROACH' },
-    { seconds: 2.8, throttle: 0, strafe: .9, phase: 'STEP RIGHT' },
-    { seconds: 2.2, throttle: -.65, strafe: 0, phase: 'RETREAT' },
-    { seconds: 2.8, throttle: 0, strafe: -.9, phase: 'STEP LEFT' },
-    { seconds: .8, throttle: 0, strafe: 0, phase: 'BRACE' },
-];
-const CYCLE = PHASES.reduce((sum, phase) => sum + phase.seconds, 0);
+
 const clamp = (n) => Math.max(-1, Math.min(1, n));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const valid = (p, world, radius) => p.x >= world.minX + radius && p.x <= world.maxX - radius && p.z >= world.minZ + radius && p.z <= world.maxZ - radius;
-export function createEnemyMotion() {
-    return { elapsed: 0, phase: 'APPROACH', route: null, stuckSeconds: 0,
-        recoveryLeft: 0, recoveryCooldown: 0,
-        recoveryInput: { throttle: -.8, strafe: 0, steer: .7 },
-        lastPosition: null, navigation: 'CLEAR', waypoint: null, lastSide: 1 };
+
+function activeBehavior(motion, override = null) {
+    return override ?? motion?.behavior ?? selectedContract().behavior;
 }
+
+export function createEnemyMotion(behavior = selectedContract().behavior) {
+    return {
+        elapsed: 0,
+        phase: 'APPROACH',
+        route: null,
+        stuckSeconds: 0,
+        recoveryLeft: 0,
+        recoveryCooldown: 0,
+        recoveryInput: { throttle: -.8, strafe: 0, steer: .7 },
+        lastPosition: null,
+        navigation: behavior?.label ?? 'TACTICAL',
+        waypoint: null,
+        lastSide: 1,
+        behavior,
+    };
+}
+
 /** Signed yaw error toward the player, positive meaning clockwise/right. */
 export function headingError(enemy, player) {
     const dx = player.x - enemy.x;
@@ -25,6 +35,7 @@ export function headingError(enemy, player) {
     const desired = Math.atan2(dx, -dz);
     return Math.atan2(Math.sin(desired - enemy.yaw), Math.cos(desired - enemy.yaw));
 }
+
 /** Nearest first intersection with a circle-inflated obstacle, or null. */
 function rayBox(start, end, o, pad) {
     let near = 0, far = 1;
@@ -46,6 +57,7 @@ function rayBox(start, end, o, pad) {
     }
     return near;
 }
+
 function firstBlock(from, to, world, pad, skipId = '') {
     let closest = Infinity, found = null;
     for (const o of world.obstacles) {
@@ -59,9 +71,9 @@ function firstBlock(from, to, world, pad, skipId = '') {
     }
     return found;
 }
+
 /** Choose one of the two outside edges, with an entry and an exit corner.
- * Retaining that pair until cleared prevents a rapid left/right oscillation.
- */
+ * Retaining that pair until cleared prevents a rapid left/right oscillation. */
 function detour(from, direction, blocker, world, pad, preferredSide) {
     const horizontal = Math.abs(direction.x) >= Math.abs(direction.z);
     const forwards = horizontal ? Math.sign(direction.x) || 1 : Math.sign(direction.z) || 1;
@@ -71,12 +83,12 @@ function detour(from, direction, blocker, world, pad, preferredSide) {
     const tangentMax = horizontal ? blocker.maxZ : blocker.maxX;
     let chosen = null, best = Infinity;
     for (const side of [-1, 1]) {
-        const tangent = (side < 0 ? tangentMin - pad : tangentMax + pad);
+        const tangent = side < 0 ? tangentMin - pad : tangentMax + pad;
         const entry = horizontal ? { x: near - forwards * pad, z: tangent } : { x: tangent, z: near - forwards * pad };
         const exit = horizontal ? { x: far + forwards * pad, z: tangent } : { x: tangent, z: far + forwards * pad };
         // At the outer warehouse pillars, the full entry offset can cross a wall.
         // Clip ONLY along the approach axis, retaining lateral obstacle clearance.
-        const inner = pad * .44 + .22; // always leaves approximately one rig radius
+        const inner = pad * .44 + .22;
         if (horizontal)
             entry.x = Math.max(world.minX + inner, Math.min(world.maxX - inner, entry.x));
         else
@@ -85,8 +97,6 @@ function detour(from, direction, blocker, world, pad, preferredSide) {
             continue;
         if (rayBox(from, entry, blocker, pad - 1.05) !== null)
             continue;
-        // Check the first leg against *other* obstacles; our own expanded box
-        // is already skirted by the padding. Do not choose inaccessible corners.
         if (firstBlock(from, entry, world, pad - .22, blocker.id))
             continue;
         if (firstBlock(entry, exit, world, pad - .22, blocker.id))
@@ -101,6 +111,7 @@ function detour(from, direction, blocker, world, pad, preferredSide) {
     }
     return chosen;
 }
+
 function driveToward(enemy, point, distanceToPoint) {
     const dx = point.x - enemy.x, dz = point.z - enemy.z;
     const d = Math.max(distanceToPoint, .001);
@@ -108,19 +119,85 @@ function driveToward(enemy, point, distanceToPoint) {
     const rX = Math.cos(enemy.yaw), rZ = Math.sin(enemy.yaw);
     const localForward = (dx * fX + dz * fZ) / d;
     const localRight = (dx * rX + dz * rZ) / d;
-    // Damp with the actual simulated velocity; damaged drives still govern what
-    // the mech can physically achieve. Slow down as a waypoint approaches.
     const speedScale = Math.min(.85, Math.max(.24, d * .37));
     const throttle = clamp(localForward * speedScale - enemy.forwardSpeed * .22);
     const strafe = clamp(localRight * speedScale - enemy.lateralSpeed * .25);
     return { throttle, strafe, steer: 0, brake: d < 1.1 ? .24 : 0 };
 }
+
+function localTargetAxes(enemy, player, d) {
+    const dx = player.x - enemy.x, dz = player.z - enemy.z;
+    const safeDistance = Math.max(d, .001);
+    const fX = Math.sin(enemy.yaw), fZ = -Math.cos(enemy.yaw);
+    const rX = Math.cos(enemy.yaw), rZ = Math.sin(enemy.yaw);
+    return {
+        forward: (dx * fX + dz * fZ) / safeDistance,
+        right: (dx * rX + dz * rZ) / safeDistance,
+    };
+}
+
+/** Convert the authored contract personality into a desired local maneuver.
+ * This layer chooses intent only. stepRig still supplies all acceleration, inertia,
+ * grip, braking and damage derating, so a Cutter with ruined Kestrel legs cannot
+ * magically execute its skirmisher plan and a Mule still turns like a Hauler. */
+export function tacticalManeuver(motion, enemy, player, behavior = activeBehavior(motion)) {
+    const d = distance(enemy, player);
+    const axes = localTargetAxes(enemy, player, d);
+    const error = headingError(enemy, player);
+    const steer = clamp(error * behavior.steerGain - enemy.yawRate * behavior.yawRateDamping);
+    const cycle = Math.max(.2, behavior.strafeSeconds + behavior.braceSeconds);
+    const cycleIndex = Math.floor(motion.elapsed / cycle);
+    const cycleTime = motion.elapsed - cycleIndex * cycle;
+    const side = cycleIndex % 2 === 0 ? 1 : -1;
+    const outer = behavior.preferredRangeM + behavior.rangeBandM;
+    const inner = behavior.preferredRangeM - behavior.rangeBandM;
+
+    if (d > outer) {
+        motion.phase = behavior.id === 'bruiser' ? 'ADVANCE' : 'APPROACH';
+        motion.navigation = `${behavior.label} · CLOSE ${d.toFixed(1)}m`;
+        return {
+            throttle: clamp(axes.forward * behavior.approachThrottle - enemy.forwardSpeed * .08),
+            strafe: clamp(axes.right * behavior.approachThrottle + side * behavior.approachStrafe - enemy.lateralSpeed * .08),
+            steer,
+            brake: 0,
+        };
+    }
+
+    if (d < inner) {
+        const shouldBrace = behavior.closeAction === 'brace' && d > behavior.closeRetreatM;
+        if (shouldBrace) {
+            motion.phase = 'BRACE';
+            motion.navigation = `${behavior.label} · HOLD GROUND ${d.toFixed(1)}m`;
+            return { throttle: 0, strafe: side * behavior.strafeThrottle * .12, steer, brake: .52 };
+        }
+        motion.phase = 'DISENGAGE';
+        motion.navigation = `${behavior.label} · BACK OFF ${d.toFixed(1)}m`;
+        return {
+            throttle: clamp(-axes.forward * behavior.retreatThrottle - enemy.forwardSpeed * .08),
+            strafe: clamp(-axes.right * behavior.retreatThrottle + side * behavior.strafeThrottle * .38 - enemy.lateralSpeed * .08),
+            steer,
+            brake: 0,
+        };
+    }
+
+    if (cycleTime < behavior.strafeSeconds) {
+        motion.phase = behavior.id === 'skirmisher' ? 'CIRCLE' : behavior.id === 'bruiser' ? 'EDGE' : 'PRESSURE STEP';
+        motion.navigation = `${behavior.label} · RANGE ${d.toFixed(1)}m`;
+        return { throttle: 0, strafe: side * behavior.strafeThrottle, steer, brake: 0 };
+    }
+
+    motion.phase = 'BRACE';
+    motion.navigation = `${behavior.label} · FIRE POSITION ${d.toFixed(1)}m`;
+    return { throttle: 0, strafe: 0, steer, brake: behavior.id === 'skirmisher' ? .18 : .42 };
+}
+
 /** One deterministic fixed simulation step. Pass the SAME obstacle map used by stepRig.
- * The optional arguments preserve the earlier j.1 test/standalone call sites.
- */
-export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95) {
+ * The optional behavior argument is mainly for tests/tools; gameplay defaults to the
+ * currently selected contract profile captured by createEnemyMotion(). */
+export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null) {
     if (!Number.isFinite(dt) || dt <= 0)
         return { throttle: 0, strafe: 0, steer: 0, brake: 1 };
+    const profile = activeBehavior(motion, behavior);
     const from = { x: enemy.x, z: enemy.z };
     if (!canMove) {
         motion.route = null;
@@ -130,6 +207,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         motion.phase = 'BRACE';
         return { throttle: 0, strafe: 0, steer: 0, brake: 1 };
     }
+
     motion.recoveryCooldown = Math.max(0, motion.recoveryCooldown - dt);
     if (motion.recoveryLeft > 0) {
         motion.recoveryLeft = Math.max(0, motion.recoveryLeft - dt);
@@ -139,14 +217,14 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         motion.waypoint = null;
         return { ...motion.recoveryInput, brake: 0 };
     }
-    let remainder = motion.elapsed % CYCLE;
-    const phase = PHASES.find(p => { remainder -= p.seconds; return remainder < 0; }) ?? PHASES[0];
-    const error = headingError(enemy, player);
-    const steer = clamp(error * 1.75 - enemy.yawRate * 1.15);
-    const base = { throttle: phase.throttle, strafe: phase.strafe, steer, brake: phase.phase === 'BRACE' ? .35 : 0 };
-    const dir = { x: Math.sin(enemy.yaw) * phase.throttle + Math.cos(enemy.yaw) * phase.strafe,
-        z: -Math.cos(enemy.yaw) * phase.throttle + Math.sin(enemy.yaw) * phase.strafe };
+
+    const base = tacticalManeuver(motion, enemy, player, profile);
+    const dir = {
+        x: Math.sin(enemy.yaw) * base.throttle + Math.cos(enemy.yaw) * base.strafe,
+        z: -Math.cos(enemy.yaw) * base.throttle + Math.sin(enemy.yaw) * base.strafe,
+    };
     const magnitude = Math.hypot(dir.x, dir.z);
+
     if (magnitude > .15 && !motion.route && motion.recoveryCooldown <= 0) {
         const direction = { x: dir.x / magnitude, z: dir.z / magnitude };
         const endpoint = { x: from.x + direction.x * 5, z: from.z + direction.z * 5 };
@@ -160,12 +238,13 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
             }
         }
     }
+
     let command = base;
     if (motion.route) {
         const route = motion.route;
         route.age += dt;
         if (route.age > 13)
-            motion.stuckSeconds = 1.5; // Time-box an unreachable detour.
+            motion.stuckSeconds = 1.5;
         let waypoint = route.waypoints[route.index];
         if (distance(from, waypoint) < .62) {
             if (route.index === 0) {
@@ -179,28 +258,27 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         }
         if (motion.route && waypoint) {
             const dist = distance(from, waypoint);
-            command = { ...driveToward(enemy, waypoint, dist), steer };
+            command = { ...driveToward(enemy, waypoint, dist), steer: base.steer };
             motion.phase = 'BYPASS';
             motion.navigation = `BYPASS ${route.id} ${route.side < 0 ? 'A' : 'B'} ${route.index + 1}/2`;
             motion.waypoint = waypoint;
         }
     }
+
     if (!motion.route) {
-        motion.phase = phase.phase;
-        motion.navigation = 'CLEAR';
         motion.waypoint = null;
         motion.elapsed += dt;
     }
-    const movingRequest = Math.hypot(command.throttle, command.strafe ?? 0) > .37 && phase.phase !== 'BRACE';
+
+    const movingRequest = Math.hypot(command.throttle, command.strafe ?? 0) > .37 && motion.phase !== 'BRACE';
     const speed = Math.hypot(enemy.vx, enemy.vz);
     const displacement = motion.lastPosition ? distance(from, motion.lastPosition) : 0;
-    // Require both low speed and very little actual displacement, never just a
-    // large distance to the player (a heavily damaged mech may simply be slow).
     if (movingRequest && speed < .19 && displacement < .008 && motion.recoveryCooldown <= 0)
         motion.stuckSeconds += dt;
     else
         motion.stuckSeconds = Math.max(0, motion.stuckSeconds - dt * 2);
     motion.lastPosition = from;
+
     if (motion.stuckSeconds > 1.45) {
         motion.recoveryInput = {
             throttle: Math.abs(command.throttle) > .16 ? -Math.sign(command.throttle) * .8 : -.7,
@@ -217,16 +295,20 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         motion.navigation = 'BACK UP / RETRY';
         return { ...motion.recoveryInput, brake: 0 };
     }
-    // If the current time-limited maneuver points beyond the walls, lean back
-    // into the playable space rather than pushing forever against a boundary.
+
+    // If tactical intent points beyond the walls, lean back into the playable
+    // space rather than grinding against a boundary. Existing bypass/recovery
+    // still owns obstacle failures; this only handles the warehouse perimeter.
     if (!motion.route && magnitude > .15) {
         const safe = radius + 1.1;
         const projected = { x: from.x + dir.x * 3, z: from.z + dir.z * 3 };
-        const inside = { x: Math.max(world.minX + safe, Math.min(world.maxX - safe, projected.x)),
-            z: Math.max(world.minZ + safe, Math.min(world.maxZ - safe, projected.z)) };
+        const inside = {
+            x: Math.max(world.minX + safe, Math.min(world.maxX - safe, projected.x)),
+            z: Math.max(world.minZ + safe, Math.min(world.maxZ - safe, projected.z)),
+        };
         if (distance(projected, inside) > .25) {
             const redirect = driveToward(enemy, inside, distance(from, inside));
-            command = { ...redirect, steer };
+            command = { ...redirect, steer: base.steer };
             motion.navigation = 'WALL CLEARANCE';
             motion.phase = 'BYPASS';
             motion.waypoint = inside;
@@ -234,6 +316,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     }
     return command;
 }
+
 /** Weapon mount is not a magic 360-degree turret: the forward firing arc remains. */
 export function withinFiringArc(enemy, player) {
     return Math.abs(headingError(enemy, player)) < .95;
