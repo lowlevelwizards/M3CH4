@@ -3,10 +3,14 @@
  * validated graph edit. No parallel persistence or physics state is introduced. */
 import { activePlayerArena } from './scene.js';
 import { generatorMount, installedPart, setGeneratorMount, partsFor, equip, inspectAssembly } from './components.js';
+import './acquisitionUI.js';
 
 const info = document.querySelector('#part-info');
 const status = document.querySelector('#field-status');
 if (!info || !status) throw new Error('Garage mounting controls need the original garage elements.');
+
+const bayLabel = document.querySelector('#garage-context header small');
+if (bayLabel) bayLabel.textContent = 'INSTALLED / OWNED';
 
 function announce(message, error = false) {
     status.dataset.message = message;
@@ -28,7 +32,32 @@ function announce(message, error = false) {
     }
 }
 
+function currentSlot() {
+    return info.querySelector('.part-model')?.textContent?.toLowerCase() ?? null;
+}
+
+/** The original garage was a catalogue browser because the prototype owned one
+ * instance of every definition. Keep its renderer, but make visible choices match
+ * the physical inventory now stored in assembly.owned. */
+function markOwnedOptions() {
+    const session = activePlayerArena();
+    const slot = currentSlot();
+    const options = info.querySelector('.swap-options');
+    if (!session || !slot || !options) return;
+    const candidates = partsFor(slot);
+    const ownedIds = new Set(session.assembly.owned.map(part => part.definitionId));
+    Array.from(options.children).forEach((button, index) => {
+        const definition = candidates[index];
+        const owned = !!definition && ownedIds.has(definition.id);
+        button.hidden = !owned;
+        button.classList.toggle('unowned-option', !owned);
+        if (!owned) button.setAttribute('aria-hidden', 'true');
+        else button.removeAttribute('aria-hidden');
+    });
+}
+
 function mountPanel() {
+    markOwnedOptions();
     if (info.querySelector('.mount-panel')) return;
     const session = activePlayerArena();
     if (!session) return;
@@ -99,11 +128,17 @@ info.addEventListener('click', event => {
     if (!button) return;
     const session = activePlayerArena();
     if (!session) return;
-    const slot = info.querySelector('.part-model')?.textContent?.toLowerCase();
+    const slot = currentSlot();
     const options = info.querySelector('.swap-options');
     const index = options ? Array.from(options.children).indexOf(button) : -1;
     const candidate = partsFor(slot)[index];
     if (!candidate) return;
+    if (!session.assembly.owned.some(part => part.definitionId === candidate.id)) {
+        event.preventDefault();
+        event.stopPropagation();
+        announce('NOT OWNED · RECOVER OR ACQUIRE THIS COMPONENT FIRST', true);
+        return;
+    }
     try {
         const trial = structuredClone(session.assembly);
         equip(trial, slot, candidate.id);
@@ -127,7 +162,7 @@ info.addEventListener('click', event => {
 }, true);
 
 // The old UI ignores a failed remove() return, but still repaints the garage.
-// mountPanel() surfaces the recorded notice on its next DOM mutation.
+// mountPanel() also hides catalogue definitions that are not physically owned.
 const observer = new MutationObserver(() => mountPanel());
-observer.observe(info, { childList: true });
+observer.observe(info, { childList: true, subtree: true });
 mountPanel();
