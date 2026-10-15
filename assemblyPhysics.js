@@ -1,6 +1,7 @@
 /** Bridge installed physical assemblies to assisted locomotion. No renderer or DOM. */
 import { inspectAssembly, installedPart } from './components.js';
 import { DEFAULT_RIG_CONFIG } from './locomotion.js';
+import { mobilityPerformance } from './mobilityPerformance.js';
 
 /** An unfinished garage rig needs an inert configuration so its saved parts can
  * reopen for repair. It is NEVER deployable: inspectAssembly().ready gates the
@@ -20,21 +21,28 @@ export function deriveRigConfig(assembly) {
         return parkedConfig(inspection.massKg);
     const mover = installedPart(assembly, 'mobility').definition;
     const frame = installedPart(assembly, 'structure').definition;
+    const profile = mobilityPerformance(mover.id);
     const massRatio = inspection.massKg / DEFAULT_RIG_CONFIG.massKg;
     const relativeWidth = (mover.envelope[0] / 2) ** 2;
     return {
         ...DEFAULT_RIG_CONFIG,
         massKg: inspection.massKg,
-        driveForceN: mover.driveForceN,
-        reverseForceN: mover.driveForceN * (8 / 12.2),
-        turnTorqueNm: mover.turnTorqueNm,
-        lateralGripNsPerM: mover.lateralGripNsPerM,
-        lateralDriveForceN: mover.lateralDriveForceN,
+        driveForceN: mover.driveForceN * profile.driveForceScale,
+        reverseForceN: mover.driveForceN * (8 / 12.2) * profile.reverseForceScale,
+        brakeForceN: 22000 * massRatio * profile.brakeForceScale,
+        longitudinalDragNsPerM: DEFAULT_RIG_CONFIG.longitudinalDragNsPerM * profile.longitudinalDragScale,
+        lateralGripNsPerM: mover.lateralGripNsPerM * profile.lateralGripScale,
+        lateralDriveForceN: mover.lateralDriveForceN * profile.lateralDriveScale,
         maxLateralSpeedMps: mover.maxLateralSpeedMps,
         maxForwardSpeedMps: mover.maxForwardSpeedMps,
         maxReverseSpeedMps: mover.maxForwardSpeedMps * .475,
-        yawInertiaKgM2: 9200 * massRatio * relativeWidth * (.78 + .22 * (frame.envelope[0] / 1.78) ** 2),
-        brakeForceN: 22000 * massRatio,
+        turnTorqueNm: mover.turnTorqueNm * profile.turnTorqueScale,
+        yawDampingNms: DEFAULT_RIG_CONFIG.yawDampingNms * profile.yawDampingScale,
+        yawInertiaKgM2: 9200 * massRatio * relativeWidth * (.78 + .22 * (frame.envelope[0] / 1.78) ** 2) * profile.yawInertiaScale,
+        turnAuthorityAtZero: profile.turnAuthorityAtZero,
         collisionRadiusM: Math.max(.95, mover.envelope[0] * .47),
+        collisionRestitution: profile.collisionRestitution,
+        collisionTangentialDamping: profile.collisionTangentialDamping,
+        collisionImpactScale: profile.collisionImpactScale,
     };
 }
