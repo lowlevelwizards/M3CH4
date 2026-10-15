@@ -14,6 +14,7 @@ import {
     weaponIntegrityRatio,
     weaponMissionKillReason,
 } from '../fieldService.js';
+import { hostileMissionKillReason } from '../hostileRig.js';
 
 const condition = (combatRatio = 1) => ({
     parts: {
@@ -21,6 +22,12 @@ const condition = (combatRatio = 1) => ({
     },
 });
 const stoppedRig = () => ({ vx: 0, vz: 0, yawRate: 0 });
+const hostileCondition = ({ structure = 1, mobility = 1, power = 1, command = 1, combat = 1 } = {}) => ({
+    parts: Object.fromEntries(Object.entries({ structure, mobility, power, command, combat }).map(([slot, value]) => [
+        slot, { integrity: 100 * value, maxIntegrity: 100 },
+    ])),
+});
+const behavior = { fireCadenceScale: 1, spreadScale: 1 };
 
 test('first catastrophic weapon hit becomes a recoverable fault instead of dead time', () => {
     const service = createFieldServiceState();
@@ -81,4 +88,11 @@ test('four-second emergency bypass restores only poor combat capability and is o
     player.parts.combat.integrity = player.parts.combat.maxIntegrity * 0.1;
     assert.equal(weaponFailureState(player, service), 'unrecoverable');
     assert.equal(weaponMissionKillReason(player, service), 'WEAPON FAULT · FIELD SERVICE SPENT');
+});
+
+test('hostile mission kills report the actual disabled combat-critical system', () => {
+    assert.equal(hostileMissionKillReason(hostileCondition({ combat: 0.1 }), behavior), 'WEAPON DISABLED');
+    assert.equal(hostileMissionKillReason(hostileCondition({ power: 0.1 }), behavior), 'POWER LOST');
+    assert.equal(hostileMissionKillReason(hostileCondition({ mobility: 0 }), behavior), null,
+        'immobilized armed opponent remains dangerous');
 });
