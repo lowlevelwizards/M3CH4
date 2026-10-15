@@ -18,7 +18,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply scoped recovery patch
-        run: python .github/k3j0_apply.py
+        run: |
+          python .github/k3j0_apply.py
+          python .github/k3j0_followup.py
       - name: Commit patch
         run: |
           if git diff --quiet; then
