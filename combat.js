@@ -2,6 +2,7 @@
  * Pure data and math: Three.js decides which physical mesh was hit; this module
  * resolves only the owned component serial behind that mesh. No AI or repairs. */
 import { equip, installedPart, makeTestAssembly, SLOTS } from './components.js';
+import { mobilityPerformance } from './mobilityPerformance.js';
 export const WEAPONS = {
     'gun-cannon': { id: 'gun-cannon', label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1350, spread: .004, muzzleZ: -1.90 },
     'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 1950, spread: .012, muzzleZ: -1.31 },
@@ -95,9 +96,13 @@ function targetPartFor(assembly, slot, useOwnedCondition = false) {
         throw new Error(`Target requires ${slot} to use physical hit volumes.`);
     const [maxIntegrity, maxArmor] = TARGET_RESILIENCE[slot];
     const condition = useOwnedCondition ? Math.max(0, Math.min(1, installed.instance.condition)) : 1;
+    const damageTakenScale = slot === 'mobility'
+        ? mobilityPerformance(installed.definition.id).damageTakenScale
+        : 1;
     return {
         serial: installed.instance.serial, slot, name: installed.definition.name,
         integrity: maxIntegrity * condition, maxIntegrity, armor: maxArmor, maxArmor, impacts: 0,
+        damageTakenScale,
     };
 }
 export function createTargetCondition(assembly, useOwnedCondition = false) {
@@ -135,8 +140,9 @@ export function applyTargetHit(target, slot, damage) {
     const part = target.parts[slot];
     if (!part || !Number.isFinite(damage) || damage < 0)
         throw new Error('Invalid physical hit.');
-    const absorbed = Math.min(part.armor, damage);
-    const internalDamage = Math.min(part.integrity, damage - absorbed);
+    const effectiveDamage = damage * (part.damageTakenScale ?? 1);
+    const absorbed = Math.min(part.armor, effectiveDamage);
+    const internalDamage = Math.min(part.integrity, effectiveDamage - absorbed);
     part.armor -= absorbed;
     part.integrity -= internalDamage;
     part.impacts++;
