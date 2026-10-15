@@ -1,14 +1,17 @@
-/** 0.0.1h.1: one locally owned rig, persisted without coupling storage to physics/rendering.
- * Save the physical part identities, installed configuration, acute drive faults and
- * actual player armor/integrity. The hostile training rig remains disposable.
- * Export/import, historical logs and recovery UI belong to later builds. */
+/** One locally owned rig, persisted without coupling storage to physics/rendering.
+ * Save physical part identities, installed configuration, acute drive faults,
+ * player armor/integrity and the tiny k.3d recovery wallet. Older save keys stay
+ * untouched so a cached/rolled-back build never interprets newer data as its own.
+ */
 import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
 import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
-export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1'; // Existing k.1/j.2 save remains untouched for rollback.
+import { createEconomyState } from './economy.js';
+export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1';
 export const MACHINE_SAVE_V3_KEY = 'mech-arena-machine-v3';
-export const MACHINE_SAVE_VERSION = 3; // Read v1/v2; write separately for rollback.
+export const MACHINE_SAVE_V4_KEY = 'mech-arena-machine-v4';
+export const MACHINE_SAVE_VERSION = 4; // Read v1/v2/v3; write v4 separately for rollback.
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const fraction = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 const integer = (value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
@@ -16,7 +19,12 @@ const validSlot = (value) => SLOTS.includes(value);
 const ownKeys = (value, allowed) => Object.keys(value).every(key => allowed.includes(key));
 function fresh() {
     const assembly = makeTestAssembly();
-    return { assembly, damage: createFunctionalDamage(), playerCondition: createTargetCondition(assembly, true) };
+    return {
+        assembly,
+        damage: createFunctionalDamage(),
+        playerCondition: createTargetCondition(assembly, true),
+        economy: createEconomyState(),
+    };
 }
 /** The baseline catalogue provides names, max health and future default parts;
  * saved input only supplies mutable data for known physical serials. */
@@ -28,7 +36,7 @@ export function decodeMachine(json) {
         return { ...blank, status: 'invalid' };
     try {
         const data = JSON.parse(json);
-        if (!object(data) || ![1, 2, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
+        if (!object(data) || ![1, 2, 3, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
             !object(data.drives) || !object(data.housing))
             throw new Error('Unknown save format');
         const savedAssembly = data.assembly;
@@ -69,7 +77,7 @@ export function decodeMachine(json) {
             // station. Build real sockets, including a deterministic H2 adapter.
             assembly.graph = graphFromStations(assembly, BY_ID);
         } else {
-            // Never 'repair' a corrupt v2 graph by silently rebuilding it from slots.
+            // Never 'repair' a corrupt graph by silently rebuilding it from slots.
             // An invalid save stays in localStorage for manual recovery.
             if (!object(savedAssembly.graph) || savedAssembly.graph.version !== GRAPH_VERSION ||
                 !object(savedAssembly.graph.nodes) ||
@@ -129,7 +137,16 @@ export function decodeMachine(json) {
             hitPart.impacts = saved.impacts;
         }
         playerCondition.shotsHit = integer(data.shotsHit) ? data.shotsHit : 0;
-        return { assembly, damage, playerCondition, status: data.version < MACHINE_SAVE_VERSION ? 'migrated' : 'restored' };
+        let economy = blank.economy;
+        if (data.version >= 4) {
+            if (!object(data.economy) || !ownKeys(data.economy, ['credits']) || !integer(data.economy.credits))
+                throw new Error('Invalid economy state');
+            economy = createEconomyState(data.economy.credits);
+        }
+        return {
+            assembly, damage, playerCondition, economy,
+            status: data.version < MACHINE_SAVE_VERSION ? 'migrated' : 'restored',
+        };
     }
     catch {
         // Never partially restore a corrupt save or crash the mobile game at startup.
@@ -138,6 +155,7 @@ export function decodeMachine(json) {
 }
 /** Pure encode: useful in tests and independent of browser availability. */
 export function encodeMachine(state) {
+    const economy = createEconomyState(state.economy?.credits);
     return JSON.stringify({
         version: MACHINE_SAVE_VERSION,
         assembly: {
@@ -152,14 +170,16 @@ export function encodeMachine(state) {
             return [slot, { serial, integrity, armor, impacts }];
         })),
         shotsHit: state.playerCondition.shotsHit,
+        economy: { credits: economy.credits },
     });
 }
 export function loadMachine(storage) {
     if (!storage)
         return { ...fresh(), status: 'unavailable' };
     try {
-        const newest = storage.getItem(MACHINE_SAVE_V3_KEY);
-        return decodeMachine(newest === null ? storage.getItem(MACHINE_SAVE_KEY) : newest);
+        const v4 = storage.getItem(MACHINE_SAVE_V4_KEY);
+        const v3 = storage.getItem(MACHINE_SAVE_V3_KEY);
+        return decodeMachine(v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
     }
     catch {
         return { ...fresh(), status: 'unavailable' };
@@ -169,9 +189,7 @@ export function storeMachine(storage, state) {
     if (!storage)
         return false;
     try {
-        // Separate key ensures older deployed builds never read (or erase) a v3
-        // graph as if it were their own v1/v2 format.
-        storage.setItem(MACHINE_SAVE_V3_KEY, encodeMachine(state));
+        storage.setItem(MACHINE_SAVE_V4_KEY, encodeMachine(state));
         return true;
     }
     catch {
