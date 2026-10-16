@@ -283,12 +283,19 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.22;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.BasicShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.domElement.className = 'game-canvas';
 renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
 renderer.domElement.style.touchAction = 'none';
 renderer.domElement.style.imageRendering = 'pixelated';
 mount.appendChild(renderer.domElement);
+const hudRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
+hudRenderer.outputColorSpace = THREE.SRGBColorSpace;
+hudRenderer.setClearColor(0x000000, 0);
+hudRenderer.domElement.className = 'hud-canvas';
+hudRenderer.domElement.setAttribute('aria-hidden', 'true');
+hudRenderer.domElement.style.pointerEvents = 'none';
+mount.appendChild(hudRenderer.domElement);
 const arena = createArenaScene(assembly, targetAssembly);
 for (const actor of supportActors)
     arena.addCombatant(actor.id, actor.assembly, actor.team, actor.spawn);
@@ -1036,6 +1043,12 @@ function resize() {
     renderer.setSize(Math.floor(width * renderScale), Math.floor(height * renderScale), false);
     renderer.domElement.style.width = `${width}px`;
     renderer.domElement.style.height = `${height}px`;
+    // The combiner is intentionally independent from world resolution: keep text crisp
+    // without paying full-resolution lighting/shading cost for the arena.
+    hudRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    hudRenderer.setSize(width, height, false);
+    hudRenderer.domElement.style.width = `${width}px`;
+    hudRenderer.domElement.style.height = `${height}px`;
     syncInspectorLayout();
 }
 window.addEventListener('resize', resize);
@@ -1182,7 +1195,7 @@ function frame(now) {
             `FIELD SVC ${fieldService.used ? 'SPENT' : fieldService.held ? `${Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100)}%` : canFieldService(playerCondition, fieldService) ? 'READY' : '—'}`,
             `FIELDED   ${inspection.ready ? 'YES (CONTRACT)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
-            `RENDER    ${Math.round(renderScale * 100)}%`,
+            `RENDER    WORLD ${Math.round(renderScale * 100)}% · HUD HI-RES`,
             `ROUNDS    ${weaponState?.loaded ?? 0}/${weaponState?.reserve ?? 0}`,
             `SHOTS     ${shotsFired} · SORTIE ${sortieRoundsFired}`,
             `TARGET    ${targetCondition.shotsHit} HITS`,
@@ -1195,7 +1208,20 @@ function frame(now) {
             `LAST HIT  ${lastHit}`,
         ].join('\n');
     }
+    // World and cockpit telemetry deliberately use separate resolution budgets.
+    arena.camera.layers.set(0);
     renderer.render(arena.scene, arena.camera);
+    hudRenderer.clear();
+    if (!inspecting) {
+        // scene.background belongs to the chunky world pass. Temporarily suppress it
+        // so the display-resolution HUD renderer remains a transparent composite.
+        const worldBackground = arena.scene.background;
+        arena.scene.background = null;
+        arena.camera.layers.set(1);
+        hudRenderer.render(arena.scene, arena.camera);
+        arena.camera.layers.set(0);
+        arena.scene.background = worldBackground;
+    }
     requestAnimationFrame(frame);
 }
 devToggle.addEventListener('click', () => {

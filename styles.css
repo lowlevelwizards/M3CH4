@@ -531,3 +531,30 @@ body:not(.inspecting) .fault-strip { max-width:46vw; }
 body:not(.inspecting) .shot-report { max-width:40vw; }
 /* The movement controls remain touch UI. All persistent telemetry has moved into 3D. */
 body:not(.inspecting) .rig-tag { display:none; }
+
+
+/* k.3l.3 — the world framebuffer stays intentionally chunky while the combiner
+   gets its own display-resolution transparent canvas. */
+.game-canvas { z-index:0; }
+.hud-canvas {
+  position:absolute; inset:0; z-index:3; display:block; pointer-events:none;
+  image-rendering:auto;
+}
+/* Garage status messages are true toasts now; they no longer write over the contract board. */
+.field-status.message {
+  position:fixed !important; left:50% !important; top:max(58px,calc(env(safe-area-inset-top) + 52px)) !important;
+  width:min(360px,48vw) !important; transform:translateX(-50%); z-index:32 !important;
+  text-align:center !important; padding:6px 9px !important; box-shadow:0 6px 24px #000b;
+  border:1px solid #6e9b78; background:#122018f2; color:#a9d4ae;
+}
+.field-status.message.blocked { border-color:#b96550; background:#281713f2; color:#efaa91; }
+body.inspecting .orbit-help {
+  padding:5px 9px; max-width:46vw; opacity:.62; font-size:7px; letter-spacing:.07em;
+  background:rgba(10,15,12,.72); border-color:rgba(181,157,101,.24);
+}
+.reload-button:not(:disabled) { border-color:#b88b50; color:#d9cfaa; background:rgba(20,28,24,.91); }
+.reload-button:disabled { opacity:.52; }
+@media(max-height:430px){
+  .field-status.message{top:max(45px,calc(env(safe-area-inset-top) + 40px)) !important;width:min(330px,46vw) !important;font-size:6.5px !important;}
+  body.inspecting .orbit-help{padding:4px 7px;font-size:6px;}
+}
