@@ -44,9 +44,82 @@ export function createArenaScene(initial, targetAssembly) {
     const transientFX = [];
     const targetColors = new WeakMap();
     for (const mesh of targetExterior.pickMeshes) {
+        mesh.userData.actorId = 'enemy-0';
         const material = mesh.material;
         if (material instanceof THREE.MeshStandardMaterial)
             targetColors.set(mesh, material.color.clone());
+    }
+    const squadCombatants = new Map();
+    function makeSquadMarker(team) {
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-.72, -.72, 0), new THREE.Vector3(.72, -.72, 0),
+            new THREE.Vector3(.72, .72, 0), new THREE.Vector3(-.72, .72, 0),
+        ]);
+        const material = new THREE.LineBasicMaterial({
+            color: team === 'friendly' ? 0x73e29a : 0xf0a05d,
+            transparent: true, opacity: .92, depthTest: true, depthWrite: false,
+        });
+        const marker = new THREE.LineLoop(geometry, material);
+        marker.frustumCulled = false;
+        marker.renderOrder = 8;
+        scene.add(marker);
+        return marker;
+    }
+    const primaryMarker = makeSquadMarker('hostile');
+    squadCombatants.set('enemy-0', {
+        id: 'enemy-0', team: 'hostile', assembly: targetAssembly, exterior: targetExterior,
+        colors: targetColors, marker: primaryMarker, active: true,
+    });
+    function colorsFor(exterior) {
+        const colors = new WeakMap();
+        for (const mesh of exterior.pickMeshes) {
+            const material = mesh.material;
+            if (material instanceof THREE.MeshStandardMaterial)
+                colors.set(mesh, material.color.clone());
+        }
+        return colors;
+    }
+    function addCombatant(id, assembly, team, spawn) {
+        if (!id || id === 'player' || squadCombatants.has(id))
+            throw new Error(`Invalid or duplicate squad combatant: ${id}`);
+        const actorExterior = buildExteriorRig(assembly);
+        actorExterior.root.position.set(spawn.x, 0, spawn.z);
+        actorExterior.root.rotation.y = physicsYawToViewYaw(spawn.yaw ?? 0);
+        for (const mesh of actorExterior.pickMeshes)
+            mesh.userData.actorId = id;
+        scene.add(actorExterior.root);
+        const record = {
+            id, team, assembly, exterior: actorExterior, colors: colorsFor(actorExterior),
+            marker: makeSquadMarker(team), active: true,
+        };
+        squadCombatants.set(id, record);
+        return record;
+    }
+    function setCombatantActive(id, active) {
+        const record = squadCombatants.get(id);
+        if (!record) return;
+        record.active = !!active;
+        record.marker.material.opacity = record.active ? .92 : .22;
+        record.marker.scale.setScalar(record.active ? 1 : .78);
+    }
+    function updateSquadMarkers() {
+        for (const record of squadCombatants.values()) {
+            record.marker.visible = !inspecting;
+            if (inspecting) continue;
+            const point = new THREE.Vector3();
+            record.exterior.root.getWorldPosition(point);
+            point.y += 3.55;
+            record.marker.position.copy(point);
+            record.marker.quaternion.copy(camera.quaternion);
+        }
+    }
+    function hostilePickMeshes() {
+        const meshes = [];
+        for (const record of squadCombatants.values()) {
+            if (record.team === 'hostile' && record.active)
+                meshes.push(...record.exterior.pickMeshes);
+        }
+        return meshes;
     }
     // 0.0.1f: a deliberately small pooled pixel-particle system. Particles are
     // reused instead of allocated per shot so sustained fire stays friendly to phones.
@@ -150,6 +223,8 @@ export function createArenaScene(initial, targetAssembly) {
     let muzzleKick = 0;
     let muzzleFlash = 0;
     let exterior = buildExteriorRig(initial);
+    for (const mesh of exterior.pickMeshes)
+        mesh.userData.actorId = 'player';
     scene.add(exterior.root);
     exterior.root.visible = false;
     const captureColors = (meshes) => {
@@ -223,22 +298,33 @@ export function createArenaScene(initial, targetAssembly) {
             camera.position.set(visualX, 2.42 + cockpitHeave, visualZ);
             camera.rotation.set(lookPitch + cockpitPitch * 0.35, renderYaw + lookYaw, cockpitRoll * 0.25, 'YXZ');
         }
+        updateSquadMarkers();
+    }
+    function updateCombatantRig(id, state) {
+        const record = squadCombatants.get(id);
+        if (!record) return;
+        record.exterior.root.position.set(state.x, 0, state.z);
+        record.exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
+        record.exterior.root.updateWorldMatrix(true, true);
     }
     function updateTargetRigVisual(state) {
-        // Use the fixed-step physics pose for both rendering and weapon raycasts.
-        // A visual-only translation would make moving parts impossible to hit accurately.
-        targetExterior.root.position.set(state.x, 0, state.z);
-        targetExterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
-        targetExterior.root.updateWorldMatrix(true, true);
+        // Backwards-compatible wrapper for the selected contract leader.
+        updateCombatantRig('enemy-0', state);
     }
     function setInspection(enabled) {
         inspecting = enabled;
         exterior.root.visible = enabled;
         cockpit.visible = !enabled;
+        for (const record of squadCombatants.values()) {
+            record.exterior.root.visible = !enabled;
+            record.marker.visible = !enabled;
+        }
     }
     function rebuildAssembly(assembly) {
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
+        for (const mesh of exterior.pickMeshes)
+            mesh.userData.actorId = 'player';
         pilotColors = captureColors(exterior.pickMeshes);
         exterior.root.position.copy(oldRoot.position);
         exterior.root.rotation.copy(oldRoot.rotation);
@@ -336,46 +422,49 @@ export function createArenaScene(initial, targetAssembly) {
         sightDir.addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
         raycaster.set(camera.position, sightDir);
         raycaster.far = 100;
-        const visible = raycaster.intersectObjects([...targetExterior.pickMeshes, ...worldSolids], false)[0];
+        const visible = raycaster.intersectObjects([...hostilePickMeshes(), ...worldSolids], false)[0];
         const aimPoint = visible ? visible.point : camera.position.clone().addScaledVector(sightDir, 100);
         const muzzle = gunPivot.localToWorld(new THREE.Vector3(0, -.04, muzzleZ + .62));
         const bore = aimPoint.clone().sub(muzzle).normalize();
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
-        const actual = raycaster.intersectObjects([...targetExterior.pickMeshes, ...worldSolids], false)[0];
+        const actual = raycaster.intersectObjects([...hostilePickMeshes(), ...worldSolids], false)[0];
         const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
         const slot = actual?.object.userData.slot;
-        return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+        const actorId = actual?.object.userData.actorId ?? null;
+        return { actorId: slot ? actorId : null, slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
-    function traceHostileShot(state, aimSlot, spreadX, spreadY) {
-        // Use exact physics pose for hit testing even though the visible cockpit/exterior is smoothed.
-        exterior.root.position.set(state.x, 0, state.z);
-        exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
-        exterior.root.updateWorldMatrix(true, true);
-        targetExterior.root.updateWorldMatrix(true, true);
-        const combatGroup = targetExterior.partGroups.get('combat');
-        const muzzleLocalZ = installedPart(targetAssembly, 'combat')?.definition.id === 'gun-light' ? -2.16 :
-            installedPart(targetAssembly, 'combat')?.definition.id === 'gun-short' ? -1.03 : -1.58;
+    function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
+        const shooter = squadCombatants.get(shooterId);
+        const target = targetId === 'player'
+            ? { id: 'player', assembly: initial, exterior }
+            : squadCombatants.get(targetId);
+        if (!shooter || !target)
+            return { actorId: null, slot: null, point: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0), muzzle: new THREE.Vector3(), distance: 0 };
+        shooter.exterior.root.updateWorldMatrix(true, true);
+        target.exterior.root.updateWorldMatrix(true, true);
+        const combatGroup = shooter.exterior.partGroups.get('combat');
+        const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
+        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : -1.58;
         const muzzle = combatGroup
             ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
-            : targetExterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
-        const aimLocal = new THREE.Vector3(...SLOT_CENTERS[aimSlot]);
-        const aimPoint = exterior.root.localToWorld(aimLocal);
+            : shooter.exterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
+        const aimGroup = target.exterior.partGroups.get(aimSlot);
+        const aimPoint = aimGroup
+            ? aimGroup.getWorldPosition(new THREE.Vector3())
+            : target.exterior.root.localToWorld(new THREE.Vector3(...SLOT_CENTERS[aimSlot]));
         const forward = aimPoint.clone().sub(muzzle).normalize();
         const worldUp = new THREE.Vector3(0, 1, 0);
         let right = new THREE.Vector3().crossVectors(forward, worldUp);
-        if (right.lengthSq() < 1e-6)
-            right.set(1, 0, 0);
-        else
-            right.normalize();
+        if (right.lengthSq() < 1e-6) right.set(1, 0, 0); else right.normalize();
         const up = new THREE.Vector3().crossVectors(right, forward).normalize();
         const bore = forward.clone().addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
-        const actual = raycaster.intersectObjects([...exterior.pickMeshes, ...worldSolids], false)[0];
+        const actual = raycaster.intersectObjects([...target.exterior.pickMeshes, ...worldSolids], false)[0];
         const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
@@ -383,10 +472,17 @@ export function createArenaScene(initial, targetAssembly) {
         const slot = actual?.object.userData.slot;
         let driveSide;
         if (slot === 'mobility') {
-            const local = exterior.root.worldToLocal(point.clone());
+            const local = target.exterior.root.worldToLocal(point.clone());
             driveSide = local.x < 0 ? 'left' : 'right';
         }
-        return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point), driveSide };
+        return {
+            actorId: slot ? targetId : null,
+            slot: slot ?? null, point, normal: surfaceNormal, muzzle,
+            distance: muzzle.distanceTo(point), driveSide,
+        };
+    }
+    function traceHostileShot(state, aimSlot, spreadX, spreadY) {
+        return traceCombatantShot('enemy-0', 'player', aimSlot, spreadX, spreadY);
     }
     function showShot(contact, outcome) {
         muzzleKick = Math.min(1, muzzleKick + .8);
@@ -400,7 +496,9 @@ export function createArenaScene(initial, targetAssembly) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
-        if (hit) {
+        if (hit && contact.actorId === 'enemy-0') {
+            // Keep persistent soot on the selected contract leader; auxiliary rigs
+            // still receive damage tinting and particles without growing mark pools.
             // A dark local scar belongs to the struck machine. Breaches and disable events
             // leave larger marks, but we do not invent mesh fracture or generic explosions.
             const soot = new THREE.Mesh(new THREE.IcosahedronGeometry(.075 * profile.markScale, 0), new THREE.MeshBasicMaterial({ color: profile.kind === 'penetration' || profile.kind.includes('disable') ? 0x111512 : 0x252720, depthWrite: false }));
@@ -429,22 +527,43 @@ export function createArenaScene(initial, targetAssembly) {
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         spawnImpactParticles(impactPoint, contact.normal, outcome);
     }
-    function updateTargetDamage(condition) {
-        activeTargetCondition = condition;
-        for (const [slot, meshes] of targetExterior.partMeshes) {
+    function updateCombatantDamage(id, condition) {
+        const record = squadCombatants.get(id);
+        if (!record || !condition?.parts) return;
+        for (const [slot, meshes] of record.exterior.partMeshes) {
             const state = condition.parts[slot];
-            // Only affected geometry darkens. The rest of the same rig is untouched.
+            if (!state) continue;
             const damage = 1 - state.integrity / state.maxIntegrity;
             const stripped = 1 - state.armor / state.maxArmor;
             for (const mesh of meshes) {
                 const material = mesh.material;
-                const color = targetColors.get(mesh);
-                if (!(material instanceof THREE.MeshStandardMaterial) || !color)
-                    continue;
+                const color = record.colors.get(mesh);
+                if (!(material instanceof THREE.MeshStandardMaterial) || !color) continue;
                 material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
                 material.emissive.setHex(state.integrity === 0 ? 0x30150b : 0);
                 material.emissiveIntensity = state.integrity === 0 ? .35 : 0;
             }
+        }
+    }
+    function updateTargetDamage(condition) {
+        activeTargetCondition = condition;
+        updateCombatantDamage('enemy-0', condition);
+    }
+    function showCombatantShot(shooterId, contact, outcome) {
+        const shooter = squadCombatants.get(shooterId);
+        const friendly = shooter?.team === 'friendly';
+        const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
+        const trackMat = new THREE.LineBasicMaterial({
+            color: friendly ? 0x8be1b0 : 0xff9e62, transparent: true, opacity: .86,
+        });
+        const tracer = new THREE.Line(track, trackMat);
+        tracer.frustumCulled = false;
+        scene.add(tracer);
+        transientFX.push({ object: tracer, remaining: .16, duration: .16, material: trackMat });
+        activateParticle(sparkPool, 'spark', contact.muzzle, new THREE.Vector3(0, .08, 0), 1.05, .08, 0, 0, friendly ? 0xbaf4c9 : 0xffd79a);
+        if (outcome) {
+            const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
+            spawnImpactParticles(impactPoint, contact.normal, outcome);
         }
     }
     function updatePilotDamage(condition) {
@@ -544,6 +663,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
+        addCombatant, setCombatantActive, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {

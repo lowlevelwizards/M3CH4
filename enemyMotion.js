@@ -61,7 +61,7 @@ function rayBox(start, end, o, pad) {
 function firstBlock(from, to, world, pad, skipId = '') {
     let closest = Infinity, found = null;
     for (const o of world.obstacles) {
-        if (o.id === skipId || o.id === 'pilot-rig' || o.id === 'hostile-rig')
+        if (o.id === skipId || o.id === 'pilot-rig' || o.id === 'hostile-rig' || o.dynamic)
             continue;
         const hit = rayBox(from, to, o, pad);
         if (hit !== null && hit < closest) {

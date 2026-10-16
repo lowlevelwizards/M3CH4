@@ -14,6 +14,8 @@ import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
+import { contractById } from './contracts.js';
+import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -48,41 +50,83 @@ const hostileBaseConfig = deriveRigConfig(targetAssembly);
 if (!hostileBaseConfig)
     throw new Error('Hostile training assembly is not fieldable.');
 const hostileDriveDamage = { drives: {} };
+let playerCombatActive = true;
+const primaryEnemyActor = {
+    id: 'enemy-0', team: HOSTILE_TEAM, label: targetAssembly.name,
+    assembly: targetAssembly, condition: targetCondition, rig: hostileRig,
+    weaponSpec: hostileWeaponSpec, weaponState: hostileWeaponState,
+    controller: hostileController, motion: hostileMotion,
+    baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
+    behavior: contractById(targetAssembly.contractId).behavior,
+    spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
+};
+function makeSupportActor(id, team, contractId, spawn, label = null) {
+    const actorAssembly = makeRangeTarget(contractId);
+    if (label) actorAssembly.name = label;
+    const behavior = contractById(contractId).behavior;
+    const actorCondition = createTargetCondition(actorAssembly);
+    const actorWeaponSpec = weaponFor(actorAssembly);
+    const baseConfig = deriveRigConfig(actorAssembly);
+    if (!baseConfig || !actorWeaponSpec)
+        throw new Error(`Squad support ${id} is not fieldable.`);
+    return {
+        id, team, label: label ?? actorAssembly.name, assembly: actorAssembly,
+        condition: actorCondition, rig: createRigState(spawn),
+        weaponSpec: actorWeaponSpec, weaponState: createWeaponState(actorWeaponSpec),
+        controller: createHostileController(team === FRIENDLY_TEAM ? 1.0 : 1.55, behavior),
+        motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
+        behavior, spawn, active: true, targetId: null, killReason: null,
+    };
+}
+const friendlySupportActors = FRIENDLY_SUPPORTS.map(spawn =>
+    makeSupportActor(spawn.id, FRIENDLY_TEAM, spawn.contractId, spawn, spawn.label));
+const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).map((contractId, index) => {
+    const spawn = HOSTILE_SUPPORT_SPAWNS[index];
+    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn);
+});
+const supportActors = [...friendlySupportActors, ...hostileSupportActors];
+const aiActors = [primaryEnemyActor, ...supportActors];
 let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
 let fieldService = createFieldServiceState();
 let servicePointerId = null;
 let serviceKeyHeld = false;
-// Each mech sees the other as a moving physical obstacle. Neither collides with itself.
+// All six rigs share the same physical yard. Dynamic rig boxes collide in stepRig,
+// but enemyMotion ignores them when planning long-lived obstacle detours.
 const movingObstacleAt = (id, spawn, radius = 1) => ({
-    id, minX: spawn.x - radius, maxX: spawn.x + radius,
+    id, dynamic: true, minX: spawn.x - radius, maxX: spawn.x + radius,
     minZ: spawn.z - radius, maxZ: spawn.z + radius,
 });
-const hostileObstacle = movingObstacleAt('hostile-rig', HOSTILE_SPAWN);
-const pilotObstacle = movingObstacleAt('pilot-rig', PLAYER_SPAWN);
-const rangeWorld = {
-    ...DEFAULT_WORLD,
-    obstacles: [...DEFAULT_WORLD.obstacles, hostileObstacle],
-};
-const hostileWorld = { ...DEFAULT_WORLD, obstacles: [...DEFAULT_WORLD.obstacles, pilotObstacle] };
+const pilotObstacle = movingObstacleAt('player', PLAYER_SPAWN);
+const actorObstacles = new Map(aiActors.map(actor => [actor.id, movingObstacleAt(actor.id, actor.spawn)]));
 function placeMovingObstacle(box, x, z, radius) {
-    box.minX = x - radius;
-    box.maxX = x + radius;
-    box.minZ = z - radius;
-    box.maxZ = z + radius;
+    box.minX = x - radius; box.maxX = x + radius;
+    box.minZ = z - radius; box.maxZ = z + radius;
 }
-function hostileLocomotionConfig() {
-    // The target's existing local integrity remains authoritative. Its paired legs
-    // share the pooled mobility condition until independent side hits ship in j.3.
-    const mobility = installedPart(targetAssembly, 'mobility');
-    if (mobility) {
-        const part = targetCondition.parts.mobility;
-        const health = Math.max(0, part.integrity / Math.max(1, part.maxIntegrity));
-        hostileDriveDamage.drives[mobility.instance.serial] = { left: health, right: health };
+function syncMovingObstacles() {
+    placeMovingObstacle(pilotObstacle, rig.x, rig.z, effectiveConfig?.collisionRadiusM ?? 1);
+    for (const actor of aiActors) {
+        const radius = actor.baseConfig?.collisionRadiusM ?? 1;
+        placeMovingObstacle(actorObstacles.get(actor.id), actor.rig.x, actor.rig.z, radius);
     }
-    return derateRigConfig(hostileBaseConfig, functionalOutput(targetAssembly, hostileDriveDamage));
 }
+function combatWorldFor(actorId) {
+    const dynamic = [];
+    if (actorId !== 'player') dynamic.push(pilotObstacle);
+    for (const [id, obstacle] of actorObstacles) if (id !== actorId) dynamic.push(obstacle);
+    return { ...DEFAULT_WORLD, obstacles: [...DEFAULT_WORLD.obstacles, ...dynamic] };
+}
+function aiLocomotionConfig(actor) {
+    const mobility = installedPart(actor.assembly, 'mobility');
+    if (mobility) {
+        const part = actor.condition.parts.mobility;
+        const health = Math.max(0, part.integrity / Math.max(1, part.maxIntegrity));
+        actor.driveDamage.drives[mobility.instance.serial] = { left: health, right: health };
+    }
+    return derateRigConfig(actor.baseConfig, functionalOutput(actor.assembly, actor.driveDamage));
+}
+function hostileLocomotionConfig() { return aiLocomotionConfig(primaryEnemyActor); }
 let inspection = inspectAssembly(assembly);
 let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
@@ -177,6 +221,7 @@ const targetReadout = required('#target-readout');
 const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
 const faultStrip = required('#fault-strip');
+const teamStatus = required('#team-status');
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
@@ -185,6 +230,8 @@ renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
 renderer.domElement.style.touchAction = 'none';
 mount.appendChild(renderer.domElement);
 const arena = createArenaScene(assembly, targetAssembly);
+for (const actor of supportActors)
+    arena.addCombatant(actor.id, actor.assembly, actor.team, actor.spawn);
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
@@ -201,6 +248,90 @@ let shotsFired = 0;
 let lastHit = 'NO SHOTS YET';
 let targetPanelRefresh = 0;
 const selectionButtons = new Map();
+function actorById(id) {
+    if (id === 'player')
+        return { id: 'player', team: FRIENDLY_TEAM, label: 'YOU', rig, condition: playerCondition, assembly, active: playerCombatActive };
+    return aiActors.find(actor => actor.id === id) ?? null;
+}
+function liveOpponents(actor) {
+    if (actor.team === FRIENDLY_TEAM)
+        return aiActors.filter(candidate => candidate.team === HOSTILE_TEAM && candidate.active);
+    const candidates = friendlySupportActors.filter(candidate => candidate.active);
+    if (playerCombatActive) candidates.unshift(actorById('player'));
+    return candidates;
+}
+function resolveActorTarget(actor) {
+    const candidates = liveOpponents(actor);
+    actor.targetId = chooseSquadTarget(actor, candidates, actor.targetId);
+    return actor.targetId ? candidates.find(candidate => candidate.id === actor.targetId) ?? null : null;
+}
+function renderSquadStatus() {
+    const counts = squadCounts(playerCombatActive, aiActors);
+    teamStatus.textContent = `ALLY ${counts.friendly}/3 · HOSTILE ${counts.hostile}/3`;
+    teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
+    teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
+}
+function checkSquadOutcome() {
+    const outcome = squadOutcome(playerCombatActive, aiActors);
+    if (outcome && !testEnded)
+        finishSortie(outcome.victory, outcome.reason);
+}
+function missionKillAiActor(actor, reason) {
+    if (!actor?.active) return;
+    actor.active = false;
+    actor.killReason = reason;
+    actor.targetId = null;
+    actor.rig.vx = 0; actor.rig.vz = 0; actor.rig.yawRate = 0;
+    arena.setCombatantActive(actor.id, false);
+    arena.updateCombatantDamage(actor.id, actor.condition);
+    if (actor.id === 'enemy-0') {
+        mirrorTargetCondition(targetAssembly, targetCondition);
+        renderTarget();
+    }
+    renderSquadStatus();
+    checkSquadOutcome();
+}
+function missionKillPlayer(reason) {
+    if (!playerCombatActive) return;
+    playerCombatActive = false;
+    rig.vx = 0; rig.vz = 0; rig.yawRate = 0;
+    stopFireInput();
+    stopFieldServiceInput();
+    controls.setEnabled(false);
+    faultStrip.textContent = `MISSION KILL · ${reason} · ALLIES STILL ENGAGED`;
+    faultStrip.classList.add('faulted');
+    shotReport.classList.remove('faded', 'penetrated');
+    shotReport.classList.add('disabled-part');
+    shotReport.textContent = `YOU ARE COMBAT INEFFECTIVE · ${reason} · ALLIED RIGS CONTINUE`;
+    reportFade = 9999;
+    renderSquadStatus();
+    renderAmmo();
+    persistMachine();
+    checkSquadOutcome();
+}
+function resetAiActor(actor) {
+    Object.assign(actor.rig, createRigState(actor.spawn));
+    Object.assign(actor.condition, createTargetCondition(actor.assembly));
+    if (actor.weaponState && actor.weaponSpec)
+        Object.assign(actor.weaponState, createWeaponState(actor.weaponSpec));
+    Object.assign(actor.controller, createHostileController(actor.id === 'enemy-0' ? 1.8 : actor.team === FRIENDLY_TEAM ? 1.0 : 1.55, actor.behavior));
+    Object.assign(actor.motion, createEnemyMotion(actor.behavior));
+    actor.active = true;
+    actor.targetId = null;
+    actor.killReason = null;
+    actor.driveDamage.drives = {};
+    arena.setCombatantActive(actor.id, true);
+    arena.updateCombatantRig(actor.id, actor.rig);
+    arena.updateCombatantDamage(actor.id, actor.condition);
+}
+function resetSquadBattle() {
+    for (const actor of aiActors) resetAiActor(actor);
+    mirrorTargetCondition(targetAssembly, targetCondition);
+    arena.resetTargetDamage(targetCondition);
+    arena.updateHostileNavigation(null);
+    renderSquadStatus();
+}
+
 function stopFireInput() {
     // Release capture before changing screens so an old touch cannot fire on redeploy.
     const captured = firePointerId;
@@ -523,19 +654,10 @@ function toggleInspection(force) {
         debriefSheet.classList.add('hidden');
         debriefSheet.setAttribute('aria-hidden', 'true');
         rig = createRigState();
-        hostileRig = createRigState(HOSTILE_SPAWN);
-        hostileMotion = createEnemyMotion();
-        arena.updateHostileNavigation(null);
-        // The opponent is a fresh contract machine each sortie; player damage is NOT reset.
-        targetCondition = createTargetCondition(targetAssembly);
-        mirrorTargetCondition(targetAssembly, targetCondition);
-        arena.resetTargetDamage(targetCondition);
-        arena.updateTargetRigVisual(hostileRig);
-        placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
+        playerCombatActive = true;
+        resetSquadBattle();
         controls.recenterLook();
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
-        hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
-        hostileController = createHostileController();
         fieldService = createFieldServiceState();
         sortieRoundsFired = 0;
         testEnded = false;
@@ -556,7 +678,7 @@ function toggleInspection(force) {
         arena.resetOrbit();
         syncInspectorLayout();
     }
-    controls.setEnabled(!inspecting && !testEnded && appSheet.classList.contains('hidden'));
+    controls.setEnabled(!inspecting && !testEnded && playerCombatActive && appSheet.classList.contains('hidden'));
     accumulator = 0;
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
@@ -641,7 +763,7 @@ function showAppGuide() {
 function hideAppGuide() {
     appSheet.classList.add('hidden');
     appSheet.setAttribute('aria-hidden', 'true');
-    controls.setEnabled(!inspecting && !testEnded);
+    controls.setEnabled(!inspecting && !testEnded && playerCombatActive);
 }
 appView.addEventListener('click', async () => {
     if (appStandalone()) {
@@ -724,43 +846,42 @@ function frame(now) {
         while (accumulator >= FIXED_DT && steps < 8) {
             const followSteer = bodyFollowSteer(input.lookYaw);
             const bodySteer = THREE.MathUtils.clamp(input.steer + followSteer, -1, 1);
-            placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
-            const yawBefore = rig.yaw;
-            stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, rangeWorld);
-            // When aim drives the chassis, counter-rotate the weapon/camera by the exact
-            // body motion so the pilot keeps the same world-space aim while the legs catch up.
-            if (Math.abs(followSteer) > .001) {
-                controls.compensateBodyTurn(rig.yaw - yawBefore);
-                input = controls.sample();
+            syncMovingObstacles();
+            if (playerCombatActive) {
+                const yawBefore = rig.yaw;
+                stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
+                if (Math.abs(followSteer) > .001) {
+                    controls.compensateBodyTurn(rig.yaw - yawBefore);
+                    input = controls.sample();
+                }
+                const serviceStep = advanceFieldService(playerCondition, fieldService, rig, FIXED_DT);
+                if (serviceStep.event === 'completed') handleFieldServiceCompleted();
+                else if (serviceStep.event === 'interrupted') handleFieldServiceInterrupted();
             }
-            const serviceStep = advanceFieldService(playerCondition, fieldService, rig, FIXED_DT);
-            if (serviceStep.event === 'completed')
-                handleFieldServiceCompleted();
-            else if (serviceStep.event === 'interrupted')
-                handleFieldServiceInterrupted();
-            placeMovingObstacle(pilotObstacle, rig.x, rig.z, 1);
-            const hostile = hostileOutput(targetCondition);
-            const canManeuver = !testEnded && hostile.structure > .05 && hostile.command > .05 &&
-                hostile.power > .12 && hostile.mobility > .05;
-            const hostileConfig = hostileLocomotionConfig();
-            const maneuver = advanceEnemyMotion(hostileMotion, hostileRig, rig, FIXED_DT, canManeuver, hostileWorld, hostileConfig.collisionRadiusM);
-            stepRig(hostileRig, maneuver, FIXED_DT, hostileConfig, hostileWorld);
-            arena.updateHostileNavigation(hostileMotion.waypoint);
-            arena.updateTargetRigVisual(hostileRig); // Shots and visible parts use the same physics pose.
+            for (const actor of aiActors) {
+                if (!actor.active) continue;
+                const target = resolveActorTarget(actor);
+                if (!target) continue;
+                const actorOutput = hostileOutput(actor.condition, actor.behavior);
+                const canManeuver = actorOutput.structure > .05 && actorOutput.command > .05 && actorOutput.power > .12 && actorOutput.mobility > .05;
+                const actorConfig = aiLocomotionConfig(actor);
+                const maneuver = advanceEnemyMotion(actor.motion, actor.rig, target.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior);
+                stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
+                arena.updateCombatantRig(actor.id, actor.rig);
+                if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
+                if (actor.weaponSpec && actor.weaponState) {
+                    advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
+                    if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
+                        startReload(actor.weaponState, actor.weaponSpec);
+                    const shot = advanceHostileController(actor.controller, actor.condition, FIXED_DT, target.active === false);
+                    if (shot !== null) attemptAiFire(actor, target, shot);
+                }
+            }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
-                if (fireHeld)
-                    attemptFire();
+                if (fireHeld && playerCombatActive) attemptFire();
             }
-            if (hostileWeaponSpec && hostileWeaponState) {
-                advanceWeapon(hostileWeaponState, hostileWeaponSpec, FIXED_DT);
-                if (hostileWeaponState.loaded <= 0 && hostileWeaponState.reloadLeft === 0 && hostileWeaponState.reserve > 0) {
-                    startReload(hostileWeaponState, hostileWeaponSpec);
-                }
-                const hostileShot = advanceHostileController(hostileController, targetCondition, FIXED_DT, testEnded);
-                if (hostileShot !== null)
-                    attemptHostileFire(hostileShot);
-            }
+            syncMovingObstacles();
             accumulator -= FIXED_DT;
             steps++;
         }
@@ -821,6 +942,7 @@ function frame(now) {
             `ROUNDS    ${weaponState?.loaded ?? 0}/${weaponState?.reserve ?? 0}`,
             `SHOTS     ${shotsFired} · SORTIE ${sortieRoundsFired}`,
             `TARGET    ${targetCondition.shotsHit} HITS`,
+            `SQUAD     ${teamStatus.textContent}${playerCombatActive ? '' : ' · YOU OUT'}`,
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
             `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
@@ -901,9 +1023,9 @@ function handleFieldServiceInterrupted() {
 }
 function renderAmmo() {
     const failure = weaponFailureState(playerCondition, fieldService);
-    const serviceAvailable = canFieldService(playerCondition, fieldService);
+    const serviceAvailable = playerCombatActive && canFieldService(playerCondition, fieldService);
     const stationary = fieldServiceStationary(rig);
-    const suffix = testEnded ? ' · SORTIE ENDED' :
+    const suffix = !playerCombatActive ? ' · MISSION KILLED' : testEnded ? ' · SORTIE ENDED' :
         failure === 'destroyed' ? ' · DESTROYED' :
         failure === 'unrecoverable' ? ' · FAULT · BYPASS SPENT' :
         failure === 'faulted' ? ' · FAULTED' :
@@ -926,7 +1048,7 @@ function renderAmmo() {
     }
     // Preserve touch capture if an empty magazine starts reloading during a held
     // FIRE drag. Aim remains usable; the weapon itself still refuses to fire.
-    fireButton.disabled = !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational ||
+    fireButton.disabled = !playerCombatActive || !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational ||
         (weaponState.reloadLeft > 0 && firePointerId === null);
 }
 function renderTarget() {
@@ -996,48 +1118,28 @@ function finishSortie(victory, reason) {
     economy.credits = summary.creditsAfter;
     renderEconomy();
     persistMachine();
-    faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE MISSION KILL · ${reason}` : `MISSION KILL · ${reason}`;
+    faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');
     shotReport.classList.toggle('disabled-part', !victory);
     shotReport.classList.toggle('penetrated', victory);
-    shotReport.textContent = victory ? `SORTIE COMPLETE · HOSTILE MISSION KILL · ${reason}` : `SORTIE ENDED · MISSION KILL · ${reason} · RECOVERY CREW DISPATCHED`;
+    shotReport.textContent = victory ? `SORTIE COMPLETE · ${reason}` : `SORTIE ENDED · ${reason} · RECOVERY CREW DISPATCHED`;
+    renderSquadStatus();
     reportFade = 9999;
     renderAmmo();
     renderDebrief(summary, reason);
 }
-function attemptHostileFire(shotIndex) {
-    if (!hostileWeaponSpec || !hostileWeaponState || inspecting || testEnded || !appSheet.classList.contains('hidden'))
-        return;
-    const hostile = hostileOutput(targetCondition);
-    if (!hostile.operational)
-        return;
-    if (!withinFiringArc(hostileRig, rig))
-        return; // No firing magically through its own back.
-    const [spreadX, spreadY] = hostileSpread(shotIndex, hostile.spreadRadians);
-    const aimSlot = hostileAimSlot(shotIndex);
-    const contact = arena.traceHostileShot(rig, aimSlot, spreadX, spreadY);
-    // Cover creates a real contact phase: the hostile does not spend ammunition or
-    // announce its position by firing blindly into an occluding arena structure.
-    if (contact.slot === null)
-        return;
-    const consumed = fireWeapon(hostileWeaponState, hostileWeaponSpec);
-    if (consumed === null)
-        return;
-    // The controller remains slower than the weapon's raw cyclic rate.
-    hostileWeaponState.cooldown = Math.max(hostileWeaponState.cooldown, hostile.triggerSeconds * .55);
-    soundFire();
-    stopFieldServiceInput(); // Any incoming hit interrupts an exposed emergency procedure.
+function applyAiHitToPlayer(actor, contact) {
+    stopFieldServiceInput();
     const partBefore = playerCondition.parts[contact.slot];
     const beforeIntegrity = partBefore.integrity;
-    const hit = applyTargetHit(playerCondition, contact.slot, hostileWeaponSpec.damage);
+    const hit = applyTargetHit(playerCondition, contact.slot, actor.weaponSpec.damage);
     if (hit.internalDamage > 0) {
         const amount = hit.internalDamage / Math.max(1, partBefore.maxIntegrity);
         if (contact.slot === 'mobility')
             damageInstalledPart(assembly, damage, 'mobility', amount, contact.driveSide ?? 'left');
         else
             damageInstalledPart(assembly, damage, contact.slot, amount);
-        // Paired mobility stores side damage in FunctionalDamage; the owned assembly condition is the authoritative average.
         const installed = installedPart(assembly, contact.slot);
         if (installed)
             playerCondition.parts[contact.slot].integrity = playerCondition.parts[contact.slot].maxIntegrity * installed.instance.condition;
@@ -1045,13 +1147,13 @@ function attemptHostileFire(shotIndex) {
     let weaponFaulted = false;
     if (contact.slot === 'combat') {
         weaponFaulted = arrestFirstWeaponFailure(playerCondition, fieldService, beforeIntegrity);
-        if (weaponFaulted)
-            syncOwnedWeaponCondition(false);
+        if (weaponFaulted) syncOwnedWeaponCondition(false);
     }
     const nowDisabled = playerCondition.parts[contact.slot].integrity <= 0;
-    arena.showHostileShot(contact, { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled });
+    const visualHit = { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled };
+    arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updatePilotDamage(playerCondition);
-    persistMachine(); // Include armor-only hits, not just internal damage.
+    persistMachine();
     soundImpact();
     rig.impact = Math.min(1, rig.impact + .65);
     updateFunctionalStatus();
@@ -1064,12 +1166,39 @@ function attemptHostileFire(shotIndex) {
         shotReport.textContent = 'WEAPON FAULT · EMERGENCY BYPASS AVAILABLE · STOP BEHIND COVER AND HOLD FIELD SERVICE';
         reportFade = 5.0;
     }
-    testEndReason = currentSortieFailureReason();
-    if (testEndReason)
-        finishSortie(false, testEndReason);
+    const failure = currentSortieFailureReason();
+    if (failure) missionKillPlayer(failure);
+}
+function attemptAiFire(actor, target, shotIndex) {
+    if (!actor?.active || !target || target.active === false || inspecting || testEnded || !appSheet.classList.contains('hidden')) return;
+    const actorOutput = hostileOutput(actor.condition, actor.behavior);
+    if (!actorOutput.operational || !withinFiringArc(actor.rig, target.rig)) return;
+    const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
+    const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
+    const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
+    if (contact.slot === null || contact.actorId !== target.id) return;
+    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
+    if (consumed === null) return;
+    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
+    soundFire();
+    if (target.id === 'player') {
+        applyAiHitToPlayer(actor, contact);
+        return;
+    }
+    const beforeIntegrity = target.condition.parts[contact.slot].integrity;
+    const hit = applyTargetHit(target.condition, contact.slot, actor.weaponSpec.damage);
+    const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled };
+    arena.showCombatantShot(actor.id, contact, visualHit);
+    arena.updateCombatantDamage(target.id, target.condition);
+    if (target.id === 'enemy-0') {
+        mirrorTargetCondition(targetAssembly, targetCondition);
+        renderTarget();
+    }
+    const kill = hostileMissionKillReason(target.condition, target.behavior);
+    if (kill) missionKillAiActor(target, kill);
 }
 function attemptFire() {
-    if (!weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
+    if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
         return;
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
@@ -1093,26 +1222,28 @@ function attemptFire() {
     shotsFired++;
     sortieRoundsFired++;
     soundFire();
-    if (contact.slot !== null) {
-        const beforeIntegrity = targetCondition.parts[contact.slot].integrity;
-        const hit = applyTargetHit(targetCondition, contact.slot, weaponSpec.damage);
+    if (contact.slot !== null && contact.actorId) {
+        const targetActor = actorById(contact.actorId);
+        if (!targetActor || targetActor.team !== HOSTILE_TEAM || !targetActor.active) return;
+        const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
+        const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
         const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled };
         arena.showShot(contact, visualHit);
-        mirrorTargetCondition(targetAssembly, targetCondition);
-        arena.updateTargetDamage(targetCondition);
+        arena.updateCombatantDamage(targetActor.id, targetActor.condition);
+        if (targetActor.id === 'enemy-0') {
+            mirrorTargetCondition(targetAssembly, targetCondition);
+            renderTarget();
+        }
         soundImpact();
         recoilFlash = .19;
-        lastHit = `${targetLabels[hit.slot]} · ${hit.serial}`;
+        lastHit = `${targetActor.label} · ${targetLabels[hit.slot]} · ${hit.serial}`;
         shotReport.classList.toggle('penetrated', hit.internalDamage > 0);
         shotReport.classList.toggle('disabled-part', hit.disabled);
         const outcome = hit.disabled ? 'MODULE DISABLED' : hit.internalDamage > 0 ? 'ARMOR BREACHED' : 'ARMOR IMPACT';
         shotReport.textContent = `${outcome} · ${lastHit} · ARMOR −${hit.armorAbsorbed} · INTERNAL −${hit.internalDamage}`;
-        renderTarget();
-        const hostileKill = hostileMissionKillReason(targetCondition);
-        if (hostileKill) {
-            finishSortie(true, hostileKill);
-            return;
-        }
+        const kill = hostileMissionKillReason(targetActor.condition, targetActor.behavior);
+        if (kill) missionKillAiActor(targetActor, kill);
+        if (testEnded) return;
     }
     else {
         arena.showShot(contact, null);
@@ -1160,13 +1291,13 @@ fireButton.addEventListener('click', event => {
         attemptFire(); // keyboard accessibility
 });
 window.addEventListener('keydown', event => {
-    if (event.code === 'KeyF' && !event.repeat && !inspecting && !testEnded) {
+    if (event.code === 'KeyF' && !event.repeat && !inspecting && !testEnded && playerCombatActive) {
         fireKeyHeld = true;
         fireHeld = true;
         attemptFire();
     }
     if (event.code === 'KeyR' && weaponState && weaponSpec && !event.repeat) {
-        if (!inspecting && !testEnded && canFieldService(playerCondition, fieldService)) {
+        if (!inspecting && !testEnded && playerCombatActive && canFieldService(playerCondition, fieldService)) {
             if (beginFieldService(playerCondition, fieldService, rig)) {
                 serviceKeyHeld = true;
                 soundReload();
@@ -1194,7 +1325,7 @@ window.addEventListener('blur', () => {
     stopFieldServiceInput();
 });
 reloadButton.addEventListener('pointerdown', event => {
-    if (canFieldService(playerCondition, fieldService)) {
+    if (playerCombatActive && canFieldService(playerCondition, fieldService)) {
         if (!beginFieldService(playerCondition, fieldService, rig)) {
             renderAmmo();
             return;
@@ -1237,18 +1368,9 @@ targetToggle.addEventListener('click', () => {
     targetToggle.setAttribute('aria-pressed', String(isOpen));
 });
 resetTarget.addEventListener('click', () => {
-    targetCondition = createTargetCondition(targetAssembly);
-    mirrorTargetCondition(targetAssembly, targetCondition);
-    hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
-    hostileController = createHostileController(.7);
-    hostileMotion = createEnemyMotion();
-    arena.updateHostileNavigation(null);
-    hostileRig = createRigState(HOSTILE_SPAWN);
-    arena.updateTargetRigVisual(hostileRig);
-    placeMovingObstacle(hostileObstacle, hostileRig.x, hostileRig.z, 1);
-    arena.resetTargetDamage(targetCondition);
-    lastHit = 'HOSTILE RIG REBUILT';
-    shotReport.textContent = 'HOSTILE RIG RESET · ARMOR AND COMPONENTS RESTORED';
+    resetSquadBattle();
+    lastHit = 'SQUAD RIGS REBUILT';
+    shotReport.textContent = 'SQUAD RESET · ALL SIX COMBATANTS RESTORED';
     reportFade = 2;
     renderTarget();
 });
@@ -1291,6 +1413,7 @@ for (const button of document.querySelectorAll('[data-damage]')) {
 }
 updateFunctionalStatus();
 renderEconomy();
+renderSquadStatus();
 renderAmmo();
 renderTarget();
 // k.3d.0: first closed fight -> accounting -> repair loop over the existing garage.

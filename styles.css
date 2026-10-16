@@ -399,3 +399,25 @@ body.inspecting .orbit-help { left:auto; right:max(9px,env(safe-area-inset-right
   .garage-brand { padding-bottom:3px; }
   .garage-deploy { min-height:28px; }
 }
+
+
+/* k.3k.0 — deliberately sparse IFF/team-strength readout. World-space brackets
+   do the identification; this only answers how many combat-capable rigs remain. */
+.team-status {
+  position: fixed;
+  top: max(54px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 14;
+  padding: 5px 10px;
+  border: 1px solid rgba(127, 190, 145, .44);
+  background: rgba(18, 23, 20, .76);
+  color: #9ed0a8;
+  font: 700 10px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .11em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.team-status.friendly-critical { border-color: rgba(224, 164, 76, .72); color: #e0a44c; }
+.team-status.hostile-critical { box-shadow: inset 0 0 0 1px rgba(224, 164, 76, .22); }
+body.inspecting .team-status { display: none; }
