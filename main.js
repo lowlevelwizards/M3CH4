@@ -763,7 +763,7 @@ function showAppGuide() {
 function hideAppGuide() {
     appSheet.classList.add('hidden');
     appSheet.setAttribute('aria-hidden', 'true');
-    controls.setEnabled(!inspecting && !testEnded);
+    controls.setEnabled(!inspecting && !testEnded && playerCombatActive);
 }
 appView.addEventListener('click', async () => {
     if (appStandalone()) {

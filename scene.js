@@ -434,7 +434,8 @@ export function createArenaScene(initial, targetAssembly) {
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
         const slot = actual?.object.userData.slot;
-        return { slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+        const actorId = actual?.object.userData.actorId ?? null;
+        return { actorId: slot ? actorId : null, slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
         const shooter = squadCombatants.get(shooterId);
