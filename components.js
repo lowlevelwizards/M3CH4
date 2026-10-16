@@ -86,13 +86,10 @@ function assertLegacyLayout(assembly, graph) {
  * installed serial or graph changes. A frame swap rehomes its known legacy stations.
  * This intentionally does not yet expose arbitrary socket placement in the garage.
  */
-export function equip(assembly, slot, definitionId) {
-    const definition = BY_ID.get(definitionId);
+function equipOwnedInstance(assembly, slot, owned) {
+    const definition = owned && BY_ID.get(owned.definitionId);
     if (!definition || definition.slot !== slot)
-        throw new Error(`Cannot fit ${definitionId} in ${slot}`);
-    const owned = assembly.owned.find(part => part.definitionId === definitionId);
-    if (!owned)
-        throw new Error(`Not owned: ${definitionId}`);
+        throw new Error(`Cannot fit ${owned?.definitionId ?? owned?.serial ?? 'unknown'} in ${slot}`);
     const current = ensureAssemblyGraph(assembly, BY_ID);
     if (assembly.installed[slot] === owned.serial) {
         const check = validateGraph(current, assembly, BY_ID);
@@ -102,12 +99,9 @@ export function equip(assembly, slot, definitionId) {
     assertLegacyLayout(assembly, current);
     const oldSerial = assembly.installed[slot];
     if (oldSerial && oldSerial !== owned.serial && slot !== 'structure') {
-        // Never discard equipment mounted beneath a replaced module.
         const removal = proposeRemoval(current, oldSerial);
         if (!removal.ok) throw new Error(removal.reason);
     }
-    // Frame swaps transfer all existing legacy stations; custom child branches must
-    // be explicitly removed/reparented by a later direct-builder workflow.
     if (slot === 'structure' && oldSerial && oldSerial !== owned.serial) {
         const nodes = Object.values(current.nodes);
         const expected = new Set(Object.values(assembly.installed));
@@ -124,6 +118,25 @@ export function equip(assembly, slot, definitionId) {
     assembly.graph = graph;
     delete assembly.mountNotice;
     return { ok: true, serial: owned.serial };
+}
+
+/** Garage/inventory mounting is serial-authoritative so duplicate definitions remain distinct. */
+export function equipSerial(assembly, slot, serial) {
+    const owned = assembly?.owned?.find(part => part.serial === serial);
+    if (!owned) throw new Error(`Not owned: ${serial}`);
+    return equipOwnedInstance(assembly, slot, owned);
+}
+
+/** Definition-based mounting remains for authored recipes/debug construction. When the
+ * player owns duplicates, prefer the already-installed copy, then the first matching
+ * physical instance. UI code should call equipSerial instead. */
+export function equip(assembly, slot, definitionId) {
+    const fitted = installedPart(assembly, slot);
+    const owned = fitted?.definition.id === definitionId
+        ? fitted.instance
+        : assembly?.owned?.find(part => part.definitionId === definitionId);
+    if (!owned) throw new Error(`Not owned: ${definitionId}`);
+    return equipOwnedInstance(assembly, slot, owned);
 }
 /** A parent with children is never silently unequipped. Existing parts stay owned.
  * The legacy UI ignores our result for now; the inspector also surfaces the notice.

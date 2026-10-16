@@ -18,7 +18,8 @@ export const MACHINE_SAVE_V4_KEY = 'mech-arena-machine-v4';
 export const MACHINE_SAVE_V5_KEY = 'mech-arena-machine-v5';
 export const MACHINE_SAVE_V6_KEY = 'mech-arena-machine-v6';
 export const MACHINE_SAVE_V7_KEY = 'mech-arena-machine-v7';
-export const MACHINE_SAVE_VERSION = 7; // Read v1-v6; write v7 separately for rollback.
+export const MACHINE_SAVE_V8_KEY = 'mech-arena-machine-v8';
+export const MACHINE_SAVE_VERSION = 8; // Read v1-v7; write v8 separately for rollback-safe duplicate inventory.
 const REAL_OWNERSHIP_VERSION = 5;
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -27,7 +28,7 @@ const integer = value => typeof value === 'number' && Number.isSafeInteger(value
 const validSlot = value => SLOTS.includes(value);
 const ownKeys = (value, allowed) => Object.keys(value).every(key => allowed.includes(key));
 const clonePart = ({ serial, definitionId, condition, wear, repairs, destroyed = false }) => ({ serial, definitionId, condition, wear, repairs, destroyed: !!destroyed });
-const MAX_OWNED_PARTS = 100;
+const MAX_OWNED_PARTS = 250;
 
 function fresh() {
     const assembly = makeStarterAssembly();
@@ -97,7 +98,9 @@ function restoreOwned(data) {
     if (data.version < REAL_OWNERSHIP_VERSION)
         return migrateLegacyOwned(data);
     const seenSerials = new Set();
-    const seenDefinitions = new Set();
+    // v5-v7 never wrote duplicate definitions. v8 intentionally does: serial identity
+    // is authoritative, so several physical copies of the same model are valid.
+    const seenDefinitions = data.version >= 8 ? null : new Set();
     const owned = [];
     for (const part of saved) {
         validateSavedPart(part, seenSerials, seenDefinitions);
@@ -131,7 +134,7 @@ export function decodeMachine(json) {
         return { ...blank, status: 'invalid' };
     try {
         const data = JSON.parse(json);
-        if (!object(data) || ![1, 2, 3, 4, 5, 6, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
+        if (!object(data) || ![1, 2, 3, 4, 5, 6, 7, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
             !object(data.drives) || !object(data.housing))
             throw new Error('Unknown save format');
         const savedAssembly = data.assembly;
@@ -286,12 +289,13 @@ export function loadMachine(storage) {
     if (!storage)
         return { ...fresh(), status: 'unavailable' };
     try {
+        const v8 = storage.getItem(MACHINE_SAVE_V8_KEY);
         const v7 = storage.getItem(MACHINE_SAVE_V7_KEY);
         const v6 = storage.getItem(MACHINE_SAVE_V6_KEY);
         const v5 = storage.getItem(MACHINE_SAVE_V5_KEY);
         const v4 = storage.getItem(MACHINE_SAVE_V4_KEY);
         const v3 = storage.getItem(MACHINE_SAVE_V3_KEY);
-        return decodeMachine(v7 ?? v6 ?? v5 ?? v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
+        return decodeMachine(v8 ?? v7 ?? v6 ?? v5 ?? v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
     }
     catch {
         return { ...fresh(), status: 'unavailable' };
@@ -306,7 +310,7 @@ export function storeMachine(storage, state) {
         // through every repair/hit save call. Preserve the current v6 progression
         // unless a newer caller explicitly supplies one.
         const progression = state.progression ?? loadProgression(storage);
-        storage.setItem(MACHINE_SAVE_V7_KEY, encodeMachine({ ...state, progression }));
+        storage.setItem(MACHINE_SAVE_V8_KEY, encodeMachine({ ...state, progression }));
         return true;
     }
     catch {
@@ -321,7 +325,7 @@ export function storeMachine(storage, state) {
 export function clearMachineSave(storage) {
     if (!storage) return false;
     try {
-        for (const key of [MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY])
+        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY])
             storage.removeItem(key);
         return true;
     } catch {

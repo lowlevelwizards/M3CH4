@@ -1,9 +1,9 @@
-/** First touch-friendly real mounting choice, without forking the j.2 garage.
- * The native installed-part button runs the existing refresh/save flow after a
- * validated graph edit. No parallel persistence or physics state is introduced. */
-import { activePlayerArena } from './scene.js';
-import { generatorMount, installedPart, setGeneratorMount, partsFor, equip, inspectAssembly } from './components.js';
-import './acquisitionUI.js?v=k3l0';
+/** Touch-friendly physical generator mounting on top of the serial-authoritative garage.
+ * Inventory cards now represent owned instances directly, so this adapter only owns
+ * the special generator station choice and its validation feedback. */
+import { activePlayerArena } from './sceneAssembly.js';
+import { generatorMount, installedPart, setGeneratorMount, inspectAssembly } from './components.js';
+import './acquisitionUI.js?v=k3l1';
 import './contractUI.js?v=k3h0';
 
 const info = document.querySelector('#part-info');
@@ -25,7 +25,6 @@ function announce(message, error = false) {
         status.textContent = inspection?.ready ? 'READY' : 'BLOCKED';
         status.classList.toggle('blocked', !inspection?.ready);
     }, 2700);
-    // The normal garage may repaint this status; keep a local inline explanation too.
     const readout = info.querySelector('.mount-feedback');
     if (readout) {
         readout.textContent = message;
@@ -33,32 +32,7 @@ function announce(message, error = false) {
     }
 }
 
-function currentSlot() {
-    return info.querySelector('.part-model')?.textContent?.toLowerCase() ?? null;
-}
-
-/** The original garage was a catalogue browser because the prototype owned one
- * instance of every definition. Keep its renderer, but make visible choices match
- * the physical inventory now stored in assembly.owned. */
-function markOwnedOptions() {
-    const session = activePlayerArena();
-    const slot = currentSlot();
-    const options = info.querySelector('.swap-options');
-    if (!session || !slot || !options) return;
-    const candidates = partsFor(slot);
-    const ownedIds = new Set(session.assembly.owned.map(part => part.definitionId));
-    Array.from(options.children).forEach((button, index) => {
-        const definition = candidates[index];
-        const owned = !!definition && ownedIds.has(definition.id);
-        button.hidden = !owned;
-        button.classList.toggle('unowned-option', !owned);
-        if (!owned) button.setAttribute('aria-hidden', 'true');
-        else button.removeAttribute('aria-hidden');
-    });
-}
-
 function mountPanel() {
-    markOwnedOptions();
     if (info.querySelector('.mount-panel')) return;
     const session = activePlayerArena();
     if (!session) return;
@@ -72,20 +46,17 @@ function mountPanel() {
         info.prepend(warning);
     }
     if (currentSection !== 'POWER' || !installedPart(assembly, 'power')) return;
+
     const controls = document.createElement('section');
     controls.className = 'mount-panel';
     controls.setAttribute('aria-label', 'Generator mounting station');
-    const title = document.createElement('strong');
-    title.textContent = 'PHYSICAL GENERATOR MOUNT';
+    const title = document.createElement('strong'); title.textContent = 'PHYSICAL GENERATOR MOUNT';
     const hint = document.createElement('small');
-    hint.textContent = 'Move the SAME owned generator. The left outrigger adds 85 kg and shifts its hit volume.';
-    const buttons = document.createElement('div');
-    buttons.className = 'mount-choices';
+    hint.textContent = 'Move this exact owned generator. The left outrigger adds 85 kg and shifts its physical hit volume.';
+    const buttons = document.createElement('div'); buttons.className = 'mount-choices';
     const current = generatorMount(assembly);
-    for (const [position, label] of [
-        ['standard', 'REAR / DIRECT'],
-        ['offset', 'LEFT OUTRIGGER / +85 KG'],
-    ]) {
+
+    for (const [position, label] of [['standard', 'REAR / DIRECT'], ['offset', 'LEFT OUTRIGGER / +85 KG']]) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = `mount-choice ${current === position ? 'mount-selected' : ''}`;
@@ -93,77 +64,28 @@ function mountPanel() {
         button.disabled = current === position;
         button.setAttribute('aria-pressed', String(current === position));
         button.addEventListener('click', () => {
+            const before = generatorMount(assembly);
             const result = setGeneratorMount(assembly, position);
             if (!result.ok) { announce(result.reason, true); return; }
-            // Reuse the existing j.2 garage's complete physics/damage/scene/save
-            // refresh by clicking its already-installed generator choice.
-            const fitted = info.querySelector('.swap-option.installed-option');
-            if (!fitted) {
-                // Revert the speculative edit: never leave an unpersisted hidden move.
-                setGeneratorMount(assembly, current);
-                announce('Cannot refresh the generator station; mounting change cancelled.', true);
+            const after = inspectAssembly(assembly);
+            const problem = after.checks.find(check => !check.passes);
+            if (problem) {
+                setGeneratorMount(assembly, before);
+                announce(`MOUNT BLOCKED · ${problem.reason}`, true);
                 return;
             }
-            fitted.disabled = false;
-            fitted.click();
-            const after = inspectAssembly(assembly);
-            const fittedMessage = position === 'offset' ? 'GENERATOR INSTALLED · LEFT OUTRIGGER' : 'GENERATOR INSTALLED · REAR DIRECT MOUNT';
-            const problem = after.checks.find(check => !check.passes);
-            announce(problem ? `${fittedMessage} · NOT FIELDABLE: ${problem.reason}` : fittedMessage, !!problem);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+            announce(position === 'offset' ? 'GENERATOR INSTALLED · LEFT OUTRIGGER' : 'GENERATOR INSTALLED · REAR DIRECT MOUNT');
         });
         buttons.append(button);
     }
-    const feedback = document.createElement('div');
-    feedback.className = 'mount-feedback';
-    feedback.setAttribute('aria-live', 'polite');
+
+    const feedback = document.createElement('div'); feedback.className = 'mount-feedback'; feedback.setAttribute('aria-live', 'polite');
     controls.append(title, hint, buttons, feedback);
     const options = info.querySelector('.swap-options');
-    if (options) info.insertBefore(controls, options);
-    else info.append(controls);
+    if (options) info.insertBefore(controls, options); else info.append(controls);
 }
 
-// Fail closed BEFORE the original j.2 native install handler runs. Earlier
-// builds threw an uncaught error on incompatible swaps, with no garage message.
-info.addEventListener('click', event => {
-    const button = event.target.closest?.('.swap-option');
-    if (!button) return;
-    const session = activePlayerArena();
-    if (!session) return;
-    const slot = currentSlot();
-    const options = info.querySelector('.swap-options');
-    const index = options ? Array.from(options.children).indexOf(button) : -1;
-    const candidate = partsFor(slot)[index];
-    if (!candidate) return;
-    if (!session.assembly.owned.some(part => part.definitionId === candidate.id)) {
-        event.preventDefault();
-        event.stopPropagation();
-        announce('NOT OWNED · RECOVER OR ACQUIRE THIS COMPONENT FIRST', true);
-        return;
-    }
-    try {
-        const trial = structuredClone(session.assembly);
-        equip(trial, slot, candidate.id);
-    } catch (error) {
-        event.preventDefault();
-        event.stopPropagation();
-        const message = generatorMount(session.assembly) === 'offset' &&
-            (slot === 'power' || slot === 'structure')
-            ? 'MOVE THE GENERATOR TO REAR / DIRECT BEFORE REPLACING THIS COMPONENT.'
-            : error.message || 'This component cannot be installed here.';
-        session.assembly.mountNotice = message;
-        let warning = info.querySelector('.mount-garage-note');
-        if (!warning) {
-            warning = document.createElement('p');
-            warning.className = 'mount-garage-note';
-            info.prepend(warning);
-        }
-        warning.textContent = `MOUNT BLOCKED · ${message}`;
-        announce(message, true);
-    }
-}, true);
-
-// The old UI ignores a failed remove() return, but still repaints the garage.
-// mountPanel() also hides catalogue definitions that are not physically owned.
 const observer = new MutationObserver(() => mountPanel());
 observer.observe(info, { childList: true, subtree: true });
 mountPanel();

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
-import { equip, inspectAssembly, installedPart, partsFor, remove, SLOTS, } from './components.js';
+import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -22,6 +22,8 @@ import { createBoutLedger, recordBoutHit, recordMissionKill, scoreBout } from '.
 import { buildWreckManifests, createSalvageDraft, SCRAPYARD_CHARTER, wreckPreservation } from './salvageDraft.js';
 import { clearBoutResult, publishBoutResult } from './boutSession.js';
 import { resetDamageFate } from './damageFate.js';
+import { partCreditValue } from './partEconomy.js';
+import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -278,7 +280,10 @@ let playerHitTimer = null;
 let lastCoverAudit = '—';
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = false;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.22;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.className = 'game-canvas';
 renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
 renderer.domElement.style.touchAction = 'none';
@@ -308,6 +313,8 @@ let sortiePhase = 'garage';
 let sortieOutroRemaining = 0;
 let pendingDebrief = null;
 const selectionButtons = new Map();
+let inventoryPreviewSerial = null;
+installPartGridStyles();
 function actorById(id) {
     if (id === 'player')
         return { id: 'player', team: FRIENDLY_TEAM, label: 'YOU', rig, condition: playerCondition, assembly, active: playerCombatActive };
@@ -528,6 +535,7 @@ function renderFieldStatus() {
     fieldStatus.title = inspection.ready ? 'All five required functions are present.' : 'One or more required functions are missing or overloaded.';
 }
 function selectPart(slot, focus = true) {
+    if (slot !== selectedPart) inventoryPreviewSerial = null;
     selectedPart = slot;
     arena.selectPart(slot);
     inspectionPanel.classList.toggle('expanded', slot !== null);
@@ -654,27 +662,63 @@ function renderPartInfo() {
         missing.textContent = 'NO MODULE INSTALLED. Choose an owned part below.';
         partInfo.append(missing);
     }
+    const ownedInstances = assembly.owned.filter(instance => BY_ID.get(instance.definitionId)?.slot === selectedPart);
+    if (!inventoryPreviewSerial || !ownedInstances.some(instance => instance.serial === inventoryPreviewSerial))
+        inventoryPreviewSerial = fitted?.instance.serial ?? ownedInstances[0]?.serial ?? null;
     const options = document.createElement('div');
-    options.className = 'swap-options';
-    for (const def of partsFor(selectedPart)) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        const fittedHere = fitted?.definition.id === def.id;
-        button.className = `swap-option ${fittedHere ? 'installed-option' : ''}`;
-        const title = document.createElement('span');
-        title.textContent = `${fittedHere ? '✓ ' : 'FIT '}${def.name} · ${def.massKg} kg`;
-        const specs = document.createElement('small');
-        specs.textContent = specLine(def);
-        button.append(title, specs);
-        button.disabled = fittedHere;
-        button.addEventListener('click', () => {
-            equip(assembly, def.slot, def.id);
-            refreshAssembly(true);
-            selectPart(def.slot);
+    options.className = 'swap-options part-grid';
+    for (const instance of ownedInstances) {
+        const def = BY_ID.get(instance.definitionId);
+        const fittedHere = fitted?.instance.serial === instance.serial;
+        const entry = {
+            id: `garage:${instance.serial}`, serial: instance.serial, sourceSerial: instance.serial,
+            slot: def.slot, definitionId: def.id, name: def.name,
+            condition: instance.condition, destroyed: !!instance.destroyed,
+            status: instance.destroyed ? 'destroyed' : instance.condition <= .001 ? 'disabled' : instance.condition < .38 ? 'critical' : instance.condition < .78 ? 'damaged' : 'operational',
+        };
+        const value = partCreditValue(def, instance.condition, { destroyed: instance.destroyed, wear: instance.wear });
+        const thumbnailUrl = arena.partThumbnailDataUrl?.(def.id, entry) ?? null;
+        const button = createPartCard({
+            entry, thumbnailUrl, value, selected: inventoryPreviewSerial === instance.serial,
+            source: fittedHere ? 'INSTALLED' : instance.serial,
+            onSelect: () => { inventoryPreviewSerial = instance.serial; renderPartInfo(); },
         });
+        button.classList.add('swap-option');
+        if (fittedHere) button.classList.add('installed-option');
+        button.dataset.serial = instance.serial;
         options.appendChild(button);
     }
     partInfo.append(options);
+    const preview = ownedInstances.find(instance => instance.serial === inventoryPreviewSerial);
+    if (preview) {
+        const def = BY_ID.get(preview.definitionId);
+        const fittedHere = fitted?.instance.serial === preview.serial;
+        const entry = {
+            id: `garage:${preview.serial}`, serial: preview.serial, sourceSerial: preview.serial,
+            slot: def.slot, definitionId: def.id, name: def.name,
+            condition: preview.condition, destroyed: !!preview.destroyed,
+            status: preview.destroyed ? 'destroyed' : preview.condition <= .001 ? 'disabled' : preview.condition < .38 ? 'critical' : preview.condition < .78 ? 'damaged' : 'operational',
+        };
+        const value = partCreditValue(def, preview.condition, { destroyed: preview.destroyed, wear: preview.wear });
+        const thumbnailUrl = arena.partThumbnailDataUrl?.(def.id, entry) ?? null;
+        const detail = createPartDetail({
+            entry, thumbnailUrl, value,
+            meta: `${def.massKg} kg · WEAR ${Math.round((preview.wear ?? 0) * 100)}% · REPAIRS ${preview.repairs ?? 0}
+${specLine(def)}`,
+            actionLabel: fittedHere ? 'INSTALLED' : `INSTALL · ${preview.serial}`,
+            actionDisabled: fittedHere,
+            onAction: () => {
+                try {
+                    equipSerial(assembly, def.slot, preview.serial);
+                    refreshAssembly(true);
+                    selectPart(def.slot);
+                } catch (error) {
+                    showStatus(error?.message || 'THIS PHYSICAL COMPONENT CANNOT BE INSTALLED HERE');
+                }
+            },
+        });
+        partInfo.append(detail);
+    }
     if (fitted) {
         const takeOff = document.createElement('button');
         takeOff.type = 'button';
@@ -790,6 +834,15 @@ function refreshAssembly(save = false) {
 }
 refreshAssembly();
 selectPart(null, false);
+document.addEventListener('m3ch4:inventory-changed', () => {
+    refreshAssembly(true);
+    renderPartInfo();
+    showStatus('SALVAGE SECURED · OWNED INVENTORY UPDATED');
+});
+document.addEventListener('m3ch4:assembly-mutated', () => {
+    refreshAssembly(true);
+    if (selectedPart) selectPart(selectedPart, false);
+});
 function toggleInspection(force) {
     const requested = force ?? !inspecting;
     testEndReason = deploymentBlockReason();

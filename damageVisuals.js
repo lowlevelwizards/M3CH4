@@ -44,31 +44,35 @@ export function impactProfile(outcome) {
     return { kind: 'armor', sparkCount: 6, chipCount: 2, smokeCount: 0, markScale: .92, flashScale: .9 };
 }
 
-/** Persistent distress is intentionally restrained. Destroyed metal does not automatically explode. */
+/** Persistent distress turns battle damage into a readable machine state. It remains
+ * subsystem-specific: electricity belongs mostly to power, smoke grows after real
+ * internal damage, and structure stays mechanically dirty rather than magical. */
 export function persistentFailureProfile(slot, ratio) {
     const severity = 1 - clamp01(ratio);
-    let sparkStart = .68, smokeStart = .90, sparkMax = 3.2, smokeMax = .45;
+    let sparkStart = .58, smokeStart = .76, sparkMax = 5.0, smokeMax = 1.0, arcMax = 0;
     if (slot === 'power') {
-        sparkStart = .38; smokeStart = .56; sparkMax = 9.0; smokeMax = 1.75;
+        sparkStart = .26; smokeStart = .40; sparkMax = 14.0; smokeMax = 3.4; arcMax = 1.25;
     }
     else if (slot === 'combat') {
-        sparkStart = .50; smokeStart = .72; sparkMax = 6.2; smokeMax = 1.0;
+        sparkStart = .38; smokeStart = .55; sparkMax = 9.0; smokeMax = 2.0;
     }
     else if (slot === 'mobility') {
-        sparkStart = .59; smokeStart = .80; sparkMax = 5.2; smokeMax = .8;
+        sparkStart = .44; smokeStart = .62; sparkMax = 8.0; smokeMax = 1.65;
     }
     else if (slot === 'command') {
-        sparkStart = .72; smokeStart = .92; sparkMax = 2.5; smokeMax = .35;
+        sparkStart = .52; smokeStart = .72; sparkMax = 6.0; smokeMax = 1.0; arcMax = .18;
     }
     else if (slot === 'structure') {
-        sparkStart = .88; smokeStart = .96; sparkMax = 1.2; smokeMax = .25;
+        sparkStart = .67; smokeStart = .78; sparkMax = 4.2; smokeMax = .9;
     }
-    const sparkT = sparkStart >= 1 ? 0 : clamp01((severity - sparkStart) / (1 - sparkStart));
-    const smokeT = smokeStart >= 1 ? 0 : clamp01((severity - smokeStart) / (1 - smokeStart));
+    const sparkT = clamp01((severity - sparkStart) / Math.max(.001, 1 - sparkStart));
+    const smokeT = clamp01((severity - smokeStart) / Math.max(.001, 1 - smokeStart));
+    const arcT = slot === 'power' ? clamp01((severity - .42) / .58) : slot === 'command' ? clamp01((severity - .82) / .18) : 0;
     return {
         severity,
         sparkRate: sparkT * sparkMax,
         smokeRate: smokeT * smokeMax,
+        arcRate: arcT * arcMax,
         disabled: ratio <= 0,
     };
 }

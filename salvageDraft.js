@@ -8,6 +8,7 @@
 import { installedPart, SLOTS } from './components.js';
 import { salvageCondition, salvageRecoveryFee } from './acquisition.js';
 import { partFate } from './damageFate.js';
+import { partCreditValue } from './partEconomy.js';
 
 export const SCRAPYARD_CHARTER = Object.freeze({
     id: 'scrapyard-sanctioned-v1',
@@ -45,7 +46,8 @@ export function wreckManifest(actor) {
             status,
             destroyed: status === 'destroyed',
             disabled: status === 'disabled',
-            recoveryFee: salvageRecoveryFee(fitted.definition, condition),
+            recoveryFee: 0,
+            value: partCreditValue(fitted.definition, condition, { destroyed: status === 'destroyed', wear: fitted.instance.wear ?? 0 }),
             integrity: state.integrity,
             maxIntegrity: state.maxIntegrity,
             armor: state.armor,
@@ -160,8 +162,8 @@ export function advanceAiDraft(draft, playerId = 'player') {
     return advanced;
 }
 
-export function playerClaimChoices(draft, ownedDefinitions = new Set()) {
-    return availableClaims(draft).filter(entry => !ownedDefinitions.has(entry.definitionId));
+export function playerClaimChoices(draft) {
+    return availableClaims(draft);
 }
 
 export function claimToRecoveryOffer(entry) {
