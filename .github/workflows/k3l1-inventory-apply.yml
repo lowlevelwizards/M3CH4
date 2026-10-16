@@ -26,6 +26,11 @@ jobs:
           else
             echo "damage and lighting integration already applied"
           fi
+          if ! grep -q 'main.js?v=k3l1' index.html; then
+            python .github/k3l1_polish_patch.py
+          else
+            echo "effects/cache polish already applied"
+          fi
       - name: Syntax check touched modules
         run: |
           node --check acquisition.js
@@ -52,5 +57,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add acquisition.js acquisitionUI.js components.js persistence.js progression.js salvageDraft.js main.js scene.js sceneAssembly.js damageVisuals.js garageMountUI.js index.html
-          git commit -m "Integrate physical salvage damage and lighting pass"
+          git commit -m "Finalize physical salvage damage and lighting pass"
           git push origin HEAD:feature/k3l1-physical-inventory-damage-lighting
