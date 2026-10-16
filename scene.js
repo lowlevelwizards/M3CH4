@@ -116,7 +116,7 @@ export function createArenaScene(initial, targetAssembly) {
     squadCombatants.set('enemy-0', {
         id: 'enemy-0', team: 'hostile', assembly: targetAssembly, exterior: targetExterior,
         colors: targetColors, marker: primaryMarker, active: true, condition: null,
-        emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), wrecked: false, cleared: false,
+        emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), destroyedSlots: new Set(), wrecked: false, cleared: false,
         baseParts: capturePartTransforms(targetExterior),
     });
     function colorsFor(exterior) {
@@ -140,7 +140,7 @@ export function createArenaScene(initial, targetAssembly) {
         const record = {
             id, team, assembly, exterior: actorExterior, colors: colorsFor(actorExterior),
             marker: makeSquadMarker(team), active: true, condition: null,
-            emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), wrecked: false, cleared: false,
+            emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), destroyedSlots: new Set(), wrecked: false, cleared: false,
             baseParts: capturePartTransforms(actorExterior),
         };
         squadCombatants.set(id, record);
@@ -519,6 +519,64 @@ export function createArenaScene(initial, targetAssembly) {
         group.rotation.x += slot === 'combat' ? .09 : .035;
         group.position.y -= slot === 'mobility' ? .035 : .065;
     }
+    function spawnWorldPowerArc(origin, strength = 1) {
+        const end = origin.clone().add(new THREE.Vector3((Math.random()-.5)*1.5, .35+Math.random()*1.25, (Math.random()-.5)*1.5));
+        const points = [origin.clone()];
+        for (let i = 1; i < 7; i++) {
+            const p = origin.clone().lerp(end, i / 7);
+            p.x += (Math.random()-.5) * .22 * strength;
+            p.y += (Math.random()-.5) * .18 * strength;
+            p.z += (Math.random()-.5) * .22 * strength;
+            points.push(p);
+        }
+        points.push(end);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: Math.random() > .3 ? 0xc8fff2 : 0xffe58d, transparent: true, opacity: 1 });
+        const line = new THREE.Line(geometry, material); scene.add(line);
+        transientFX.push({ object: line, remaining: .12 + Math.random()*.12, duration: .24, material });
+    }
+    function spawnCatastrophicBurst(position, normal, outcome) {
+        const power = outcome?.slot === 'power';
+        const flashMat = new THREE.MeshBasicMaterial({ color: power ? 0xf4ffd9 : 0xffbd70, transparent: true, opacity: 1, depthWrite: false });
+        const flash = new THREE.Mesh(new THREE.IcosahedronGeometry(power ? .58 : .46, 0), flashMat);
+        flash.position.copy(position); scene.add(flash);
+        transientFX.push({ object: flash, remaining: .22, duration: .22, material: flashMat });
+        for (let i = 0; i < (power ? 28 : 22); i++) {
+            const direction = randomBurstDirection(normal, 2.0);
+            activateParticle(sparkPool, 'spark', position, direction.multiplyScalar(2.2 + Math.random()*5.0), 1.2 + Math.random()*1.5, .28 + Math.random()*.48, -4.5, 0, i % 4 ? 0xffcf70 : 0xfff6c9);
+        }
+        for (let i = 0; i < (outcome?.slot === 'mobility' ? 18 : 14); i++) {
+            const direction = randomBurstDirection(normal, 2.1);
+            activateParticle(chipPool, 'chip', position, direction.multiplyScalar(1.4 + Math.random()*3.8), 1.8 + Math.random()*2.3, .75 + Math.random()*.95, -8.2, 0, i % 3 ? 0x30332f : 0x9b7542);
+        }
+        for (let i = 0; i < (power ? 9 : 6); i++) {
+            const drift = new THREE.Vector3((Math.random()-.5)*.42, .35+Math.random()*.52, (Math.random()-.5)*.42);
+            activateParticle(smokePool, 'smoke', position, drift, 1.15+Math.random()*.75, 1.5+Math.random()*1.2, 0, 1.45, 0x171a17, true);
+        }
+        if (power) for (let i = 0; i < 3; i++) spawnWorldPowerArc(position, .9 + Math.random()*.6);
+    }
+    function markPartDestroyedVisual(actorId, slot) {
+        const record = squadCombatants.get(actorId);
+        if (!record || record.destroyedSlots.has(slot)) return;
+        record.destroyedSlots.add(slot);
+        const group = record.exterior.partGroups.get(slot);
+        if (!group) return;
+        const side = actorId.length % 2 ? 1 : -1;
+        if (slot === 'combat') {
+            group.position.y -= .92; group.position.x += side * .18;
+            group.rotation.z += side * .82; group.rotation.x += .48;
+        } else if (slot === 'power') {
+            group.position.y -= .72; group.position.x += side * .14;
+            group.rotation.z += side * .62; group.rotation.x += .32;
+        } else if (slot === 'mobility') {
+            group.position.y -= .38; group.rotation.z += side * .34; group.rotation.x += .16;
+        } else if (slot === 'command') {
+            group.position.y -= .16; group.rotation.z += side * .24; group.rotation.x += .12;
+        } else if (slot === 'structure') {
+            record.exterior.root.rotation.z += side * .11;
+            record.exterior.root.position.y -= .08;
+        }
+    }
     function wreckCombatantVisual(record) {
         record.wrecked = true;
         record.cleared = false;
@@ -537,6 +595,7 @@ export function createArenaScene(initial, targetAssembly) {
         record.wrecked = false;
         record.cleared = false;
         record.disabledSlots.clear();
+        record.destroyedSlots.clear();
         record.exterior.root.position.y = 0;
         record.exterior.root.rotation.x = 0;
         record.exterior.root.rotation.z = 0;
@@ -886,7 +945,10 @@ export function createArenaScene(initial, targetAssembly) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
-        if (outcome?.justDisabled || outcome?.wreckHit) {
+        if (outcome?.justDestroyed) {
+            spawnCatastrophicBurst(impactPoint, contact.normal, outcome);
+            markPartDestroyedVisual(contact.actorId, outcome.slot);
+        } else if (outcome?.justDisabled || outcome?.wreckHit) {
             spawnDisableBurst(impactPoint, contact.normal, outcome);
             if (outcome.justDisabled) markPartDisabledVisual(contact.actorId, outcome.slot);
         }
@@ -934,10 +996,16 @@ export function createArenaScene(initial, targetAssembly) {
                 const material = mesh.material;
                 const color = record.colors.get(mesh);
                 if (!(material instanceof THREE.MeshStandardMaterial) || !color) continue;
-                material.color.copy(color).multiplyScalar(Math.max(.24, 1 - damage * .68 - stripped * .18));
-                const severe = state.integrity / Math.max(1, state.maxIntegrity) < .32;
-                material.emissive.setHex(state.integrity === 0 ? 0x4b1609 : severe ? 0x241008 : 0);
-                material.emissiveIntensity = state.integrity === 0 ? .58 : severe ? .16 : 0;
+                if (state.destroyed) {
+                    material.color.copy(color).multiplyScalar(.075);
+                    material.emissive.setHex(0); material.emissiveIntensity = 0;
+                    markPartDestroyedVisual(id, slot);
+                } else {
+                    material.color.copy(color).multiplyScalar(Math.max(.24, 1 - damage * .68 - stripped * .18));
+                    const severe = state.integrity / Math.max(1, state.maxIntegrity) < .32;
+                    material.emissive.setHex(state.integrity === 0 ? 0x4b1609 : severe ? 0x241008 : 0);
+                    material.emissiveIntensity = state.integrity === 0 ? .58 : severe ? .16 : 0;
+                }
             }
         }
     }
@@ -959,7 +1027,10 @@ export function createArenaScene(initial, targetAssembly) {
         if (outcome) {
             const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
             spawnImpactParticles(impactPoint, contact.normal, outcome);
-            if (outcome.justDisabled || outcome.wreckHit) {
+            if (outcome.justDestroyed) {
+                spawnCatastrophicBurst(impactPoint, contact.normal, outcome);
+                markPartDestroyedVisual(contact.actorId, outcome.slot);
+            } else if (outcome.justDisabled || outcome.wreckHit) {
                 spawnDisableBurst(impactPoint, contact.normal, outcome);
                 if (outcome.justDisabled) markPartDisabledVisual(contact.actorId, outcome.slot);
             }
@@ -977,9 +1048,14 @@ export function createArenaScene(initial, targetAssembly) {
                 const color = pilotColors.get(mesh);
                 if (!(material instanceof THREE.MeshStandardMaterial) || !color)
                     continue;
-                material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
-                material.emissive.setHex(state.integrity === 0 ? 0x30150b : 0);
-                material.emissiveIntensity = state.integrity === 0 ? .35 : 0;
+                if (state.destroyed) {
+                    material.color.copy(color).multiplyScalar(.075);
+                    material.emissive.setHex(0); material.emissiveIntensity = 0;
+                } else {
+                    material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
+                    material.emissive.setHex(state.integrity === 0 ? 0x30150b : 0);
+                    material.emissiveIntensity = state.integrity === 0 ? .35 : 0;
+                }
             }
         }
     }
@@ -1067,8 +1143,10 @@ export function createArenaScene(initial, targetAssembly) {
                 const profile = persistentFailureProfile(slot, integrityRatio(part));
                 const budget = record.emitterBudget.get(slot);
                 const wreckSmoke = record.wrecked ? .42 : 0;
-                budget.spark += profile.sparkRate * dt * (record.wrecked ? .55 : 1);
-                budget.smoke += (profile.smokeRate + wreckSmoke) * dt;
+                const destroyedSpark = part.destroyed ? (slot === 'power' ? 2.8 : 1.2) : 0;
+                const destroyedSmoke = part.destroyed ? (slot === 'power' ? 1.15 : .62) : 0;
+                budget.spark += (profile.sparkRate + destroyedSpark) * dt * (record.wrecked ? .72 : 1);
+                budget.smoke += (profile.smokeRate + wreckSmoke + destroyedSmoke) * dt;
                 while (budget.spark >= 1) {
                     budget.spark -= 1;
                     const origin = partWorldPoint(record, slot);

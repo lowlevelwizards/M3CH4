@@ -12,8 +12,17 @@ export function integrityRatio(part) {
 export function impactProfile(outcome) {
     if (!outcome)
         return { kind: 'surface', sparkCount: 3, chipCount: 1, smokeCount: 0, markScale: .7, flashScale: .7 };
+    if (outcome.justDestroyed)
+        return {
+            kind: outcome.slot === 'power' ? 'power-destroy' : 'destroy',
+            sparkCount: outcome.slot === 'power' ? 38 : 30,
+            chipCount: outcome.slot === 'mobility' ? 22 : 18,
+            smokeCount: outcome.slot === 'power' ? 11 : 8,
+            markScale: 2.0,
+            flashScale: outcome.slot === 'power' ? 2.35 : 1.95,
+        };
     if (outcome.wreckHit)
-        return { kind: outcome.cleared ? 'wreck-break' : 'wreck-hit', sparkCount: outcome.cleared ? 18 : 10, chipCount: outcome.cleared ? 12 : 7, smokeCount: outcome.cleared ? 5 : 2, markScale: 1.45, flashScale: outcome.cleared ? 1.65 : 1.12 };
+        return { kind: outcome.cleared ? 'wreck-break' : 'wreck-hit', sparkCount: outcome.cleared ? 20 : 12, chipCount: outcome.cleared ? 14 : 8, smokeCount: outcome.cleared ? 6 : 3, markScale: 1.45, flashScale: outcome.cleared ? 1.65 : 1.12 };
     if (outcome.justDisabled)
         return {
             kind: outcome.slot === 'power' ? 'power-disable' : 'disable',
@@ -40,13 +49,13 @@ export function persistentFailureProfile(slot, ratio) {
     const severity = 1 - clamp01(ratio);
     let sparkStart = .68, smokeStart = .90, sparkMax = 3.2, smokeMax = .45;
     if (slot === 'power') {
-        sparkStart = .42; smokeStart = .62; sparkMax = 7.5; smokeMax = 1.35;
+        sparkStart = .38; smokeStart = .56; sparkMax = 9.0; smokeMax = 1.75;
     }
     else if (slot === 'combat') {
-        sparkStart = .55; smokeStart = .78; sparkMax = 5.0; smokeMax = .75;
+        sparkStart = .50; smokeStart = .72; sparkMax = 6.2; smokeMax = 1.0;
     }
     else if (slot === 'mobility') {
-        sparkStart = .64; smokeStart = .86; sparkMax = 4.2; smokeMax = .55;
+        sparkStart = .59; smokeStart = .80; sparkMax = 5.2; smokeMax = .8;
     }
     else if (slot === 'command') {
         sparkStart = .72; smokeStart = .92; sparkMax = 2.5; smokeMax = .35;

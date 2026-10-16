@@ -181,7 +181,9 @@ function renderDraft(result) {
         }
         panel.append(card);
     }
-    sheet.querySelector('.bout-score')?.after(panel) ?? lines.after(panel);
+    const scoreBox = sheet.querySelector('.bout-score');
+    if (scoreBox) scoreBox.after(panel);
+    else lines.after(panel);
 }
 
 function claimPlayerPart(result, entry) {
