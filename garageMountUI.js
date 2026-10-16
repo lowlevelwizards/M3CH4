@@ -3,7 +3,7 @@
  * the special generator station choice and its validation feedback. */
 import { activePlayerArena } from './sceneAssembly.js';
 import { generatorMount, installedPart, setGeneratorMount, inspectAssembly } from './components.js';
-import './acquisitionUI.js?v=k3l1';
+import './acquisitionUI.js?v=k3l2';
 import './contractUI.js?v=k3h0';
 
 const info = document.querySelector('#part-info');

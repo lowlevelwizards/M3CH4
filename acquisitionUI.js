@@ -5,7 +5,10 @@
  * render the same authored part geometry used in combat, and claims mutate the live
  * owned assembly before persistence so page lifecycle saves cannot erase salvage.
  */
-import { activePlayerArena } from './sceneAssembly.js';
+// Import through the canonical scene specifier. index.html maps this to the same
+// versioned sceneAssembly module instance used by main.js; importing sceneAssembly.js
+// directly would create a second module singleton and lose activePlayerArena().
+import { activePlayerArena } from './scene.js';
 import { loadMachine, storeMachine } from './persistence.js';
 import { recoverSalvage } from './acquisition.js';
 import { latestBoutResult, subscribeBoutResult } from './boutSession.js';
@@ -22,8 +25,13 @@ const sheet = document.querySelector('#sortie-debrief');
 const lines = document.querySelector('#debrief-lines');
 const garage = document.querySelector('#debrief-garage');
 const fieldStatus = document.querySelector('#field-status');
-if (!sheet || !lines || !garage)
-    throw new Error('Bout salvage UI needs the existing debrief surface.');
+const pages = document.querySelector('#debrief-pages');
+const scorePage = document.querySelector('#debrief-score-page');
+const salvagePage = document.querySelector('#debrief-salvage-page');
+const pageNav = document.querySelector('#debrief-page-nav');
+if (!sheet || !lines || !garage || !pages || !scorePage || !salvagePage || !pageNav)
+    throw new Error('Bout salvage UI needs the paged debrief surface.');
+const pageButtons = [...pageNav.querySelectorAll('[data-debrief-target]')];
 
 let storage = null;
 try { storage = window.localStorage; }
@@ -34,6 +42,9 @@ const percent = value => `${Math.round(Math.max(0, Math.min(1, Number(value) || 
 let sortMode = 'wreck';
 let claimableOnly = false;
 let selectedEntryId = null;
+let currentPageIndex = 0;
+let lastRenderedResult = null;
+let pageScrollFrame = null;
 
 function injectStyles() {
     installPartGridStyles();
@@ -41,8 +52,8 @@ function injectStyles() {
     const style = document.createElement('style');
     style.id = 'bout-stakes-styles';
     style.textContent = `
-.bout-score,.salvage-draft{margin-top:10px;padding:9px;border:1px solid #6f806f;background:#171d1a;color:#d8d0b9;font:8px/1.35 ui-monospace,monospace}.bout-score h2,.salvage-draft h2{margin:0 0 5px;color:#edc77a;font:900 10px/1.2 ui-monospace,monospace;letter-spacing:.09em}.bout-meta{color:#91aa97;margin-bottom:7px}.bout-standing{display:grid;grid-template-columns:18px minmax(80px,1fr) 52px minmax(115px,1.25fr);gap:5px;align-items:center;padding:4px 0;border-top:1px solid #59665a42}.bout-standing:first-of-type{border-top:0}.bout-standing b{color:#e0c078}.bout-standing.low{opacity:.58}.bout-standing.mvp strong:after{content:' · MVP';color:#f2c96f}.bout-standing small{color:#99a49a}.draft-order{margin:6px 0;padding:5px 6px;border:1px solid #8a754c66;color:#ccb77f;background:#26251d}.draft-pick{padding:4px 0;color:#97b59d}.salvage-note{margin:6px 0;color:#9eb0a0}.salvage-done{color:#9fd3a6}.salvage-charter{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;padding:5px 0 7px;color:#8ea093;border-bottom:1px solid #59665a42}.salvage-grid-flat{margin-top:7px}.salvage-empty{padding:12px 6px;color:#87978a;text-align:center;border:1px dashed #59665a}.salvage-confirm-note{margin-top:5px;color:#89998e;font-size:7px}
-@media(max-width:730px){.bout-score,.salvage-draft{padding:7px}.bout-standing{grid-template-columns:15px minmax(66px,1fr) 42px minmax(95px,1.15fr);font-size:7px}}
+.bout-score,.salvage-draft{margin-top:10px;padding:9px;border:1px solid #6f806f;background:#171d1a;color:#d8d0b9;font:8px/1.35 ui-monospace,monospace}.bout-score h2,.salvage-draft h2{margin:0 0 5px;color:#edc77a;font:900 10px/1.2 ui-monospace,monospace;letter-spacing:.09em}.bout-meta{color:#91aa97;margin-bottom:7px}.bout-standing{display:grid;grid-template-columns:18px minmax(80px,1fr) 52px minmax(115px,1.25fr);gap:5px;align-items:center;padding:4px 0;border-top:1px solid #59665a42}.bout-standing:first-of-type{border-top:0}.bout-standing b{color:#e0c078}.bout-standing.low{opacity:.58}.bout-standing.mvp strong:after{content:' · MVP';color:#f2c96f}.bout-standing small{color:#99a49a}.draft-order{margin:6px 0;padding:5px 6px;border:1px solid #8a754c66;color:#ccb77f;background:#26251d}.draft-pick{padding:4px 0;color:#97b59d}.salvage-note{margin:6px 0;color:#9eb0a0}.salvage-done{color:#9fd3a6}.salvage-charter{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;padding:5px 0 7px;color:#8ea093;border-bottom:1px solid #59665a42}.salvage-grid-flat{margin-top:7px}.salvage-empty{padding:12px 6px;color:#87978a;text-align:center;border:1px dashed #59665a}.salvage-confirm-note{margin-top:5px;color:#89998e;font-size:7px}.salvage-action-message{margin:7px 0 0;padding:6px 7px;border:1px solid #bb7255;color:#efb188;background:#2c1815;font:800 7px/1.35 ui-monospace,monospace}.debrief-content{width:min(700px,92vw)!important;max-height:min(88dvh,720px)!important;overflow:hidden!important;display:flex;flex-direction:column;padding:14px!important}.debrief-pages{display:flex;flex:1 1 auto;min-height:0;width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scrollbar-width:none}.debrief-pages::-webkit-scrollbar{display:none}.debrief-page{flex:0 0 100%;width:100%;min-width:0;min-height:0;overflow-y:auto;scroll-snap-align:start;scroll-snap-stop:always;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;padding:2px 4px 8px}.debrief-page-nav{display:flex;justify-content:center;gap:5px;flex:0 0 auto;padding:8px 0 6px;border-top:1px solid #8a754c44}.debrief-page-nav button{min-width:72px;min-height:26px;padding:4px 8px;border:1px solid #596b60;background:#151b18;color:#87998d;font:800 7px/1 ui-monospace,monospace;letter-spacing:.08em}.debrief-page-nav button.active{border-color:#d0a95f;background:#302a1c;color:#edc77a}.debrief-page .sheet-muted{margin:10px 0 4px}.debrief-content>.sheet-done{flex:0 0 auto;margin-top:2px}.debrief-page .bout-score,.debrief-page .salvage-draft{margin-top:0}.debrief-page-title{margin:0 0 6px;color:#86998a;font:800 7px/1 ui-monospace,monospace;letter-spacing:.15em}
+@media(max-width:730px){.bout-score,.salvage-draft{padding:7px}.bout-standing{grid-template-columns:15px minmax(66px,1fr) 42px minmax(95px,1.15fr);font-size:7px}.debrief-content{width:min(660px,94vw)!important;padding:9px!important}.debrief-page-nav{padding:6px 0 5px}.debrief-page-nav button{min-width:64px;min-height:24px;padding:3px 6px}}
 `;
     document.head.append(style);
 }
@@ -59,7 +70,7 @@ function entryValue(entry) {
 }
 
 function renderScore(result) {
-    sheet.querySelector('.bout-score')?.remove();
+    scorePage.replaceChildren();
     if (!result || sheet.classList.contains('hidden')) return;
     const box = document.createElement('section');
     box.className = 'bout-score';
@@ -82,7 +93,7 @@ function renderScore(result) {
         order.textContent = `SALVAGE ORDER · ${result.score.draftOrder.map(id => actorLabel(result, id)).join(' → ')}`;
         box.append(order);
     }
-    lines.after(box);
+    scorePage.append(box);
 }
 
 function isClaimable(result, entry) {
@@ -174,7 +185,7 @@ function appendSelection(panel, result) {
 }
 
 function renderDraft(result) {
-    sheet.querySelector('.salvage-draft')?.remove();
+    salvagePage.replaceChildren();
     garage.textContent = 'RETURN TO GARAGE';
     if (!result?.victory || !result.draft || sheet.classList.contains('hidden')) return;
 
@@ -223,31 +234,82 @@ function renderDraft(result) {
     }
     appendSelection(panel, result);
 
-    const scoreBox = sheet.querySelector('.bout-score');
-    if (scoreBox) scoreBox.after(panel); else lines.after(panel);
+    salvagePage.append(panel);
+}
+
+function showClaimProblem(message) {
+    const host = salvagePage.querySelector('.salvage-draft') ?? salvagePage;
+    let notice = host.querySelector('.salvage-action-message');
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.className = 'salvage-action-message';
+        notice.setAttribute('role', 'status');
+        host.append(notice);
+    }
+    notice.textContent = message;
+    if (fieldStatus) {
+        fieldStatus.dataset.message = message;
+        fieldStatus.textContent = message;
+        fieldStatus.classList.add('message', 'blocked');
+    }
+}
+
+function rollbackDraftClaim(draft, entry, entryId) {
+    entry.claimedBy = null;
+    const pickIndex = [...draft.picks].reverse().findIndex(pick => pick.actorId === 'player' && pick.entryId === entryId);
+    if (pickIndex >= 0) draft.picks.splice(draft.picks.length - 1 - pickIndex, 1);
+    draft.cursor = Math.max(0, draft.cursor - 1);
 }
 
 function claimPlayerPart(result, entry) {
-    if (!storage || currentDrafter(result.draft) !== 'player' || entry.destroyed || entry.claimedBy) return;
+    if (currentDrafter(result.draft) !== 'player' || entry.destroyed || entry.claimedBy) {
+        showClaimProblem('CLAIM NO LONGER AVAILABLE · REFRESHED DRAFT STATE');
+        return;
+    }
+    if (!storage) {
+        showClaimProblem('CLAIM BLOCKED · LOCAL SAVE UNAVAILABLE');
+        return;
+    }
     const session = activePlayerArena();
     const liveAssembly = session?.assembly;
-    if (!liveAssembly) return;
+    if (!liveAssembly) {
+        showClaimProblem('CLAIM BLOCKED · LIVE GARAGE ASSEMBLY NOT CONNECTED');
+        return;
+    }
     const offer = claimToRecoveryOffer(entry);
-    if (!offer) return;
+    if (!offer) {
+        showClaimProblem('CLAIM BLOCKED · INVALID SALVAGE RECORD');
+        return;
+    }
     const recovered = recoverSalvage(liveAssembly, offer);
-    if (!recovered.ok) return;
+    if (!recovered.ok) {
+        showClaimProblem(`CLAIM BLOCKED · ${recovered.reason}`);
+        return;
+    }
+    const removeRecovered = () => {
+        const index = liveAssembly.owned.findIndex(part => part.serial === recovered.instance.serial);
+        if (index >= 0) liveAssembly.owned.splice(index, 1);
+    };
+
+    const claimed = claimDraftEntry(result.draft, 'player', entry.id);
+    if (!claimed.ok) {
+        removeRecovered();
+        showClaimProblem(`CLAIM BLOCKED · ${claimed.reason}`);
+        return;
+    }
 
     // Persist the SAME live assembly that pagehide/visibilitychange will later see.
-    // This closes the old race where a reload wrote new salvage, then the stale main
-    // session immediately overwrote it during page lifecycle teardown.
+    // If persistence fails, roll both ownership and the draft back atomically instead
+    // of leaving a button that appears to have succeeded but loses the physical part.
     const state = loadMachine(storage);
     state.assembly = structuredClone(liveAssembly);
     if (!storeMachine(storage, state)) {
-        liveAssembly.owned.splice(liveAssembly.owned.findIndex(part => part.serial === recovered.instance.serial), 1);
+        removeRecovered();
+        rollbackDraftClaim(result.draft, entry, entry.id);
+        showClaimProblem('CLAIM NOT SAVED · LOCAL STORAGE WRITE FAILED · TRY AGAIN');
         return;
     }
-    const claimed = claimDraftEntry(result.draft, 'player', entry.id);
-    if (!claimed.ok) return;
+
     advanceAiDraft(result.draft, 'player');
     selectedEntryId = entry.id;
     document.dispatchEvent(new CustomEvent('m3ch4:inventory-changed', {
@@ -256,10 +318,52 @@ function claimPlayerPart(result, entry) {
     if (fieldStatus) {
         fieldStatus.dataset.message = `RECOVERED · ${recovered.definition.name} · ${recovered.instance.serial} · ${percent(recovered.instance.condition)}`;
         fieldStatus.textContent = fieldStatus.dataset.message;
+        fieldStatus.classList.remove('blocked');
         fieldStatus.classList.add('message');
     }
     render();
 }
+
+function syncPageNav() {
+    const width = Math.max(1, pages.clientWidth);
+    const maxIndex = pageButtons.reduce((max, button) => button.hidden ? max : Math.max(max, Number(button.dataset.debriefTarget) || 0), 0);
+    currentPageIndex = Math.max(0, Math.min(maxIndex, Math.round(pages.scrollLeft / width)));
+    for (const button of pageButtons) {
+        const active = Number(button.dataset.debriefTarget) === currentPageIndex;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-current', active ? 'page' : 'false');
+    }
+}
+
+function goToPage(index, behavior = 'smooth') {
+    const button = pageButtons.find(item => Number(item.dataset.debriefTarget) === index && !item.hidden);
+    if (!button) return;
+    currentPageIndex = index;
+    pages.scrollTo({ left: pages.clientWidth * index, top: 0, behavior });
+    syncPageNav();
+}
+
+function syncPager(result) {
+    const hasSalvage = !!result?.victory;
+    salvagePage.hidden = !hasSalvage;
+    const salvageButton = pageButtons.find(button => Number(button.dataset.debriefTarget) === 2);
+    if (salvageButton) salvageButton.hidden = !hasSalvage;
+    if (!hasSalvage && currentPageIndex === 2) currentPageIndex = 1;
+    syncPageNav();
+}
+
+pageNav.addEventListener('click', event => {
+    const button = event.target.closest('[data-debrief-target]');
+    if (!button || button.hidden) return;
+    goToPage(Number(button.dataset.debriefTarget));
+});
+pages.addEventListener('scroll', () => {
+    if (pageScrollFrame !== null) return;
+    pageScrollFrame = requestAnimationFrame(() => {
+        pageScrollFrame = null;
+        syncPageNav();
+    });
+}, { passive: true });
 
 // Leaving during the player's turn is an explicit forfeit, never an invisible dangling claim.
 garage.addEventListener('click', () => {
@@ -272,8 +376,17 @@ garage.addEventListener('click', () => {
 
 function render() {
     const result = latestBoutResult();
+    const newResult = !!result && result !== lastRenderedResult;
     renderScore(result);
     renderDraft(result);
+    syncPager(result);
+    if (newResult) {
+        lastRenderedResult = result;
+        currentPageIndex = 0;
+        requestAnimationFrame(() => goToPage(0, 'auto'));
+    } else if (!result) {
+        lastRenderedResult = null;
+    }
 }
 
 injectStyles();
