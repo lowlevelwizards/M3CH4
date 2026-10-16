@@ -511,3 +511,23 @@ body:not(.inspecting) .shot-report { top:max(54px,calc(env(safe-area-inset-top) 
   .sortie-outro{top:36%;padding:9px 18px;min-width:min(440px,66vw)}
   .sortie-outro strong{font-size:14px}.sortie-outro span{font-size:7px}
 }
+
+
+/* k.3k.3 — cockpit information belongs to the windshield combiner, not HTML chrome. */
+body:not(.inspecting) #cockpit-ui { display:none; }
+body:not(.inspecting) .team-status,
+body:not(.inspecting) .player-damage-hud,
+body:not(.inspecting) .weapon-hud { display:none; }
+body:not(.dev-open) #center-view,
+body:not(.dev-open) #app-view,
+body:not(.dev-open) #target-toggle,
+body:not(.dev-open) #resolution-toggle { display:none !important; }
+body:not(.inspecting):not(.dev-open) #assembly-toggle { display:none !important; }
+body:not(.inspecting) .left-tools { gap:4px; }
+body:not(.inspecting) .right-tools { opacity:.72; }
+body:not(.inspecting) #dev-toggle { min-width:38px; padding:0 7px; font-size:8px; }
+body.dev-open .toolbar { z-index:20; }
+body:not(.inspecting) .fault-strip { max-width:46vw; }
+body:not(.inspecting) .shot-report { max-width:40vw; }
+/* The movement controls remain touch UI. All persistent telemetry has moved into 3D. */
+body:not(.inspecting) .rig-tag { display:none; }

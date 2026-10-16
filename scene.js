@@ -22,6 +22,30 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(sun);
     const worldSolids = buildWarehouse(scene);
     const cockpit = buildCockpit(scene);
+    // The information display is still a real Three.js cockpit layer, but it rides the
+    // windshield/combiner perimeter instead of sitting as three perspective-skewed blocks
+    // on top of the dashboard. Cracks and blackouts remain physically in front of it.
+    const combinerHud = new THREE.Group();
+    combinerHud.name = 'cockpit-combiner-hud';
+    camera.add(combinerHud);
+    const combinerLayout = {
+        systems: { position: [-.086, .004, -.090], scale: .060 },
+        team:    { position: [ 0.000, .051, -.090], scale: .050 },
+        weapon:  { position: [ .084, .010, -.090], scale: .058 },
+        motion:  { position: [-.041,-.038, -.090], scale: .050 },
+        drive:   { position: [ .023,-.039, -.090], scale: .052 },
+    };
+    for (const [name, screen] of Object.entries(cockpit.userData.instrumentScreens)) {
+        cockpit.remove(screen.mesh);
+        combinerHud.add(screen.mesh);
+        const layout = combinerLayout[name];
+        screen.mesh.position.set(...layout.position);
+        screen.mesh.rotation.set(0, 0, 0);
+        screen.mesh.scale.setScalar(layout.scale);
+        screen.mesh.renderOrder = 90;
+        screen.mesh.material.depthTest = false;
+        screen.mesh.material.depthWrite = false;
+    }
     const debugColliders = buildDebugColliders(scene);
     debugColliders.visible = false;
     const navMarker = new THREE.Mesh(new THREE.RingGeometry(.42, .52, 16), new THREE.MeshBasicMaterial({ color: 0x73dfc8, side: THREE.DoubleSide, depthTest: false }));
@@ -198,7 +222,9 @@ export function createArenaScene(initial, targetAssembly) {
     blackout.position.set(0, 0, -.068); blackout.renderOrder = 101; camera.add(blackout);
     let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, hitShakeKick = 0, gunDamageKick = 0;
     let powerBlackout = 0, powerFlicker = 0, cockpitWarningLevel = 0;
-    let cockpitInstrumentKey = '';
+    let persistentPowerHealth = 1, persistentCommandHealth = 1;
+    let driveLeftHealth = 1, driveRightHealth = 1, powerArcCooldown = 1.8;
+    let cockpitInstrumentKey = '', cockpitMotionKey = '';
     let crackKey = -1;
     function redrawCracks(commandPercent) {
         const level = Math.max(0, Math.min(1, (72 - commandPercent) / 72));
@@ -230,17 +256,90 @@ export function createArenaScene(initial, targetAssembly) {
         }
         glassTexture.needsUpdate = true;
     }
-    function drawCockpitScreen(screen, lines, tone = 'green') {
-        const ctx = screen?.ctx; if (!ctx) return;
+    function panelBase(screen, tone = 'green', alpha = .72) {
+        const ctx = screen?.ctx; if (!ctx) return null;
         const w = screen.canvas.width, h = screen.canvas.height;
-        ctx.fillStyle = 'rgba(8,18,15,.96)'; ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = tone === 'red' ? '#c85b46' : tone === 'amber' ? '#c99b52' : '#527d61'; ctx.lineWidth = 4; ctx.strokeRect(2,2,w-4,h-4);
-        ctx.font = `bold ${Math.max(13, Math.round(h * .22))}px monospace`;
-        ctx.textBaseline = 'middle';
-        lines.forEach((line, index) => {
-            ctx.fillStyle = line.hot ? '#f0a06d' : line.warn ? '#e2bb72' : '#9fd4aa';
-            ctx.fillText(line.text, 10, h * ((index + .65) / Math.max(1, lines.length)));
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = `rgba(7,16,13,${alpha})`; ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = tone === 'red' ? '#d56753' : tone === 'amber' ? '#cba45d' : '#6e9d7b';
+        ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, w - 3, h - 3);
+        return ctx;
+    }
+    const systemGlyphs = { structure: '⬡', mobility: '⋀', power: 'ϟ', command: '◉', combat: '✦' };
+    function conditionColor(value) {
+        const n = Number(value) || 0;
+        return n <= 0 ? '#ff6554' : n < 38 ? '#f08a66' : n < 72 ? '#e2bc70' : '#a8d8ac';
+    }
+    function drawSystemScreen(screen, systems) {
+        const values = ['structure','mobility','power','command','combat'].map(slot => Number(systems?.[slot] ?? 0));
+        const tone = Math.min(...values) < 38 ? 'red' : Math.min(...values) < 72 ? 'amber' : 'green';
+        const ctx = panelBase(screen, tone, .68); if (!ctx) return;
+        const w = screen.canvas.width, h = screen.canvas.height;
+        const slots = ['structure','mobility','power','command','combat'];
+        const row = h / slots.length;
+        slots.forEach((slot, index) => {
+            const value = Math.max(0, Math.min(100, Math.round(Number(systems?.[slot] ?? 0))));
+            const y = row * index;
+            if (index) { ctx.strokeStyle = 'rgba(120,154,126,.20)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(7,y); ctx.lineTo(w-7,y); ctx.stroke(); }
+            ctx.fillStyle = conditionColor(value);
+            ctx.font = 'bold 25px monospace'; ctx.textBaseline = 'middle';
+            ctx.fillText(systemGlyphs[slot], 10, y + row * .48);
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'right'; ctx.fillText(String(value).padStart(3,' '), w - 9, y + row * .48); ctx.textAlign = 'left';
+            ctx.fillStyle = 'rgba(150,196,158,.20)'; ctx.fillRect(9, y + row - 7, w - 18, 3);
+            ctx.fillStyle = conditionColor(value); ctx.fillRect(9, y + row - 7, (w - 18) * value / 100, 3);
         });
+        screen.texture.needsUpdate = true;
+    }
+    function drawTeamScreen(screen, team = {}) {
+        const friendly = Math.max(0, Math.min(3, Number(team.friendly) || 0));
+        const hostile = Math.max(0, Math.min(3, Number(team.hostile) || 0));
+        const ctx = panelBase(screen, friendly <= 1 ? 'amber' : 'green', .54); if (!ctx) return;
+        const drawPip = (x, y, alive, color) => {
+            ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+            ctx.fillStyle = alive ? color : 'rgba(90,101,91,.16)'; ctx.strokeStyle = alive ? color : 'rgba(120,125,116,.38)';
+            ctx.lineWidth = 3; ctx.fillRect(-8,-8,16,16); ctx.strokeRect(-8,-8,16,16);
+            if (!alive) { ctx.beginPath(); ctx.moveTo(-7,-7); ctx.lineTo(7,7); ctx.stroke(); }
+            ctx.restore();
+        };
+        for (let i = 0; i < 3; i++) drawPip(29 + i * 28, 22, i < friendly, '#79d89a');
+        for (let i = 0; i < 3; i++) drawPip(screen.canvas.width - 29 - (2-i) * 28, 22, i < hostile, '#e2a158');
+        ctx.strokeStyle = 'rgba(187,187,151,.22)'; ctx.beginPath(); ctx.moveTo(screen.canvas.width/2,8); ctx.lineTo(screen.canvas.width/2,34); ctx.stroke();
+        screen.texture.needsUpdate = true;
+    }
+    function weaponAbbrev(label) {
+        const text = String(label ?? '').toUpperCase();
+        if (text.includes('TRAINING')) return 'TRN-CAN';
+        if (text.includes('STUMP')) return 'STP-CAN';
+        if (text.includes('NEEDLE')) return 'NDL-CAN';
+        return text.replace(/[^A-Z0-9]/g,'').slice(0,7) || 'NO-GUN';
+    }
+    function drawWeaponScreen(screen, data) {
+        const state = String(data.weaponState ?? 'READY');
+        const tone = state === 'LOST' ? 'red' : state === 'DAMAGED' || state === 'FAULT' ? 'amber' : 'green';
+        const ctx = panelBase(screen, tone, .66); if (!ctx) return;
+        ctx.fillStyle = tone === 'red' ? '#f08a70' : tone === 'amber' ? '#e4bd70' : '#a6d7ad';
+        ctx.font = 'bold 14px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(weaponAbbrev(data.weapon), 9, 16);
+        ctx.font = 'bold 29px monospace'; ctx.fillText(String(data.ammo ?? '—'), 9, 43);
+        ctx.font = 'bold 10px monospace'; ctx.fillStyle = tone === 'green' ? '#789c80' : ctx.fillStyle; ctx.fillText(state, 10, 66);
+        screen.texture.needsUpdate = true;
+    }
+    function drawMotionScreen(screen, data) {
+        const ctx = panelBase(screen, 'green', .54); if (!ctx) return;
+        ctx.fillStyle = '#a8d5ad'; ctx.textBaseline = 'middle';
+        ctx.font = 'bold 18px monospace'; ctx.fillText(`${data.speed ?? '0.0'} m/s`, 9, 18);
+        ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#d5b66d'; ctx.fillText(String(data.direction ?? 'IDLE'), 132, 18);
+        ctx.fillStyle = '#83a68a'; ctx.fillText(`TURN ${data.turnRate ?? 0}°/s`, 9, 43);
+        screen.texture.needsUpdate = true;
+    }
+    function drawDriveScreen(screen, load = 0) {
+        const value = Math.max(0, Math.min(1, Number(load) || 0));
+        const ctx = panelBase(screen, value > .9 ? 'amber' : 'green', .48); if (!ctx) return;
+        const w = screen.canvas.width;
+        ctx.fillStyle = '#789a7e'; ctx.font = 'bold 10px monospace'; ctx.textBaseline = 'middle'; ctx.fillText('DRIVE', 9, 12);
+        ctx.fillStyle = 'rgba(132,163,136,.18)'; ctx.fillRect(9, 23, w - 18, 10);
+        ctx.fillStyle = value > .9 ? '#e2ae59' : '#89c492'; ctx.fillRect(9, 23, (w - 18) * value, 10);
+        ctx.fillStyle = '#a9c7ac'; ctx.textAlign = 'right'; ctx.fillText(`${Math.round(value * 100)}%`, w - 9, 12); ctx.textAlign = 'left';
         screen.texture.needsUpdate = true;
     }
     function updateCockpitInstruments(data = {}) {
@@ -248,21 +347,59 @@ export function createArenaScene(initial, targetAssembly) {
         if (key === cockpitInstrumentKey) return;
         cockpitInstrumentKey = key;
         const s = data.systems ?? {};
-        const hot = value => Number(value) <= 35;
-        const warn = value => Number(value) < 75;
-        drawCockpitScreen(cockpit.userData.instrumentScreens.systems, [
-            { text: `F ${s.structure ?? 0}  M ${s.mobility ?? 0}  P ${s.power ?? 0}`, warn: warn(Math.min(s.structure ?? 0, s.mobility ?? 0, s.power ?? 0)), hot: hot(Math.min(s.structure ?? 0, s.mobility ?? 0, s.power ?? 0)) },
-            { text: `C ${s.command ?? 0}  A ${s.combat ?? 0}`, warn: warn(Math.min(s.command ?? 0, s.combat ?? 0)), hot: hot(Math.min(s.command ?? 0, s.combat ?? 0)) },
-        ], data.warning >= 2 ? 'red' : data.warning >= 1 ? 'amber' : 'green');
-        drawCockpitScreen(cockpit.userData.instrumentScreens.weapon, [
-            { text: String(data.weapon ?? 'NO WEAPON').slice(0, 17) },
-            { text: `${data.ammo ?? '—'} ${data.weaponState ?? ''}`.trim(), warn: data.weaponState && data.weaponState !== 'READY', hot: data.weaponState === 'LOST' },
-        ], data.weaponState === 'LOST' ? 'red' : data.weaponState === 'DAMAGED' || data.weaponState === 'FAULT' ? 'amber' : 'green');
-        drawCockpitScreen(cockpit.userData.instrumentScreens.team, [
-            { text: `A ${data.team?.friendly ?? 0}/3   H ${data.team?.hostile ?? 0}/3`, warn: (data.team?.friendly ?? 3) <= 1 },
-        ], (data.team?.friendly ?? 3) <= 1 ? 'amber' : 'green');
+        drawSystemScreen(cockpit.userData.instrumentScreens.systems, s);
+        drawWeaponScreen(cockpit.userData.instrumentScreens.weapon, data);
+        drawTeamScreen(cockpit.userData.instrumentScreens.team, data.team);
+        const values = Object.values(s).map(value => Number(value) || 0);
+        const lowest = values.length ? Math.min(...values) : 100;
         cockpitWarningLevel = Math.max(0, Math.min(2, Number(data.warning) || 0));
+        persistentPowerHealth = Math.max(0, Math.min(1, Number(s.power ?? 100) / 100));
+        persistentCommandHealth = Math.max(0, Math.min(1, Number(s.command ?? 100) / 100));
+        driveLeftHealth = Math.max(0, Math.min(1, Number(data.drive?.left ?? 1)));
+        driveRightHealth = Math.max(0, Math.min(1, Number(data.drive?.right ?? 1)));
+        if (lowest >= 72) cockpitWarningLevel = Math.min(cockpitWarningLevel, 0);
         redrawCracks(Number(s.command ?? 100));
+    }
+    function updateCockpitMotion(data = {}) {
+        const normalized = {
+            speed: Number(data.speed ?? 0).toFixed(1),
+            direction: String(data.direction ?? 'IDLE'),
+            turnRate: Math.round(Number(data.turnRate) || 0),
+            driveLoad: Math.round(Math.max(0, Math.min(1, Number(data.driveLoad) || 0)) * 100) / 100,
+        };
+        const key = JSON.stringify(normalized);
+        if (key === cockpitMotionKey) return;
+        cockpitMotionKey = key;
+        drawMotionScreen(cockpit.userData.instrumentScreens.motion, normalized);
+        drawDriveScreen(cockpit.userData.instrumentScreens.drive, normalized.driveLoad);
+    }
+    function spawnCockpitPowerArc(strength = 1) {
+        cockpit.updateWorldMatrix(true, true);
+        const anchors = [
+            [-.58,1.88,-.93],[.55,2.10,-.82],[-.72,2.46,-.64],[.67,2.56,-.62],[.18,1.78,-1.04]
+        ];
+        const a = anchors[Math.floor(Math.random() * anchors.length)];
+        let b = anchors[Math.floor(Math.random() * anchors.length)];
+        if (b === a) b = anchors[(anchors.indexOf(a) + 1) % anchors.length];
+        const start = cockpit.localToWorld(new THREE.Vector3(...a));
+        const end = cockpit.localToWorld(new THREE.Vector3(...b));
+        const points = [start.clone()];
+        const segments = 6;
+        for (let i = 1; i < segments; i++) {
+            const t = i / segments;
+            const p = start.clone().lerp(end, t);
+            p.x += (Math.random() - .5) * .12 * strength;
+            p.y += (Math.random() - .5) * .10 * strength;
+            p.z += (Math.random() - .5) * .08 * strength;
+            points.push(p);
+        }
+        points.push(end.clone());
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: Math.random() > .35 ? 0xc8fff2 : 0xffe58d, transparent: true, opacity: 1, depthTest: false });
+        const line = new THREE.Line(geometry, material); line.renderOrder = 30; scene.add(line);
+        transientFX.push({ object: line, remaining: .09 + Math.random() * .09, duration: .18, material });
+        for (let i = 1; i < points.length - 1; i += 2)
+            activateParticle(sparkPool, 'spark', points[i], new THREE.Vector3((Math.random()-.5)*1.5, -.2-Math.random()*1.8, (Math.random()-.5)*1.2), 1.4 * strength, .28 + Math.random()*.24, -3.2, 0, 0xe6fff1);
     }
     function triggerCockpitHit(slot, profile = {}) {
         const severity = Math.max(0, Math.min(1, Number(profile.severity) || 0));
@@ -279,15 +416,21 @@ export function createArenaScene(initial, targetAssembly) {
             command: [0, 2.72, -.61], combat: [.86, 2.08, -.72],
         };
         const origin = cockpit.localToWorld(new THREE.Vector3(...(localBySlot[slot] ?? [0,2,-.8])));
-        const count = Math.max(1, Math.min(12, Math.round(profile.sparkCount ?? 1)));
+        const count = Math.max(1, Math.min(18, Math.round(profile.sparkCount ?? 1)));
+        const sparkScale = Math.max(.6, Number(profile.sparkScale) || 1);
         for (let i = 0; i < count; i++) {
-            const velocity = new THREE.Vector3((Math.random() - .5) * 2.8, .5 + Math.random() * 2.8, (Math.random() - .5) * 2.2);
-            activateParticle(sparkPool, 'spark', origin, velocity, .55 + severity * .9, .16 + Math.random() * .35, -4.1, 0, i % 3 ? 0xffbb58 : 0xfff0af);
+            const downward = i % 3 === 0;
+            const velocity = new THREE.Vector3((Math.random() - .5) * 4.0, downward ? -.4 - Math.random() * 2.0 : .5 + Math.random() * 3.4, (Math.random() - .5) * 3.0);
+            activateParticle(sparkPool, 'spark', origin, velocity, sparkScale * (.75 + severity * .95), .24 + Math.random() * .42, -4.7, 0, i % 4 ? 0xffc866 : 0xfff4c2);
         }
+        const arcs = Math.max(0, Math.min(5, Math.round(profile.arcCount ?? 0)));
+        for (let i = 0; i < arcs; i++) spawnCockpitPowerArc(.85 + severity * .7);
     }
     function resetCockpitTransientFeedback() {
         hitPitchKick = hitRollKick = hitYawKick = hitShakeKick = gunDamageKick = 0;
         powerBlackout = powerFlicker = 0;
+        powerArcCooldown = 1.8;
+        combinerHud.position.set(0, 0, 0);
         blackoutMaterial.opacity = 0;
     }
     function activateParticle(pool, cursorName, position, velocity, scale, duration, gravity = 0, grow = 0, color = null, smoke = false) {
@@ -473,14 +616,19 @@ export function createArenaScene(initial, targetAssembly) {
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
         cockpitHeave += ((footfall - impactKick) - cockpitHeave) * (1 - Math.exp(-12 * dt));
         const renderYaw = physicsYawToViewYaw(visualYaw);
-        const damageWave = Math.sin(performance.now() * .043);
-        const impactJitter = hitShakeKick * Math.sin(performance.now() * .117);
+        const nowMs = performance.now();
+        const damageWave = Math.sin(nowMs * .043);
+        const impactJitter = hitShakeKick * Math.sin(nowMs * .117);
+        const driveDamage = 1 - Math.min(driveLeftHealth, driveRightHealth);
+        const sustainedDriveRoll = (driveRightHealth - driveLeftHealth) * .032 +
+            Math.sin(nowMs * .017) * driveDamage * Math.min(Math.abs(state.forwardSpeed) / 2.2, 1) * .008;
+        const mobilityStumble = Math.sin(nowMs * .026) * driveDamage * Math.min(Math.abs(state.forwardSpeed) / 2.8, 1) * .008;
         gunPivot.rotation.set(lookPitch * .85, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + muzzleKick * .13;
         flashMesh.visible = muzzleFlash > 0;
-        cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18, visualZ + impactJitter * .12);
-        cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick, 'YXZ');
+        cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12);
+        cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
         if (inspecting) {
@@ -502,7 +650,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
         else {
             camera.position.set(visualX + impactJitter * .62, 2.42 + cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
-            camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25, 'YXZ');
+            camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72, 'YXZ');
         }
         updateSquadMarkers();
     }
@@ -521,6 +669,7 @@ export function createArenaScene(initial, targetAssembly) {
         inspecting = enabled;
         exterior.root.visible = enabled;
         cockpit.visible = !enabled;
+        combinerHud.visible = !enabled;
         for (const record of squadCombatants.values()) {
             record.exterior.root.visible = !enabled;
             record.marker.visible = !enabled;
@@ -823,10 +972,22 @@ export function createArenaScene(initial, targetAssembly) {
         hitPitchKick *= hitDecay; hitRollKick *= hitDecay; hitYawKick *= hitDecay; hitShakeKick *= Math.exp(-10.5 * dt); gunDamageKick *= Math.exp(-5.2 * dt);
         powerBlackout = Math.max(0, powerBlackout - dt);
         powerFlicker = Math.max(0, powerFlicker - dt);
-        const flicker = powerFlicker > 0 ? (.12 + Math.abs(Math.sin(performance.now() * .075)) * .34) : 0;
-        blackoutMaterial.opacity = powerBlackout > 0 ? .96 : flicker;
-        const screenOpacity = powerBlackout > 0 ? .05 : powerFlicker > 0 ? Math.max(.18, 1 - flicker * 1.7) : .94;
+        powerArcCooldown = Math.max(0, powerArcCooldown - dt);
+        if (!inspecting && persistentPowerHealth < .52 && powerArcCooldown <= 0) {
+            const severity = 1 - persistentPowerHealth;
+            spawnCockpitPowerArc(.72 + severity * .75);
+            powerFlicker = Math.max(powerFlicker, .08 + severity * .11);
+            powerArcCooldown = 1.25 + Math.random() * (2.7 - severity);
+        }
+        const now = performance.now();
+        const flickerWave = Math.abs(Math.sin(now * .105));
+        const flicker = powerFlicker > 0 ? (flickerWave > .67 ? .68 : .16 + flickerWave * .16) : 0;
+        blackoutMaterial.opacity = powerBlackout > 0 ? .995 : flicker;
+        const screenOpacity = powerBlackout > 0 ? .01 : powerFlicker > 0 ? (flickerWave > .67 ? .12 : .74) : .92;
         for (const screen of Object.values(cockpit.userData.instrumentScreens)) screen.mesh.material.opacity = screenOpacity;
+        const commandDamage = Math.max(0, .62 - persistentCommandHealth) / .62;
+        combinerHud.position.x = Math.sin(now * .089) * commandDamage * .00085;
+        combinerHud.position.y = Math.sin(now * .071 + 1.8) * commandDamage * .00055;
         const pulse = .55 + .45 * Math.abs(Math.sin(performance.now() * .008));
         const lamps = cockpit.userData.warningLamps;
         lamps.amberLampMat.emissiveIntensity = cockpitWarningLevel >= 1 ? 1.4 * pulse : .08;
@@ -913,7 +1074,7 @@ export function createArenaScene(initial, targetAssembly) {
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit,
-        updateCockpitInstruments, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit,
+        updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {
@@ -1114,9 +1275,11 @@ function buildCockpit(scene) {
         return { canvas, texture, mesh, ctx: canvas.getContext('2d') };
     };
     const screens = {
-        systems: makeScreen('systems', 192, 76, -.43, 1.94, -1.195),
-        weapon: makeScreen('weapon', 150, 76, .43, 1.94, -1.195),
-        team: makeScreen('team', 138, 42, 0, 2.20, -1.02, -.10),
+        systems: makeScreen('systems', 88, 220, -.43, 1.94, -1.195),
+        weapon: makeScreen('weapon', 180, 78, .43, 1.94, -1.195),
+        team: makeScreen('team', 200, 44, 0, 2.20, -1.02, -.10),
+        motion: makeScreen('motion', 220, 56, -.28, 1.80, -1.19),
+        drive: makeScreen('drive', 180, 40, .25, 1.80, -1.19),
     };
     const amberLampMat = new THREE.MeshStandardMaterial({ color: 0x6b572a, emissive: 0xe0a44c, emissiveIntensity: .08, roughness: .65 });
     const redLampMat = new THREE.MeshStandardMaterial({ color: 0x5b281f, emissive: 0xff4938, emissiveIntensity: .03, roughness: .65 });

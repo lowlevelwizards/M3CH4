@@ -328,6 +328,7 @@ function syncCockpitInstruments() {
     const weaponStateLabel = !weaponSpec ? 'LOST' : failure === 'faulted' ? 'FAULT' : failure === 'destroyed' || failure === 'unrecoverable' ? 'LOST' : output.weapon < .95 ? 'DAMAGED' : weaponState?.reloadLeft > 0 ? 'RELOAD' : 'READY';
     arena.updateCockpitInstruments({
         systems, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
+        drive: { left: output.left, right: output.right },
         weapon: weaponSpec?.label ?? 'NO WEAPON',
         ammo: weaponState ? `${weaponState.loaded}/${weaponState.reserve}` : '—',
         weaponState: sortiePhase === 'outro' ? 'SAFE' : weaponStateLabel,
@@ -762,6 +763,7 @@ function toggleInspection(force) {
         sortieOutro.classList.add('hidden');
         sortieOutro.setAttribute('aria-hidden', 'true');
         devPanel.classList.add('hidden');
+        document.body.classList.remove('dev-open');
         targetPanel.classList.add('hidden');
         targetToggle.setAttribute('aria-pressed', 'false');
         renderPartsList();
@@ -1052,6 +1054,10 @@ function frame(now) {
         rig.forwardSpeed < -.15 ? 'REV' : rig.forwardSpeed > .15 ? 'FWD' : 'IDLE';
     yawRateEl.textContent = Math.round(THREE.MathUtils.radToDeg(rig.yawRate)).toString();
     loadBar.style.transform = `scaleX(${rig.driveLoad.toFixed(3)})`;
+    arena.updateCockpitMotion?.({
+        speed: Math.hypot(rig.vx, rig.vz), direction: motionEl.textContent,
+        turnRate: THREE.MathUtils.radToDeg(rig.yawRate), driveLoad: rig.driveLoad,
+    });
     const degrees = Math.round(-THREE.MathUtils.radToDeg(input.lookYaw));
     const following = Math.abs(bodyFollowSteer(input.lookYaw)) > .02;
     lookHeadingEl.textContent = Math.abs(degrees) < 2 ? 'AIM: FORWARD · BODY CENTERED' :
@@ -1094,7 +1100,12 @@ function frame(now) {
     renderer.render(arena.scene, arena.camera);
     requestAnimationFrame(frame);
 }
-devToggle.addEventListener('click', () => { devPanel.classList.toggle('hidden'); renderTarget(); });
+devToggle.addEventListener('click', () => {
+    const opening = devPanel.classList.contains('hidden');
+    devPanel.classList.toggle('hidden');
+    document.body.classList.toggle('dev-open', opening);
+    renderTarget();
+});
 resetRig.addEventListener('click', () => { rig = createRigState(); controls.recenterLook(); });
 let wipeArmed = false;
 let wipeTimer = null;
