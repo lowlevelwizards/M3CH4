@@ -31,6 +31,7 @@ export function createTacticalAwareness() {
         lastSeenTarget: null,
         blockedFireSeconds: 0,
         blockedBy: null,
+        blockedLaneCommitted: false,
         repositionSide: 1,
         coverTarget: null,
         coverId: null,
@@ -46,8 +47,11 @@ export function noteIncomingFire(owner, sourceRig, sourceId, severity = 1) {
     const state = stateOf(owner);
     if (!state) return;
     const strength = clamp(Number(severity) || 0, .25, 2.5);
+    const continuingPressure = (state.underFireSeconds || 0) > 0;
     state.underFireSeconds = Math.max(state.underFireSeconds || 0, 2.35 + strength * .55);
-    state.underFireElapsed = 0;
+    // A burst of repeated shots is sustained pressure, not a sequence of brand-new
+    // encounters. Preserve elapsed exposure so suppression eventually forces action.
+    if (!continuingPressure) state.underFireElapsed = 0;
     state.urgency = Math.max(state.urgency || 0, strength);
     state.recentAttackerId = sourceId ?? state.recentAttackerId;
     if (sourceRig)
@@ -61,7 +65,12 @@ export function noteBlockedFire(owner, blockerId = null) {
     if (!state) return;
     state.blockedFireSeconds = Math.max(state.blockedFireSeconds || 0, 1.8);
     state.blockedBy = blockerId ?? state.blockedBy;
-    state.repositionSide = state.repositionSide === 1 ? -1 : 1;
+    // Commit to one lane for this entire blocked-fire episode; repeated impacts on
+    // the same bad lane extend the memory instead of producing left/right oscillation.
+    if (!state.blockedLaneCommitted) {
+        state.repositionSide = state.repositionSide === 1 ? -1 : 1;
+        state.blockedLaneCommitted = true;
+    }
 }
 
 export function recentThreatTargetId(owner) {
@@ -159,6 +168,10 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
 
     state.underFireSeconds = Math.max(0, state.underFireSeconds - dt);
     state.blockedFireSeconds = Math.max(0, state.blockedFireSeconds - dt);
+    if (state.blockedFireSeconds === 0) {
+        state.blockedLaneCommitted = false;
+        state.blockedBy = null;
+    }
     state.decisionCooldown = Math.max(0, state.decisionCooldown - dt);
     state.urgency = Math.max(0, state.urgency - dt * .18);
     if (state.underFireSeconds > 0) state.underFireElapsed += dt;

@@ -60,3 +60,22 @@ test('a blocked firing lane produces a deterministic reposition intent', () => {
     assert.equal(decision.blockedBy, 'loading-house');
     assert.ok(Math.abs(decision.strength) >= .7);
 });
+
+
+test('sustained incoming fire accumulates reaction time instead of restarting it', () => {
+    const owner = { awareness: createTacticalAwareness() };
+    const source = rig(0, -5);
+    noteIncomingFire(owner, source, 'player', .5);
+    owner.awareness.underFireElapsed = .4;
+    noteIncomingFire(owner, source, 'player', .5);
+    assert.equal(owner.awareness.underFireElapsed, .4);
+});
+
+test('repeated blocked shots commit to one reposition lane until memory expires', () => {
+    const owner = { awareness: createTacticalAwareness() };
+    noteBlockedFire(owner, 'screen');
+    const first = owner.awareness.repositionSide;
+    noteBlockedFire(owner, 'screen');
+    assert.equal(owner.awareness.repositionSide, first);
+    assert.equal(owner.awareness.blockedLaneCommitted, true);
+});
