@@ -6,13 +6,18 @@ test('sortie outro leaves a readable battlefield beat before debrief', () => {
   assert.ok(SORTIE_OUTRO_SECONDS >= 2.4 && SORTIE_OUTRO_SECONDS <= 3.2);
 });
 
-test('power internals cause blackout/flicker while armor pings stay restrained', () => {
+test('power internals cause a strong blackout, long flicker and visible arcing', () => {
   const armor = cockpitImpactProfile('power', { internalDamage: 0 });
   const internal = cockpitImpactProfile('power', { internalDamage: 30 });
+  const disabled = cockpitImpactProfile('power', { internalDamage: 30, disabled: true });
   assert.equal(armor.blackoutSeconds, 0);
-  assert.ok(internal.blackoutSeconds > 0);
-  assert.ok(internal.flickerSeconds > armor.flickerSeconds);
+  assert.equal(armor.arcCount, 0);
+  assert.ok(internal.blackoutSeconds >= .18);
+  assert.ok(internal.flickerSeconds > .9);
+  assert.ok(internal.arcCount >= 2);
   assert.ok(internal.sparkCount > armor.sparkCount);
+  assert.ok(disabled.blackoutSeconds >= .4);
+  assert.ok(disabled.arcCount > internal.arcCount);
 });
 
 test('mobility hit attitude identifies the struck drive side', () => {
@@ -24,4 +29,11 @@ test('mobility hit attitude identifies the struck drive side', () => {
 
 test('combat internals shake the physical weapon mount', () => {
   assert.ok(cockpitImpactProfile('combat', { internalDamage: 20 }).gunShake > 0);
+});
+
+test('armor pings remain much quieter than internal structure hits', () => {
+  const armor = cockpitImpactProfile('structure', { internalDamage: 0 });
+  const internal = cockpitImpactProfile('structure', { internalDamage: 35 });
+  assert.ok(internal.shake > armor.shake * 1.5);
+  assert.ok(internal.sparkCount > armor.sparkCount);
 });
