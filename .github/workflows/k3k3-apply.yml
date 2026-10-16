@@ -1,0 +1,37 @@
+name: Apply and verify k.3k.3 cockpit HUD
+on:
+  push:
+    branches:
+      - feature/k3k3-cockpit-hud-damage-escalation
+jobs:
+  apply-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3k3-cockpit-hud-damage-escalation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply k.3k.3 product patch
+        run: python .github/k3k3_apply.py
+      - name: Syntax check touched JavaScript
+        run: |
+          node --check main.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check combatPresentation.js
+      - name: Run full test suite
+        run: npm test
+      - name: Commit product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html styles.css main.js scene.js sceneAssembly.js combatPresentation.js tests/combatPresentation.test.mjs
+          git commit -m 'feat: k.3k.3 cockpit HUD and damage escalation'
+          git push
