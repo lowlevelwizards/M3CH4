@@ -20,8 +20,8 @@ function hit(ledger, attackerId, victimId, { armor = 0, internal = 0, beforeInte
 
 test('the pilot who does the real work can outrank the finishing blow', () => {
     const ledger = createBoutLedger(roster);
-    hit(ledger, 'player', 'enemy-0', { armor: 100, internal: 70, beforeIntegrity: 100, afterIntegrity: 30 });
-    hit(ledger, 'ally-1', 'enemy-0', { internal: 30, beforeIntegrity: 30, afterIntegrity: 0, disabled: true });
+    hit(ledger, 'player', 'enemy-0', { armor: 100, internal: 90, beforeIntegrity: 100, afterIntegrity: 10 });
+    hit(ledger, 'ally-1', 'enemy-0', { internal: 10, beforeIntegrity: 10, afterIntegrity: 0, disabled: true });
     recordMissionKill(ledger, { attackerId: 'ally-1', victimId: 'enemy-0', reason: 'COMMAND COMPARTMENT DISABLED' });
     const result = scoreBout(ledger, {
         winningTeam: 'friendly',
