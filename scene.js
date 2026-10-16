@@ -820,9 +820,9 @@ export function createArenaScene(initial, targetAssembly) {
     }
     let selected = null;
     let inspecting = false;
-    let azimuth = 0.64;
-    let elevation = 0.27;
-    let radius = 6.55;
+    let azimuth = 0.68;
+    let elevation = 0.25;
+    let radius = 7.20;
     const orbitTarget = new THREE.Vector3(0, 1.85, 0);
     const desiredTarget = orbitTarget.clone();
     let panelRightPx = 0;
@@ -888,7 +888,7 @@ export function createArenaScene(initial, targetAssembly) {
             camera.position.copy(center).add(around);
             const right = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth))
                 .applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
-            const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov);
+            const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov) * .78;
             camera.lookAt(center.addScaledVector(right, shift));
         }
         else {
@@ -970,10 +970,16 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function focusPart(slot) {
-        if (!slot || !exterior.partGroups.has(slot))
-            desiredTarget.set(0, 1.85, 0);
-        else
-            desiredTarget.set(...SLOT_CENTERS[slot]);
+        const machineCenter = new THREE.Vector3(0, 1.85, 0);
+        if (!slot || !exterior.partGroups.has(slot)) {
+            desiredTarget.copy(machineCenter);
+            return;
+        }
+        // Bias toward the selected module rather than turning it into the entire shot.
+        // The machine remains legible as an owned object while the selected part is favored.
+        const partCenter = new THREE.Vector3(...SLOT_CENTERS[slot]);
+        desiredTarget.copy(machineCenter).lerp(partCenter, .40);
+        radius = Math.max(radius, 6.85);
     }
     function orbitBy(dx, dy) {
         azimuth = orbitAzimuthAfterDrag(azimuth, dx);
@@ -992,12 +998,12 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function zoomBy(scale) {
         if (Number.isFinite(scale) && scale > 0)
-            radius = THREE.MathUtils.clamp(radius / scale, 2.7, 11.2);
+            radius = THREE.MathUtils.clamp(radius / scale, 4.0, 11.2);
     }
     function resetOrbit() {
-        azimuth = 0.64;
-        elevation = 0.27;
-        radius = 6.55;
+        azimuth = 0.68;
+        elevation = 0.25;
+        radius = 7.20;
         focusPart(null);
     }
     function pickPart(clientX, clientY, canvas) {
@@ -1399,9 +1405,9 @@ function box(w, h, d, material) {
 function buildGarageBay() {
     const root = new THREE.Group();
     const steel = mat(0x2d3431, .72, .55);
-    const darkSteel = mat(0x171d1b, .84, .44);
-    const concrete = mat(0x48483f, .98, .02);
-    const padMat = mat(0x2b302b, .92, .08);
+    const darkSteel = mat(0x222a27, .84, .44);
+    const concrete = mat(0x535248, .98, .02);
+    const padMat = mat(0x343a34, .92, .08);
     const safety = mat(0xb18432, .82, .16);
     const teal = mat(0x2c6662, .82, .24);
     const rust = mat(0x714029, .88, .18);
@@ -1517,18 +1523,19 @@ function buildGarageBay() {
         drum.position.set(x, .45, z); drum.castShadow = true; drum.receiveShadow = true; root.add(drum);
     }
 
-    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffdfad, emissive: 0xffb454, emissiveIntensity: 3.4, roughness: .45 });
+    // Lower fixture glare while raising broad fill: the bay should be dim, not black.
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffdfad, emissive: 0xffb454, emissiveIntensity: 2.25, roughness: .45 });
     for (const x of [-2.7, 0, 2.7]) {
         const fixture = box(1.55, .10, .25, lampMat);
         fixture.position.set(x, 5.45, -.3);
         root.add(fixture);
-        const lamp = new THREE.PointLight(0xffc178, 18, 10, 2.0);
+        const lamp = new THREE.PointLight(0xffc178, 11.5, 10, 2.0);
         lamp.position.set(x, 5.15, -.3);
         root.add(lamp);
     }
-    const hemi = new THREE.HemisphereLight(0x9fb7aa, 0x17130f, .48);
+    const hemi = new THREE.HemisphereLight(0xa9c0b4, 0x2b241b, .86);
     root.add(hemi);
-    const key = new THREE.DirectionalLight(0xffd19b, 2.35);
+    const key = new THREE.DirectionalLight(0xffd19b, 1.95);
     key.position.set(-5, 8, 5);
     key.castShadow = true;
     key.shadow.mapSize.set(256, 256);
@@ -1537,9 +1544,12 @@ function buildGarageBay() {
     key.shadow.camera.near = 1; key.shadow.camera.far = 24;
     key.shadow.bias = -.0006; key.shadow.normalBias = .045;
     root.add(key);
-    const rim = new THREE.DirectionalLight(0x70a9a4, .82);
+    const rim = new THREE.DirectionalLight(0x70a9a4, 1.15);
     rim.position.set(6, 4, -5);
     root.add(rim);
+    const fill = new THREE.DirectionalLight(0x8fa99f, .72);
+    fill.position.set(5, 5, 6);
+    root.add(fill);
 
     return root;
 }

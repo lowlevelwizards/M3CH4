@@ -28,12 +28,12 @@
     "./fieldService.js": "./fieldService.js?v=k3j0",
     "./hostileRig.js": "./hostileRig.js?v=k3j0",
     "./locomotion.js": "./locomotion.js?v=k3i0",
-    "./scene.js": "./sceneAssembly.js?v=k3l3",
+    "./scene.js": "./sceneAssembly.js?v=k3l4",
     "./enemyMotion.js": "./enemyMotion.js?v=k3k0",
     "./squadBattle.js": "./squadBattle.js?v=k3k0",
     "./wreckPhysics.js": "./wreckPhysics.js?v=k3k1",
     "./combatPresentation.js": "./combatPresentation.js?v=k3k3",
-    "./cockpitView.js": "./cockpitView.js?v=k3k4",
+    "./cockpitView.js": "./cockpitView.js?v=k3l4",
     "./coverTruth.js": "./coverTruth.js?v=k3k4",
     "./damageFate.js": "./damageFate.js?v=k3l1",
     "./boutScoring.js": "./boutScoring.js?v=k3l0",
@@ -44,7 +44,7 @@
     <link rel="stylesheet" href="./styles.css?v=k3l3" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3l.3 — Readability + Garage Bay</title>
+    <title>MECH ARENA — 0.0.1k.3l.4 — Safe HUD + Garage Polish</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -162,10 +162,12 @@
         <div id="debrief-pages" class="debrief-pages" aria-label="Post-bout report pages">
           <section class="debrief-page debrief-page-result" data-debrief-page="0" aria-label="Result and accounting">
             <div class="debrief-page-title">01 / RESULT</div>
-            <div class="sheet-label">SCRAPYARD CONTRACT / RECOVERY</div>
-            <h1 id="debrief-title">SORTIE COMPLETE</h1>
-            <div id="debrief-lines" class="debrief-lines" aria-live="polite"></div>
-            <p class="sheet-muted">Repair estimate is informational · garage service remains a separate choice.</p>
+            <div class="debrief-result-summary">
+              <div class="sheet-label">SCRAPYARD CONTRACT / RECOVERY</div>
+              <h1 id="debrief-title">SORTIE COMPLETE</h1>
+              <div id="debrief-lines" class="debrief-lines" aria-live="polite"></div>
+              <p class="sheet-muted">Repair estimate is informational · garage service remains a separate choice.</p>
+            </div>
           </section>
           <section id="debrief-score-page" class="debrief-page" data-debrief-page="1" aria-label="Bout scorecard">
             <div class="debrief-page-title">02 / SCORE</div>
@@ -195,7 +197,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3l3"></script>
-    <script type="module" src="./garageMountUI.js?v=k3l3"></script>
+    <script type="module" src="./main.js?v=k3l4"></script>
+    <script type="module" src="./garageMountUI.js?v=k3l4"></script>
   </body>
 </html>
