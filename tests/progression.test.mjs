@@ -62,7 +62,7 @@ test('pre-k3h machine saves retain access to the whole existing roster', () => {
     assert.deepEqual(progression.clearedContracts, []);
 });
 
-test('v5 real ownership migrates to v6 without rejecting recovered serials', () => {
+test('v5 real ownership migrates without rejecting recovered serials', () => {
     const state = decodeMachine(null);
     const target = makeRangeTarget();
     const condition = createTargetCondition(target);
@@ -83,7 +83,24 @@ test('v5 real ownership migrates to v6 without rejecting recovered serials', () 
     assert.deepEqual(migrated.progression.unlockedContracts, [...CIRCUIT_ORDER]);
 });
 
-test('legacy gameplay save calls preserve progression already stored in v6', () => {
+test('v6 circuit progress migrates to v7 without being reset to legacy access', () => {
+    const state = decodeMachine(null);
+    recordContractClear(state.progression, 'yard-dog');
+    const payload = JSON.parse(encodeMachine(state));
+    payload.version = 6;
+    for (const part of payload.assembly.owned) delete part.destroyed;
+    for (const housing of Object.values(payload.housing)) {
+        delete housing.destroyed;
+        delete housing.destruction;
+    }
+    const migrated = decodeMachine(JSON.stringify(payload));
+    assert.equal(migrated.status, 'migrated');
+    assert.deepEqual(migrated.progression.clearedContracts, ['yard-dog']);
+    assert.deepEqual(migrated.progression.unlockedContracts, ['yard-dog', 'cutter']);
+    assert.equal(isContractUnlocked(migrated.progression, 'mule'), false);
+});
+
+test('legacy gameplay save calls preserve current progression after the v7 bump', () => {
     const storage = fakeStorage();
     const state = decodeMachine(null);
     assert.equal(storeMachine(storage, state), true);
