@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createEconomyState, repairQuote, settleSortie, STARTING_CREDITS, totalRepairQuote } from '../economy.js';
+import { createEconomyState, rebuildQuote, repairQuote, settleSortie, STARTING_CREDITS, totalRepairQuote } from '../economy.js';
 import { decodeMachine, encodeMachine, MACHINE_SAVE_VERSION } from '../persistence.js';
 
 test('fresh recovery wallet starts small but fieldable', () => {
@@ -30,6 +30,17 @@ test('repair quote responds to actual missing armor and integrity', () => {
     assert.equal(repairQuote(mobility), 68);
     assert.equal(repairQuote({ ...mobility, integrity: 150, armor: 38 }), 0);
     assert.equal(totalRepairQuote({ parts: { mobility } }), 68);
+});
+
+test('destroyed hardware has a materially higher rebuild quote than ordinary repair', () => {
+    const wrecked = {
+        slot: 'combat', integrity: 0, maxIntegrity: 145, armor: 0, maxArmor: 55, destroyed: true,
+    };
+    const normal = repairQuote(wrecked);
+    const rebuild = rebuildQuote(wrecked);
+    assert.ok(normal > 0);
+    assert.ok(rebuild > normal);
+    assert.equal(totalRepairQuote({ parts: { combat: wrecked } }), rebuild);
 });
 
 test('v3 saves migrate with their machine intact and receive the starter wallet', () => {

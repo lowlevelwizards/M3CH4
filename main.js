@@ -4,7 +4,7 @@ import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { equip, inspectAssembly, installedPart, partsFor, remove, SLOTS, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
-import { repairQuote, settleSortie, totalRepairQuote } from './economy.js';
+import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
@@ -18,6 +18,10 @@ import { contractById } from './contracts.js';
 import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
 import { damageWreckIntegrity, shoveWreck, wreckCollisionRadius } from './wreckPhysics.js';
 import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from './combatPresentation.js';
+import { createBoutLedger, recordBoutHit, recordMissionKill, scoreBout } from './boutScoring.js';
+import { buildWreckManifests, createSalvageDraft, SCRAPYARD_CHARTER, wreckPreservation } from './salvageDraft.js';
+import { clearBoutResult, publishBoutResult } from './boutSession.js';
+import { resetDamageFate } from './damageFate.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -90,6 +94,26 @@ const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).ma
 });
 const supportActors = [...friendlySupportActors, ...hostileSupportActors];
 const aiActors = [primaryEnemyActor, ...supportActors];
+const boutRoster = () => [
+    { id: 'player', team: FRIENDLY_TEAM, label: 'YOU' },
+    ...aiActors.map(actor => ({ id: actor.id, team: actor.team, label: actor.label })),
+];
+let boutLedger = createBoutLedger(boutRoster());
+const partSnapshot = part => part ? {
+    armor: part.armor, maxArmor: part.maxArmor,
+    integrity: part.integrity, maxIntegrity: part.maxIntegrity,
+    destruction: part.destruction ?? 0, destroyed: !!part.destroyed,
+} : null;
+function scoreHit(attackerId, victimId, slot, before, hit, after) {
+    if (!before || !after) return;
+    const scoredHit = { ...hit, internalDamage: Math.max(0, before.integrity - after.integrity) };
+    recordBoutHit(boutLedger, { attackerId, victimId, slot, before, after, hit: scoredHit, time: performance.now() / 1000 });
+}
+function syncOwnedPartFate(slot) {
+    const fitted = installedPart(assembly, slot);
+    const part = playerCondition.parts[slot];
+    if (fitted && part) fitted.instance.destroyed = !!part.destroyed;
+}
 let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
@@ -156,6 +180,7 @@ function syncOwnedWeaponCondition(addWear = false) {
     if (!installed || !part)
         return;
     installed.instance.condition = weaponIntegrityRatio(playerCondition);
+    installed.instance.destroyed = !!part.destroyed;
     if (addWear)
         installed.instance.wear = Math.min(1, (Number(installed.instance.wear) || 0) + .08);
 }
@@ -367,8 +392,9 @@ function signalPlayerHit(slot, hit) {
     }, 240);
 }
 function showHitConfirm(hit, text = null) {
-    const kind = hit?.friendlyBlock ? 'friendly' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
-    const label = text ?? (kind === 'disabled' ? 'DISABLED' : kind === 'breach' ? 'BREACH' : kind === 'cleared' ? 'WRECK CLEARED' : kind === 'wreck' ? 'WRECK' : kind === 'friendly' ? 'ALLY BLOCK' : 'HIT');
+    const destroyed = !!hit?.justDestroyed;
+    const kind = hit?.friendlyBlock ? 'friendly' : destroyed ? 'disabled' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
+    const label = text ?? (destroyed ? 'DESTROYED' : kind === 'disabled' ? 'DISABLED' : kind === 'breach' ? 'BREACH' : kind === 'cleared' ? 'WRECK CLEARED' : kind === 'wreck' ? 'WRECK' : kind === 'friendly' ? 'ALLY BLOCK' : 'HIT');
     hitConfirm.textContent = label;
     hitConfirm.className = `hit-confirm visible ${kind}`;
     rangeCrosshair.classList.add('confirmed-hit');
@@ -386,8 +412,9 @@ function checkSquadOutcome() {
     if (outcome && !testEnded)
         finishSortie(outcome.victory, outcome.reason);
 }
-function missionKillAiActor(actor, reason) {
+function missionKillAiActor(actor, reason, attackerId = null) {
     if (!actor?.active) return;
+    recordMissionKill(boutLedger, { attackerId, victimId: actor.id, reason, time: performance.now() / 1000 });
     actor.active = false;
     actor.killReason = reason;
     actor.targetId = null;
@@ -404,8 +431,9 @@ function missionKillAiActor(actor, reason) {
     renderSquadStatus();
     checkSquadOutcome();
 }
-function missionKillPlayer(reason) {
+function missionKillPlayer(reason, attackerId = null) {
     if (!playerCombatActive) return;
+    recordMissionKill(boutLedger, { attackerId, victimId: 'player', reason, time: performance.now() / 1000 });
     playerCombatActive = false;
     rig.vx = 0; rig.vz = 0; rig.yawRate = 0;
     stopFireInput();
@@ -540,7 +568,7 @@ function renderPartInfo() {
         const stats = document.createElement('div');
         stats.className = 'part-stat';
         stats.style.whiteSpace = 'pre-line';
-        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg\nCONDITION ${Math.round(fitted.instance.condition * 100)}% · REPAIRS ${fitted.instance.repairs} · WEAR ${Math.round(fitted.instance.wear * 100)}%`;
+        stats.textContent = `${fitted.definition.name}\nSERIAL ${fitted.instance.serial}\nMASS ${fitted.definition.massKg} kg\nCONDITION ${Math.round(fitted.instance.condition * 100)}% · REPAIRS ${fitted.instance.repairs} · WEAR ${Math.round(fitted.instance.wear * 100)}%${fitted.instance.destroyed ? '\nWRECKED · REBUILD REQUIRED' : ''}`;
         const description = document.createElement('div');
         description.className = 'part-purpose';
         description.textContent = fitted.definition.description;
@@ -558,7 +586,10 @@ function renderPartInfo() {
         const symptom = document.createElement('div');
         symptom.className = 'garage-symptom';
         const condition = fitted.instance.condition;
-        if (selectedPart === 'mobility') {
+        if (fitted.instance.destroyed) {
+            symptom.textContent = 'DESTROYED HARDWARE · HOUSE RECOVERY RETURNED THE CARCASS · REBUILD OR REPLACE BEFORE DEPLOYMENT';
+        }
+        else if (selectedPart === 'mobility') {
             const sections = driveCondition(assembly, damage);
             symptom.textContent = sections
                 ? `LEFT DRIVE ${Math.round(sections.left * 100)}% · RIGHT DRIVE ${Math.round(sections.right * 100)}% · uneven output pulls the rig under power.`
@@ -578,23 +609,27 @@ function renderPartInfo() {
         const repair = document.createElement('button');
         repair.type = 'button';
         repair.className = 'garage-repair';
-        const quotedRepair = repairQuote(playerCondition.parts[selectedPart]);
+        const destroyedPart = !!playerCondition.parts[selectedPart]?.destroyed;
+        const quotedRepair = destroyedPart ? rebuildQuote(playerCondition.parts[selectedPart]) : repairQuote(playerCondition.parts[selectedPart]);
         const affordable = quotedRepair <= economy.credits;
-        repair.disabled = quotedRepair <= 0 || !affordable;
-        repair.textContent = quotedRepair <= 0 ? 'NO REPAIR REQUIRED' :
-            affordable ? `REPAIR ${labels[selectedPart]} · ₡${quotedRepair}` :
+        repair.disabled = quotedRepair <= 0 || (!destroyedPart && !affordable);
+        repair.textContent = quotedRepair <= 0 ? 'NO REPAIR REQUIRED' : destroyedPart
+            ? `REBUILD ${labels[selectedPart]} · ₡${quotedRepair}${affordable ? '' : ' · HOUSE GUARANTEE'}`
+            : affordable ? `REPAIR ${labels[selectedPart]} · ₡${quotedRepair}` :
                 `REPAIR ${labels[selectedPart]} · ₡${quotedRepair} · INSUFFICIENT`;
         repair.addEventListener('click', () => {
             if (!selectedPart)
                 return;
-            const cost = repairQuote(playerCondition.parts[selectedPart]);
+            const destroyed = !!playerCondition.parts[selectedPart]?.destroyed;
+            const cost = destroyed ? rebuildQuote(playerCondition.parts[selectedPart]) : repairQuote(playerCondition.parts[selectedPart]);
             if (cost <= 0)
                 return;
-            if (cost > economy.credits) {
+            if (!destroyed && cost > economy.credits) {
                 showStatus(`INSUFFICIENT CREDITS · NEED ₡${cost}`);
                 return;
             }
-            economy.credits -= cost;
+            const charged = destroyed ? Math.min(cost, economy.credits) : cost;
+            economy.credits -= charged;
             const result = repairInstalledPart(assembly, damage, selectedPart);
             restoreTargetPart(playerCondition, assembly, selectedPart);
             arena.updatePilotDamage(playerCondition);
@@ -604,7 +639,10 @@ function renderPartInfo() {
             renderPartsList();
             renderPartInfo();
             renderChecks();
-            showStatus(`${result.serial} SERVICED · −₡${cost}`);
+            const subsidy = cost - charged;
+            showStatus(result.rebuilt
+                ? `${result.serial} REBUILT · −₡${charged}${subsidy > 0 ? ` · HOUSE GUARANTEE ₡${subsidy}` : ''}`
+                : `${result.serial} SERVICED · −₡${charged}`);
             renderAmmo();
             persistMachine();
         });
@@ -665,6 +703,9 @@ function moduleCondition(slot) {
     return fitted.instance.condition;
 }
 function moduleStatus(slot) {
+    const fitted = installedPart(assembly, slot);
+    if (fitted?.instance.destroyed)
+        return 'destroyed';
     const condition = moduleCondition(slot);
     if (condition === null)
         return 'missing';
@@ -678,7 +719,8 @@ function moduleStatus(slot) {
 }
 function moduleStatusLabel(status) {
     return status === 'good' ? 'GOOD' : status === 'degraded' ? 'DEGRADED' :
-        status === 'severe' ? 'DAMAGED' : status === 'disabled' ? 'DISABLED' : 'MISSING';
+        status === 'severe' ? 'DAMAGED' : status === 'destroyed' ? 'WRECKED' :
+        status === 'disabled' ? 'DISABLED' : 'MISSING';
 }
 function renderPartsList() {
     selectionButtons.clear();
@@ -784,6 +826,8 @@ function toggleInspection(force) {
         rig = createRigState();
         playerCombatActive = true;
         resetSquadBattle();
+        boutLedger = createBoutLedger(boutRoster());
+        clearBoutResult();
         controls.recenterLook();
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         fieldService = createFieldServiceState();
@@ -1271,6 +1315,17 @@ function finishSortie(victory, reason) {
     stopFireInput();
     stopFieldServiceInput();
     controls.setEnabled(false);
+    const winningTeam = victory ? FRIENDLY_TEAM : HOSTILE_TEAM;
+    const survivors = { player: playerCombatActive };
+    for (const actor of aiActors) survivors[actor.id] = actor.active;
+    const score = scoreBout(boutLedger, { winningTeam, survivors });
+    const wrecks = victory ? buildWreckManifests(aiActors.filter(actor => actor.team === HOSTILE_TEAM)) : [];
+    const draft = victory ? createSalvageDraft({ draftOrder: score.draftOrder, manifests: wrecks }) : null;
+    publishBoutResult({
+        victory, reason, winningTeam, score, wrecks, draft,
+        charter: SCRAPYARD_CHARTER,
+        wreckPreservation: victory ? wreckPreservation(wrecks) : 0,
+    });
     const summary = settleSortie({
         credits: economy.credits,
         victory,
@@ -1305,6 +1360,7 @@ function finishSortie(victory, reason) {
 function applyAiHitToPlayer(actor, contact) {
     stopFieldServiceInput();
     const partBefore = playerCondition.parts[contact.slot];
+    const before = partSnapshot(partBefore);
     const beforeIntegrity = partBefore.integrity;
     const hit = applyTargetHit(playerCondition, contact.slot, actor.weaponSpec.damage);
     if (hit.internalDamage > 0) {
@@ -1320,10 +1376,16 @@ function applyAiHitToPlayer(actor, contact) {
     let weaponFaulted = false;
     if (contact.slot === 'combat') {
         weaponFaulted = arrestFirstWeaponFailure(playerCondition, fieldService, beforeIntegrity);
-        if (weaponFaulted) syncOwnedWeaponCondition(false);
+        if (weaponFaulted) {
+            resetDamageFate(playerCondition.parts.combat);
+            syncOwnedWeaponCondition(false);
+        }
     }
+    syncOwnedPartFate(contact.slot);
+    const after = partSnapshot(playerCondition.parts[contact.slot]);
+    scoreHit(actor.id, 'player', contact.slot, before, hit, after);
     const nowDisabled = playerCondition.parts[contact.slot].integrity <= 0;
-    const visualHit = { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled };
+    const visualHit = { ...hit, destroyed: !!after.destroyed, justDestroyed: !before.destroyed && !!after.destroyed, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updatePilotDamage(playerCondition);
     signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
@@ -1341,7 +1403,7 @@ function applyAiHitToPlayer(actor, contact) {
         reportFade = 5.0;
     }
     const failure = currentSortieFailureReason();
-    if (failure) missionKillPlayer(failure);
+    if (failure) missionKillPlayer(failure, actor.id);
 }
 function attemptAiFire(actor, target, shotIndex) {
     if (!actor?.active || !target || target.active === false || inspecting || testEnded || !appSheet.classList.contains('hidden')) return;
@@ -1367,9 +1429,12 @@ function attemptAiFire(actor, target, shotIndex) {
         applyAiHitToPlayer(actor, contact);
         return;
     }
+    const beforePart = partSnapshot(target.condition.parts[contact.slot]);
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
     const hit = applyTargetHit(target.condition, contact.slot, actor.weaponSpec.damage);
-    const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled };
+    const afterPart = partSnapshot(target.condition.parts[contact.slot]);
+    scoreHit(actor.id, target.id, contact.slot, beforePart, hit, afterPart);
+    const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updateCombatantDamage(target.id, target.condition);
     if (target.id === 'enemy-0') {
@@ -1377,7 +1442,7 @@ function attemptAiFire(actor, target, shotIndex) {
         renderTarget();
     }
     const kill = hostileMissionKillReason(target.condition, target.behavior);
-    if (kill) missionKillAiActor(target, kill);
+    if (kill) missionKillAiActor(target, kill, actor.id);
 }
 function attemptFire() {
     if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
@@ -1410,17 +1475,29 @@ function attemptFire() {
         // Once a rig is mission-killed it is just obstructing machinery: either team can
         // shove it or spend ammunition breaking it down into a much smaller remnant.
         if (!targetActor.active) {
+            const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
+            const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
+            const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
             targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, weaponSpec.damage);
             const cleared = targetActor.wreckIntegrity <= .001;
             if (cleared && !targetActor.wreckCleared) {
                 targetActor.wreckCleared = true;
                 arena.setCombatantCleared(targetActor.id, true);
             }
-            const wreckHit = { slot: contact.slot, internalDamage: weaponSpec.damage, armorAbsorbed: 0, disabled: true, justDisabled: false, wreckHit: true, cleared };
+            const wreckHit = {
+                ...hit, wreckHit: true, cleared,
+                justDisabled: beforePart.integrity > 0 && afterPart.integrity <= 0,
+                justDestroyed: !beforePart.destroyed && !!afterPart.destroyed,
+            };
             arena.showShot(contact, wreckHit);
+            arena.updateCombatantDamage(targetActor.id, targetActor.condition);
+            if (targetActor.id === 'enemy-0') {
+                mirrorTargetCondition(targetAssembly, targetCondition);
+                renderTarget();
+            }
             soundImpact();
             showHitConfirm(wreckHit);
-            lastHit = `${targetActor.label} · WRECK ${Math.round(targetActor.wreckIntegrity * 100)}%`;
+            lastHit = `${targetActor.label} · ${wreckHit.justDestroyed ? 'PART DESTROYED' : `WRECK ${Math.round(targetActor.wreckIntegrity * 100)}%`}`;
             renderAmmo();
             return;
         }
@@ -1432,9 +1509,12 @@ function attemptFire() {
             renderAmmo();
             return;
         }
+        const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
         const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
-        const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled };
+        const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
+        scoreHit('player', targetActor.id, contact.slot, beforePart, hit, afterPart);
+        const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
         arena.showShot(contact, visualHit);
         arena.updateCombatantDamage(targetActor.id, targetActor.condition);
         if (targetActor.id === 'enemy-0') {
@@ -1446,7 +1526,7 @@ function attemptFire() {
         lastHit = `${targetActor.label} · ${targetLabels[hit.slot]} · ${hit.serial}`;
         showHitConfirm(hit);
         const kill = hostileMissionKillReason(targetActor.condition, targetActor.behavior);
-        if (kill) missionKillAiActor(targetActor, kill);
+        if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return;
     }
     else {
@@ -1570,6 +1650,8 @@ targetToggle.addEventListener('click', () => {
 });
 resetTarget.addEventListener('click', () => {
     resetSquadBattle();
+    boutLedger = createBoutLedger(boutRoster());
+    clearBoutResult();
     lastHit = 'SQUAD RIGS REBUILT';
     shotReport.textContent = 'SQUAD RESET · ALL SIX COMBATANTS RESTORED';
     reportFade = 2;

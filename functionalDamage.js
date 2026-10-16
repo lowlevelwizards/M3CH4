@@ -39,6 +39,7 @@ export function resetInstalledDamage(assembly, state) {
         if (!part)
             continue;
         part.instance.condition = 1;
+        part.instance.destroyed = false;
         if (slot === 'mobility')
             state.drives[part.instance.serial] = { left: 1, right: 1 };
     }

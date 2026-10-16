@@ -3,7 +3,7 @@
  * validated graph edit. No parallel persistence or physics state is introduced. */
 import { activePlayerArena } from './scene.js';
 import { generatorMount, installedPart, setGeneratorMount, partsFor, equip, inspectAssembly } from './components.js';
-import './acquisitionUI.js';
+import './acquisitionUI.js?v=k3l0';
 import './contractUI.js?v=k3h0';
 
 const info = document.querySelector('#part-info');

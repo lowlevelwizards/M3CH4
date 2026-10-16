@@ -98,12 +98,15 @@ export function recoverSalvage(assembly, offer) {
         return { ok: false, reason: 'SALVAGE SLOT MISMATCH' };
     if (assembly.owned.some(part => part.definitionId === offer.definitionId))
         return { ok: false, reason: 'ALREADY OWNED' };
+    const preserve = offer.preserveSourceSerial === true && typeof offer.sourceSerial === 'string' &&
+        offer.sourceSerial.length > 0 && !assembly.owned.some(part => part.serial === offer.sourceSerial);
     const instance = {
-        serial: nextRecoveredSerial(assembly),
+        serial: preserve ? offer.sourceSerial : nextRecoveredSerial(assembly),
         definitionId: offer.definitionId,
         condition: clamp01(offer.condition),
         wear: Math.min(.35, (1 - clamp01(offer.condition)) * .12),
         repairs: 0,
+        destroyed: false,
     };
     assembly.owned.push(instance);
     return { ok: true, instance, definition };

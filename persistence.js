@@ -8,6 +8,7 @@ import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION }
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
 import { createEconomyState } from './economy.js';
+import { hydrateDamageFate } from './damageFate.js';
 import { hasStarterInventory, makeStarterAssembly, STARTER_DEFINITION_IDS } from './acquisition.js';
 import { CIRCUIT_ORDER, createLegacyProgressionState, createProgressionState, loadProgression } from './progression.js';
 
@@ -16,7 +17,8 @@ export const MACHINE_SAVE_V3_KEY = 'mech-arena-machine-v3';
 export const MACHINE_SAVE_V4_KEY = 'mech-arena-machine-v4';
 export const MACHINE_SAVE_V5_KEY = 'mech-arena-machine-v5';
 export const MACHINE_SAVE_V6_KEY = 'mech-arena-machine-v6';
-export const MACHINE_SAVE_VERSION = 6; // Read v1-v5; write v6 separately for rollback.
+export const MACHINE_SAVE_V7_KEY = 'mech-arena-machine-v7';
+export const MACHINE_SAVE_VERSION = 7; // Read v1-v6; write v7 separately for rollback.
 const REAL_OWNERSHIP_VERSION = 5;
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -24,7 +26,7 @@ const fraction = value => typeof value === 'number' && Number.isFinite(value) &&
 const integer = value => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
 const validSlot = value => SLOTS.includes(value);
 const ownKeys = (value, allowed) => Object.keys(value).every(key => allowed.includes(key));
-const clonePart = ({ serial, definitionId, condition, wear, repairs }) => ({ serial, definitionId, condition, wear, repairs });
+const clonePart = ({ serial, definitionId, condition, wear, repairs, destroyed = false }) => ({ serial, definitionId, condition, wear, repairs, destroyed: !!destroyed });
 const MAX_OWNED_PARTS = 100;
 
 function fresh() {
@@ -41,7 +43,8 @@ function fresh() {
 function validateSavedPart(saved, seenSerials, seenDefinitions = null) {
     if (!object(saved) || typeof saved.serial !== 'string' || saved.serial.length < 1 || saved.serial.length > 80 ||
         typeof saved.definitionId !== 'string' || !BY_ID.has(saved.definitionId) || seenSerials.has(saved.serial) ||
-        !fraction(saved.condition) || !fraction(saved.wear) || !integer(saved.repairs))
+        !fraction(saved.condition) || !fraction(saved.wear) || !integer(saved.repairs) ||
+        (saved.destroyed !== undefined && typeof saved.destroyed !== 'boolean'))
         throw new Error('Invalid part');
     if (seenDefinitions && seenDefinitions.has(saved.definitionId))
         throw new Error('Duplicate owned definition');
@@ -104,7 +107,7 @@ function restoreOwned(data) {
 }
 
 function restoreProgression(data) {
-    if (data.version < MACHINE_SAVE_VERSION)
+    if (data.version < 6)
         return createLegacyProgressionState();
     if (!object(data.progression) || !ownKeys(data.progression, ['unlockedContracts', 'clearedContracts']) ||
         !Array.isArray(data.progression.unlockedContracts) || !Array.isArray(data.progression.clearedContracts))
@@ -128,7 +131,7 @@ export function decodeMachine(json) {
         return { ...blank, status: 'invalid' };
     try {
         const data = JSON.parse(json);
-        if (!object(data) || ![1, 2, 3, 4, 5, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
+        if (!object(data) || ![1, 2, 3, 4, 5, 6, MACHINE_SAVE_VERSION].includes(data.version) || !object(data.assembly) ||
             !object(data.drives) || !object(data.housing))
             throw new Error('Unknown save format');
         const savedAssembly = data.assembly;
@@ -222,6 +225,16 @@ export function decodeMachine(json) {
             hitPart.integrity = saved.integrity;
             hitPart.armor = saved.armor;
             hitPart.impacts = saved.impacts;
+            if (data.version >= 7) {
+                if ((saved.destroyed !== undefined && typeof saved.destroyed !== 'boolean') ||
+                    (saved.destruction !== undefined && (!Number.isFinite(saved.destruction) || saved.destruction < 0)))
+                    throw new Error('Invalid destruction state');
+                hydrateDamageFate(hitPart, { destruction: saved.destruction ?? 0, destroyed: saved.destroyed ?? false });
+                owned.destroyed = !!saved.destroyed;
+            } else {
+                hydrateDamageFate(hitPart);
+                owned.destroyed = false;
+            }
         }
         playerCondition.shotsHit = integer(data.shotsHit) ? data.shotsHit : 0;
 
@@ -257,7 +270,8 @@ export function encodeMachine(state) {
         drives: Object.fromEntries(Object.entries(state.damage.drives).map(([serial, sides]) => [serial, { left: sides.left, right: sides.right }])),
         housing: Object.fromEntries(SLOTS.map(slot => {
             const { serial, integrity, armor, impacts } = state.playerCondition.parts[slot];
-            return [slot, { serial, integrity, armor, impacts }];
+            const { destruction = 0, destroyed = false } = state.playerCondition.parts[slot];
+            return [slot, { serial, integrity, armor, impacts, destruction, destroyed: !!destroyed }];
         })),
         shotsHit: state.playerCondition.shotsHit,
         economy: { credits: economy.credits },
@@ -272,11 +286,12 @@ export function loadMachine(storage) {
     if (!storage)
         return { ...fresh(), status: 'unavailable' };
     try {
+        const v7 = storage.getItem(MACHINE_SAVE_V7_KEY);
         const v6 = storage.getItem(MACHINE_SAVE_V6_KEY);
         const v5 = storage.getItem(MACHINE_SAVE_V5_KEY);
         const v4 = storage.getItem(MACHINE_SAVE_V4_KEY);
         const v3 = storage.getItem(MACHINE_SAVE_V3_KEY);
-        return decodeMachine(v6 ?? v5 ?? v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
+        return decodeMachine(v7 ?? v6 ?? v5 ?? v4 ?? v3 ?? storage.getItem(MACHINE_SAVE_KEY));
     }
     catch {
         return { ...fresh(), status: 'unavailable' };
@@ -291,7 +306,7 @@ export function storeMachine(storage, state) {
         // through every repair/hit save call. Preserve the current v6 progression
         // unless a newer caller explicitly supplies one.
         const progression = state.progression ?? loadProgression(storage);
-        storage.setItem(MACHINE_SAVE_V6_KEY, encodeMachine({ ...state, progression }));
+        storage.setItem(MACHINE_SAVE_V7_KEY, encodeMachine({ ...state, progression }));
         return true;
     }
     catch {
@@ -306,7 +321,7 @@ export function storeMachine(storage, state) {
 export function clearMachineSave(storage) {
     if (!storage) return false;
     try {
-        for (const key of [MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY])
+        for (const key of [MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY])
             storage.removeItem(key);
         return true;
     } catch {

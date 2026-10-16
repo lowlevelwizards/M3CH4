@@ -5,6 +5,7 @@ export const STARTING_CREDITS = 600;
 export const VICTORY_PAYOUT = 850; // Yard Dog / fallback contract value.
 export const RECOVERY_PAYOUT = 350;
 export const AMMO_COST_PER_ROUND = 1;
+export const REBUILD_MULTIPLIER = 1.65;
 
 const REPAIR_RATES = Object.freeze({
     structure: Object.freeze({ integrity: 1.00, armor: .35 }),
@@ -32,10 +33,15 @@ export function repairQuote(part) {
     return raw > 1e-6 ? Math.max(1, Math.ceil(raw)) : 0;
 }
 
+export function rebuildQuote(part) {
+    const repair = repairQuote(part);
+    return part?.destroyed ? Math.max(1, Math.ceil(repair * REBUILD_MULTIPLIER)) : repair;
+}
+
 export function totalRepairQuote(condition) {
     if (!condition?.parts)
         return 0;
-    return Object.values(condition.parts).reduce((sum, part) => sum + repairQuote(part), 0);
+    return Object.values(condition.parts).reduce((sum, part) => sum + rebuildQuote(part), 0);
 }
 
 export function settleSortie({ credits, victory, roundsFired, repairEstimate = 0, victoryPayout = null }) {

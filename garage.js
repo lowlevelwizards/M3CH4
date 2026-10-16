@@ -23,13 +23,15 @@ export function repairInstalledPart(assembly, state, slot) {
         return { repaired: false, serial: null, previousCondition: 0, condition: 0, repairs: 0 };
     const owned = part.instance;
     const previousCondition = clamp01(owned.condition);
+    const destroyedBefore = !!owned.destroyed;
     const sections = slot === 'mobility' ? driveCondition(assembly, state) : null;
-    const damaged = previousCondition < 1 - 1e-6 || !!sections && (sections.left < 1 - 1e-6 || sections.right < 1 - 1e-6);
+    const damaged = destroyedBefore || previousCondition < 1 - 1e-6 || !!sections && (sections.left < 1 - 1e-6 || sections.right < 1 - 1e-6);
     if (damaged) {
         owned.condition = 1;
+        owned.destroyed = false;
         if (slot === 'mobility')
             state.drives[owned.serial] = { left: 1, right: 1 };
         owned.repairs += 1;
     }
-    return { repaired: damaged, serial: owned.serial, previousCondition, condition: clamp01(owned.condition), repairs: owned.repairs };
+    return { repaired: damaged, rebuilt: destroyedBefore, serial: owned.serial, previousCondition, condition: clamp01(owned.condition), repairs: owned.repairs };
 }

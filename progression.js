@@ -11,6 +11,7 @@
  */
 export const CIRCUIT_ORDER = Object.freeze(['yard-dog', 'cutter', 'mule']);
 export const DEFAULT_CONTRACT_ID = CIRCUIT_ORDER[0];
+export const MACHINE_PROGRESS_V7_KEY = 'mech-arena-machine-v7';
 export const MACHINE_PROGRESS_V6_KEY = 'mech-arena-machine-v6';
 const LEGACY_MACHINE_KEYS = Object.freeze([
     'mech-arena-machine-v5',
@@ -83,9 +84,15 @@ export function circuitSummary(progression) {
 export function loadProgression(storage = browserLocalStorage()) {
     if (!storage) return createProgressionState();
     try {
-        const current = storage.getItem(MACHINE_PROGRESS_V6_KEY);
+        const current = storage.getItem(MACHINE_PROGRESS_V7_KEY);
         if (current) {
             const data = JSON.parse(current);
+            if (data?.version === 7 && data.progression)
+                return createProgressionState(data.progression);
+        }
+        const v6 = storage.getItem(MACHINE_PROGRESS_V6_KEY);
+        if (v6) {
+            const data = JSON.parse(v6);
             if (data?.version === 6 && data.progression)
                 return createProgressionState(data.progression);
         }
@@ -101,16 +108,16 @@ export function loadProgression(storage = browserLocalStorage()) {
 export function storeProgression(progression, storage = browserLocalStorage()) {
     if (!storage) return false;
     try {
-        const raw = storage.getItem(MACHINE_PROGRESS_V6_KEY);
+        const raw = storage.getItem(MACHINE_PROGRESS_V7_KEY);
         if (!raw) return false;
         const data = JSON.parse(raw);
-        if (data?.version !== 6) return false;
+        if (data?.version !== 7) return false;
         const next = createProgressionState(progression);
         data.progression = {
             unlockedContracts: [...next.unlockedContracts],
             clearedContracts: [...next.clearedContracts],
         };
-        storage.setItem(MACHINE_PROGRESS_V6_KEY, JSON.stringify(data));
+        storage.setItem(MACHINE_PROGRESS_V7_KEY, JSON.stringify(data));
         return true;
     } catch {
         return false;

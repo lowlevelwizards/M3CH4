@@ -4,6 +4,7 @@
 import { equip, installedPart, makeTestAssembly, SLOTS } from './components.js';
 import { mobilityPerformance } from './mobilityPerformance.js';
 import { contractById, selectedContract } from './contracts.js';
+import { applyDestructionOverflow, hydrateDamageFate } from './damageFate.js';
 export const WEAPONS = {
     'gun-cannon': { id: 'gun-cannon', label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1350, spread: .004, muzzleZ: -1.90 },
     'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 1950, spread: .012, muzzleZ: -1.31 },
@@ -126,11 +127,16 @@ function targetPartFor(assembly, slot, useOwnedCondition = false) {
     const damageTakenScale = slot === 'mobility'
         ? mobilityPerformance(installed.definition.id).damageTakenScale
         : 1;
-    return {
+    const part = {
         serial: installed.instance.serial, slot, name: installed.definition.name,
         integrity: maxIntegrity * condition, maxIntegrity, armor: maxArmor, maxArmor, impacts: 0,
-        damageTakenScale,
+        damageTakenScale, destruction: 0, destroyed: false,
     };
+    if (useOwnedCondition && installed.instance.destroyed) {
+        part.integrity = 0;
+        hydrateDamageFate(part, { destroyed: true });
+    }
+    return part;
 }
 export function createTargetCondition(assembly, useOwnedCondition = false) {
     const parts = {};
@@ -158,8 +164,10 @@ export function mirrorTargetCondition(assembly, target) {
     for (const slot of SLOTS) {
         const part = target.parts[slot];
         const owned = assembly.owned.find(item => item.serial === part.serial);
-        if (owned)
+        if (owned) {
             owned.condition = part.integrity / part.maxIntegrity;
+            owned.destroyed = !!part.destroyed;
+        }
     }
 }
 /** One hit resolves one physically selected assembly: armor first, then underlying condition. */
@@ -169,14 +177,20 @@ export function applyTargetHit(target, slot, damage) {
         throw new Error('Invalid physical hit.');
     const effectiveDamage = damage * (part.damageTakenScale ?? 1);
     const absorbed = Math.min(part.armor, effectiveDamage);
-    const internalDamage = Math.min(part.integrity, effectiveDamage - absorbed);
+    const afterArmor = Math.max(0, effectiveDamage - absorbed);
+    const internalDamage = Math.min(part.integrity, afterArmor);
+    const overflowDamage = Math.max(0, afterArmor - internalDamage);
     part.armor -= absorbed;
     part.integrity -= internalDamage;
+    const fate = applyDestructionOverflow(part, overflowDamage);
     part.impacts++;
     target.shotsHit++;
     return {
-        slot, serial: part.serial, armorAbsorbed: absorbed, internalDamage,
+        slot, serial: part.serial, armorAbsorbed: absorbed, internalDamage, overflowDamage,
         remainingArmor: part.armor, remainingIntegrity: part.integrity,
         disabled: part.integrity <= 0,
+        destroyed: fate.destroyed,
+        justDestroyed: fate.justDestroyed,
+        destructionProgress: fate.progress,
     };
 }
