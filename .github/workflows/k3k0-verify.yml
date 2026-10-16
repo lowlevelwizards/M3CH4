@@ -1,0 +1,29 @@
+name: Verify k.3k.0 first 3v3
+
+on:
+  push:
+    branches: ["feature/k3k0-first-3v3"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3k0-first-3v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check squad integration
+        run: |
+          node --check squadBattle.js
+          node --check enemyMotion.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check main.js
+          node --check tests/squadBattle.test.mjs
+      - name: Run full test suite
+        run: npm test
