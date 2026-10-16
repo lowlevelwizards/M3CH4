@@ -18,6 +18,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+      - name: Repair patch helper anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/k3k3_apply.py')
+          text = p.read_text()
+          text = text.replace("'''    if (inspecting) {\\n        devPanel.classList.add('hidden');\\n        targetPanel.classList.add('hidden');''',\n'''    if (inspecting) {\\n        devPanel.classList.add('hidden');\\nn        document.body.classList.remove('dev-open');\\n        targetPanel.classList.add('hidden');''')", "'''        devPanel.classList.add('hidden');\\n        targetPanel.classList.add('hidden');''',\n'''        devPanel.classList.add('hidden');\\n        document.body.classList.remove('dev-open');\\n        targetPanel.classList.add('hidden');''')")
+          # The original helper has no literal stray n; handle the exact generated text too.
+          text = text.replace("'''    if (inspecting) {\\n        devPanel.classList.add('hidden');\\n        targetPanel.classList.add('hidden');''',\n'''    if (inspecting) {\\n        devPanel.classList.add('hidden');\\n        document.body.classList.remove('dev-open');\\n        targetPanel.classList.add('hidden');''')", "'''        devPanel.classList.add('hidden');\\n        targetPanel.classList.add('hidden');''',\n'''        devPanel.classList.add('hidden');\\n        document.body.classList.remove('dev-open');\\n        targetPanel.classList.add('hidden');''')")
+          p.write_text(text)
+          PY
       - name: Apply k.3k.3 product patch
         run: python .github/k3k3_apply.py
       - name: Syntax check touched JavaScript
