@@ -1,0 +1,43 @@
+name: Apply k.3l.2 post-bout polish
+
+on:
+  push:
+    branches:
+      - feature/k3l2-postbout-performance
+    paths:
+      - .github/workflows/k3l2-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3l2-postbout-performance
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply scoped patch
+        run: python3 tools/k3l2_apply.py
+      - name: Syntax check touched JavaScript
+        run: |
+          node --check acquisitionUI.js
+          node --check main.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check garageMountUI.js
+      - name: Run test suite
+        run: npm test
+      - name: Remove temporary patch machinery
+        run: rm tools/k3l2_apply.py .github/workflows/k3l2-apply.yml
+      - name: Commit verified product state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "k.3l.2: fix salvage flow and pixel-lighting performance"
+          git push origin HEAD:feature/k3l2-postbout-performance
