@@ -28,14 +28,15 @@
     "./fieldService.js": "./fieldService.js?v=k3j0",
     "./hostileRig.js": "./hostileRig.js?v=k3j0",
     "./locomotion.js": "./locomotion.js?v=k3i0",
-    "./scene.js": "./sceneAssembly.js?v=k3i0",
-    "./enemyMotion.js": "./enemyMotion.js?v=k3g0"
+    "./scene.js": "./sceneAssembly.js?v=k3k0",
+    "./enemyMotion.js": "./enemyMotion.js?v=k3k0",
+    "./squadBattle.js": "./squadBattle.js?v=k3k0"
   }
 }</script>
     <link rel="stylesheet" href="./styles.css?v=k3d0" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3j.1 — Durability Normalization</title>
+    <title>MECH ARENA — 0.0.1k.3k.0 — First 3v3</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -53,6 +54,7 @@
     </div>
 
     <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
+    <div id="team-status" class="team-status" aria-live="polite">ALLY 3/3 · HOSTILE 3/3</div>
     <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
     <div id="shot-report" class="shot-report faded" aria-live="polite">LIVE-FIRE DUEL · HOSTILE RIG AHEAD</div>
     <div id="fault-strip" class="fault-strip" aria-live="polite">SYSTEMS NOMINAL</div>
@@ -92,7 +94,7 @@
       <header>CONTRACT HOSTILE</header>
       <p>Selected contract opponent uses the same localized armor and component condition as your rig.</p>
       <div id="target-readout" class="target-readout"></div>
-      <button id="reset-target" type="button">REBUILD HOSTILE RIG</button>
+      <button id="reset-target" type="button">REBUILD SQUAD</button>
     </section>
 
     <section id="inspection-panel" class="inspection-panel hidden" aria-label="garage and physical assembly builder">
@@ -118,7 +120,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1k.3j.1</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1k.3k.0</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -152,7 +154,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3j1"></script>
+    <script type="module" src="./main.js?v=k3k0"></script>
     <script type="module" src="./garageMountUI.js?v=k3h0"></script>
   </body>
 </html>
