@@ -15,16 +15,18 @@ jobs:
           fetch-depth: 0
       - name: Apply inventory integration
         run: |
-          if grep -q "MACHINE_SAVE_VERSION = 8" persistence.js; then
+          if ! grep -q "MACHINE_SAVE_VERSION = 8" persistence.js; then
+            python .github/k3l1_inventory_apply.py
+          else
             echo "k.3l.1 inventory integration already applied"
-            exit 0
           fi
-          python .github/k3l1_inventory_apply.py
+          python .github/k3l1_progression_patch.py
       - name: Syntax check touched modules
         run: |
           node --check acquisition.js
           node --check components.js
           node --check persistence.js
+          node --check progression.js
           node --check salvageDraft.js
           node --check main.js
           node --check scene.js
@@ -40,6 +42,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add acquisition.js components.js persistence.js salvageDraft.js main.js scene.js sceneAssembly.js
+          git add acquisition.js components.js persistence.js progression.js salvageDraft.js main.js scene.js sceneAssembly.js
           git commit -m "Implement serial-based physical inventory foundation"
           git push origin HEAD:feature/k3l1-physical-inventory-damage-lighting
