@@ -280,7 +280,10 @@ let playerHitTimer = null;
 let lastCoverAudit = '—';
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = false;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.22;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.className = 'game-canvas';
 renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
 renderer.domElement.style.touchAction = 'none';
@@ -705,9 +708,13 @@ ${specLine(def)}`,
             actionLabel: fittedHere ? 'INSTALLED' : `INSTALL · ${preview.serial}`,
             actionDisabled: fittedHere,
             onAction: () => {
-                equipSerial(assembly, def.slot, preview.serial);
-                refreshAssembly(true);
-                selectPart(def.slot);
+                try {
+                    equipSerial(assembly, def.slot, preview.serial);
+                    refreshAssembly(true);
+                    selectPart(def.slot);
+                } catch (error) {
+                    showStatus(error?.message || 'THIS PHYSICAL COMPONENT CANNOT BE INSTALLED HERE');
+                }
             },
         });
         partInfo.append(detail);
@@ -831,6 +838,10 @@ document.addEventListener('m3ch4:inventory-changed', () => {
     refreshAssembly(true);
     renderPartInfo();
     showStatus('SALVAGE SECURED · OWNED INVENTORY UPDATED');
+});
+document.addEventListener('m3ch4:assembly-mutated', () => {
+    refreshAssembly(true);
+    if (selectedPart) selectPart(selectedPart, false);
 });
 function toggleInspection(force) {
     const requested = force ?? !inspecting;

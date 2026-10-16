@@ -83,10 +83,20 @@ export function createArenaScene(initial, targetAssembly) {
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
-    scene.add(new THREE.HemisphereLight(0xb2b59d, 0x26231d, 1.1));
-    const sun = new THREE.DirectionalLight(0xffd69a, 2.1);
-    sun.position.set(-7, 12, 8);
+    // Lower broad ambient wash and let shaped warm/cool sources describe the forms.
+    scene.add(new THREE.HemisphereLight(0x9dafaa, 0x171511, .56));
+    const sun = new THREE.DirectionalLight(0xffd29a, 3.15);
+    sun.position.set(-10, 17, 11);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = -38; sun.shadow.camera.right = 38;
+    sun.shadow.camera.top = 34; sun.shadow.camera.bottom = -34;
+    sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
+    sun.shadow.bias = -.0007; sun.shadow.normalBias = .035;
     scene.add(sun);
+    const coolRim = new THREE.DirectionalLight(0x79a9a8, .72);
+    coolRim.position.set(12, 6, -16);
+    scene.add(coolRim);
     const worldSolids = buildWarehouse(scene);
     const cockpit = buildCockpit(scene);
     // The information display is still a real Three.js cockpit layer, but it rides the
@@ -157,7 +167,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (material instanceof THREE.MeshStandardMaterial)
             targetColors.set(mesh, material.color.clone());
     }
-    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0 }]));
+    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0, arc: 0 }]));
     const squadCombatants = new Map();
     function makeSquadMarker(team) {
         const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -175,13 +185,14 @@ export function createArenaScene(initial, targetAssembly) {
         return marker;
     }
     const capturePartTransforms = exterior => new Map([...exterior.partGroups].map(([slot, group]) => [slot, {
-        position: group.position.clone(), rotation: group.rotation.clone(), scale: group.scale.clone(),
+        position: group.position.clone(), rotation: group.rotation.clone(), scale: group.scale.clone(), parent: group.parent,
     }]));
     const primaryMarker = makeSquadMarker('hostile');
     squadCombatants.set('enemy-0', {
         id: 'enemy-0', team: 'hostile', assembly: targetAssembly, exterior: targetExterior,
         colors: targetColors, marker: primaryMarker, active: true, condition: null,
         emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), destroyedSlots: new Set(), wrecked: false, cleared: false,
+        wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
         baseParts: capturePartTransforms(targetExterior),
     });
     function colorsFor(exterior) {
@@ -206,6 +217,7 @@ export function createArenaScene(initial, targetAssembly) {
             id, team, assembly, exterior: actorExterior, colors: colorsFor(actorExterior),
             marker: makeSquadMarker(team), active: true, condition: null,
             emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), destroyedSlots: new Set(), wrecked: false, cleared: false,
+            wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
             baseParts: capturePartTransforms(actorExterior),
         };
         squadCombatants.set(id, record);
@@ -218,7 +230,7 @@ export function createArenaScene(initial, targetAssembly) {
         record.active = !!active;
         if (wasActive && !record.active)
             wreckCombatantVisual(record);
-        else if (!wasActive && record.active)
+        else if (record.active && (!wasActive || record.wrecked || record.destroyedSlots.size || record.disabledSlots.size))
             resetCombatantVisual(record);
         record.marker.material.opacity = record.active ? .82 : .24;
         record.marker.scale.setScalar(record.active ? .86 : .62);
@@ -274,10 +286,24 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return pool;
     }
-    const sparkPool = makePool(52, new THREE.BoxGeometry(.035, .035, .14), 0xffc968, true);
-    const chipPool = makePool(34, new THREE.BoxGeometry(.075, .055, .09), 0x4a4d46, true);
-    const smokePool = makePool(28, new THREE.BoxGeometry(.15, .15, .15), 0x252a26, true);
+    const sparkPool = makePool(88, new THREE.BoxGeometry(.042, .042, .18), 0xffc968, true);
+    const chipPool = makePool(52, new THREE.BoxGeometry(.085, .060, .11), 0x4a4d46, true);
+    // Soft low-resolution billboards read as smoke plumes instead of floating cubes.
+    const smokePool = makePool(56, new THREE.PlaneGeometry(.24, .24), 0x252a26, true);
     let sparkCursor = 0, chipCursor = 0, smokeCursor = 0;
+    const fallingParts = new Map();
+    const impactLights = Array.from({ length: 5 }, () => {
+        const light = new THREE.PointLight(0xffbf6c, 0, 5.5, 2);
+        light.visible = false; light.castShadow = false; scene.add(light);
+        return { light, life: 0, duration: 0 };
+    });
+    let impactLightCursor = 0;
+    function flashDamageLight(position, color = 0xffbf6c, intensity = 7, duration = .10, distance = 5.5) {
+        const state = impactLights[impactLightCursor++ % impactLights.length];
+        state.light.position.copy(position); state.light.color.setHex(color);
+        state.light.intensity = intensity; state.light.distance = distance; state.light.visible = true;
+        state.life = state.duration = duration;
+    }
 
     const glassCanvas = document.createElement('canvas');
     glassCanvas.width = 512; glassCanvas.height = 300;
@@ -548,19 +574,45 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return profile;
     }
+    function recordDamageWound(actorId, slot, worldPoint) {
+        const record = squadCombatants.get(actorId);
+        const group = record?.exterior.partGroups.get(slot);
+        if (!record || !group || !worldPoint) return;
+        group.updateWorldMatrix(true, false);
+        const local = group.worldToLocal(worldPoint.clone());
+        const wounds = record.wounds.get(slot) ?? [];
+        wounds.push(local.clone());
+        if (wounds.length > 2) wounds.shift();
+        record.wounds.set(slot, wounds);
+        const mark = new THREE.Mesh(new THREE.IcosahedronGeometry(.065, 0), new THREE.MeshBasicMaterial({ color: 0x0d100e }));
+        mark.position.copy(local); mark.scale.set(1.35, .32, 1.35); group.add(mark);
+        record.woundMarks.push(mark);
+        if (record.woundMarks.length > 10) {
+            const oldest = record.woundMarks.shift(); oldest.parent?.remove(oldest); oldest.geometry.dispose(); oldest.material.dispose();
+        }
+    }
     function partWorldPoint(record, slot) {
         const group = record?.exterior.partGroups.get(slot);
+        const wounds = record?.wounds?.get(slot) ?? [];
         const point = new THREE.Vector3();
-        if (group) group.getWorldPosition(point);
-        else record?.exterior.root.getWorldPosition(point);
-        point.x += (Math.random() - .5) * .45;
-        point.y += (Math.random() - .5) * .30;
-        point.z += (Math.random() - .5) * .45;
+        if (group && wounds.length && Math.random() < .82) {
+            point.copy(wounds[Math.floor(Math.random() * wounds.length)]);
+            group.localToWorld(point);
+            point.x += (Math.random() - .5) * .10;
+            point.y += (Math.random() - .5) * .08;
+            point.z += (Math.random() - .5) * .10;
+        } else {
+            if (group) group.getWorldPosition(point); else record?.exterior.root.getWorldPosition(point);
+            point.x += (Math.random() - .5) * .26;
+            point.y += (Math.random() - .5) * .20;
+            point.z += (Math.random() - .5) * .26;
+        }
         return point;
     }
     function spawnDisableBurst(position, normal, outcome) {
         const flashMat = new THREE.MeshBasicMaterial({ color: outcome?.slot === 'power' ? 0xffd27a : 0xffa75b, transparent: true, opacity: .94, depthWrite: false });
         const flash = new THREE.Mesh(new THREE.IcosahedronGeometry(outcome?.slot === 'power' ? .36 : .27, 0), flashMat);
+        flashDamageLight(position, outcome?.slot === 'power' ? 0xd9fff1 : 0xffa75b, outcome?.slot === 'power' ? 13 : 8, .12, 6);
         flash.position.copy(position);
         scene.add(flash);
         transientFX.push({ object: flash, remaining: .16, duration: .16, material: flashMat });
@@ -598,12 +650,14 @@ export function createArenaScene(initial, targetAssembly) {
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const material = new THREE.LineBasicMaterial({ color: Math.random() > .3 ? 0xc8fff2 : 0xffe58d, transparent: true, opacity: 1 });
         const line = new THREE.Line(geometry, material); scene.add(line);
+        if (Math.random() < .45) flashDamageLight(origin, 0xc8fff2, 7 * strength, .08, 5.5);
         transientFX.push({ object: line, remaining: .12 + Math.random()*.12, duration: .24, material });
     }
     function spawnCatastrophicBurst(position, normal, outcome) {
         const power = outcome?.slot === 'power';
         const flashMat = new THREE.MeshBasicMaterial({ color: power ? 0xf4ffd9 : 0xffbd70, transparent: true, opacity: 1, depthWrite: false });
         const flash = new THREE.Mesh(new THREE.IcosahedronGeometry(power ? .58 : .46, 0), flashMat);
+        flashDamageLight(position, power ? 0xc8fff2 : 0xffbd70, power ? 22 : 14, .18, power ? 8 : 6.5);
         flash.position.copy(position); scene.add(flash);
         transientFX.push({ object: flash, remaining: .22, duration: .22, material: flashMat });
         for (let i = 0; i < (power ? 28 : 22); i++) {
@@ -620,6 +674,12 @@ export function createArenaScene(initial, targetAssembly) {
         }
         if (power) for (let i = 0; i < 3; i++) spawnWorldPowerArc(position, .9 + Math.random()*.6);
     }
+    function settleAttachedPartToFloor(group, clearance = .025) {
+        group.updateWorldMatrix(true, true);
+        const bounds = new THREE.Box3().setFromObject(group);
+        if (Number.isFinite(bounds.min.y) && bounds.min.y > clearance)
+            group.position.y -= bounds.min.y - clearance;
+    }
     function markPartDestroyedVisual(actorId, slot) {
         const record = squadCombatants.get(actorId);
         if (!record || record.destroyedSlots.has(slot)) return;
@@ -627,19 +687,24 @@ export function createArenaScene(initial, targetAssembly) {
         const group = record.exterior.partGroups.get(slot);
         if (!group) return;
         const side = actorId.length % 2 ? 1 : -1;
-        if (slot === 'combat') {
-            group.position.y -= .92; group.position.x += side * .18;
-            group.rotation.z += side * .82; group.rotation.x += .48;
-        } else if (slot === 'power') {
-            group.position.y -= .72; group.position.x += side * .14;
-            group.rotation.z += side * .62; group.rotation.x += .32;
+        if (slot === 'combat' || slot === 'power') {
+            group.updateWorldMatrix(true, true);
+            scene.attach(group);
+            group.rotation.x += slot === 'combat' ? .46 : .31;
+            group.rotation.z += side * (slot === 'combat' ? .78 : .58);
+            fallingParts.set(`${actorId}:${slot}`, {
+                actorId, slot, record, group, settled: false,
+                velocity: new THREE.Vector3(side * (.28 + Math.random() * .30), .35 + Math.random() * .48, (Math.random() - .5) * .65),
+                spin: new THREE.Vector3((Math.random() - .5) * 1.4, (Math.random() - .5) * .65, side * (.8 + Math.random() * 1.1)),
+            });
         } else if (slot === 'mobility') {
-            group.position.y -= .38; group.rotation.z += side * .34; group.rotation.x += .16;
+            group.rotation.z += side * .42; group.rotation.x += .19;
+            settleAttachedPartToFloor(group, .02);
         } else if (slot === 'command') {
-            group.position.y -= .16; group.rotation.z += side * .24; group.rotation.x += .12;
+            group.position.y -= .18; group.rotation.z += side * .27; group.rotation.x += .14;
         } else if (slot === 'structure') {
-            record.exterior.root.rotation.z += side * .11;
-            record.exterior.root.position.y -= .08;
+            record.exterior.root.rotation.z += side * .13;
+            record.exterior.root.position.y -= .09;
         }
     }
     function wreckCombatantVisual(record) {
@@ -665,12 +730,18 @@ export function createArenaScene(initial, targetAssembly) {
         record.exterior.root.rotation.x = 0;
         record.exterior.root.rotation.z = 0;
         for (const slot of SLOTS) {
+            fallingParts.delete(`${record.id}:${slot}`);
             const group = record.exterior.partGroups.get(slot);
             const base = record.baseParts.get(slot);
             if (!group || !base) continue;
+            if (base.parent && group.parent !== base.parent) base.parent.add(group);
             group.position.copy(base.position);
             group.rotation.copy(base.rotation);
             group.scale.copy(base.scale);
+            record.wounds.set(slot, []);
+        }
+        while (record.woundMarks.length) {
+            const mark = record.woundMarks.pop(); mark.parent?.remove(mark); mark.geometry.dispose(); mark.material.dispose();
         }
     }
     function clearPooledParticles() {
@@ -1010,6 +1081,7 @@ export function createArenaScene(initial, targetAssembly) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
+        if (outcome?.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
         if (outcome?.justDestroyed) {
             spawnCatastrophicBurst(impactPoint, contact.normal, outcome);
             markPartDestroyedVisual(contact.actorId, outcome.slot);
@@ -1092,6 +1164,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (outcome) {
             const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
             spawnImpactParticles(impactPoint, contact.normal, outcome);
+            if (outcome.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
             if (outcome.justDestroyed) {
                 spawnCatastrophicBurst(impactPoint, contact.normal, outcome);
                 markPartDestroyedVisual(contact.actorId, outcome.slot);
@@ -1157,6 +1230,28 @@ export function createArenaScene(initial, targetAssembly) {
         const commandDamage = Math.max(0, .62 - persistentCommandHealth) / .62;
         combinerHud.position.x = Math.sin(now * .089) * commandDamage * .00085;
         combinerHud.position.y = Math.sin(now * .071 + 1.8) * commandDamage * .00055;
+        for (const state of fallingParts.values()) {
+            if (state.settled) continue;
+            state.velocity.y -= 7.8 * dt;
+            state.group.position.addScaledVector(state.velocity, dt);
+            state.group.rotation.x += state.spin.x * dt;
+            state.group.rotation.y += state.spin.y * dt;
+            state.group.rotation.z += state.spin.z * dt;
+            state.group.updateWorldMatrix(true, true);
+            const bounds = new THREE.Box3().setFromObject(state.group);
+            if (bounds.min.y <= .025 && state.velocity.y <= 0) {
+                state.group.position.y += .025 - bounds.min.y;
+                state.velocity.set(0, 0, 0); state.spin.multiplyScalar(.18); state.settled = true;
+                const hit = state.group.getWorldPosition(new THREE.Vector3()); hit.y = .05;
+                for (let i = 0; i < 5; i++) activateParticle(chipPool, 'chip', hit, new THREE.Vector3((Math.random()-.5)*1.1, .35+Math.random()*.65, (Math.random()-.5)*1.1), .8, .45+Math.random()*.3, -6.5, 0, 0x4b4a42);
+            }
+        }
+        for (const state of impactLights) {
+            if (state.life <= 0) continue;
+            state.life = Math.max(0, state.life - dt);
+            state.light.intensity *= Math.exp(-16 * dt);
+            if (state.life <= 0) { state.light.intensity = 0; state.light.visible = false; }
+        }
         const pulse = .55 + .45 * Math.abs(Math.sin(performance.now() * .008));
         const lamps = cockpit.userData.warningLamps;
         lamps.amberLampMat.emissiveIntensity = cockpitWarningLevel >= 1 ? 1.4 * pulse : .08;
@@ -1190,9 +1285,10 @@ export function createArenaScene(initial, targetAssembly) {
             state.mesh.rotation.z += dt * 3.2;
             const t = state.life / state.duration;
             if (state.smoke) {
+                state.mesh.quaternion.copy(camera.quaternion);
                 const scale = state.baseScale * (1 + (1 - t) * state.grow);
                 state.mesh.scale.setScalar(scale);
-                state.mesh.material.opacity = .44 * t;
+                state.mesh.material.opacity = .52 * t;
             }
             else
                 state.mesh.material.opacity = Math.min(1, t * 1.8);
@@ -1210,8 +1306,9 @@ export function createArenaScene(initial, targetAssembly) {
                 const wreckSmoke = record.wrecked ? .42 : 0;
                 const destroyedSpark = part.destroyed ? (slot === 'power' ? 2.8 : 1.2) : 0;
                 const destroyedSmoke = part.destroyed ? (slot === 'power' ? 1.15 : .62) : 0;
-                budget.spark += (profile.sparkRate + destroyedSpark) * dt * (record.wrecked ? .72 : 1);
+                budget.spark += (profile.sparkRate + destroyedSpark) * dt * (record.wrecked ? .82 : 1);
                 budget.smoke += (profile.smokeRate + wreckSmoke + destroyedSmoke) * dt;
+                budget.arc += (profile.arcRate + (part.destroyed && slot === 'power' ? .85 : 0)) * dt;
                 while (budget.spark >= 1) {
                     budget.spark -= 1;
                     const origin = partWorldPoint(record, slot);
@@ -1221,8 +1318,12 @@ export function createArenaScene(initial, targetAssembly) {
                 while (budget.smoke >= 1) {
                     budget.smoke -= 1;
                     const origin = partWorldPoint(record, slot);
-                    const velocity = new THREE.Vector3((Math.random() - .5) * .16, .22 + Math.random() * .22, (Math.random() - .5) * .16);
-                    activateParticle(smokePool, 'smoke', origin, velocity, .8 + profile.severity * .5, 1.0 + Math.random() * .75, 0, 1.15, slot === 'power' ? 0x20241f : 0x2b2d28, true);
+                    const velocity = new THREE.Vector3((Math.random() - .5) * .18, .30 + Math.random() * .30, (Math.random() - .5) * .18);
+                    activateParticle(smokePool, 'smoke', origin, velocity, 1.0 + profile.severity * .85, 1.45 + Math.random() * 1.15, 0, 1.65, slot === 'power' ? 0x171b18 : 0x252823, true);
+                }
+                while (budget.arc >= 1) {
+                    budget.arc -= 1;
+                    spawnWorldPowerArc(partWorldPoint(record, slot), .65 + profile.severity * .65);
                 }
             }
         }
@@ -1233,7 +1334,8 @@ export function createArenaScene(initial, targetAssembly) {
             for (const [slot, group] of record.exterior.partGroups) {
                 let node = group, owned = false;
                 while (node) { if (node === record.exterior.root) { owned = true; break; } node = node.parent; }
-                if (!owned) misplaced.push(`${record.id}:${slot}`);
+                const legitimatelyDetached = record.destroyedSlots.has(slot) && (slot === 'combat' || slot === 'power') && group.parent === scene;
+                if (!owned && !legitimatelyDetached) misplaced.push(`${record.id}:${slot}`);
             }
         }
         return { ok: misplaced.length === 0, actors: squadCombatants.size, misplaced };
@@ -1253,6 +1355,7 @@ function mat(color, roughness = 0.82, metalness = 0.18) {
 }
 function box(w, h, d, material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d, 1, 1, 1), material);
+    mesh.castShadow = true; mesh.receiveShadow = true;
     return mesh;
 }
 function buildWarehouse(scene) {
@@ -1338,14 +1441,14 @@ function buildWarehouse(scene) {
         }
     }
 
-    const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffcf8a, emissive: 0xffa43a, emissiveIntensity: 2.4 });
+    const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffd39a, emissive: 0xffa43a, emissiveIntensity: 3.2, roughness: .5 });
     for (const z of [-14, 14]) {
         for (const x of [-22, 0, 22]) {
             const fixture = box(3.6, 0.12, 0.28, lightMaterial);
             fixture.position.set(x, 7.2, z);
             scene.add(fixture);
-            const light = new THREE.PointLight(0xffb65f, 15, 20, 1.8);
-            light.position.set(x, 6.8, z);
+            const light = new THREE.PointLight(0xffb565, 26, 14, 2.15);
+            light.position.set(x, 6.65, z);
             scene.add(light);
         }
     }
@@ -1512,6 +1615,7 @@ function buildExteriorRig(assembly) {
         const add = (mesh, x = 0, y = 0, z = 0) => {
             mesh.position.set(x, y, z);
             mesh.userData.slot = slot;
+            mesh.castShadow = true; mesh.receiveShadow = true;
             group.add(mesh);
             meshes.push(mesh);
             pickMeshes.push(mesh);
@@ -1524,6 +1628,7 @@ function buildExteriorRig(assembly) {
             sharedVisual.traverse(node => {
                 if (!node.isMesh) return;
                 node.userData.slot = slot;
+                node.castShadow = true; node.receiveShadow = true;
                 meshes.push(node);
                 pickMeshes.push(node);
             });
@@ -1804,5 +1909,7 @@ function plate(width, height, depth, material) {
         bevelSize: bevel, bevelSegments: 1, curveSegments: 1,
     });
     geometry.translate(0, 0, -depth / 2 + bevel);
-    return new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    return mesh;
 }
