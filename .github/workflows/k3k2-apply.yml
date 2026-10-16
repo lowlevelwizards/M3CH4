@@ -1,0 +1,42 @@
+name: Apply and verify k.3k.2 cockpit embodiment
+
+on:
+  push:
+    branches:
+      - feature/k3k2-cockpit-embodiment-sortie-flow
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3k2-cockpit-embodiment-sortie-flow
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply k.3k.2 product patch
+        run: python .github/k3k2_apply.py
+      - name: Syntax check touched JavaScript
+        run: |
+          node --check main.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check combatPresentation.js
+      - name: Run full test suite
+        run: npm test
+      - name: Commit product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html styles.css main.js scene.js sceneAssembly.js combatPresentation.js tests/combatPresentation.test.mjs
+          git commit -m 'feat: k.3k.2 cockpit embodiment and sortie flow'
+          git push origin HEAD:feature/k3k2-cockpit-embodiment-sortie-flow
