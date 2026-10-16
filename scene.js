@@ -27,6 +27,20 @@ export function createArenaScene(initial, targetAssembly) {
     navMarker.rotation.x = -Math.PI / 2;
     navMarker.visible = false;
     debugColliders.add(navMarker);
+    const shotAuditMaterial = new THREE.LineBasicMaterial({ color: 0x65ff91, depthTest: false, transparent: true, opacity: .92 });
+    const shotAuditLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), shotAuditMaterial);
+    shotAuditLine.visible = false;
+    debugColliders.add(shotAuditLine);
+    function updateShotAudit(contact, clear) {
+        if (!contact?.muzzle || !contact?.point) {
+            shotAuditLine.visible = false;
+            return;
+        }
+        shotAuditLine.geometry.dispose();
+        shotAuditLine.geometry = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
+        shotAuditMaterial.color.setHex(clear ? 0x65ff91 : 0xff765d);
+        shotAuditLine.visible = true;
+    }
     function updateHostileNavigation(point) {
         navMarker.visible = point !== null;
         if (point)
@@ -49,6 +63,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (material instanceof THREE.MeshStandardMaterial)
             targetColors.set(mesh, material.color.clone());
     }
+    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0 }]));
     const squadCombatants = new Map();
     function makeSquadMarker(team) {
         const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -68,7 +83,8 @@ export function createArenaScene(initial, targetAssembly) {
     const primaryMarker = makeSquadMarker('hostile');
     squadCombatants.set('enemy-0', {
         id: 'enemy-0', team: 'hostile', assembly: targetAssembly, exterior: targetExterior,
-        colors: targetColors, marker: primaryMarker, active: true,
+        colors: targetColors, marker: primaryMarker, active: true, condition: null,
+        emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), wrecked: false, cleared: false,
     });
     function colorsFor(exterior) {
         const colors = new WeakMap();
@@ -90,7 +106,8 @@ export function createArenaScene(initial, targetAssembly) {
         scene.add(actorExterior.root);
         const record = {
             id, team, assembly, exterior: actorExterior, colors: colorsFor(actorExterior),
-            marker: makeSquadMarker(team), active: true,
+            marker: makeSquadMarker(team), active: true, condition: null,
+            emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), wrecked: false, cleared: false,
         };
         squadCombatants.set(id, record);
         return record;
@@ -98,14 +115,33 @@ export function createArenaScene(initial, targetAssembly) {
     function setCombatantActive(id, active) {
         const record = squadCombatants.get(id);
         if (!record) return;
+        const wasActive = record.active;
         record.active = !!active;
-        record.marker.material.opacity = record.active ? .92 : .22;
-        record.marker.scale.setScalar(record.active ? 1 : .78);
+        if (wasActive && !record.active)
+            wreckCombatantVisual(record);
+        else if (!wasActive && record.active)
+            resetCombatantVisual(record);
+        record.marker.material.opacity = record.active ? .82 : .24;
+        record.marker.scale.setScalar(record.active ? .86 : .62);
+    }
+    function setCombatantCleared(id, cleared = true) {
+        const record = squadCombatants.get(id);
+        if (!record) return;
+        record.cleared = !!cleared;
+        if (record.cleared) {
+            record.marker.visible = false;
+            record.exterior.root.position.y = -.14;
+            record.exterior.root.rotation.z *= 1.55;
+            for (const slot of ['command', 'combat']) {
+                const group = record.exterior.partGroups.get(slot);
+                if (group) group.scale.setScalar(.72);
+            }
+        }
     }
     function updateSquadMarkers() {
         for (const record of squadCombatants.values()) {
-            record.marker.visible = !inspecting;
-            if (inspecting) continue;
+            record.marker.visible = !inspecting && !record.cleared;
+            if (inspecting || record.cleared) continue;
             const point = new THREE.Vector3();
             record.exterior.root.getWorldPosition(point);
             point.y += 3.55;
@@ -113,10 +149,10 @@ export function createArenaScene(initial, targetAssembly) {
             record.marker.quaternion.copy(camera.quaternion);
         }
     }
-    function hostilePickMeshes() {
+    function combatPickMeshes(excludeId = null) {
         const meshes = [];
         for (const record of squadCombatants.values()) {
-            if (record.team === 'hostile' && record.active)
+            if (record.id !== excludeId && !record.cleared)
                 meshes.push(...record.exterior.pickMeshes);
         }
         return meshes;
@@ -139,12 +175,10 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return pool;
     }
-    const sparkPool = makePool(32, new THREE.BoxGeometry(.035, .035, .14), 0xffc968, true);
-    const chipPool = makePool(18, new THREE.BoxGeometry(.075, .055, .09), 0x4a4d46, true);
-    const smokePool = makePool(16, new THREE.BoxGeometry(.15, .15, .15), 0x252a26, true);
+    const sparkPool = makePool(52, new THREE.BoxGeometry(.035, .035, .14), 0xffc968, true);
+    const chipPool = makePool(34, new THREE.BoxGeometry(.075, .055, .09), 0x4a4d46, true);
+    const smokePool = makePool(28, new THREE.BoxGeometry(.15, .15, .15), 0x252a26, true);
     let sparkCursor = 0, chipCursor = 0, smokeCursor = 0;
-    let activeTargetCondition = null;
-    const emitterBudget = new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0 }]));
     function activateParticle(pool, cursorName, position, velocity, scale, duration, gravity = 0, grow = 0, color = null, smoke = false) {
         let cursor = cursorName === 'spark' ? sparkCursor : cursorName === 'chip' ? chipCursor : smokeCursor;
         const state = pool[cursor % pool.length];
@@ -191,24 +225,82 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return profile;
     }
-    function partWorldPoint(slot) {
-        const group = targetExterior.partGroups.get(slot);
+    function partWorldPoint(record, slot) {
+        const group = record?.exterior.partGroups.get(slot);
         const point = new THREE.Vector3();
-        if (group)
-            group.getWorldPosition(point);
+        if (group) group.getWorldPosition(point);
+        else record?.exterior.root.getWorldPosition(point);
         point.x += (Math.random() - .5) * .45;
         point.y += (Math.random() - .5) * .30;
         point.z += (Math.random() - .5) * .45;
         return point;
+    }
+    function spawnDisableBurst(position, normal, outcome) {
+        const flashMat = new THREE.MeshBasicMaterial({ color: outcome?.slot === 'power' ? 0xffd27a : 0xffa75b, transparent: true, opacity: .94, depthWrite: false });
+        const flash = new THREE.Mesh(new THREE.IcosahedronGeometry(outcome?.slot === 'power' ? .36 : .27, 0), flashMat);
+        flash.position.copy(position);
+        scene.add(flash);
+        transientFX.push({ object: flash, remaining: .16, duration: .16, material: flashMat });
+        for (let i = 0; i < (outcome?.wreckHit ? 8 : 6); i++) {
+            const direction = randomBurstDirection(normal, 1.65);
+            activateParticle(chipPool, 'chip', position, direction.multiplyScalar(1.2 + Math.random() * 3.0), 1.8 + Math.random() * 1.8, .75 + Math.random() * .75, -7.4, 0, Math.random() > .45 ? 0x4a4d46 : 0x9b7542);
+        }
+        for (let i = 0; i < 3; i++) {
+            const drift = new THREE.Vector3((Math.random() - .5) * .45, .35 + Math.random() * .35, (Math.random() - .5) * .45);
+            activateParticle(smokePool, 'smoke', position, drift, 1.0 + Math.random() * .55, 1.15 + Math.random() * .8, 0, 1.15, 0x252722, true);
+        }
+    }
+    function markPartDisabledVisual(actorId, slot) {
+        const record = squadCombatants.get(actorId);
+        if (!record || record.disabledSlots.has(slot)) return;
+        record.disabledSlots.add(slot);
+        const group = record.exterior.partGroups.get(slot);
+        if (!group) return;
+        const side = actorId.length % 2 ? 1 : -1;
+        group.rotation.z += side * (slot === 'mobility' ? .055 : .11);
+        group.rotation.x += slot === 'combat' ? .09 : .035;
+        group.position.y -= slot === 'mobility' ? .035 : .065;
+    }
+    function wreckCombatantVisual(record) {
+        record.wrecked = true;
+        record.cleared = false;
+        const side = record.id.length % 2 ? 1 : -1;
+        record.exterior.root.rotation.z = side * .075;
+        record.exterior.root.rotation.x = .025;
+        record.exterior.root.position.y = -.06;
+        for (const slot of ['power', 'structure']) {
+            const group = record.exterior.partGroups.get(slot);
+            if (!group) continue;
+            const point = group.getWorldPosition(new THREE.Vector3());
+            spawnDisableBurst(point, new THREE.Vector3(0, 1, 0), { slot, wreckHit: true });
+        }
+    }
+    function resetCombatantVisual(record) {
+        record.wrecked = false;
+        record.cleared = false;
+        record.disabledSlots.clear();
+        record.exterior.root.position.y = 0;
+        record.exterior.root.rotation.x = 0;
+        record.exterior.root.rotation.z = 0;
+        for (const slot of SLOTS) {
+            const group = record.exterior.partGroups.get(slot);
+            const fitted = installedPart(record.assembly, slot);
+            if (!group || !fitted) continue;
+            group.position.set(...fitted.definition.center);
+            group.rotation.set(0, 0, 0);
+            group.scale.set(1, 1, 1);
+        }
     }
     function clearPooledParticles() {
         for (const state of particleStates) {
             state.life = 0;
             state.mesh.visible = false;
         }
-        for (const budget of emitterBudget.values()) {
-            budget.spark = 0;
-            budget.smoke = 0;
+        for (const record of squadCombatants.values()) {
+            for (const budget of record.emitterBudget.values()) {
+                budget.spark = 0;
+                budget.smoke = 0;
+            }
         }
     }
     // Ring, not another obstacle or an invisible hit volume.
@@ -303,7 +395,7 @@ export function createArenaScene(initial, targetAssembly) {
     function updateCombatantRig(id, state) {
         const record = squadCombatants.get(id);
         if (!record) return;
-        record.exterior.root.position.set(state.x, 0, state.z);
+        record.exterior.root.position.set(state.x, record.cleared ? -.14 : record.wrecked ? -.06 : 0, state.z);
         record.exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
         record.exterior.root.updateWorldMatrix(true, true);
     }
@@ -422,20 +514,21 @@ export function createArenaScene(initial, targetAssembly) {
         sightDir.addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
         raycaster.set(camera.position, sightDir);
         raycaster.far = 100;
-        const visible = raycaster.intersectObjects([...hostilePickMeshes(), ...worldSolids], false)[0];
+        const visible = raycaster.intersectObjects([...combatPickMeshes(), ...worldSolids], false)[0];
         const aimPoint = visible ? visible.point : camera.position.clone().addScaledVector(sightDir, 100);
         const muzzle = gunPivot.localToWorld(new THREE.Vector3(0, -.04, muzzleZ + .62));
         const bore = aimPoint.clone().sub(muzzle).normalize();
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
-        const actual = raycaster.intersectObjects([...hostilePickMeshes(), ...worldSolids], false)[0];
+        const actual = raycaster.intersectObjects([...combatPickMeshes(), ...worldSolids], false)[0];
         const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
         const slot = actual?.object.userData.slot;
         const actorId = actual?.object.userData.actorId ?? null;
-        return { actorId: slot ? actorId : null, slot: slot ?? null, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+        const blockedBy = actual?.object.userData.arenaObstacleId ?? null;
+        return { actorId: slot ? actorId : null, slot: slot ?? null, blockedBy, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
         const shooter = squadCombatants.get(shooterId);
@@ -464,20 +557,26 @@ export function createArenaScene(initial, targetAssembly) {
         const bore = forward.clone().addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
-        const actual = raycaster.intersectObjects([...target.exterior.pickMeshes, ...worldSolids], false)[0];
+        const blockers = [...combatPickMeshes(shooterId), ...exterior.pickMeshes, ...worldSolids];
+        const actual = raycaster.intersectObjects(blockers, false)[0];
         const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
         const slot = actual?.object.userData.slot;
+        const actorId = actual?.object.userData.actorId ?? null;
+        const blockedBy = actual?.object.userData.arenaObstacleId ?? null;
         let driveSide;
-        if (slot === 'mobility') {
-            const local = target.exterior.root.worldToLocal(point.clone());
-            driveSide = local.x < 0 ? 'left' : 'right';
+        if (slot === 'mobility' && actorId) {
+            const hitRoot = actorId === 'player' ? exterior.root : squadCombatants.get(actorId)?.exterior.root;
+            if (hitRoot) {
+                const local = hitRoot.worldToLocal(point.clone());
+                driveSide = local.x < 0 ? 'left' : 'right';
+            }
         }
         return {
-            actorId: slot ? targetId : null,
-            slot: slot ?? null, point, normal: surfaceNormal, muzzle,
+            actorId: slot ? actorId : null,
+            slot: slot ?? null, blockedBy, point, normal: surfaceNormal, muzzle,
             distance: muzzle.distanceTo(point), driveSide,
         };
     }
@@ -496,6 +595,10 @@ export function createArenaScene(initial, targetAssembly) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
+        if (outcome?.justDisabled || outcome?.wreckHit) {
+            spawnDisableBurst(impactPoint, contact.normal, outcome);
+            if (outcome.justDisabled) markPartDisabledVisual(contact.actorId, outcome.slot);
+        }
         if (hit && contact.actorId === 'enemy-0') {
             // Keep persistent soot on the selected contract leader; auxiliary rigs
             // still receive damage tinting and particles without growing mark pools.
@@ -530,6 +633,7 @@ export function createArenaScene(initial, targetAssembly) {
     function updateCombatantDamage(id, condition) {
         const record = squadCombatants.get(id);
         if (!record || !condition?.parts) return;
+        record.condition = condition;
         for (const [slot, meshes] of record.exterior.partMeshes) {
             const state = condition.parts[slot];
             if (!state) continue;
@@ -539,14 +643,14 @@ export function createArenaScene(initial, targetAssembly) {
                 const material = mesh.material;
                 const color = record.colors.get(mesh);
                 if (!(material instanceof THREE.MeshStandardMaterial) || !color) continue;
-                material.color.copy(color).multiplyScalar(1 - damage * .56 - stripped * .11);
-                material.emissive.setHex(state.integrity === 0 ? 0x30150b : 0);
-                material.emissiveIntensity = state.integrity === 0 ? .35 : 0;
+                material.color.copy(color).multiplyScalar(Math.max(.24, 1 - damage * .68 - stripped * .18));
+                const severe = state.integrity / Math.max(1, state.maxIntegrity) < .32;
+                material.emissive.setHex(state.integrity === 0 ? 0x4b1609 : severe ? 0x241008 : 0);
+                material.emissiveIntensity = state.integrity === 0 ? .58 : severe ? .16 : 0;
             }
         }
     }
     function updateTargetDamage(condition) {
-        activeTargetCondition = condition;
         updateCombatantDamage('enemy-0', condition);
     }
     function showCombatantShot(shooterId, contact, outcome) {
@@ -564,6 +668,10 @@ export function createArenaScene(initial, targetAssembly) {
         if (outcome) {
             const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
             spawnImpactParticles(impactPoint, contact.normal, outcome);
+            if (outcome.justDisabled || outcome.wreckHit) {
+                spawnDisableBurst(impactPoint, contact.normal, outcome);
+                if (outcome.justDisabled) markPartDisabledVisual(contact.actorId, outcome.slot);
+            }
         }
     }
     function updatePilotDamage(condition) {
@@ -631,28 +739,30 @@ export function createArenaScene(initial, targetAssembly) {
             else
                 state.mesh.material.opacity = Math.min(1, t * 1.8);
         }
-        // Sustained distress comes from the actual damaged component, at a low bounded rate.
-        if (activeTargetCondition) {
-            targetExterior.root.updateWorldMatrix(true, true);
+        // Every damaged combatant can now communicate distress; the old build only emitted
+        // sustained effects from the selected contract leader.
+        for (const record of squadCombatants.values()) {
+            if (!record.condition?.parts || record.cleared) continue;
+            record.exterior.root.updateWorldMatrix(true, true);
             for (const slot of SLOTS) {
-                const part = activeTargetCondition.parts[slot];
-                if (!part)
-                    continue;
+                const part = record.condition.parts[slot];
+                if (!part) continue;
                 const profile = persistentFailureProfile(slot, integrityRatio(part));
-                const budget = emitterBudget.get(slot);
-                budget.spark += profile.sparkRate * dt;
-                budget.smoke += profile.smokeRate * dt;
+                const budget = record.emitterBudget.get(slot);
+                const wreckSmoke = record.wrecked ? .42 : 0;
+                budget.spark += profile.sparkRate * dt * (record.wrecked ? .55 : 1);
+                budget.smoke += (profile.smokeRate + wreckSmoke) * dt;
                 while (budget.spark >= 1) {
                     budget.spark -= 1;
-                    const origin = partWorldPoint(slot);
+                    const origin = partWorldPoint(record, slot);
                     const velocity = new THREE.Vector3((Math.random() - .5) * 1.8, .5 + Math.random() * 1.6, (Math.random() - .5) * 1.8);
                     activateParticle(sparkPool, 'spark', origin, velocity, .55 + Math.random() * .5, .18 + Math.random() * .22, -3.8, 0, 0xffb951);
                 }
                 while (budget.smoke >= 1) {
                     budget.smoke -= 1;
-                    const origin = partWorldPoint(slot);
+                    const origin = partWorldPoint(record, slot);
                     const velocity = new THREE.Vector3((Math.random() - .5) * .16, .22 + Math.random() * .22, (Math.random() - .5) * .16);
-                    activateParticle(smokePool, 'smoke', origin, velocity, .72 + profile.severity * .4, .9 + Math.random() * .65, 0, 1.05, slot === 'power' ? 0x20241f : 0x2b2d28, true);
+                    activateParticle(smokePool, 'smoke', origin, velocity, .8 + profile.severity * .5, 1.0 + Math.random() * .75, 0, 1.15, slot === 'power' ? 0x20241f : 0x2b2d28, true);
                 }
             }
         }
@@ -663,7 +773,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
-        addCombatant, setCombatantActive, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot,
+        addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {

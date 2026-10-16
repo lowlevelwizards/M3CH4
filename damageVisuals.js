@@ -12,12 +12,14 @@ export function integrityRatio(part) {
 export function impactProfile(outcome) {
     if (!outcome)
         return { kind: 'surface', sparkCount: 3, chipCount: 1, smokeCount: 0, markScale: .7, flashScale: .7 };
+    if (outcome.wreckHit)
+        return { kind: outcome.cleared ? 'wreck-break' : 'wreck-hit', sparkCount: outcome.cleared ? 18 : 10, chipCount: outcome.cleared ? 12 : 7, smokeCount: outcome.cleared ? 5 : 2, markScale: 1.45, flashScale: outcome.cleared ? 1.65 : 1.12 };
     if (outcome.justDisabled)
         return {
             kind: outcome.slot === 'power' ? 'power-disable' : 'disable',
-            sparkCount: outcome.slot === 'power' ? 18 : 13,
-            chipCount: 8,
-            smokeCount: outcome.slot === 'power' ? 4 : 2,
+            sparkCount: outcome.slot === 'power' ? 22 : 17,
+            chipCount: 10,
+            smokeCount: outcome.slot === 'power' ? 6 : 4,
             markScale: 1.55,
             flashScale: outcome.slot === 'power' ? 1.8 : 1.35,
         };
