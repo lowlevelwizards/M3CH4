@@ -16,6 +16,7 @@ import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 import { contractById } from './contracts.js';
 import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
+import { damageWreckIntegrity, shoveWreck, wreckCollisionRadius } from './wreckPhysics.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -59,6 +60,7 @@ const primaryEnemyActor = {
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
     behavior: contractById(targetAssembly.contractId).behavior,
     spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
+    wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
 };
 function makeSupportActor(id, team, contractId, spawn, label = null) {
     const actorAssembly = makeRangeTarget(contractId);
@@ -76,6 +78,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null) {
         controller: createHostileController(team === FRIENDLY_TEAM ? 1.0 : 1.55, behavior),
         motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
         behavior, spawn, active: true, targetId: null, killReason: null,
+        wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
     };
 }
 const friendlySupportActors = FRIENDLY_SUPPORTS.map(spawn =>
@@ -107,7 +110,8 @@ function placeMovingObstacle(box, x, z, radius) {
 function syncMovingObstacles() {
     placeMovingObstacle(pilotObstacle, rig.x, rig.z, effectiveConfig?.collisionRadiusM ?? 1);
     for (const actor of aiActors) {
-        const radius = actor.baseConfig?.collisionRadiusM ?? 1;
+        const baseRadius = actor.baseConfig?.collisionRadiusM ?? 1;
+        const radius = actor.active ? baseRadius : wreckCollisionRadius(baseRadius, actor.wreckAge, actor.wreckCleared);
         placeMovingObstacle(actorObstacles.get(actor.id), actor.rig.x, actor.rig.z, radius);
     }
 }
@@ -116,6 +120,18 @@ function combatWorldFor(actorId) {
     if (actorId !== 'player') dynamic.push(pilotObstacle);
     for (const [id, obstacle] of actorObstacles) if (id !== actorId) dynamic.push(obstacle);
     return { ...DEFAULT_WORLD, obstacles: [...DEFAULT_WORLD.obstacles, ...dynamic] };
+}
+function shoveDisabledWrecks(moverState, moverConfig) {
+    const moverRadius = moverConfig?.collisionRadiusM ?? 1;
+    for (const actor of aiActors) {
+        if (actor.active) continue;
+        const wreckRadius = wreckCollisionRadius(actor.baseConfig?.collisionRadiusM ?? 1, actor.wreckAge, actor.wreckCleared);
+        const shove = shoveWreck(moverState, actor.rig, moverRadius, wreckRadius, FIXED_DT);
+        if (!shove) continue;
+        actor.rig.x = THREE.MathUtils.clamp(actor.rig.x + shove.dx, DEFAULT_WORLD.minX + wreckRadius, DEFAULT_WORLD.maxX - wreckRadius);
+        actor.rig.z = THREE.MathUtils.clamp(actor.rig.z + shove.dz, DEFAULT_WORLD.minZ + wreckRadius, DEFAULT_WORLD.maxZ - wreckRadius);
+        arena.updateCombatantRig(actor.id, actor.rig);
+    }
 }
 function aiLocomotionConfig(actor) {
     const mobility = installedPart(actor.assembly, 'mobility');
@@ -170,6 +186,8 @@ function updateFunctionalStatus() {
         faults.push(`WEAPON ${Math.round(output.weapon * 100)}%`);
     faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
     faultStrip.classList.toggle('faulted', faults.length > 0);
+    faultStrip.classList.toggle('nominal', faults.length === 0);
+    renderPlayerDamageHUD();
 }
 function required(selector) {
     const element = document.querySelector(selector);
@@ -222,6 +240,13 @@ const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
+const playerDamageHud = required('#player-damage-hud');
+const hitConfirm = required('#hit-confirm');
+const playerHitFlash = required('#player-hit-flash');
+const playerDamageSegments = new Map([...playerDamageHud.querySelectorAll('[data-system]')].map(element => [element.dataset.system, element]));
+let hitConfirmTimer = null;
+let playerHitTimer = null;
+let lastCoverAudit = '—';
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
@@ -232,6 +257,9 @@ mount.appendChild(renderer.domElement);
 const arena = createArenaScene(assembly, targetAssembly);
 for (const actor of supportActors)
     arena.addCombatant(actor.id, actor.assembly, actor.team, actor.spawn);
+arena.updateTargetDamage(targetCondition);
+for (const actor of supportActors)
+    arena.updateCombatantDamage(actor.id, actor.condition);
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
@@ -271,6 +299,56 @@ function renderSquadStatus() {
     teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
     teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
 }
+function playerPartRemaining(part) {
+    if (!part) return 0;
+    const total = Math.max(1, part.maxIntegrity + part.maxArmor);
+    return Math.max(0, Math.min(1, (part.integrity + part.armor) / total));
+}
+function renderPlayerDamageHUD(flashSlot = null) {
+    for (const slot of SLOTS) {
+        const element = playerDamageSegments.get(slot);
+        const part = playerCondition.parts[slot];
+        if (!element || !part) continue;
+        const ratio = playerPartRemaining(part);
+        const value = element.querySelector('i');
+        if (value) value.textContent = String(Math.round(ratio * 100));
+        element.classList.toggle('breached', part.armor < part.maxArmor * .04);
+        element.classList.toggle('damaged', ratio < .72);
+        element.classList.toggle('severe', ratio < .38);
+        element.classList.toggle('disabled', part.integrity <= 0);
+        if (flashSlot === slot) {
+            element.classList.remove('hit');
+            void element.offsetWidth;
+            element.classList.add('hit');
+            window.setTimeout(() => element.classList.remove('hit'), 460);
+        }
+    }
+}
+function signalPlayerHit(slot, hit) {
+    renderPlayerDamageHUD(slot);
+    playerHitFlash.className = `player-hit-flash active hit-${slot}${hit.internalDamage > 0 ? ' breached' : ''}`;
+    void playerHitFlash.offsetWidth;
+    if (playerHitTimer !== null) window.clearTimeout(playerHitTimer);
+    playerHitTimer = window.setTimeout(() => {
+        playerHitFlash.className = 'player-hit-flash';
+        playerHitTimer = null;
+    }, 240);
+}
+function showHitConfirm(hit, text = null) {
+    const kind = hit?.friendlyBlock ? 'friendly' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
+    const label = text ?? (kind === 'disabled' ? 'DISABLED' : kind === 'breach' ? 'BREACH' : kind === 'cleared' ? 'WRECK CLEARED' : kind === 'wreck' ? 'WRECK' : kind === 'friendly' ? 'ALLY BLOCK' : 'HIT');
+    hitConfirm.textContent = label;
+    hitConfirm.className = `hit-confirm visible ${kind}`;
+    rangeCrosshair.classList.add('confirmed-hit');
+    rangeCrosshair.classList.toggle('breach-hit', kind === 'breach');
+    rangeCrosshair.classList.toggle('disable-hit', kind === 'disabled' || kind === 'cleared');
+    if (hitConfirmTimer !== null) window.clearTimeout(hitConfirmTimer);
+    hitConfirmTimer = window.setTimeout(() => {
+        hitConfirm.className = 'hit-confirm';
+        rangeCrosshair.classList.remove('breach-hit', 'disable-hit');
+        hitConfirmTimer = null;
+    }, kind === 'disabled' || kind === 'cleared' ? 620 : 280);
+}
 function checkSquadOutcome() {
     const outcome = squadOutcome(playerCombatActive, aiActors);
     if (outcome && !testEnded)
@@ -281,6 +359,9 @@ function missionKillAiActor(actor, reason) {
     actor.active = false;
     actor.killReason = reason;
     actor.targetId = null;
+    actor.wreckAge = 0;
+    actor.wreckIntegrity = 1;
+    actor.wreckCleared = false;
     actor.rig.vx = 0; actor.rig.vz = 0; actor.rig.yawRate = 0;
     arena.setCombatantActive(actor.id, false);
     arena.updateCombatantDamage(actor.id, actor.condition);
@@ -299,6 +380,7 @@ function missionKillPlayer(reason) {
     stopFieldServiceInput();
     controls.setEnabled(false);
     faultStrip.textContent = `MISSION KILL · ${reason} · ALLIES STILL ENGAGED`;
+    faultStrip.classList.remove('nominal');
     faultStrip.classList.add('faulted');
     shotReport.classList.remove('faded', 'penetrated');
     shotReport.classList.add('disabled-part');
@@ -319,6 +401,9 @@ function resetAiActor(actor) {
     actor.active = true;
     actor.targetId = null;
     actor.killReason = null;
+    actor.wreckAge = 0;
+    actor.wreckIntegrity = 1;
+    actor.wreckCleared = false;
     actor.driveDamage.drives = {};
     arena.setCombatantActive(actor.id, true);
     arena.updateCombatantRig(actor.id, actor.rig);
@@ -850,6 +935,7 @@ function frame(now) {
             if (playerCombatActive) {
                 const yawBefore = rig.yaw;
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
+                shoveDisabledWrecks(rig, effectiveConfig);
                 if (Math.abs(followSteer) > .001) {
                     controls.compensateBodyTurn(rig.yaw - yawBefore);
                     input = controls.sample();
@@ -859,7 +945,10 @@ function frame(now) {
                 else if (serviceStep.event === 'interrupted') handleFieldServiceInterrupted();
             }
             for (const actor of aiActors) {
-                if (!actor.active) continue;
+                if (!actor.active) {
+                    actor.wreckAge += FIXED_DT;
+                    continue;
+                }
                 const target = resolveActorTarget(actor);
                 if (!target) continue;
                 const actorOutput = hostileOutput(actor.condition, actor.behavior);
@@ -867,6 +956,7 @@ function frame(now) {
                 const actorConfig = aiLocomotionConfig(actor);
                 const maneuver = advanceEnemyMotion(actor.motion, actor.rig, target.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior);
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
+                shoveDisabledWrecks(actor.rig, actorConfig);
                 arena.updateCombatantRig(actor.id, actor.rig);
                 if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
                 if (actor.weaponSpec && actor.weaponState) {
@@ -903,7 +993,7 @@ function frame(now) {
     }
     recoilFlash = Math.max(0, recoilFlash - frameDt);
     reportFade = Math.max(0, reportFade - frameDt);
-    rangeCrosshair.classList.toggle('confirmed-hit', recoilFlash > 0);
+    rangeCrosshair.classList.toggle('confirmed-hit', recoilFlash > 0 || hitConfirmTimer !== null);
     shotReport.classList.toggle('faded', reportFade === 0);
     renderAmmo();
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);
@@ -945,6 +1035,7 @@ function frame(now) {
             `SQUAD     ${teamStatus.textContent}${playerCombatActive ? '' : ' · YOU OUT'}`,
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
+            `LOS AUDIT ${lastCoverAudit}`,
             `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
             `LAST HIT  ${lastHit}`,
         ].join('\n');
@@ -952,7 +1043,7 @@ function frame(now) {
     renderer.render(arena.scene, arena.camera);
     requestAnimationFrame(frame);
 }
-devToggle.addEventListener('click', () => devPanel.classList.toggle('hidden'));
+devToggle.addEventListener('click', () => { devPanel.classList.toggle('hidden'); renderTarget(); });
 resetRig.addEventListener('click', () => { rig = createRigState(); controls.recenterLook(); });
 let wipeArmed = false;
 let wipeTimer = null;
@@ -986,6 +1077,7 @@ wipeSave.addEventListener('click', () => {
 toggleColliders.addEventListener('click', () => {
     showColliders = !showColliders;
     arena.debugColliders.visible = showColliders;
+    if (!showColliders) arena.updateShotAudit(null, false);
     toggleColliders.textContent = `COLLIDERS: ${showColliders ? 'ON' : 'OFF'}`;
 });
 resolutionToggle.addEventListener('click', () => {
@@ -1055,8 +1147,15 @@ function renderTarget() {
     targetReadout.replaceChildren();
     const behavior = document.createElement('div');
     behavior.className = 'target-row';
-    behavior.textContent = `MOTION: ${hostileMotion.phase} · ${hostileMotion.navigation} · DRIVE ${Math.round(hostileOutput(targetCondition).mobility * 100)}%`;
+    behavior.textContent = `MOTION: ${hostileMotion.phase} · ${hostileMotion.navigation}`;
     targetReadout.appendChild(behavior);
+    if (devPanel.classList.contains('hidden')) {
+        const withheld = document.createElement('div');
+        withheld.className = 'target-row';
+        withheld.textContent = 'REMOTE MODULE TELEMETRY WITHHELD · USE VISUAL DAMAGE / HIT CONFIRMATION';
+        targetReadout.appendChild(withheld);
+        return;
+    }
     for (const slot of SLOTS) {
         const part = targetCondition.parts[slot];
         const row = document.createElement('div');
@@ -1119,6 +1218,7 @@ function finishSortie(victory, reason) {
     renderEconomy();
     persistMachine();
     faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
+    faultStrip.classList.remove('nominal');
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');
     shotReport.classList.toggle('disabled-part', !victory);
@@ -1153,6 +1253,7 @@ function applyAiHitToPlayer(actor, contact) {
     const visualHit = { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updatePilotDamage(playerCondition);
+    signalPlayerHit(contact.slot, visualHit);
     persistMachine();
     soundImpact();
     rig.impact = Math.min(1, rig.impact + .65);
@@ -1176,6 +1277,9 @@ function attemptAiFire(actor, target, shotIndex) {
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
+    const obstruction = contact.blockedBy ? `COVER ${contact.blockedBy}` : contact.actorId && contact.actorId !== target.id ? `RIG ${contact.actorId}` : null;
+    lastCoverAudit = obstruction ? `${actor.id} → ${target.id} · BLOCKED · ${obstruction}` : `${actor.id} → ${target.id} · CLEAR`;
+    if (showColliders) arena.updateShotAudit(contact, !obstruction && contact.actorId === target.id);
     if (contact.slot === null || contact.actorId !== target.id) return;
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
     if (consumed === null) return;
@@ -1224,7 +1328,32 @@ function attemptFire() {
     soundFire();
     if (contact.slot !== null && contact.actorId) {
         const targetActor = actorById(contact.actorId);
-        if (!targetActor || targetActor.team !== HOSTILE_TEAM || !targetActor.active) return;
+        if (!targetActor) return;
+        // Once a rig is mission-killed it is just obstructing machinery: either team can
+        // shove it or spend ammunition breaking it down into a much smaller remnant.
+        if (!targetActor.active) {
+            targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, weaponSpec.damage);
+            const cleared = targetActor.wreckIntegrity <= .001;
+            if (cleared && !targetActor.wreckCleared) {
+                targetActor.wreckCleared = true;
+                arena.setCombatantCleared(targetActor.id, true);
+            }
+            const wreckHit = { slot: contact.slot, internalDamage: weaponSpec.damage, armorAbsorbed: 0, disabled: true, justDisabled: false, wreckHit: true, cleared };
+            arena.showShot(contact, wreckHit);
+            soundImpact();
+            showHitConfirm(wreckHit);
+            lastHit = `${targetActor.label} · WRECK ${Math.round(targetActor.wreckIntegrity * 100)}%`;
+            renderAmmo();
+            return;
+        }
+        if (targetActor.team !== HOSTILE_TEAM) {
+            arena.showShot(contact, null);
+            soundImpact();
+            showHitConfirm({ friendlyBlock: true });
+            lastHit = `ALLY BLOCK · ${targetActor.label}`;
+            renderAmmo();
+            return;
+        }
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
         const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
         const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled };
@@ -1237,21 +1366,15 @@ function attemptFire() {
         soundImpact();
         recoilFlash = .19;
         lastHit = `${targetActor.label} · ${targetLabels[hit.slot]} · ${hit.serial}`;
-        shotReport.classList.toggle('penetrated', hit.internalDamage > 0);
-        shotReport.classList.toggle('disabled-part', hit.disabled);
-        const outcome = hit.disabled ? 'MODULE DISABLED' : hit.internalDamage > 0 ? 'ARMOR BREACHED' : 'ARMOR IMPACT';
-        shotReport.textContent = `${outcome} · ${lastHit} · ARMOR −${hit.armorAbsorbed} · INTERNAL −${hit.internalDamage}`;
+        showHitConfirm(hit);
         const kill = hostileMissionKillReason(targetActor.condition, targetActor.behavior);
         if (kill) missionKillAiActor(targetActor, kill);
         if (testEnded) return;
     }
     else {
         arena.showShot(contact, null);
-        lastHit = 'RANGE SURFACE / MISS';
-        shotReport.classList.remove('penetrated', 'disabled-part');
-        shotReport.textContent = 'NO TARGET HIT · ADJUST AIM';
+        lastHit = contact.blockedBy ? `COVER · ${contact.blockedBy}` : 'RANGE SURFACE / MISS';
     }
-    reportFade = 2.2;
     renderAmmo();
 }
 fireButton.addEventListener('pointerdown', event => {
@@ -1412,9 +1535,10 @@ for (const button of document.querySelectorAll('[data-damage]')) {
     });
 }
 updateFunctionalStatus();
+renderPlayerDamageHUD();
 renderEconomy();
-renderSquadStatus();
 renderAmmo();
 renderTarget();
+renderSquadStatus();
 // k.3d.0: first closed fight -> accounting -> repair loop over the existing garage.
 requestAnimationFrame(frame);
