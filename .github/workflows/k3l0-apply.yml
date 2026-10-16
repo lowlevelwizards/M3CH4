@@ -1,0 +1,53 @@
+name: Apply and verify k.3l.0 bout stakes
+on:
+  push:
+    branches:
+      - feature/k3l0-bout-stakes-salvage
+jobs:
+  apply-and-test:
+    if: ${{ !contains(github.event.head_commit.message, 'feat: integrate k.3l.0 bout stakes') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3l0-bout-stakes-salvage
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply k.3l.0 integration
+        run: |
+          python .github/k3l0_apply.py
+          python .github/k3l0_apply2.py
+      - name: Syntax check touched JavaScript
+        run: |
+          node --check combat.js
+          node --check functionalDamage.js
+          node --check garage.js
+          node --check economy.js
+          node --check acquisition.js
+          node --check persistence.js
+          node --check progression.js
+          node --check damageVisuals.js
+          node --check boutScoring.js
+          node --check damageFate.js
+          node --check salvageDraft.js
+          node --check boutSession.js
+          node --check acquisitionUI.js
+          node --check garageMountUI.js
+          node --check sceneAssembly.js
+          node --check scene.js
+          node --check main.js
+      - name: Run full test suite
+        run: npm test
+      - name: Commit product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add combat.js functionalDamage.js garage.js economy.js acquisition.js persistence.js progression.js damageVisuals.js acquisitionUI.js garageMountUI.js sceneAssembly.js scene.js main.js index.html
+          git commit -m 'feat: integrate k.3l.0 bout stakes'
+          git push
