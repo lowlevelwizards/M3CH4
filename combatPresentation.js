@@ -1,5 +1,5 @@
 /** k.3k.3 presentation tuning only. Combat/damage math stays authoritative elsewhere. */
-export const SORTIE_OUTRO_SECONDS = 2.65;
+export const SORTIE_OUTRO_SECONDS = 4.25;
 
 const clamp01 = value => Math.max(0, Math.min(1, Number(value) || 0));
 

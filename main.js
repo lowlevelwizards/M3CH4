@@ -1080,7 +1080,8 @@ function frame(now) {
     fps += ((1 / Math.max(frameDt, .0001)) - fps) * .06;
     let input = controls.sample();
     let steps = 0;
-    if (!inspecting && !testEnded && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
+    const aftermathDriving = testEnded && sortiePhase === 'outro' && playerCombatActive;
+    if (!inspecting && (!testEnded || aftermathDriving) && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
             const followSteer = bodyFollowSteer(input.lookYaw);
@@ -1098,7 +1099,9 @@ function frame(now) {
                 if (serviceStep.event === 'completed') handleFieldServiceCompleted();
                 else if (serviceStep.event === 'interrupted') handleFieldServiceInterrupted();
             }
-            for (const actor of aiActors) {
+            // Score, damage, target choice and opposing locomotion are frozen once the
+            // sortie resolves. Only the surviving player's physical rig keeps coasting/walking.
+            if (!aftermathDriving) for (const actor of aiActors) {
                 if (!actor.active) {
                     actor.wreckAge += FIXED_DT;
                     continue;
@@ -1143,6 +1146,7 @@ function frame(now) {
         if (sortieOutroRemaining === 0 && pendingDebrief) {
             const next = pendingDebrief; pendingDebrief = null; sortiePhase = 'debrief';
             sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
+            controls.setEnabled(false);
             assemblyToggle.disabled = false;
             renderDebrief(next.summary, next.reason);
         }
@@ -1394,7 +1398,9 @@ function finishSortie(victory, reason) {
     testEndReason = victory ? null : reason;
     stopFireInput();
     stopFieldServiceInput();
-    controls.setEnabled(false);
+    // The bout state is final, but a surviving pilot gets a short physical aftermath
+    // before the report covers the yard. Fire/service stay locked by testEnded.
+    controls.setEnabled(victory && playerCombatActive && appSheet.classList.contains('hidden'));
     const winningTeam = victory ? FRIENDLY_TEAM : HOSTILE_TEAM;
     const survivors = { player: playerCombatActive };
     for (const actor of aiActors) survivors[actor.id] = actor.active;

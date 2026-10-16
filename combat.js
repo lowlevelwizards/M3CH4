@@ -6,9 +6,9 @@ import { mobilityPerformance } from './mobilityPerformance.js';
 import { contractById, selectedContract } from './contracts.js';
 import { applyDestructionOverflow, hydrateDamageFate } from './damageFate.js';
 export const WEAPONS = {
-    'gun-cannon': { id: 'gun-cannon', label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1350, spread: .004, muzzleZ: -1.90 },
-    'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 1950, spread: .012, muzzleZ: -1.31 },
-    'gun-light': { id: 'gun-light', label: 'NEEDLE CANNON', magazine: 16, spareRounds: 80, roundsPerSecond: 3.5, reloadSeconds: 2.8, damage: 28, recoilImpulseNs: 850, spread: .002, muzzleZ: -2.73 },
+    'gun-cannon': { id: 'gun-cannon', label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1725, spread: .004, muzzleZ: -1.90 },
+    'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 2550, spread: .012, muzzleZ: -1.31 },
+    'gun-light': { id: 'gun-light', label: 'NEEDLE CANNON', magazine: 16, spareRounds: 80, roundsPerSecond: 3.5, reloadSeconds: 2.8, damage: 28, recoilImpulseNs: 1050, spread: .002, muzzleZ: -2.73 },
 };
 export function weaponFor(assembly) {
     const id = installedPart(assembly, 'combat')?.definition.id;
