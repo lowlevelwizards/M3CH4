@@ -1350,8 +1350,13 @@ function attemptAiFire(actor, target, shotIndex) {
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
-    const obstruction = contact.blockedBy ? `COVER ${contact.blockedBy}` : contact.actorId && contact.actorId !== target.id ? `RIG ${contact.actorId}` : null;
-    lastCoverAudit = obstruction ? `${actor.id} → ${target.id} · BLOCKED · ${obstruction}` : `${actor.id} → ${target.id} · CLEAR`;
+    const obstruction = contact.blockedBy ? `COVER ${contact.blockedBy}` :
+        contact.actorId && contact.actorId !== target.id ? `RIG ${contact.actorId}` :
+        contact.slot === null && contact.distance < 99.5 ? 'WORLD GEOMETRY' : null;
+    lastCoverAudit = contact.actorId === target.id
+        ? `${actor.id} → ${target.id} · CLEAR · TARGET FIRST`
+        : obstruction ? `${actor.id} → ${target.id} · BLOCKED · ${obstruction}`
+            : `${actor.id} → ${target.id} · MISS`;
     if (showColliders) arena.updateShotAudit(contact, !obstruction && contact.actorId === target.id);
     if (contact.slot === null || contact.actorId !== target.id) return;
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);

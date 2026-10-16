@@ -4,6 +4,8 @@ import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './insp
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
+import { combinerTetherFromLook } from './cockpitView.js';
+import { firstCoverHit } from './coverTruth.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
     yellow: 0xa9822f, teal: 0x2f7473, metal: 0x343a39,
@@ -29,11 +31,13 @@ export function createArenaScene(initial, targetAssembly) {
     combinerHud.name = 'cockpit-combiner-hud';
     camera.add(combinerHud);
     const combinerLayout = {
-        systems: { position: [-.086, .004, -.090], scale: .060 },
-        team:    { position: [ 0.000, .051, -.090], scale: .050 },
-        weapon:  { position: [ .084, .010, -.090], scale: .058 },
-        motion:  { position: [-.041,-.038, -.090], scale: .050 },
-        drive:   { position: [ .023,-.039, -.090], scale: .052 },
+        // Keep persistent information on the bezel. The middle of the windshield is
+        // reserved for the world, reticle and genuinely transient combat events.
+        systems: { position: [-.122, .002, -.105], scale: .055 },
+        team:    { position: [ 0.000, .060, -.105], scale: .043 },
+        weapon:  { position: [ .118,-.006, -.105], scale: .052 },
+        motion:  { position: [-.078,-.056, -.105], scale: .044 },
+        drive:   { position: [ .004,-.059, -.105], scale: .044 },
     };
     for (const [name, screen] of Object.entries(cockpit.userData.instrumentScreens)) {
         cockpit.remove(screen.mesh);
@@ -216,7 +220,7 @@ export function createArenaScene(initial, targetAssembly) {
     glassTexture.magFilter = THREE.NearestFilter; glassTexture.minFilter = THREE.NearestFilter;
     const glassMaterial = new THREE.MeshBasicMaterial({ map: glassTexture, transparent: true, opacity: .82, depthTest: false, depthWrite: false, toneMapped: false });
     const glassDamage = new THREE.Mesh(new THREE.PlaneGeometry(.195, .114), glassMaterial);
-    glassDamage.position.set(0, 0, -.075); glassDamage.renderOrder = 100; camera.add(glassDamage);
+    glassDamage.position.set(0, 0, -.086); glassDamage.renderOrder = 100; combinerHud.add(glassDamage);
     const blackoutMaterial = new THREE.MeshBasicMaterial({ color: 0x010201, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false });
     const blackout = new THREE.Mesh(new THREE.PlaneGeometry(.205, .12), blackoutMaterial);
     blackout.position.set(0, 0, -.068); blackout.renderOrder = 101; camera.add(blackout);
@@ -584,6 +588,20 @@ export function createArenaScene(initial, targetAssembly) {
     };
     let pilotColors = captureColors(exterior.pickMeshes);
     const raycaster = new THREE.Raycaster();
+    // Mesh raycasts remain responsible for exact module hits. This independent prism
+    // certificate makes arena cover authoritative too, so a precision seam or visual
+    // cover decoration can never permit a target hit through the obstacle volume.
+    function certifiedCoverHit(muzzle, bore, maxDistance, actual) {
+        const meshDistance = actual ? muzzle.distanceTo(actual.point) : maxDistance;
+        const cover = firstCoverHit(muzzle, bore, DEFAULT_WORLD.obstacles, maxDistance, .035);
+        if (!cover || cover.distance >= meshDistance - .005) return null;
+        return {
+            id: cover.id,
+            distance: cover.distance,
+            point: new THREE.Vector3(...cover.point),
+            normal: new THREE.Vector3(...cover.normal),
+        };
+    }
     let selected = null;
     let inspecting = false;
     let azimuth = 0.57;
@@ -623,6 +641,14 @@ export function createArenaScene(initial, targetAssembly) {
         const sustainedDriveRoll = (driveRightHealth - driveLeftHealth) * .032 +
             Math.sin(nowMs * .017) * driveDamage * Math.min(Math.abs(state.forwardSpeed) / 2.2, 1) * .008;
         const mobilityStumble = Math.sin(nowMs * .026) * driveDamage * Math.min(Math.abs(state.forwardSpeed) / 2.8, 1) * .008;
+        // The camera is the pilot's head; the combiner belongs to the mech. Inverse
+        // free-look keeps the display on the windshield until chassis body-follow catches up.
+        const tether = combinerTetherFromLook(lookYaw, lookPitch);
+        combinerHud.rotation.set(
+            tether.pitch + cockpitPitch * .65 - hitPitchKick * .35,
+            tether.yaw - hitYawKick * .10,
+            cockpitRoll * .75 - hitRollKick * .25 + sustainedDriveRoll * .28,
+            'YXZ');
         gunPivot.rotation.set(lookPitch * .85, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + muzzleKick * .13;
@@ -784,13 +810,14 @@ export function createArenaScene(initial, targetAssembly) {
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
         const actual = raycaster.intersectObjects([...combatPickMeshes(), ...worldSolids], false)[0];
-        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
-        const surfaceNormal = actual?.face
+        const cover = certifiedCoverHit(muzzle, bore, 100, actual);
+        const point = cover ? cover.point : actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
+        const surfaceNormal = cover ? cover.normal : actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
-        const slot = actual?.object.userData.slot;
-        const actorId = actual?.object.userData.actorId ?? null;
-        const blockedBy = actual?.object.userData.arenaObstacleId ?? null;
+        const slot = cover ? null : actual?.object.userData.slot;
+        const actorId = cover ? null : actual?.object.userData.actorId ?? null;
+        const blockedBy = cover?.id ?? actual?.object.userData.arenaObstacleId ?? null;
         return { actorId: slot ? actorId : null, slot: slot ?? null, blockedBy, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
@@ -822,13 +849,14 @@ export function createArenaScene(initial, targetAssembly) {
         raycaster.far = 100;
         const blockers = [...combatPickMeshes(shooterId), ...exterior.pickMeshes, ...worldSolids];
         const actual = raycaster.intersectObjects(blockers, false)[0];
-        const point = actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
-        const surfaceNormal = actual?.face
+        const cover = certifiedCoverHit(muzzle, bore, 100, actual);
+        const point = cover ? cover.point : actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
+        const surfaceNormal = cover ? cover.normal : actual?.face
             ? actual.face.normal.clone().transformDirection(actual.object.matrixWorld)
             : bore.clone().negate();
-        const slot = actual?.object.userData.slot;
-        const actorId = actual?.object.userData.actorId ?? null;
-        const blockedBy = actual?.object.userData.arenaObstacleId ?? null;
+        const slot = cover ? null : actual?.object.userData.slot;
+        const actorId = cover ? null : actual?.object.userData.actorId ?? null;
+        const blockedBy = cover?.id ?? actual?.object.userData.arenaObstacleId ?? null;
         let driveSide;
         if (slot === 'mobility' && actorId) {
             const hitRoot = actorId === 'player' ? exterior.root : squadCombatants.get(actorId)?.exterior.root;
@@ -1090,6 +1118,7 @@ function buildWarehouse(scene) {
     const depth = DEFAULT_WORLD.maxZ - DEFAULT_WORLD.minZ;
     const floor = box(width + 3, 0.35, depth + 3, mat(C.concreteDark, 1, 0));
     floor.position.set((DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2, -0.18, (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2);
+    floor.userData.arenaObstacleId = 'floor';
     scene.add(floor);
     solids.push(floor);
     const gridSize = Math.max(width, depth);
@@ -1105,18 +1134,22 @@ function buildWarehouse(scene) {
     const centerZ = (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2;
     const north = box(width + 2, wallHeight, wallThickness, wallMat);
     north.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.minZ - wallOffset);
+    north.userData.arenaObstacleId = 'wall-north';
     scene.add(north);
     solids.push(north);
     const south = box(width + 2, wallHeight, wallThickness, wallMat);
     south.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.maxZ + wallOffset);
+    south.userData.arenaObstacleId = 'wall-south';
     scene.add(south);
     solids.push(south);
     const west = box(wallThickness, wallHeight, depth + 2, wallMat);
     west.position.set(DEFAULT_WORLD.minX - wallOffset, wallHeight / 2, centerZ);
+    west.userData.arenaObstacleId = 'wall-west';
     scene.add(west);
     solids.push(west);
     const east = box(wallThickness, wallHeight, depth + 2, wallMat);
     east.position.set(DEFAULT_WORLD.maxX + wallOffset, wallHeight / 2, centerZ);
+    east.userData.arenaObstacleId = 'wall-east';
     scene.add(east);
     solids.push(east);
 
@@ -1147,13 +1180,17 @@ function buildWarehouse(scene) {
         if (obstacle.kind === 'barrier' || obstacle.kind === 'barrier-low' || obstacle.kind === 'building') {
             const cap = box(w * .88, .08, d * 1.02, stripeMat);
             cap.position.set(object.position.x, h + .04, object.position.z);
+            cap.userData.arenaObstacleId = obstacle.id;
             scene.add(cap);
+            solids.push(cap);
         }
         if (obstacle.kind === 'container') {
             for (const side of [-1, 1]) {
                 const rib = box(.08, h * .86, d * .92, mat(0x303734, .84, .32));
                 rib.position.set(object.position.x + side * (w / 2 - .10), h * .5, object.position.z);
+                rib.userData.arenaObstacleId = obstacle.id;
                 scene.add(rib);
+                solids.push(rib);
             }
         }
     }
