@@ -1,5 +1,6 @@
 import { selectedContract } from './contracts.js';
 import { DEFAULT_WORLD } from './locomotion.js';
+import { advanceTacticalAwareness, createTacticalAwareness } from './tacticalAwareness.js';
 
 const clamp = (n) => Math.max(-1, Math.min(1, n));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -22,6 +23,7 @@ export function createEnemyMotion(behavior = selectedContract().behavior) {
         navigation: behavior?.label ?? 'TACTICAL',
         waypoint: null,
         lastSide: 1,
+        awareness: createTacticalAwareness(),
         behavior,
     };
 }
@@ -218,7 +220,42 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         return { ...motion.recoveryInput, brake: 0 };
     }
 
-    const base = tacticalManeuver(motion, enemy, player, profile);
+    const tactical = advanceTacticalAwareness(motion, enemy, player, dt, world, radius, profile, motion.lastSide);
+    const trackingPoint = tactical.mode === 'SEARCH' && tactical.point ? tactical.point : player;
+    let base;
+    if (tactical.mode === 'SEEK_COVER' && tactical.point) {
+        const d = distance(from, tactical.point);
+        base = driveToward(enemy, tactical.point, d);
+        base.steer = clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);
+        motion.phase = 'SEEK COVER';
+        motion.navigation = `SEEK COVER · ${tactical.coverId ?? 'AVAILABLE'} · ${d.toFixed(1)}m`;
+        motion.waypoint = tactical.point;
+    }
+    else if (tactical.mode === 'TAKE_COVER') {
+        const steer = clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);
+        base = { throttle: 0, strafe: 0, steer, brake: .72 };
+        motion.phase = 'TAKE COVER';
+        motion.navigation = `TAKE COVER · ${tactical.coverId ?? 'PROTECTED'}`;
+        motion.waypoint = tactical.point ?? null;
+    }
+    else if (tactical.mode === 'REPOSITION') {
+        base = tacticalManeuver(motion, enemy, player, profile);
+        base.throttle *= profile.id === 'bruiser' ? .55 : .28;
+        base.strafe = clamp((tactical.side || 1) * Math.max(.35, tactical.strength ?? .6));
+        motion.phase = 'REPOSITION';
+        motion.navigation = `REPOSITION · CLEAR ${tactical.blockedBy ?? 'FIRE LANE'}`;
+    }
+    else {
+        base = tacticalManeuver(motion, enemy, trackingPoint, profile);
+        if (tactical.mode === 'SEARCH') {
+            motion.phase = 'REPOSITION';
+            motion.navigation = `LAST CONTACT · ${tactical.blockedBy ?? 'LOS LOST'}`;
+        }
+        else if (tactical.mode === 'UNDER_FIRE') {
+            motion.phase = 'UNDER FIRE';
+            motion.navigation = `UNDER FIRE · ${motion.navigation}`;
+        }
+    }
     const dir = {
         x: Math.sin(enemy.yaw) * base.throttle + Math.cos(enemy.yaw) * base.strafe,
         z: -Math.cos(enemy.yaw) * base.throttle + Math.sin(enemy.yaw) * base.strafe,
@@ -266,7 +303,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     }
 
     if (!motion.route) {
-        motion.waypoint = null;
+        if (tactical.mode !== 'SEEK_COVER' && tactical.mode !== 'TAKE_COVER') motion.waypoint = null;
         motion.elapsed += dt;
     }
 

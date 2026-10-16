@@ -12,6 +12,7 @@ import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledD
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
+import { noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 import { contractById } from './contracts.js';
@@ -337,6 +338,12 @@ function liveOpponents(actor) {
 }
 function resolveActorTarget(actor) {
     const candidates = liveOpponents(actor);
+    const threatId = recentThreatTargetId(actor.motion);
+    const threat = threatId ? candidates.find(candidate => candidate.id === threatId) : null;
+    if (threat) {
+        actor.targetId = threat.id;
+        return threat;
+    }
     actor.targetId = chooseSquadTarget(actor, candidates, actor.targetId);
     return actor.targetId ? candidates.find(candidate => candidate.id === actor.targetId) ?? null : null;
 }
@@ -1495,6 +1502,9 @@ function attemptAiFire(actor, target, shotIndex) {
     if (!actor?.active || !target || target.active === false || inspecting || testEnded || !appSheet.classList.contains('hidden')) return;
     const actorOutput = hostileOutput(actor.condition, actor.behavior);
     if (!actorOutput.operational || !withinFiringArc(actor.rig, target.rig)) return;
+    // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
+    // raycasts remain authoritative and can still discover low cover / intervening rigs.
+    if (actor.motion?.awareness?.lineOfSight === false) return;
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
@@ -1506,6 +1516,12 @@ function attemptAiFire(actor, target, shotIndex) {
         : obstruction ? `${actor.id} → ${target.id} · BLOCKED · ${obstruction}`
             : `${actor.id} → ${target.id} · MISS`;
     if (showColliders) arena.updateShotAudit(contact, !obstruction && contact.actorId === target.id);
+    // AI pilots register fire directed at them even if a crate catches it. That gives
+    // suppression/cover behavior before the first internal-damage event.
+    if (target.id !== 'player' && target.motion)
+        noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48);
+    if (obstruction)
+        noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
     if (contact.slot === null || contact.actorId !== target.id) return;
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
     if (consumed === null) return;
@@ -1520,6 +1536,7 @@ function attemptAiFire(actor, target, shotIndex) {
     const hit = applyTargetHit(target.condition, contact.slot, actor.weaponSpec.damage);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
     scoreHit(actor.id, target.id, contact.slot, beforePart, hit, afterPart);
+    noteIncomingFire(target.motion, actor.rig, actor.id, hit.internalDamage > 0 ? 1.55 : 1.08);
     const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updateCombatantDamage(target.id, target.condition);
@@ -1600,6 +1617,7 @@ function attemptFire() {
         const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
         scoreHit('player', targetActor.id, contact.slot, beforePart, hit, afterPart);
+        noteIncomingFire(targetActor.motion, rig, 'player', hit.internalDamage > 0 ? 1.65 : 1.12);
         const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
         arena.showShot(contact, visualHit);
         arena.updateCombatantDamage(targetActor.id, targetActor.condition);
