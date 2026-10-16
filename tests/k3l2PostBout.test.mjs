@@ -13,7 +13,7 @@ test('post-bout salvage shares the canonical active arena singleton', () => {
   assert.match(acquisition, /LIVE GARAGE ASSEMBLY NOT CONNECTED/);
 });
 
-test('post-bout report is split into result score and salvage swipe pages', () => {
+test('post-bout report remains split into result score and salvage swipe pages', () => {
   assert.match(html, /id="debrief-pages"/);
   assert.match(html, /id="debrief-score-page"/);
   assert.match(html, /id="debrief-salvage-page"/);
@@ -23,9 +23,9 @@ test('post-bout report is split into result score and salvage swipe pages', () =
   assert.match(acquisition, /scroll-snap-type:x mandatory/);
 });
 
-test('mobile renderer deliberately uses a chunky low-cost lighting budget', () => {
-  assert.match(main, /THREE\.BasicShadowMap/);
+test('mobile renderer preserves the low-resolution world budget without degrading HUD or shadow source', () => {
   assert.match(main, /const renderScales = \[\.42, \.55, \.70\]/);
-  assert.match(scene, /sun\.shadow\.mapSize\.set\(128, 128\)/);
+  assert.match(main, /hudRenderer/);
+  assert.match(scene, /sun\.shadow\.mapSize\.set\(512, 512\)/);
   assert.match(scene, /partThumbnailRenderer\.setSize\(96, 72, false\)/);
 });

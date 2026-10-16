@@ -1,9 +1,9 @@
 /** Touch-friendly physical generator mounting on top of the serial-authoritative garage.
  * Inventory cards now represent owned instances directly, so this adapter only owns
  * the special generator station choice and its validation feedback. */
-import { activePlayerArena } from './sceneAssembly.js';
+import { activePlayerArena } from './scene.js';
 import { generatorMount, installedPart, setGeneratorMount, inspectAssembly } from './components.js';
-import './acquisitionUI.js?v=k3l2';
+import './acquisitionUI.js?v=k3l3';
 import './contractUI.js?v=k3h0';
 
 const info = document.querySelector('#part-info');

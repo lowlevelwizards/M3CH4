@@ -84,11 +84,14 @@ export function createArenaScene(initial, targetAssembly) {
     camera.rotation.order = 'YXZ';
     scene.add(camera);
     // Lower broad ambient wash and let shaped warm/cool sources describe the forms.
-    scene.add(new THREE.HemisphereLight(0x9dafaa, 0x171511, .56));
+    const arenaHemisphere = new THREE.HemisphereLight(0x9dafaa, 0x171511, .56);
+    scene.add(arenaHemisphere);
     const sun = new THREE.DirectionalLight(0xffd29a, 3.15);
     sun.position.set(-10, 17, 11);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(128, 128);
+    // Keep the shadow silhouette coherent at source; the deliberately low-res world
+    // framebuffer does the final pixelation instead of destroying the shadow shape first.
+    sun.shadow.mapSize.set(512, 512);
     sun.shadow.camera.left = -38; sun.shadow.camera.right = 38;
     sun.shadow.camera.top = 34; sun.shadow.camera.bottom = -34;
     sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
@@ -97,7 +100,18 @@ export function createArenaScene(initial, targetAssembly) {
     const coolRim = new THREE.DirectionalLight(0x79a9a8, .72);
     coolRim.position.set(12, 6, -16);
     scene.add(coolRim);
-    const worldSolids = buildWarehouse(scene);
+    const arenaRoot = new THREE.Group();
+    arenaRoot.name = 'arena-environment';
+    scene.add(arenaRoot);
+    const arenaPresentationRoot = new THREE.Group();
+    arenaPresentationRoot.name = 'arena-presentation';
+    scene.add(arenaPresentationRoot);
+    const worldSolids = buildWarehouse(arenaRoot);
+    const garageRoot = buildGarageBay();
+    garageRoot.name = 'garage-bay';
+    garageRoot.visible = false;
+    scene.add(garageRoot);
+    const GARAGE_RIG_YAW = -0.10;
     const cockpit = buildCockpit(scene);
     // The information display is still a real Three.js cockpit layer, but it rides the
     // windshield/combiner perimeter instead of sitting as three perspective-skewed blocks
@@ -108,11 +122,11 @@ export function createArenaScene(initial, targetAssembly) {
     const combinerLayout = {
         // Keep persistent information on the bezel. The middle of the windshield is
         // reserved for the world, reticle and genuinely transient combat events.
-        systems: { position: [-.122, .002, -.105], scale: .055 },
-        team:    { position: [ 0.000, .060, -.105], scale: .043 },
-        weapon:  { position: [ .118,-.006, -.105], scale: .052 },
-        motion:  { position: [-.078,-.056, -.105], scale: .044 },
-        drive:   { position: [ .004,-.059, -.105], scale: .044 },
+        systems: { position: [-.094, .004, -.105], scale: .059 },
+        team:    { position: [ 0.000, .057, -.105], scale: .047 },
+        weapon:  { position: [ .094,-.004, -.105], scale: .057 },
+        motion:  { position: [-.058,-.052, -.105], scale: .048 },
+        drive:   { position: [ .020,-.054, -.105], scale: .048 },
     };
     for (const [name, screen] of Object.entries(cockpit.userData.instrumentScreens)) {
         cockpit.remove(screen.mesh);
@@ -155,7 +169,7 @@ export function createArenaScene(initial, targetAssembly) {
     let targetExterior = buildExteriorRig(targetAssembly);
     targetExterior.root.position.set(HOSTILE_SPAWN.x, 0, HOSTILE_SPAWN.z);
     targetExterior.root.rotation.y = Math.PI; // Look back toward the pilot.
-    scene.add(targetExterior.root);
+    arenaPresentationRoot.add(targetExterior.root);
     const rangeMarks = new THREE.Group();
     targetExterior.root.add(rangeMarks);
     const sootMarks = [];
@@ -181,7 +195,7 @@ export function createArenaScene(initial, targetAssembly) {
         const marker = new THREE.LineLoop(geometry, material);
         marker.frustumCulled = false;
         marker.renderOrder = 8;
-        scene.add(marker);
+        arenaPresentationRoot.add(marker);
         return marker;
     }
     const capturePartTransforms = exterior => new Map([...exterior.partGroups].map(([slot, group]) => [slot, {
@@ -212,7 +226,7 @@ export function createArenaScene(initial, targetAssembly) {
         actorExterior.root.rotation.y = physicsYawToViewYaw(spawn.yaw ?? 0);
         for (const mesh of actorExterior.pickMeshes)
             mesh.userData.actorId = id;
-        scene.add(actorExterior.root);
+        arenaPresentationRoot.add(actorExterior.root);
         const record = {
             id, team, assembly, exterior: actorExterior, colors: colorsFor(actorExterior),
             marker: makeSquadMarker(team), active: true, condition: null,
@@ -271,7 +285,7 @@ export function createArenaScene(initial, targetAssembly) {
     // 0.0.1f: a deliberately small pooled pixel-particle system. Particles are
     // reused instead of allocated per shot so sustained fire stays friendly to phones.
     const particleRoot = new THREE.Group();
-    scene.add(particleRoot);
+    arenaPresentationRoot.add(particleRoot);
     const particleStates = [];
     function makePool(count, geometry, color, transparent = false) {
         const pool = [];
@@ -315,6 +329,10 @@ export function createArenaScene(initial, targetAssembly) {
     const blackoutMaterial = new THREE.MeshBasicMaterial({ color: 0x010201, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false });
     const blackout = new THREE.Mesh(new THREE.PlaneGeometry(.205, .12), blackoutMaterial);
     blackout.position.set(0, 0, -.068); blackout.renderOrder = 101; camera.add(blackout);
+    // Layer 1 is rendered by a tiny second renderer at display resolution. The world
+    // remains intentionally low-res while cockpit telemetry stays legible.
+    combinerHud.traverse(object => object.layers.set(1));
+    blackout.layers.set(1);
     let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, hitShakeKick = 0, gunDamageKick = 0;
     let powerBlackout = 0, powerFlicker = 0, cockpitWarningLevel = 0;
     let persistentPowerHealth = 1, persistentCommandHealth = 1;
@@ -691,7 +709,7 @@ export function createArenaScene(initial, targetAssembly) {
         const side = actorId.length % 2 ? 1 : -1;
         if (slot === 'combat' || slot === 'power') {
             group.updateWorldMatrix(true, true);
-            scene.attach(group);
+            arenaPresentationRoot.attach(group);
             group.rotation.x += slot === 'combat' ? .46 : .31;
             group.rotation.z += side * (slot === 'combat' ? .78 : .58);
             fallingParts.set(`${actorId}:${slot}`, {
@@ -763,11 +781,11 @@ export function createArenaScene(initial, targetAssembly) {
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(HOSTILE_SPAWN.x, .035, HOSTILE_SPAWN.z);
-    scene.add(ring);
+    arenaPresentationRoot.add(ring);
     const pilotRing = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: C.green, side: THREE.DoubleSide, transparent: true, opacity: .26 }));
     pilotRing.rotation.x = -Math.PI / 2;
     pilotRing.position.set(PLAYER_SPAWN.x, .034, PLAYER_SPAWN.z);
-    scene.add(pilotRing);
+    arenaPresentationRoot.add(pilotRing);
     let muzzleKick = 0;
     let muzzleFlash = 0;
     let exterior = buildExteriorRig(initial);
@@ -802,9 +820,9 @@ export function createArenaScene(initial, targetAssembly) {
     }
     let selected = null;
     let inspecting = false;
-    let azimuth = 0.57;
-    let elevation = 0.31;
-    let radius = 5.85;
+    let azimuth = 0.64;
+    let elevation = 0.27;
+    let radius = 6.55;
     const orbitTarget = new THREE.Vector3(0, 1.85, 0);
     const desiredTarget = orbitTarget.clone();
     let panelRightPx = 0;
@@ -856,20 +874,21 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
         if (inspecting) {
-            // Orbit the machine, not the background. The camera target follows selected modules.
+            // Garage inspection is a deliberately separate presentation state. The owned
+            // rig always returns to the service pad instead of inheriting its last arena pose.
+            exterior.root.position.set(0, 0, 0);
+            exterior.root.rotation.y = GARAGE_RIG_YAW;
             orbitTarget.lerp(desiredTarget, 1 - Math.exp(-9 * dt));
-            const around = new THREE.Vector3(radius * Math.sin(azimuth) * Math.cos(elevation), radius * Math.sin(elevation), -radius * Math.cos(azimuth) * Math.cos(elevation)).applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
-            const center = orbitTarget.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
-            center.x += visualX;
-            center.z += visualZ;
+            const around = new THREE.Vector3(
+                radius * Math.sin(azimuth) * Math.cos(elevation),
+                radius * Math.sin(elevation),
+                -radius * Math.cos(azimuth) * Math.cos(elevation),
+            ).applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
+            const center = orbitTarget.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
             camera.position.copy(center).add(around);
-            // The panel occupies real screen pixels; aim at the middle of the remaining visible area.
-            // Raycasting uses this same camera, so tap-to-pick stays accurate at every panel width/zoom.
             const right = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth))
-                .applyAxisAngle(THREE.Object3D.DEFAULT_UP, renderYaw);
+                .applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
             const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov);
-            // +rig-right is actual CAMERA SCREEN-left at our negative-Z inspection angle.
-            // Looking further +rig-right therefore positions the mech to the right of the panel.
             camera.lookAt(center.addScaledVector(right, shift));
         }
         else {
@@ -894,6 +913,21 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.visible = enabled;
         cockpit.visible = !enabled;
         combinerHud.visible = !enabled;
+        blackout.visible = !enabled;
+        arenaRoot.visible = !enabled;
+        arenaPresentationRoot.visible = !enabled;
+        garageRoot.visible = enabled;
+        arenaHemisphere.visible = !enabled;
+        sun.visible = !enabled;
+        coolRim.visible = !enabled;
+        debugColliders.visible = false;
+        scene.background.setHex(enabled ? 0x0d1210 : 0x171915);
+        scene.fog.color.setHex(enabled ? 0x0d1210 : 0x171915);
+        scene.fog.density = enabled ? 0.0075 : 0.0125;
+        if (enabled) {
+            exterior.root.position.set(0, 0, 0);
+            exterior.root.rotation.y = GARAGE_RIG_YAW;
+        }
         for (const record of squadCombatants.values()) {
             record.exterior.root.visible = !enabled;
             record.marker.visible = !enabled;
@@ -961,9 +995,9 @@ export function createArenaScene(initial, targetAssembly) {
             radius = THREE.MathUtils.clamp(radius / scale, 2.7, 11.2);
     }
     function resetOrbit() {
-        azimuth = 0.57;
-        elevation = 0.31;
-        radius = 5.85;
+        azimuth = 0.64;
+        elevation = 0.27;
+        radius = 6.55;
         focusPart(null);
     }
     function pickPart(clientX, clientY, canvas) {
@@ -1361,6 +1395,155 @@ function box(w, h, d, material) {
     mesh.castShadow = true; mesh.receiveShadow = true;
     return mesh;
 }
+
+function buildGarageBay() {
+    const root = new THREE.Group();
+    const steel = mat(0x2d3431, .72, .55);
+    const darkSteel = mat(0x171d1b, .84, .44);
+    const concrete = mat(0x48483f, .98, .02);
+    const padMat = mat(0x2b302b, .92, .08);
+    const safety = mat(0xb18432, .82, .16);
+    const teal = mat(0x2c6662, .82, .24);
+    const rust = mat(0x714029, .88, .18);
+
+    const floor = box(18, .22, 15, concrete);
+    floor.position.set(0, -.13, .35);
+    root.add(floor);
+    const pad = box(5.8, .15, 6.1, padMat);
+    pad.position.set(0, .015, 0);
+    root.add(pad);
+    for (const x of [-3.03, 3.03]) {
+        const rail = box(.16, .06, 6.4, safety);
+        rail.position.set(x, .11, 0);
+        root.add(rail);
+    }
+    for (const z of [-3.14, 3.14]) {
+        const rail = box(6.2, .06, .16, safety);
+        rail.position.set(0, .11, z);
+        root.add(rail);
+    }
+
+    const backWall = box(18, 7.4, .38, darkSteel);
+    backWall.position.set(0, 3.55, 6.15);
+    root.add(backWall);
+    const sideWall = box(.38, 7.4, 12.5, darkSteel);
+    sideWall.position.set(-8.15, 3.55, .2);
+    root.add(sideWall);
+
+    // Four-post service lift and overhead gantry make the bay read as a place that can
+    // actually remove several-ton modules, rather than a decorative arena backdrop.
+    for (const x of [-3.55, 3.55]) {
+        for (const z of [-2.35, 2.35]) {
+            const post = box(.28, 4.9, .28, steel);
+            post.position.set(x, 2.47, z);
+            root.add(post);
+            const foot = box(.65, .16, .65, safety);
+            foot.position.set(x, .08, z);
+            root.add(foot);
+        }
+    }
+    for (const z of [-2.35, 2.35]) {
+        const beam = box(7.7, .32, .34, steel);
+        beam.position.set(0, 4.78, z);
+        root.add(beam);
+    }
+    const bridge = box(.42, .38, 5.2, safety);
+    bridge.position.set(.75, 5.02, 0);
+    root.add(bridge);
+    const trolley = box(.82, .42, .72, steel);
+    trolley.position.set(.75, 4.72, -.15);
+    root.add(trolley);
+    for (const x of [.64, .86]) {
+        const chain = new THREE.Mesh(new THREE.CylinderGeometry(.022, .022, 1.65, 6), steel);
+        chain.position.set(x, 3.68, -.15);
+        chain.castShadow = true;
+        root.add(chain);
+    }
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(.18, .045, 5, 10, Math.PI * 1.45), safety);
+    hook.position.set(.75, 2.82, -.15);
+    hook.rotation.z = Math.PI * .18;
+    root.add(hook);
+
+    // Back catwalk, rails and ladder.
+    const walk = box(10.8, .18, 1.15, steel);
+    walk.position.set(-.6, 3.18, 5.18);
+    root.add(walk);
+    for (const x of [-5.85, -3.6, -1.35, .9, 3.15, 4.8]) {
+        const railPost = box(.08, .92, .08, safety);
+        railPost.position.set(x, 3.68, 4.68);
+        root.add(railPost);
+    }
+    const railTop = box(10.8, .08, .08, safety);
+    railTop.position.set(-.6, 4.12, 4.68);
+    root.add(railTop);
+    for (const x of [-6.55, -6.15]) {
+        const ladderSide = box(.08, 3.05, .08, safety);
+        ladderSide.position.set(x, 1.62, 4.88);
+        root.add(ladderSide);
+    }
+    for (let y = .35; y < 3.05; y += .34) {
+        const rung = box(.46, .055, .07, safety);
+        rung.position.set(-6.35, y, 4.88);
+        root.add(rung);
+    }
+
+    // Work/storage dressing: lockers, bench, crates, drums and a spare-part rack.
+    for (let i = 0; i < 4; i++) {
+        const locker = box(.72, 2.05, .62, i % 2 ? steel : teal);
+        locker.position.set(5.55 + (i % 2) * .78, 1.03, 4.25 - Math.floor(i / 2) * .72);
+        root.add(locker);
+    }
+    const bench = box(3.2, .18, .85, rust);
+    bench.position.set(-5.1, 1.08, 3.65);
+    root.add(bench);
+    for (const x of [-6.35, -3.85]) {
+        const leg = box(.16, 1.0, .16, steel);
+        leg.position.set(x, .54, 3.65);
+        root.add(leg);
+    }
+    const rackA = box(.18, 2.7, .18, steel); rackA.position.set(6.65, 1.35, .75); root.add(rackA);
+    const rackB = box(.18, 2.7, .18, steel); rackB.position.set(4.55, 1.35, .75); root.add(rackB);
+    for (const y of [.42, 1.28, 2.14]) {
+        const shelf = box(2.3, .10, 1.0, steel); shelf.position.set(5.6, y, .75); root.add(shelf);
+        const spare = box(.65, .42, .72, y > 2 ? safety : teal); spare.position.set(5.6, y + .28, .75); root.add(spare);
+    }
+    for (const [x,z,c] of [[-5.9,1.7,0x765034],[-4.9,1.35,0x3b6660],[5.7,-2.7,0x6d432d]]) {
+        const crate = box(1.05, .78, .92, mat(c, .92, .08));
+        crate.position.set(x, .39, z);
+        root.add(crate);
+    }
+    for (const [x,z] of [[-6.5,-2.9],[-5.75,-3.05],[6.35,3.0]]) {
+        const drum = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .9, 10), mat(0x4b5550, .78, .36));
+        drum.position.set(x, .45, z); drum.castShadow = true; drum.receiveShadow = true; root.add(drum);
+    }
+
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffdfad, emissive: 0xffb454, emissiveIntensity: 3.4, roughness: .45 });
+    for (const x of [-2.7, 0, 2.7]) {
+        const fixture = box(1.55, .10, .25, lampMat);
+        fixture.position.set(x, 5.45, -.3);
+        root.add(fixture);
+        const lamp = new THREE.PointLight(0xffc178, 18, 10, 2.0);
+        lamp.position.set(x, 5.15, -.3);
+        root.add(lamp);
+    }
+    const hemi = new THREE.HemisphereLight(0x9fb7aa, 0x17130f, .48);
+    root.add(hemi);
+    const key = new THREE.DirectionalLight(0xffd19b, 2.35);
+    key.position.set(-5, 8, 5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(256, 256);
+    key.shadow.camera.left = -9; key.shadow.camera.right = 9;
+    key.shadow.camera.top = 8; key.shadow.camera.bottom = -4;
+    key.shadow.camera.near = 1; key.shadow.camera.far = 24;
+    key.shadow.bias = -.0006; key.shadow.normalBias = .045;
+    root.add(key);
+    const rim = new THREE.DirectionalLight(0x70a9a4, .82);
+    rim.position.set(6, 4, -5);
+    root.add(rim);
+
+    return root;
+}
+
 function buildWarehouse(scene) {
     const solids = [];
     const width = DEFAULT_WORLD.maxX - DEFAULT_WORLD.minX;
