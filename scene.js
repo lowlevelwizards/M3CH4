@@ -557,6 +557,8 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function spawnImpactParticles(position, normal, outcome) {
         const profile = impactProfile(outcome);
+        if (outcome?.internalDamage > 0)
+            flashDamageLight(position, outcome.slot === 'power' ? 0xc8fff2 : 0xffb56b, outcome.slot === 'power' ? 10 : 5.5, .075, 4.6);
         activateParticle(sparkPool, 'spark', position, normal.clone().multiplyScalar(.18), profile.flashScale * 1.25, .085, 0, 0, profile.kind === 'power-disable' ? 0xffe199 : 0xffcf70);
         for (let i = 0; i < profile.sparkCount; i++) {
             const direction = randomBurstDirection(normal, 1.15);
@@ -753,6 +755,7 @@ export function createArenaScene(initial, targetAssembly) {
             for (const budget of record.emitterBudget.values()) {
                 budget.spark = 0;
                 budget.smoke = 0;
+                budget.arc = 0;
             }
         }
     }
