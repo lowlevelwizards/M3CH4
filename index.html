@@ -28,7 +28,7 @@
     "./fieldService.js": "./fieldService.js?v=k3j0",
     "./hostileRig.js": "./hostileRig.js?v=k3j0",
     "./locomotion.js": "./locomotion.js?v=k3i0",
-    "./scene.js": "./sceneAssembly.js?v=k3l1",
+    "./scene.js": "./sceneAssembly.js?v=k3l2",
     "./enemyMotion.js": "./enemyMotion.js?v=k3k0",
     "./squadBattle.js": "./squadBattle.js?v=k3k0",
     "./wreckPhysics.js": "./wreckPhysics.js?v=k3k1",
@@ -44,7 +44,7 @@
     <link rel="stylesheet" href="./styles.css?v=k3k3" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3l.1 — Bout Stakes + Salvage Draft</title>
+    <title>MECH ARENA — 0.0.1k.3l.2 — Post-Bout + Pixel Lighting Polish</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -57,7 +57,7 @@
     </div>
     <div class="toolbar right-tools">
       <button id="target-toggle" class="utility-button" type="button" aria-pressed="false">HOSTILE</button>
-      <button id="resolution-toggle" class="utility-button" type="button">RES 70</button>
+      <button id="resolution-toggle" class="utility-button" type="button">RES 55</button>
       <button id="dev-toggle" class="utility-button" type="button">DEV</button>
     </div>
 
@@ -137,7 +137,7 @@
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <header>RIG DIAGNOSTICS <span>0.0.1k.3l.0</span></header>
+      <header>RIG DIAGNOSTICS <span>0.0.1k.3l.2</span></header>
       <pre id="dev-readout"></pre>
       <div class="damage-actions" aria-label="inject internal faults for testing">
         <button data-damage="left" type="button">HIT L DRIVE −25%</button>
@@ -157,10 +157,26 @@
 
     <div id="sortie-debrief" class="sheet hidden" role="dialog" aria-label="Sortie result" aria-modal="true" aria-hidden="true">
       <div class="sheet-content debrief-content">
-        <div class="sheet-label">SCRAPYARD CONTRACT / RECOVERY</div>
-        <h1 id="debrief-title">SORTIE COMPLETE</h1>
-        <div id="debrief-lines" class="debrief-lines" aria-live="polite"></div>
-        <p class="sheet-muted">Repair estimate is informational only. Nothing is repaired or charged until you choose a module in the garage.</p>
+        <div id="debrief-pages" class="debrief-pages" aria-label="Post-bout report pages">
+          <section class="debrief-page debrief-page-result" data-debrief-page="0" aria-label="Result and accounting">
+            <div class="debrief-page-title">01 / RESULT</div>
+            <div class="sheet-label">SCRAPYARD CONTRACT / RECOVERY</div>
+            <h1 id="debrief-title">SORTIE COMPLETE</h1>
+            <div id="debrief-lines" class="debrief-lines" aria-live="polite"></div>
+            <p class="sheet-muted">Repair estimate is informational only. Nothing is repaired or charged until you choose a module in the garage.</p>
+          </section>
+          <section id="debrief-score-page" class="debrief-page" data-debrief-page="1" aria-label="Bout scorecard">
+            <div class="debrief-page-title">02 / SCORE</div>
+          </section>
+          <section id="debrief-salvage-page" class="debrief-page" data-debrief-page="2" aria-label="Salvage claim">
+            <div class="debrief-page-title">03 / SALVAGE</div>
+          </section>
+        </div>
+        <nav id="debrief-page-nav" class="debrief-page-nav" aria-label="Post-bout report pages">
+          <button class="active" type="button" data-debrief-target="0" aria-current="page">RESULT</button>
+          <button type="button" data-debrief-target="1">SCORE</button>
+          <button type="button" data-debrief-target="2">SALVAGE</button>
+        </nav>
         <button id="debrief-garage" class="sheet-done" type="button">RETURN TO GARAGE</button>
       </div>
     </div>
@@ -177,7 +193,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3l1"></script>
-    <script type="module" src="./garageMountUI.js?v=k3l1"></script>
+    <script type="module" src="./main.js?v=k3l2"></script>
+    <script type="module" src="./garageMountUI.js?v=k3l2"></script>
   </body>
 </html>

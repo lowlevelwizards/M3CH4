@@ -283,10 +283,11 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.22;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.BasicShadowMap;
 renderer.domElement.className = 'game-canvas';
 renderer.domElement.setAttribute('aria-label', '3D warehouse and mech');
 renderer.domElement.style.touchAction = 'none';
+renderer.domElement.style.imageRendering = 'pixelated';
 mount.appendChild(renderer.domElement);
 const arena = createArenaScene(assembly, targetAssembly);
 for (const actor of supportActors)
@@ -1012,7 +1013,7 @@ document.addEventListener('fullscreenchange', () => {
     appView.textContent = document.fullscreenElement ? 'FULL SCREEN' : appStandalone() ? 'APP MODE' : 'APP VIEW';
     resize();
 });
-const renderScales = [.55, .70, .85];
+const renderScales = [.42, .55, .70];
 let renderScaleIndex = 1;
 let renderScale = renderScales[renderScaleIndex];
 let previousTime = performance.now();

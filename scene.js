@@ -37,7 +37,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
         partThumbnailRenderer.outputColorSpace = THREE.SRGBColorSpace;
         partThumbnailRenderer.toneMapping = THREE.ACESFilmicToneMapping;
         partThumbnailRenderer.toneMappingExposure = 1.18;
-        partThumbnailRenderer.setSize(180, 132, false);
+        partThumbnailRenderer.setSize(96, 72, false);
         partThumbnailRenderer.setPixelRatio(1);
     }
     const serial = 'PREVIEW-001';
@@ -66,7 +66,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     const rim = new THREE.DirectionalLight(0x78aaa5, 1.1); rim.position.set(4, 2, -5); previewScene.add(rim);
     const bounds = new THREE.Box3().setFromObject(exterior.root);
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
-    const camera = new THREE.PerspectiveCamera(36, 180 / 132, .03, 40);
+    const camera = new THREE.PerspectiveCamera(36, 96 / 72, .03, 40);
     const radius = Math.max(.35, sphere.radius);
     camera.position.set(radius * 1.65, radius * .92, radius * 2.25);
     camera.lookAt(0, 0, 0);
@@ -88,7 +88,7 @@ export function createArenaScene(initial, targetAssembly) {
     const sun = new THREE.DirectionalLight(0xffd29a, 3.15);
     sun.position.set(-10, 17, 11);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(128, 128);
     sun.shadow.camera.left = -38; sun.shadow.camera.right = 38;
     sun.shadow.camera.top = 34; sun.shadow.camera.bottom = -34;
     sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
