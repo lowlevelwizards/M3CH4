@@ -21,8 +21,8 @@ test('destroyed hardware remains on the wreck manifest but cannot be claimed', (
     assert.equal(power.status, 'disabled');
     const draft = createSalvageDraft({ draftOrder: ['player'], manifests: [manifest] });
     assert.equal(draft.pool.some(part => part.id === gun.id), true);
-    assert.equal(playerClaimChoices(draft, new Set()).some(part => part.id === gun.id), false);
-    assert.equal(playerClaimChoices(draft, new Set()).some(part => part.id === power.id), true);
+    assert.equal(playerClaimChoices(draft).some(part => part.id === gun.id), false);
+    assert.equal(playerClaimChoices(draft).some(part => part.id === power.id), true);
 });
 
 test('current three-pilot draft is score ordered and future rounds snake', () => {
@@ -39,7 +39,7 @@ test('AI turns advance until the player receives an actual choice', () => {
     assert.equal(picks.length, 1);
     assert.equal(picks[0].actorId, 'ally-1');
     assert.equal(currentDrafter(draft), 'player');
-    const choice = playerClaimChoices(draft, new Set())[0];
+    const choice = playerClaimChoices(draft)[0];
     const result = claimDraftEntry(draft, 'player', choice.id);
     assert.equal(result.ok, true);
     advanceAiDraft(draft, 'player');
@@ -47,12 +47,12 @@ test('AI turns advance until the player receives an actual choice', () => {
     assert.equal(draft.picks.length, 3);
 });
 
-test('player cannot draft a duplicate definition already in their garage', () => {
+test('duplicate definitions remain valid physical salvage choices', () => {
     const assembly = makeRangeTarget('yard-dog');
     const condition = createTargetCondition(assembly);
     const manifest = wreckManifest({ id: 'enemy-0', label: 'YARD DOG', assembly, condition, active: false });
     const draft = createSalvageDraft({ draftOrder: ['player'], manifests: [manifest] });
     const first = manifest.parts[0];
     const choices = playerClaimChoices(draft, new Set([first.definitionId]));
-    assert.equal(choices.some(part => part.definitionId === first.definitionId), false);
+    assert.equal(choices.some(part => part.definitionId === first.definitionId), true);
 });
