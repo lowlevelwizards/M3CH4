@@ -1,0 +1,48 @@
+name: Apply k.3k.0 first 3v3
+
+on:
+  push:
+    branches: ["feature/k3k0-first-3v3"]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3k0-first-3v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply scoped squad patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/k3k0_apply.py')
+          text = p.read_text()
+          text = text.replace(
+              "<title>MECH ARENA — 0.0.1k.3j.1 — Combat Durability</title>",
+              "<title>MECH ARENA — 0.0.1k.3j.1 — Durability Normalization</title>")
+          text = text.replace(
+              "<header>RIG DIAGNOSTICS <span>0.0.1k.3j.0</span></header>",
+              "<header>RIG DIAGNOSTICS <span>0.0.1k.3j.1</span></header>")
+          text = text.replace(
+              "<script type=\"module\" src=\"./main.js?v=k3j0\"></script>",
+              "<script type=\"module\" src=\"./main.js?v=k3j1\"></script>")
+          p.write_text(text)
+          PY
+          python .github/k3k0_apply.py
+      - name: Commit product changes
+        run: |
+          if git diff --quiet -- enemyMotion.js sceneAssembly.js scene.js main.js index.html styles.css; then
+            echo "No product changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add enemyMotion.js sceneAssembly.js scene.js main.js index.html styles.css
+          git commit -m "feat: integrate first 3v3 squad battle"
+          git push
