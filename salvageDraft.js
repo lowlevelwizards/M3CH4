@@ -65,6 +65,16 @@ export function buildWreckManifests(actors = []) {
     return actors.map(wreckManifest).filter(Boolean);
 }
 
+/** Condition-weighted remains of the defeated field. Destroyed hardware contributes
+ * zero; pristine surviving hardware contributes one. This is a sporting/economic stat,
+ * not an extra source of pilot score. */
+export function wreckPreservation(manifests = []) {
+    const parts = manifests.flatMap(manifest => manifest.parts ?? []);
+    if (!parts.length) return 0;
+    const retained = parts.reduce((sum, part) => sum + (part.destroyed ? 0 : Math.max(0, Math.min(1, part.condition))), 0);
+    return Math.round(retained / parts.length * 100);
+}
+
 export function draftSequence(order = [], rounds = 1) {
     const base = [...order];
     const result = [];
