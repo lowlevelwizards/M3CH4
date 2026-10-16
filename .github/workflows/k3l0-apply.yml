@@ -25,6 +25,16 @@ jobs:
       - name: Apply k.3l.0 integration
         run: |
           python .github/k3l0_apply.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/k3l0_apply2.py')
+          text = p.read_text()
+          start = text.index('# Garage presentation / rebuild guarantee')
+          end = text.index("replace_once('main.js',\n\"\"\"        const condition", start)
+          block = text[start:end]
+          block = block.replace('\\nSERIAL', '\\\\nSERIAL').replace('\\nMASS', '\\\\nMASS').replace('\\nCONDITION', '\\\\nCONDITION').replace("'\\nWRECKED", "'\\\\nWRECKED")
+          p.write_text(text[:start] + block + text[end:])
+          PY
           python .github/k3l0_apply2.py
       - name: Syntax check touched JavaScript
         run: |
