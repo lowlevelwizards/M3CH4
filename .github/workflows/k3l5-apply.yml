@@ -20,7 +20,9 @@ jobs:
         with:
           node-version: '22'
       - name: Apply scoped patch
-        run: python3 tools/k3l5_apply.py
+        run: |
+          python3 tools/k3l5_apply.py
+          python3 tools/k3l5_fix_tests.py
       - name: Syntax check touched JavaScript
         run: |
           node --check cockpitView.js
@@ -36,7 +38,7 @@ jobs:
       - name: Validate diff
         run: git diff --check
       - name: Remove temporary patch machinery
-        run: rm -f tools/k3l5_apply.py .github/workflows/k3l5-apply.yml
+        run: rm -f tools/k3l5_apply.py tools/k3l5_fix_tests.py .github/workflows/k3l5-apply.yml
       - name: Commit verified product state
         run: |
           git config user.name "github-actions[bot]"
