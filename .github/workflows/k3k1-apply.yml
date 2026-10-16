@@ -21,6 +21,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Normalize patch anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('main.js')
+          text = p.read_text()
+          old = "updateFunctionalStatus();\nrenderEconomy();\nrenderSquadStatus();\nrenderAmmo();\nrenderTarget();"
+          new = "updateFunctionalStatus();\nrenderEconomy();\nrenderAmmo();\nrenderTarget();\nrenderSquadStatus();"
+          if old in text:
+              p.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply scoped readability patch
         run: python .github/k3k1_apply.py
       - name: Syntax check touched JS
