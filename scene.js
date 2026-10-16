@@ -196,7 +196,7 @@ export function createArenaScene(initial, targetAssembly) {
     const blackoutMaterial = new THREE.MeshBasicMaterial({ color: 0x010201, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false });
     const blackout = new THREE.Mesh(new THREE.PlaneGeometry(.205, .12), blackoutMaterial);
     blackout.position.set(0, 0, -.068); blackout.renderOrder = 101; camera.add(blackout);
-    let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, gunDamageKick = 0;
+    let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, hitShakeKick = 0, gunDamageKick = 0;
     let powerBlackout = 0, powerFlicker = 0, cockpitWarningLevel = 0;
     let cockpitInstrumentKey = '';
     let crackKey = -1;
@@ -269,6 +269,7 @@ export function createArenaScene(initial, targetAssembly) {
         hitPitchKick += Number(profile.pitch) || 0;
         hitRollKick += Number(profile.roll) || 0;
         hitYawKick += Number(profile.yaw) || 0;
+        hitShakeKick = Math.max(hitShakeKick, Number(profile.shake) || 0);
         gunDamageKick = Math.max(gunDamageKick, Number(profile.gunShake) || 0);
         powerBlackout = Math.max(powerBlackout, Number(profile.blackoutSeconds) || 0);
         powerFlicker = Math.max(powerFlicker, Number(profile.flickerSeconds) || 0);
@@ -285,7 +286,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function resetCockpitTransientFeedback() {
-        hitPitchKick = hitRollKick = hitYawKick = gunDamageKick = 0;
+        hitPitchKick = hitRollKick = hitYawKick = hitShakeKick = gunDamageKick = 0;
         powerBlackout = powerFlicker = 0;
         blackoutMaterial.opacity = 0;
     }
@@ -473,11 +474,12 @@ export function createArenaScene(initial, targetAssembly) {
         cockpitHeave += ((footfall - impactKick) - cockpitHeave) * (1 - Math.exp(-12 * dt));
         const renderYaw = physicsYawToViewYaw(visualYaw);
         const damageWave = Math.sin(performance.now() * .043);
+        const impactJitter = hitShakeKick * Math.sin(performance.now() * .117);
         gunPivot.rotation.set(lookPitch * .85, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + muzzleKick * .13;
         flashMesh.visible = muzzleFlash > 0;
-        cockpit.position.set(visualX, 0, visualZ);
+        cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18, visualZ + impactJitter * .12);
         cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
@@ -499,7 +501,7 @@ export function createArenaScene(initial, targetAssembly) {
             camera.lookAt(center.addScaledVector(right, shift));
         }
         else {
-            camera.position.set(visualX, 2.42 + cockpitHeave - Math.abs(hitPitchKick) * .2, visualZ);
+            camera.position.set(visualX + impactJitter * .62, 2.42 + cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
             camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25, 'YXZ');
         }
         updateSquadMarkers();
@@ -818,7 +820,7 @@ export function createArenaScene(initial, targetAssembly) {
         muzzleKick = Math.max(0, muzzleKick - dt * 5);
         muzzleFlash = Math.max(0, muzzleFlash - dt);
         const hitDecay = Math.exp(-8.5 * dt);
-        hitPitchKick *= hitDecay; hitRollKick *= hitDecay; hitYawKick *= hitDecay; gunDamageKick *= Math.exp(-5.2 * dt);
+        hitPitchKick *= hitDecay; hitRollKick *= hitDecay; hitYawKick *= hitDecay; hitShakeKick *= Math.exp(-10.5 * dt); gunDamageKick *= Math.exp(-5.2 * dt);
         powerBlackout = Math.max(0, powerBlackout - dt);
         powerFlicker = Math.max(0, powerFlicker - dt);
         const flicker = powerFlicker > 0 ? (.12 + Math.abs(Math.sin(performance.now() * .075)) * .34) : 0;
