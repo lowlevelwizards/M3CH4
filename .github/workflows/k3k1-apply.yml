@@ -21,19 +21,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Normalize patch anchor
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('main.js')
-          text = p.read_text()
-          old = "updateFunctionalStatus();\nrenderEconomy();\nrenderSquadStatus();\nrenderAmmo();\nrenderTarget();"
-          new = "updateFunctionalStatus();\nrenderEconomy();\nrenderAmmo();\nrenderTarget();\nrenderSquadStatus();"
-          if old in text:
-              p.write_text(text.replace(old, new, 1))
-          PY
-      - name: Apply scoped readability patch
+      - name: Apply base readability patch if needed
         run: python .github/k3k1_apply.py
+      - name: Apply final readability fixes
+        run: python .github/k3k1_followup.py
       - name: Syntax check touched JS
         run: |
           node --check wreckPhysics.js
@@ -44,14 +35,14 @@ jobs:
           node --check tests/wreckPhysics.test.mjs
       - name: Run full test suite
         run: npm test
-      - name: Commit product changes
+      - name: Commit final product changes
         run: |
           if git diff --quiet; then
-            echo "No patch changes to commit"
+            echo "No product changes to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html styles.css main.js scene.js sceneAssembly.js damageVisuals.js
-          git commit -m "k.3k.1: combat readability and impact pass"
+          git add main.js
+          git commit -m "fix: finalize k.3k.1 wreck and mission feedback"
           git push origin HEAD:feature/k3k1-combat-readability-impact
