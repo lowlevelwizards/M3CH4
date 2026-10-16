@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from '../combatPresentation.js';
 
 test('sortie outro leaves a readable battlefield beat before debrief', () => {
-  assert.ok(SORTIE_OUTRO_SECONDS >= 2.4 && SORTIE_OUTRO_SECONDS <= 3.2);
+  assert.ok(SORTIE_OUTRO_SECONDS >= 3.8 && SORTIE_OUTRO_SECONDS <= 5.0);
 });
 
 test('power internals cause a strong blackout, long flicker and visible arcing', () => {

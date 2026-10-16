@@ -122,11 +122,11 @@ export function createArenaScene(initial, targetAssembly) {
     const combinerLayout = {
         // Keep persistent information on the bezel. The middle of the windshield is
         // reserved for the world, reticle and genuinely transient combat events.
-        systems: { position: [-.094, .004, -.105], scale: .059 },
-        team:    { position: [ 0.000, .057, -.105], scale: .047 },
-        weapon:  { position: [ .094,-.004, -.105], scale: .057 },
-        motion:  { position: [-.058,-.052, -.105], scale: .048 },
-        drive:   { position: [ .020,-.054, -.105], scale: .048 },
+        systems: { position: [-.091, .004, -.105], scale: .066 },
+        team:    { position: [ 0.000, .057, -.105], scale: .052 },
+        weapon:  { position: [ .091,-.004, -.105], scale: .064 },
+        motion:  { position: [-.056,-.052, -.105], scale: .053 },
+        drive:   { position: [ .020,-.054, -.105], scale: .053 },
     };
     for (const [name, screen] of Object.entries(cockpit.userData.instrumentScreens)) {
         cockpit.remove(screen.mesh);
@@ -865,9 +865,9 @@ export function createArenaScene(initial, targetAssembly) {
             tether.yaw - hitYawKick * .10,
             cockpitRoll * .75 - hitRollKick * .25 + sustainedDriveRoll * .28,
             'YXZ');
-        gunPivot.rotation.set(lookPitch * .85, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
+        gunPivot.rotation.set(lookPitch * .85 + muzzleKick * .042, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
-        gunPivot.position.z = -0.62 + muzzleKick * .13;
+        gunPivot.position.z = -0.62 + muzzleKick * .19;
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12);
         cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
@@ -1113,7 +1113,7 @@ export function createArenaScene(initial, targetAssembly) {
         return traceCombatantShot('enemy-0', 'player', aimSlot, spreadX, spreadY);
     }
     function showShot(contact, outcome) {
-        muzzleKick = Math.min(1, muzzleKick + .8);
+        muzzleKick = Math.min(1.2, muzzleKick + 1.0);
         muzzleFlash = .10;
         const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
@@ -1251,7 +1251,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateTargetDamage(condition);
     }
     function updateCombatEffects(dt) {
-        muzzleKick = Math.max(0, muzzleKick - dt * 5);
+        muzzleKick = Math.max(0, muzzleKick - dt * 3.6);
         muzzleFlash = Math.max(0, muzzleFlash - dt);
         const hitDecay = Math.exp(-8.5 * dt);
         hitPitchKick *= hitDecay; hitRollKick *= hitDecay; hitYawKick *= hitDecay; hitShakeKick *= Math.exp(-10.5 * dt); gunDamageKick *= Math.exp(-5.2 * dt);
