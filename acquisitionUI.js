@@ -279,6 +279,8 @@ function renderDraft(result) {
 
     if (currentDrafter(result.draft) === 'player')
         garage.textContent = 'FORFEIT CLAIM · RETURN TO GARAGE';
+    else if (!currentDrafter(result.draft) && autoGarageTimer === null)
+        scheduleGarageReturn(result);
 }
 
 function showClaimProblem(message) {
@@ -302,7 +304,8 @@ function rollbackDraftClaim(draft, entry, entryId) {
 
 function scheduleGarageReturn(result) {
     if (autoGarageTimer !== null) window.clearTimeout(autoGarageTimer);
-    garage.textContent = 'CLAIM SECURED · RETURNING TO GARAGE';
+    const playerClaimed = result.draft.picks.some(pick => pick.actorId === 'player' && !pick.skipped);
+    garage.textContent = playerClaimed ? 'CLAIM SECURED · RETURNING TO GARAGE' : 'DRAFT COMPLETE · RETURNING TO GARAGE';
     autoGarageTimer = window.setTimeout(() => {
         autoGarageTimer = null;
         if (!sheet.classList.contains('hidden') && result === latestBoutResult() && !currentDrafter(result.draft))
@@ -345,7 +348,6 @@ function claimPlayerPart(result, entry) {
         fieldStatus.classList.remove('blocked'); fieldStatus.classList.add('message');
     }
     render();
-    if (!currentDrafter(result.draft)) scheduleGarageReturn(result);
 }
 
 function visiblePageIndices() {
@@ -414,12 +416,12 @@ garage.addEventListener('click', () => {
 function render() {
     const result = latestBoutResult();
     const newResult = !!result && result !== lastRenderedResult;
+    if (newResult) selectedEntryId = null;
     renderScore(result);
     renderDraft(result);
     syncPager(result);
     if (newResult) {
         lastRenderedResult = result;
-        selectedEntryId = null;
         currentPageIndex = 0;
         requestAnimationFrame(() => goToPage(0, 'auto'));
     } else if (!result) {

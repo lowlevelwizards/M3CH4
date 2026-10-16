@@ -97,7 +97,7 @@ export function createArenaScene(initial, targetAssembly) {
     sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
     sun.shadow.bias = -.0007; sun.shadow.normalBias = .035;
     scene.add(sun);
-    const coolRim = new THREE.DirectionalLight(0x79a9a8, .72);
+    const coolRim = new THREE.DirectionalLight(0x79a9a8, .90);
     coolRim.position.set(12, 6, -16);
     scene.add(coolRim);
     const arenaRoot = new THREE.Group();

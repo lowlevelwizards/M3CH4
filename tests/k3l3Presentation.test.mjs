@@ -18,6 +18,7 @@ test('combiner HUD has an independent high-resolution render path', () => {
     assert.match(scene, /combinerHud\.traverse\(object => object\.layers\.set\(1\)\)/);
     assert.match(main, /const hudRenderer = new THREE\.WebGLRenderer/);
     assert.match(main, /arena\.camera\.layers\.set\(1\)/);
+    assert.match(main, /arena\.scene\.background = null/);
 });
 
 test('garage is an isolated service-bay presentation at a stable origin', () => {

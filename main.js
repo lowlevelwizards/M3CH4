@@ -1213,10 +1213,15 @@ function frame(now) {
     renderer.render(arena.scene, arena.camera);
     hudRenderer.clear();
     if (!inspecting) {
+        // scene.background belongs to the chunky world pass. Temporarily suppress it
+        // so the display-resolution HUD renderer remains a transparent composite.
+        const worldBackground = arena.scene.background;
+        arena.scene.background = null;
         arena.camera.layers.set(1);
         hudRenderer.render(arena.scene, arena.camera);
+        arena.camera.layers.set(0);
+        arena.scene.background = worldBackground;
     }
-    arena.camera.layers.set(0);
     requestAnimationFrame(frame);
 }
 devToggle.addEventListener('click', () => {
