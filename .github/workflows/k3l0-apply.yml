@@ -3,9 +3,12 @@ on:
   push:
     branches:
       - feature/k3l0-bout-stakes-salvage
+    paths:
+      - '.github/k3l0_apply.py'
+      - '.github/k3l0_apply2.py'
+      - '.github/workflows/k3l0-apply.yml'
 jobs:
   apply-and-test:
-    if: ${{ !contains(github.event.head_commit.message, 'feat: integrate k.3l.0 bout stakes') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
