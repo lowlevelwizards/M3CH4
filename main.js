@@ -17,6 +17,7 @@ import { advanceHostileController, createHostileController, disabledReason, host
 import { contractById } from './contracts.js';
 import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
 import { damageWreckIntegrity, shoveWreck, wreckCollisionRadius } from './wreckPhysics.js';
+import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from './combatPresentation.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -228,6 +229,9 @@ const debriefSheet = required('#sortie-debrief');
 const debriefTitle = required('#debrief-title');
 const debriefLines = required('#debrief-lines');
 const debriefGarage = required('#debrief-garage');
+const sortieOutro = required('#sortie-outro');
+const sortieOutroTitle = required('#sortie-outro-title');
+const sortieOutroReason = required('#sortie-outro-reason');
 const fireButton = required('#fire');
 const reloadButton = required('#reload');
 const weaponLabel = required('#weapon-label');
@@ -275,6 +279,9 @@ let reportFade = 0;
 let shotsFired = 0;
 let lastHit = 'NO SHOTS YET';
 let targetPanelRefresh = 0;
+let sortiePhase = 'garage';
+let sortieOutroRemaining = 0;
+let pendingDebrief = null;
 const selectionButtons = new Map();
 function actorById(id) {
     if (id === 'player')
@@ -298,11 +305,33 @@ function renderSquadStatus() {
     teamStatus.textContent = `ALLY ${counts.friendly}/3 · HOSTILE ${counts.hostile}/3`;
     teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
     teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
+    syncCockpitInstruments();
 }
 function playerPartRemaining(part) {
     if (!part) return 0;
     const total = Math.max(1, part.maxIntegrity + part.maxArmor);
     return Math.max(0, Math.min(1, (part.integrity + part.armor) / total));
+}
+function syncCockpitInstruments() {
+    if (!arena?.updateCockpitInstruments) return;
+    const systems = {};
+    let lowest = 1; let disabled = false;
+    for (const slot of SLOTS) {
+        const part = playerCondition.parts[slot];
+        const ratio = playerPartRemaining(part);
+        systems[slot] = Math.round(ratio * 100);
+        lowest = Math.min(lowest, ratio);
+        disabled ||= !!part && part.integrity <= 0;
+    }
+    const counts = squadCounts(playerCombatActive, aiActors);
+    const failure = weaponFailureState(playerCondition, fieldService);
+    const weaponStateLabel = !weaponSpec ? 'LOST' : failure === 'faulted' ? 'FAULT' : failure === 'destroyed' || failure === 'unrecoverable' ? 'LOST' : output.weapon < .95 ? 'DAMAGED' : weaponState?.reloadLeft > 0 ? 'RELOAD' : 'READY';
+    arena.updateCockpitInstruments({
+        systems, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
+        weapon: weaponSpec?.label ?? 'NO WEAPON',
+        ammo: weaponState ? `${weaponState.loaded}/${weaponState.reserve}` : '—',
+        weaponState: sortiePhase === 'outro' ? 'SAFE' : weaponStateLabel,
+    });
 }
 function renderPlayerDamageHUD(flashSlot = null) {
     for (const slot of SLOTS) {
@@ -323,9 +352,11 @@ function renderPlayerDamageHUD(flashSlot = null) {
             window.setTimeout(() => element.classList.remove('hit'), 460);
         }
     }
+    syncCockpitInstruments();
 }
 function signalPlayerHit(slot, hit) {
     renderPlayerDamageHUD(slot);
+    arena.triggerCockpitHit(slot, cockpitImpactProfile(slot, { internalDamage: hit.internalDamage, disabled: hit.disabled, driveSide: hit.driveSide }));
     playerHitFlash.className = `player-hit-flash active hit-${slot}${hit.internalDamage > 0 ? ' breached' : ''}`;
     void playerHitFlash.offsetWidth;
     if (playerHitTimer !== null) window.clearTimeout(playerHitTimer);
@@ -727,6 +758,9 @@ function toggleInspection(force) {
     stopFireInput();
     stopFieldServiceInput();
     if (inspecting) {
+        sortiePhase = 'garage';
+        sortieOutro.classList.add('hidden');
+        sortieOutro.setAttribute('aria-hidden', 'true');
         devPanel.classList.add('hidden');
         targetPanel.classList.add('hidden');
         targetToggle.setAttribute('aria-pressed', 'false');
@@ -738,6 +772,13 @@ function toggleInspection(force) {
         // the automated opponent reset, while operating credits do not.
         debriefSheet.classList.add('hidden');
         debriefSheet.setAttribute('aria-hidden', 'true');
+        sortieOutro.classList.add('hidden');
+        sortieOutro.setAttribute('aria-hidden', 'true');
+        sortiePhase = 'combat'; sortieOutroRemaining = 0; pendingDebrief = null;
+        reportFade = 0; shotReport.textContent = ''; shotReport.className = 'shot-report faded';
+        hitConfirm.className = 'hit-confirm'; rangeCrosshair.classList.remove('confirmed-hit', 'breach-hit', 'disable-hit');
+        arena.resetCockpitTransientFeedback();
+        assemblyToggle.disabled = false;
         rig = createRigState();
         playerCombatActive = true;
         resetSquadBattle();
@@ -926,7 +967,7 @@ function frame(now) {
     fps += ((1 / Math.max(frameDt, .0001)) - fps) * .06;
     let input = controls.sample();
     let steps = 0;
-    if (!inspecting && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
+    if (!inspecting && !testEnded && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
             const followSteer = bodyFollowSteer(input.lookYaw);
@@ -984,6 +1025,15 @@ function frame(now) {
     input = controls.sample();
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt);
     arena.updateCombatEffects(frameDt);
+    if (sortiePhase === 'outro') {
+        sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
+        if (sortieOutroRemaining === 0 && pendingDebrief) {
+            const next = pendingDebrief; pendingDebrief = null; sortiePhase = 'debrief';
+            sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
+            assemblyToggle.disabled = false;
+            renderDebrief(next.summary, next.reason);
+        }
+    }
     if (!inspecting && !targetPanel.classList.contains('hidden')) {
         targetPanelRefresh += frameDt;
         if (targetPanelRefresh > .4) {
@@ -1036,6 +1086,7 @@ function frame(now) {
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
             `LOS AUDIT ${lastCoverAudit}`,
+            `RIG VIS   ${arena.combatantVisualAudit().ok ? `OK · ${arena.combatantVisualAudit().actors} ACTORS` : `MISPLACED ${arena.combatantVisualAudit().misplaced.join(',')}`}`,
             `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
             `LAST HIT  ${lastHit}`,
         ].join('\n');
@@ -1140,6 +1191,7 @@ function renderAmmo() {
     }
     // Preserve touch capture if an empty magazine starts reloading during a held
     // FIRE drag. Aim remains usable; the weapon itself still refuses to fire.
+    syncCockpitInstruments();
     fireButton.disabled = !playerCombatActive || !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational ||
         (weaponState.reloadLeft > 0 && firePointerId === null);
 }
@@ -1223,11 +1275,21 @@ function finishSortie(victory, reason) {
     shotReport.classList.remove('faded');
     shotReport.classList.toggle('disabled-part', !victory);
     shotReport.classList.toggle('penetrated', victory);
-    shotReport.textContent = victory ? `SORTIE COMPLETE · ${reason}` : `SORTIE ENDED · ${reason} · RECOVERY CREW DISPATCHED`;
+    shotReport.textContent = '';
+    shotReport.classList.add('faded');
     renderSquadStatus();
-    reportFade = 9999;
+    reportFade = 0;
+    sortiePhase = 'outro';
+    sortieOutroRemaining = SORTIE_OUTRO_SECONDS;
+    pendingDebrief = { summary, reason };
+    sortieOutroTitle.textContent = victory ? 'SORTIE COMPLETE' : 'SORTIE FAILED';
+    sortieOutroReason.textContent = victory ? reason : `${reason} · RECOVERY CREW INBOUND`;
+    sortieOutro.classList.remove('hidden');
+    sortieOutro.classList.toggle('failed', !victory);
+    sortieOutro.setAttribute('aria-hidden', 'false');
+    assemblyToggle.disabled = true;
     renderAmmo();
-    renderDebrief(summary, reason);
+    syncCockpitInstruments();
 }
 function applyAiHitToPlayer(actor, contact) {
     stopFieldServiceInput();
@@ -1253,7 +1315,7 @@ function applyAiHitToPlayer(actor, contact) {
     const visualHit = { ...hit, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updatePilotDamage(playerCondition);
-    signalPlayerHit(contact.slot, visualHit);
+    signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
     persistMachine();
     soundImpact();
     rig.impact = Math.min(1, rig.impact + .65);

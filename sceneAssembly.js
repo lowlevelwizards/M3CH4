@@ -3,7 +3,7 @@
  * the shared part-model construction now handled inside scene.js.
  */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3k1';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3k2';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 
 let active = null;
@@ -13,8 +13,15 @@ function findPartGroup(scene, slot, serial) {
     if (!serial) return null;
     let found = null;
     scene.traverse(object => {
-        if (object.type === 'Group' && object.name.startsWith(`${slot}: `) &&
-            object.name.endsWith(`(${serial})`)) found = object;
+        if (found || object.type !== 'Group' || !object.name.startsWith(`${slot}: `) ||
+            !object.name.endsWith(`(${serial})`)) return;
+        // 3v3 rigs can legitimately share definition/serial-looking names. Graph alignment
+        // belongs only to the owned player exterior; never reparent an AI module into it.
+        let belongsToPlayer = false;
+        object.traverse(child => {
+            if (child.isMesh && child.userData.actorId === 'player') belongsToPlayer = true;
+        });
+        if (belongsToPlayer) found = object;
     });
     return found;
 }

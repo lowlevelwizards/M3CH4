@@ -481,3 +481,33 @@ body.inspecting .player-damage-hud,body.inspecting .hit-confirm,body.inspecting 
   .fault-strip{top:max(70px,calc(env(safe-area-inset-top) + 63px));}
   .shot-report{top:max(91px,calc(env(safe-area-inset-top) + 84px));}
 }
+
+
+/* k.3k.2 — persistent combat telemetry now lives on physical cockpit screens. */
+body:not(.inspecting) .team-status,
+body:not(.inspecting) .player-damage-hud,
+body:not(.inspecting) .weapon-hud { opacity:0; visibility:hidden; }
+body:not(.inspecting) .look-heading {
+  top:max(16px,calc(env(safe-area-inset-top) + 10px)); border:0; background:transparent;
+  opacity:.42; font-size:6px; letter-spacing:.16em; text-shadow:0 0 8px #08110c;
+}
+body:not(.inspecting) .fault-strip { top:max(35px,calc(env(safe-area-inset-top) + 29px)); }
+body:not(.inspecting) .fault-strip.nominal { display:none; }
+body:not(.inspecting) .shot-report { top:max(54px,calc(env(safe-area-inset-top) + 48px)); }
+.sortie-outro {
+  position:absolute; z-index:40; left:50%; top:39%; transform:translate(-50%,-50%);
+  min-width:min(520px,70vw); padding:14px 24px 13px; text-align:center; pointer-events:none;
+  border:2px solid #d49b52; background:rgba(13,18,15,.82); box-shadow:0 0 0 1px #241e13,0 14px 50px #0009;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.11em; color:#e6c98d;
+  animation:sortieAnnounceIn .22s ease-out;
+}
+.sortie-outro small { display:block; font-size:7px; color:#8ba28d; margin-bottom:5px; }
+.sortie-outro strong { display:block; font-size:18px; color:#f0c681; }
+.sortie-outro span { display:block; margin-top:6px; font-size:8px; color:#c5b48f; }
+.sortie-outro.failed { border-color:#c85b46; }
+.sortie-outro.failed strong { color:#f08a70; }
+@keyframes sortieAnnounceIn { from{opacity:0;transform:translate(-50%,-46%) scale(.96)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+@media(max-height:430px){
+  .sortie-outro{top:36%;padding:9px 18px;min-width:min(440px,66vw)}
+  .sortie-outro strong{font-size:14px}.sortie-outro span{font-size:7px}
+}
