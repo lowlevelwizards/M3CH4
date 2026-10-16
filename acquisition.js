@@ -87,17 +87,14 @@ function nextRecoveredSerial(assembly) {
     return `REC-${String(highest + 1).padStart(4, '0')}`;
 }
 
-/** Add the offered physical component to ownership. This first acquisition slice
- * intentionally refuses duplicate definitions because the existing garage chooser
- * is definition-based rather than serial-based. */
+/** Add one physical recovered component to ownership. Definition IDs describe a model;
+ * serials identify possessions, so multiple Yardwalkers/cannons/etc. are legitimate. */
 export function recoverSalvage(assembly, offer) {
     if (!assembly?.owned || !offer || !BY_ID.has(offer.definitionId))
         return { ok: false, reason: 'INVALID SALVAGE' };
     const definition = BY_ID.get(offer.definitionId);
     if (definition.slot !== offer.slot)
         return { ok: false, reason: 'SALVAGE SLOT MISMATCH' };
-    if (assembly.owned.some(part => part.definitionId === offer.definitionId))
-        return { ok: false, reason: 'ALREADY OWNED' };
     const preserve = offer.preserveSourceSerial === true && typeof offer.sourceSerial === 'string' &&
         offer.sourceSerial.length > 0 && !assembly.owned.some(part => part.serial === offer.sourceSerial);
     const instance = {

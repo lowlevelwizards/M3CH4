@@ -11,6 +11,7 @@
  */
 export const CIRCUIT_ORDER = Object.freeze(['yard-dog', 'cutter', 'mule']);
 export const DEFAULT_CONTRACT_ID = CIRCUIT_ORDER[0];
+export const MACHINE_PROGRESS_V8_KEY = 'mech-arena-machine-v8';
 export const MACHINE_PROGRESS_V7_KEY = 'mech-arena-machine-v7';
 export const MACHINE_PROGRESS_V6_KEY = 'mech-arena-machine-v6';
 const LEGACY_MACHINE_KEYS = Object.freeze([
@@ -84,9 +85,15 @@ export function circuitSummary(progression) {
 export function loadProgression(storage = browserLocalStorage()) {
     if (!storage) return createProgressionState();
     try {
-        const current = storage.getItem(MACHINE_PROGRESS_V7_KEY);
+        const current = storage.getItem(MACHINE_PROGRESS_V8_KEY);
         if (current) {
             const data = JSON.parse(current);
+            if (data?.version === 8 && data.progression)
+                return createProgressionState(data.progression);
+        }
+        const v7 = storage.getItem(MACHINE_PROGRESS_V7_KEY);
+        if (v7) {
+            const data = JSON.parse(v7);
             if (data?.version === 7 && data.progression)
                 return createProgressionState(data.progression);
         }
@@ -108,16 +115,17 @@ export function loadProgression(storage = browserLocalStorage()) {
 export function storeProgression(progression, storage = browserLocalStorage()) {
     if (!storage) return false;
     try {
-        const raw = storage.getItem(MACHINE_PROGRESS_V7_KEY);
+        const key = storage.getItem(MACHINE_PROGRESS_V8_KEY) ? MACHINE_PROGRESS_V8_KEY : MACHINE_PROGRESS_V7_KEY;
+        const raw = storage.getItem(key);
         if (!raw) return false;
         const data = JSON.parse(raw);
-        if (data?.version !== 7) return false;
+        if (![7, 8].includes(data?.version)) return false;
         const next = createProgressionState(progression);
         data.progression = {
             unlockedContracts: [...next.unlockedContracts],
             clearedContracts: [...next.clearedContracts],
         };
-        storage.setItem(MACHINE_PROGRESS_V7_KEY, JSON.stringify(data));
+        storage.setItem(key, JSON.stringify(data));
         return true;
     } catch {
         return false;

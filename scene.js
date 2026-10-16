@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { buildPartVisual } from './partVisuals.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
-import { installedPart, SLOT_CENTERS, SLOTS } from './components.js';
+import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
 import { firstCoverHit } from './coverTruth.js';
@@ -11,6 +11,71 @@ const C = {
     yellow: 0xa9822f, teal: 0x2f7473, metal: 0x343a39,
     dark: 0x151816, rust: 0x8a4d2d, amber: 0xe0a44c, green: 0x6ea778,
 };
+
+const partThumbnailCache = new Map();
+let partThumbnailRenderer = null;
+function disposePreviewObject(root) {
+    root.traverse(object => {
+        if (!object.isMesh) return;
+        object.geometry?.dispose?.();
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) material?.dispose?.();
+    });
+}
+/** Render the same authored gameplay mesh used in the arena into a cached visual
+ * inventory card. Condition is quantized so a phone never grows an unbounded cache. */
+export function partThumbnailDataUrl(definitionId, state = {}) {
+    if (typeof document === 'undefined') return null;
+    const definition = BY_ID.get(definitionId);
+    if (!definition) return null;
+    const condition = Math.max(0, Math.min(1, Number(state.condition) || 0));
+    const destroyed = !!state.destroyed || state.status === 'destroyed';
+    const key = `${definitionId}:${destroyed ? 'x' : Math.round(condition * 10)}`;
+    if (partThumbnailCache.has(key)) return partThumbnailCache.get(key);
+    if (!partThumbnailRenderer) {
+        partThumbnailRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
+        partThumbnailRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        partThumbnailRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+        partThumbnailRenderer.toneMappingExposure = 1.18;
+        partThumbnailRenderer.setSize(180, 132, false);
+        partThumbnailRenderer.setPixelRatio(1);
+    }
+    const serial = 'PREVIEW-001';
+    const assembly = { serial: 'PREVIEW', name: 'PREVIEW', owned: [{ serial, definitionId, condition: 1, wear: 0, repairs: 0 }], installed: { [definition.slot]: serial } };
+    const exterior = buildExteriorRig(assembly);
+    exterior.root.position.set(-definition.center[0], -definition.center[1], -definition.center[2]);
+    const damageTint = new THREE.Color(0x6f2d24);
+    for (const mesh of exterior.pickMeshes) {
+        const material = mesh.material;
+        if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+        if (destroyed) {
+            material.color.multiplyScalar(.09);
+            material.emissive.setHex(0);
+        } else if (condition < .999) {
+            const severity = 1 - condition;
+            material.color.lerp(damageTint, Math.min(.48, severity * .46));
+            material.color.multiplyScalar(Math.max(.42, 1 - severity * .36));
+            if (condition <= .001) { material.emissive.setHex(0x3b130b); material.emissiveIntensity = .28; }
+        }
+    }
+    const previewScene = new THREE.Scene();
+    previewScene.background = new THREE.Color(0x0b100e);
+    previewScene.add(exterior.root);
+    previewScene.add(new THREE.HemisphereLight(0xa6b9ad, 0x201c18, .78));
+    const keyLight = new THREE.DirectionalLight(0xffd49a, 2.5); keyLight.position.set(-4, 6, 5); previewScene.add(keyLight);
+    const rim = new THREE.DirectionalLight(0x78aaa5, 1.1); rim.position.set(4, 2, -5); previewScene.add(rim);
+    const bounds = new THREE.Box3().setFromObject(exterior.root);
+    const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+    const camera = new THREE.PerspectiveCamera(36, 180 / 132, .03, 40);
+    const radius = Math.max(.35, sphere.radius);
+    camera.position.set(radius * 1.65, radius * .92, radius * 2.25);
+    camera.lookAt(0, 0, 0);
+    partThumbnailRenderer.render(previewScene, camera);
+    const url = partThumbnailRenderer.domElement.toDataURL('image/png');
+    partThumbnailCache.set(key, url);
+    disposePreviewObject(exterior.root);
+    return url;
+}
 export function createArenaScene(initial, targetAssembly) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x171915);
@@ -1180,7 +1245,7 @@ export function createArenaScene(initial, targetAssembly) {
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit,
-        updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit,
+        updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {
