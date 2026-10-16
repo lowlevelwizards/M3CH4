@@ -380,6 +380,7 @@ function missionKillPlayer(reason) {
     stopFieldServiceInput();
     controls.setEnabled(false);
     faultStrip.textContent = `MISSION KILL · ${reason} · ALLIES STILL ENGAGED`;
+    faultStrip.classList.remove('nominal');
     faultStrip.classList.add('faulted');
     shotReport.classList.remove('faded', 'penetrated');
     shotReport.classList.add('disabled-part');
@@ -1217,6 +1218,7 @@ function finishSortie(victory, reason) {
     renderEconomy();
     persistMachine();
     faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
+    faultStrip.classList.remove('nominal');
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');
     shotReport.classList.toggle('disabled-part', !victory);
@@ -1327,14 +1329,8 @@ function attemptFire() {
     if (contact.slot !== null && contact.actorId) {
         const targetActor = actorById(contact.actorId);
         if (!targetActor) return;
-        if (targetActor.team !== HOSTILE_TEAM) {
-            arena.showShot(contact, null);
-            soundImpact();
-            showHitConfirm({ friendlyBlock: true });
-            lastHit = `ALLY BLOCK · ${targetActor.label}`;
-            renderAmmo();
-            return;
-        }
+        // Once a rig is mission-killed it is just obstructing machinery: either team can
+        // shove it or spend ammunition breaking it down into a much smaller remnant.
         if (!targetActor.active) {
             targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, weaponSpec.damage);
             const cleared = targetActor.wreckIntegrity <= .001;
@@ -1347,6 +1343,14 @@ function attemptFire() {
             soundImpact();
             showHitConfirm(wreckHit);
             lastHit = `${targetActor.label} · WRECK ${Math.round(targetActor.wreckIntegrity * 100)}%`;
+            renderAmmo();
+            return;
+        }
+        if (targetActor.team !== HOSTILE_TEAM) {
+            arena.showShot(contact, null);
+            soundImpact();
+            showHitConfirm({ friendlyBlock: true });
+            lastHit = `ALLY BLOCK · ${targetActor.label}`;
             renderAmmo();
             return;
         }
