@@ -84,7 +84,11 @@ export function squadIntent(actor, roster, target, objectivePoint = null, postur
     // occupy the exact same point. Anchors sit on it; pressure fighters approach it;
     // flankers work a lateral edge with line-of-fire potential.
     const focus = objectivePoint ?? targetRig;
-    const dx = targetRig.x - focus.x, dz = targetRig.z - focus.z;
+    // Without an objective the target itself is the focus, so deriving the tactical
+    // axis from focus -> target would collapse to zero. Use the squad centre (or self
+    // when alone) as the reference so FLANK/PRESSURE actually create an angle.
+    const reference = objectivePoint ?? allyCenter ?? self;
+    const dx = targetRig.x - reference.x, dz = targetRig.z - reference.z;
     const length = Math.max(.001, Math.hypot(dx, dz));
     const nx = dx / length, nz = dz / length;
     const tx = -nz, tz = nx;
