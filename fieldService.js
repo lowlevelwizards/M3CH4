@@ -31,8 +31,13 @@ export function createFieldServiceState() {
 }
 
 export function weaponFailureState(condition, service) {
+    const part = condition?.parts?.combat;
     const ratio = weaponIntegrityRatio(condition);
-    if (ratio <= 0)
+    if (part?.destroyed)
+        return 'destroyed';
+    // A latched emergency fault can remain physically intact at zero functional
+    // integrity. That is DISABLED hardware, not destroyed hardware.
+    if (ratio <= 0 && !service?.faultLatched)
         return 'destroyed';
     if (ratio <= WEAPON_FAULT_THRESHOLD)
         return service?.used ? 'unrecoverable' : 'faulted';
@@ -61,8 +66,10 @@ export function arrestFirstWeaponFailure(condition, service, beforeIntegrity) {
 }
 
 export function canFieldService(condition, service) {
+    const part = condition?.parts?.combat;
     const ratio = weaponIntegrityRatio(condition);
-    return !!service && !service.used && ratio > 0 && ratio <= WEAPON_FAULT_THRESHOLD;
+    return !!service && !service.used && !part?.destroyed &&
+        ratio <= WEAPON_FAULT_THRESHOLD && (ratio > 0 || service.faultLatched);
 }
 
 export function fieldServiceStationary(rig) {
@@ -112,12 +119,16 @@ export function advanceFieldService(condition, service, rig, dt) {
     return { event: 'completed', progress: FIELD_SERVICE_SECONDS, ratio: weaponIntegrityRatio(condition) };
 }
 
-/** A recoverable first fault keeps the sortie alive. Once the emergency restart is
- * spent—or the component is actually destroyed—there is no useful combat action
- * left and the bout should resolve immediately instead of making the pilot wait. */
+/** A recoverable first fault keeps the sortie alive. Zero functional integrity is
+ * still recoverable while the latched bypass remains unused and the physical weapon
+ * has not crossed its destruction reserve. Once the bypass is spent—or the hardware
+ * is actually destroyed—the weapon can legitimately mission-kill the rig. */
 export function weaponMissionKillReason(condition, service) {
+    const part = condition?.parts?.combat;
     const ratio = weaponIntegrityRatio(condition);
-    if (ratio <= 0)
+    if (part?.destroyed)
+        return 'WEAPON DESTROYED';
+    if (ratio <= 0 && !service?.faultLatched)
         return 'WEAPON DESTROYED';
     if (ratio <= WEAPON_FAULT_THRESHOLD && service?.used)
         return 'WEAPON FAULT · FIELD SERVICE SPENT';

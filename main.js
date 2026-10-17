@@ -1650,10 +1650,11 @@ function attemptAiFire(actor, target, shotIndex) {
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
     const hit = applyTargetHit(target.condition, contact.slot, actor.weaponSpec.damage);
     const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(target, beforeIntegrity, actor.rig);
+    const weaponRecoverable = contact.slot === 'combat' && canFieldService(target.condition, target.fieldService);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
     scoreHit(actor.id, target.id, contact.slot, beforePart, hit, afterPart);
     noteIncomingFire(target.motion, actor.rig, actor.id, hit.internalDamage > 0 ? 1.55 : 1.08);
-    const visualHit = { ...hit, justDisabled: !weaponFaulted && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+    const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updateCombatantDamage(target.id, target.condition);
     if (target.id === 'enemy-0') {
@@ -1733,10 +1734,11 @@ function attemptFire() {
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
         const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
         const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(targetActor, beforeIntegrity, rig);
+        const weaponRecoverable = contact.slot === 'combat' && canFieldService(targetActor.condition, targetActor.fieldService);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
         scoreHit('player', targetActor.id, contact.slot, beforePart, hit, afterPart);
         noteIncomingFire(targetActor.motion, rig, 'player', hit.internalDamage > 0 ? 1.65 : 1.12);
-        const visualHit = { ...hit, justDisabled: !weaponFaulted && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+        const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
         arena.showShot(contact, visualHit);
         arena.updateCombatantDamage(targetActor.id, targetActor.condition);
         if (targetActor.id === 'enemy-0') {
@@ -1746,7 +1748,7 @@ function attemptFire() {
         soundImpact();
         recoilFlash = .19;
         lastHit = `${targetActor.label} · ${targetLabels[hit.slot]} · ${hit.serial}`;
-        showHitConfirm(hit, weaponFaulted ? 'WEAPON FAULT' : null);
+        showHitConfirm(hit, weaponRecoverable ? 'WEAPON FAULT' : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return;

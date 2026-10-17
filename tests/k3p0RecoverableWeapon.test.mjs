@@ -62,6 +62,24 @@ test('AI stationary field service returns the gun at twenty percent and spends t
   assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), null);
 });
 
+test('continued fire must actually destroy a latched fault before field service is denied', () => {
+  const condition = createTargetCondition(makeRangeTarget('yard-dog'));
+  const service = createFieldServiceState();
+  const weapon = condition.parts.combat;
+  const before = weapon.integrity;
+  applyTargetHit(condition, 'combat', weapon.armor + weapon.integrity + 1);
+  arrestFirstWeaponFailure(condition, service, before);
+  applyTargetHit(condition, 'combat', 38);
+  assert.equal(condition.parts.combat.integrity, 0);
+  assert.equal(condition.parts.combat.destroyed, false);
+  assert.equal(canFieldService(condition, service), true);
+  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), null);
+  applyTargetHit(condition, 'combat', 38);
+  assert.equal(condition.parts.combat.destroyed, true);
+  assert.equal(canFieldService(condition, service), false);
+  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), 'WEAPON DESTROYED');
+});
+
 test('a post-bypass weapon disable is a real mission kill', () => {
   const condition = createTargetCondition(makeRangeTarget('yard-dog'));
   const service = createFieldServiceState();

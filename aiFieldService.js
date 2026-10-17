@@ -12,6 +12,8 @@ export const AI_FIELD_SERVICE_FALLBACK_DISTANCE_M = 9;
 const distance = (a, b) => Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 
 export function aiWeaponMissionKillReason(condition, behavior = null, service = null) {
+    if (condition?.parts?.combat?.destroyed)
+        return 'WEAPON DESTROYED';
     const reason = hostileMissionKillReason(condition, behavior);
     if (reason === 'WEAPON DISABLED' && canFieldService(condition, service))
         return null;
