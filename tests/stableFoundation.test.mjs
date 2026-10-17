@@ -104,7 +104,7 @@ test('destroyed or completely disabled mandatory hardware prevents commissioning
     assert.equal(rigFieldability(stable, 'rig-02').fieldable, false);
 });
 
-test('activating a commissioned rig projects it into the existing v8 machine save', () => {
+test('activating a commissioned rig projects its hardware into v8 while stable owns the persistent identity', () => {
     const storage = new MemoryStorage();
     const machine = decodeMachine(null);
     machine.assembly.name = 'MABEL';
@@ -120,11 +120,13 @@ test('activating a commissioned rig projects it into the existing v8 machine sav
     const projected = loadMachine(storage);
     assert.equal(projected.status, 'restored');
     assert.equal(projected.assembly.serial, 'SR-01');
-    assert.equal(projected.assembly.name, 'DOGTOOTH');
     assert.deepEqual(projected.assembly.installed, rigById(stable, 'rig-02').installed);
     assert.equal(projected.assembly.owned.some(part => part.serial === machine.assembly.installed.combat), true);
-    assert.equal(stable.activeRigId, 'rig-02');
-    assert.equal(rigById(stable, 'rig-01').name, 'MABEL');
+
+    const reloaded = loadStable(storage, '2026-10-17T12:03:00.000Z').stable;
+    assert.equal(reloaded.activeRigId, 'rig-02');
+    assert.equal(rigById(reloaded, 'rig-02').name, 'DOGTOOTH');
+    assert.equal(rigById(reloaded, 'rig-01').name, 'MABEL');
 });
 
 test('machine identity and original configuration survive Ship of Theseus replacement', () => {
