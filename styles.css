@@ -558,3 +558,10 @@ body.inspecting .orbit-help {
   .field-status.message{top:max(45px,calc(env(safe-area-inset-top) + 40px)) !important;width:min(330px,46vw) !important;font-size:6.5px !important;}
   body.inspecting .orbit-help{padding:4px 7px;font-size:6px;}
 }
+
+
+/* k.3n.2 objective readout */
+.objective-status{position:absolute;z-index:6;left:50%;top:max(96px,calc(env(safe-area-inset-top) + 86px));transform:translateX(-50%);max-width:58vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;padding:3px 7px;border:1px solid #b68d4d66;background:#151912cf;color:#d9b568;font:800 8px/1.2 ui-monospace,monospace;letter-spacing:.055em}
+.objective-status.contested{border-color:#dc755bbb;color:#ffc09c;background:#35201bd9}
+body.inspecting .objective-status{display:none}
+@media(max-height:430px){.objective-status{top:max(82px,calc(env(safe-area-inset-top) + 72px));font-size:7px}}

@@ -201,13 +201,22 @@ export function createArenaScene(initial, targetAssembly) {
     const capturePartTransforms = exterior => new Map([...exterior.partGroups].map(([slot, group]) => [slot, {
         position: group.position.clone(), rotation: group.rotation.clone(), scale: group.scale.clone(), parent: group.parent,
     }]));
+    const captureArticulation = exterior => {
+        const joints = [];
+        exterior.partGroups.get('mobility')?.traverse(object => {
+            if (!object.userData?.joint) return;
+            joints.push({ object, joint: object.userData.joint, side: Number(object.userData.side) || 0, base: object.rotation.clone() });
+        });
+        return { joints, phase: 0 };
+    };
     const primaryMarker = makeSquadMarker('hostile');
     squadCombatants.set('enemy-0', {
         id: 'enemy-0', team: 'hostile', assembly: targetAssembly, exterior: targetExterior,
         colors: targetColors, marker: primaryMarker, active: true, condition: null,
         emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), destroyedSlots: new Set(), wrecked: false, cleared: false,
         wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
-        baseParts: capturePartTransforms(targetExterior),
+        baseParts: capturePartTransforms(targetExterior), articulation: captureArticulation(targetExterior),
+        recoilKick: 0, recoilRecovery: 3.2,
     });
     function colorsFor(exterior) {
         const colors = new WeakMap();
@@ -232,7 +241,8 @@ export function createArenaScene(initial, targetAssembly) {
             marker: makeSquadMarker(team), active: true, condition: null,
             emitterBudget: makeEmitterBudget(), disabledSlots: new Set(), destroyedSlots: new Set(), wrecked: false, cleared: false,
             wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
-            baseParts: capturePartTransforms(actorExterior),
+            baseParts: capturePartTransforms(actorExterior), articulation: captureArticulation(actorExterior),
+            recoilKick: 0, recoilRecovery: 3.2,
         };
         squadCombatants.set(id, record);
         return record;
@@ -744,6 +754,11 @@ export function createArenaScene(initial, targetAssembly) {
     function resetCombatantVisual(record) {
         record.wrecked = false;
         record.cleared = false;
+        record.recoilKick = 0;
+        if (record.articulation) {
+            record.articulation.phase = 0;
+            for (const joint of record.articulation.joints) joint.object.rotation.copy(joint.base);
+        }
         record.disabledSlots.clear();
         record.destroyedSlots.clear();
         record.exterior.root.position.y = 0;
@@ -786,8 +801,24 @@ export function createArenaScene(initial, targetAssembly) {
     pilotRing.rotation.x = -Math.PI / 2;
     pilotRing.position.set(PLAYER_SPAWN.x, .034, PLAYER_SPAWN.z);
     arenaPresentationRoot.add(pilotRing);
+    const objectiveMaterial = new THREE.MeshBasicMaterial({ color: 0xd7a24b, side: THREE.DoubleSide, transparent: true, opacity: .58, depthWrite: false });
+    const objectiveRing = new THREE.Mesh(new THREE.RingGeometry(.90, 1, 48), objectiveMaterial);
+    objectiveRing.rotation.x = -Math.PI / 2;
+    objectiveRing.position.y = .045;
+    objectiveRing.visible = false;
+    arenaPresentationRoot.add(objectiveRing);
+    function updateObjectivePresentation(presentation) {
+        objectiveRing.visible = !!presentation?.visible;
+        if (!presentation?.visible) return;
+        objectiveRing.position.set(presentation.point?.x ?? 0, .045, presentation.point?.z ?? 0);
+        const radius = Math.max(1, Number(presentation.radius) || 5);
+        objectiveRing.scale.set(radius, radius, radius);
+        objectiveMaterial.color.setHex(presentation.contested ? 0xe16d4e : 0xd7a24b);
+        objectiveMaterial.opacity = presentation.contested ? .82 : .58;
+    }
     let muzzleKick = 0;
     let muzzleFlash = 0;
+    let pilotWeaponPresentation = { visualRecoil: 1, visualRecovery: 3.6, muzzleFlashSeconds: .10 };
     let exterior = buildExteriorRig(initial);
     for (const mesh of exterior.pickMeshes)
         mesh.userData.actorId = 'player';
@@ -897,11 +928,48 @@ export function createArenaScene(initial, targetAssembly) {
         }
         updateSquadMarkers();
     }
-    function updateCombatantRig(id, state) {
+    function updateCombatantRig(id, state, visual = null) {
         const record = squadCombatants.get(id);
         if (!record) return;
         record.exterior.root.position.set(state.x, record.cleared ? -.14 : record.wrecked ? -.06 : 0, state.z);
         record.exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
+        if (record.active && !record.wrecked && !record.cleared) {
+            const dt = Math.max(0, visual?.dt ?? 1 / 60);
+            const health = THREE.MathUtils.clamp(visual?.posture?.animationHealth ?? 1, .08, 1);
+            const speed = Math.hypot(state.vx ?? 0, state.vz ?? 0);
+            const movement = Math.min(1, speed / 2.8);
+            const articulation = record.articulation;
+            if (articulation) {
+                articulation.phase += dt * (1.5 + speed * 1.45) * (.52 + health * .48);
+                const amplitude = movement * (.075 + health * .11);
+                for (const joint of articulation.joints) {
+                    const sidePhase = joint.side > 0 ? Math.PI : 0;
+                    const wave = Math.sin(articulation.phase + sidePhase);
+                    const magnitude = joint.joint === 'hip' ? .42 : joint.joint === 'knee' ? -.62 : joint.joint === 'ankle' ? .32 : -.16;
+                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude;
+                    joint.object.rotation.z = joint.base.z + (1 - health) * joint.side * Math.sin(articulation.phase * .53) * .035;
+                }
+            }
+            const target = visual?.target;
+            if (target) {
+                const desired = Math.atan2(target.x - state.x, -(target.z - state.z));
+                const error = Math.atan2(Math.sin(desired - state.yaw), Math.cos(desired - state.yaw));
+                const command = record.exterior.partGroups.get('command');
+                const combat = record.exterior.partGroups.get('combat');
+                const commandBase = record.baseParts.get('command');
+                const combatBase = record.baseParts.get('combat');
+                const smoothing = 1 - Math.exp(-dt * (5.2 * (.45 + health * .55)));
+                if (command && commandBase) command.rotation.y = THREE.MathUtils.lerp(command.rotation.y, commandBase.rotation.y - THREE.MathUtils.clamp(error, -.48, .48) * .42, smoothing);
+                if (combat && combatBase) {
+                    combat.rotation.y = THREE.MathUtils.lerp(combat.rotation.y, combatBase.rotation.y - THREE.MathUtils.clamp(error, -.72, .72) * .72, smoothing);
+                    combat.position.z = combatBase.position.z + (record.recoilKick ?? 0);
+                }
+            }
+            const damage = 1 - health;
+            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) * damage * movement * .035;
+            record.exterior.root.rotation.x = THREE.MathUtils.clamp(-(state.longitudinalAcceleration ?? 0) * .007 + Math.sin((record.articulation?.phase ?? 0) * .47) * damage * .018, -.065, .065);
+            record.exterior.root.rotation.z = THREE.MathUtils.clamp(-(state.lateralSpeed ?? 0) * .012 - (state.yawRate ?? 0) * speed * .008 + Math.sin((record.articulation?.phase ?? 0) * .61) * damage * .022, -.075, .075);
+        }
         record.exterior.root.updateWorldMatrix(true, true);
     }
     function updateTargetRigVisual(state) {
@@ -1021,6 +1089,7 @@ export function createArenaScene(initial, targetAssembly) {
         const barrel = cockpit.userData.gunBarrel;
         const breech = cockpit.userData.gunBreech;
         gunPivot.visible = !!spec;
+        pilotWeaponPresentation = spec ?? { visualRecoil: 1, visualRecovery: 3.6, muzzleFlashSeconds: .10 };
         if (!spec)
             return;
         const extension = Math.max(.48, Math.abs(spec.muzzleZ + .62));
@@ -1113,8 +1182,8 @@ export function createArenaScene(initial, targetAssembly) {
         return traceCombatantShot('enemy-0', 'player', aimSlot, spreadX, spreadY);
     }
     function showShot(contact, outcome) {
-        muzzleKick = Math.min(1.2, muzzleKick + 1.0);
-        muzzleFlash = .10;
+        muzzleKick = Math.min(1.6, muzzleKick + (pilotWeaponPresentation.visualRecoil ?? 1));
+        muzzleFlash = pilotWeaponPresentation.muzzleFlashSeconds ?? .10;
         const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xf4c77e : 0xc7a76f, transparent: true, opacity: .92 });
@@ -1195,6 +1264,12 @@ export function createArenaScene(initial, targetAssembly) {
     function showCombatantShot(shooterId, contact, outcome) {
         const shooter = squadCombatants.get(shooterId);
         const friendly = shooter?.team === 'friendly';
+        if (shooter) {
+            const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
+            const profile = weaponId === 'gun-short' ? { kick: .24, recovery: 1.9 } : weaponId === 'gun-light' ? { kick: .085, recovery: 4.2 } : { kick: .15, recovery: 2.8 };
+            shooter.recoilKick = Math.min(.42, (shooter.recoilKick ?? 0) + profile.kick);
+            shooter.recoilRecovery = profile.recovery;
+        }
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({
             color: friendly ? 0x8be1b0 : 0xff9e62, transparent: true, opacity: .86,
@@ -1251,8 +1326,9 @@ export function createArenaScene(initial, targetAssembly) {
         updateTargetDamage(condition);
     }
     function updateCombatEffects(dt) {
-        muzzleKick = Math.max(0, muzzleKick - dt * 3.6);
+        muzzleKick = Math.max(0, muzzleKick - dt * (pilotWeaponPresentation.visualRecovery ?? 3.6));
         muzzleFlash = Math.max(0, muzzleFlash - dt);
+        for (const record of squadCombatants.values()) record.recoilKick = Math.max(0, (record.recoilKick ?? 0) - dt * (record.recoilRecovery ?? 3.2));
         const hitDecay = Math.exp(-8.5 * dt);
         hitPitchKick *= hitDecay; hitRollKick *= hitDecay; hitYawKick *= hitDecay; hitShakeKick *= Math.exp(-10.5 * dt); gunDamageKick *= Math.exp(-5.2 * dt);
         powerBlackout = Math.max(0, powerBlackout - dt);
@@ -1389,7 +1465,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
-        addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit,
+        addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl,
     };
 }
