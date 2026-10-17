@@ -196,7 +196,7 @@ export function tacticalManeuver(motion, enemy, player, behavior = activeBehavio
 /** One deterministic fixed simulation step. Pass the SAME obstacle map used by stepRig.
  * The optional behavior argument is mainly for tests/tools; gameplay defaults to the
  * currently selected contract profile captured by createEnemyMotion(). */
-export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null) {
+export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null, teamIntent = null) {
     if (!Number.isFinite(dt) || dt <= 0)
         return { throttle: 0, strafe: 0, steer: 0, brake: 1 };
     const profile = activeBehavior(motion, behavior);
@@ -245,13 +245,34 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         motion.phase = 'REPOSITION';
         motion.navigation = `REPOSITION · CLEAR ${tactical.blockedBy ?? 'FIRE LANE'}`;
     }
-    else {
+    else if (tactical.mode === 'SEARCH') {
         base = tacticalManeuver(motion, enemy, trackingPoint, profile);
-        if (tactical.mode === 'SEARCH') {
-            motion.phase = 'REPOSITION';
-            motion.navigation = `LAST CONTACT · ${tactical.blockedBy ?? 'LOS LOST'}`;
+        motion.phase = 'REPOSITION';
+        motion.navigation = `LAST CONTACT · ${tactical.blockedBy ?? 'LOS LOST'}`;
+    }
+    else if (teamIntent?.point) {
+        const intentDistance = distance(from, teamIntent.point);
+        const targetSteer = clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);
+        if (teamIntent.mode === 'ANCHOR' && intentDistance < 2.2) {
+            base = { throttle: 0, strafe: 0, steer: targetSteer, brake: Math.max(.52, teamIntent.brakeBias ?? 0) };
         }
-        else if (tactical.mode === 'UNDER_FIRE') {
+        else if (intentDistance > 1.15) {
+            base = driveToward(enemy, teamIntent.point, intentDistance);
+            base.steer = targetSteer;
+            base.throttle *= teamIntent.throttleScale ?? 1;
+            base.strafe = clamp(base.strafe + (teamIntent.strafeBias ?? 0));
+            base.brake = Math.max(base.brake ?? 0, teamIntent.brakeBias ?? 0);
+        }
+        else {
+            base = tacticalManeuver(motion, enemy, player, profile);
+        }
+        motion.phase = teamIntent.mode ?? motion.phase;
+        motion.navigation = `${teamIntent.role ?? 'SQUAD'} · ${teamIntent.note ?? teamIntent.mode ?? 'COORDINATE'}`;
+        if (tactical.mode === 'UNDER_FIRE') motion.navigation = `UNDER FIRE · ${motion.navigation}`;
+    }
+    else {
+        base = tacticalManeuver(motion, enemy, player, profile);
+        if (tactical.mode === 'UNDER_FIRE') {
             motion.phase = 'UNDER FIRE';
             motion.navigation = `UNDER FIRE · ${motion.navigation}`;
         }

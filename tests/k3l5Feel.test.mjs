@@ -25,9 +25,9 @@ test('debrief communicates draft order and the current salvage turn', () => {
     assert.match(source, /PICK 1 RECOVERABLE PART/);
 });
 
-test('cockpit readouts and weapon kick were enlarged without touching world resolution', () => {
+test('cockpit readouts stay enlarged and recoil remains visibly animated without touching world resolution', () => {
     const source = fs.readFileSync(new URL('../scene.js', import.meta.url), 'utf8');
     assert.match(source, /systems: \{ position: \[-\.091, \.004, -\.105\], scale: \.066 \}/);
     assert.match(source, /muzzleKick \* \.19/);
-    assert.match(source, /muzzleKick - dt \* 3\.6/);
+    assert.match(source, /muzzleKick = Math\.max\(0, muzzleKick - dt \*/);
 });

@@ -13,6 +13,9 @@ import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, b
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
 import { noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
+import { squadIntent } from './squadCoordination.js';
+import { damagePosture } from './damageBehavior.js';
+import { advanceSortieObjective, createSortieObjective, objectivePointForTeam, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 import { contractById } from './contracts.js';
@@ -45,7 +48,9 @@ const damage = loadedMachine.damage;
 const economy = loadedMachine.economy;
 // A separately owned hostile mech built with the same module definitions.
 const targetAssembly = makeRangeTarget();
+const activeContract = contractById(targetAssembly.contractId);
 let targetCondition = createTargetCondition(targetAssembly);
+let sortieObjective = createSortieObjective(activeContract);
 // Incoming fire uses the same localized armor/integrity representation, seeded from the owned player's current condition.
 const playerCondition = loadedMachine.playerCondition;
 let weaponSpec = weaponFor(assembly);
@@ -66,8 +71,9 @@ const primaryEnemyActor = {
     weaponSpec: hostileWeaponSpec, weaponState: hostileWeaponState,
     controller: hostileController, motion: hostileMotion,
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
-    behavior: contractById(targetAssembly.contractId).behavior,
+    behavior: activeContract.behavior,
     spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
+    teamIntent: null, teamPlanLeft: 0, teamPlanTargetId: null,
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
 };
 function makeSupportActor(id, team, contractId, spawn, label = null) {
@@ -86,6 +92,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null) {
         controller: createHostileController(team === FRIENDLY_TEAM ? 1.0 : 1.55, behavior),
         motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
         behavior, spawn, active: true, targetId: null, killReason: null,
+        teamIntent: null, teamPlanLeft: 0, teamPlanTargetId: null,
         wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
     };
 }
@@ -97,6 +104,8 @@ const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).ma
 });
 const supportActors = [...friendlySupportActors, ...hostileSupportActors];
 const aiActors = [primaryEnemyActor, ...supportActors];
+const friendlyTeamTotal = 1 + friendlySupportActors.length;
+const hostileTeamTotal = 1 + hostileSupportActors.length;
 const boutRoster = () => [
     { id: 'player', team: FRIENDLY_TEAM, label: 'YOU' },
     ...aiActors.map(actor => ({ id: actor.id, team: actor.team, label: actor.label })),
@@ -272,6 +281,7 @@ const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
+const objectiveStatus = required('#objective-status');
 const playerDamageHud = required('#player-damage-hud');
 const hitConfirm = required('#hit-confirm');
 const playerHitFlash = required('#player-hit-flash');
@@ -303,6 +313,7 @@ for (const actor of supportActors)
 arena.updateTargetDamage(targetCondition);
 for (const actor of supportActors)
     arena.updateCombatantDamage(actor.id, actor.condition);
+arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
@@ -329,6 +340,9 @@ function actorById(id) {
         return { id: 'player', team: FRIENDLY_TEAM, label: 'YOU', rig, condition: playerCondition, assembly, active: playerCombatActive };
     return aiActors.find(actor => actor.id === id) ?? null;
 }
+function battleParticipants() {
+    return [actorById('player'), ...aiActors];
+}
 function liveOpponents(actor) {
     if (actor.team === FRIENDLY_TEAM)
         return aiActors.filter(candidate => candidate.team === HOSTILE_TEAM && candidate.active);
@@ -347,11 +361,18 @@ function resolveActorTarget(actor) {
     actor.targetId = chooseSquadTarget(actor, candidates, actor.targetId);
     return actor.targetId ? candidates.find(candidate => candidate.id === actor.targetId) ?? null : null;
 }
+function renderObjectiveStatus() {
+    const text = objectiveStatusText(sortieObjective);
+    if (objectiveStatus.textContent !== text) objectiveStatus.textContent = text;
+    objectiveStatus.classList.toggle('contested', !!sortieObjective?.contested);
+    arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
+}
 function renderSquadStatus() {
     const counts = squadCounts(playerCombatActive, aiActors);
-    teamStatus.textContent = `ALLY ${counts.friendly}/3 · HOSTILE ${counts.hostile}/3`;
+    teamStatus.textContent = `ALLY ${counts.friendly}/${friendlyTeamTotal} · HOSTILE ${counts.hostile}/${hostileTeamTotal}`;
     teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
     teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
+    renderObjectiveStatus();
     syncCockpitInstruments();
 }
 function playerPartRemaining(part) {
@@ -483,6 +504,9 @@ function resetAiActor(actor) {
     actor.active = true;
     actor.targetId = null;
     actor.killReason = null;
+    actor.teamIntent = null;
+    actor.teamPlanLeft = 0;
+    actor.teamPlanTargetId = null;
     actor.wreckAge = 0;
     actor.wreckIntegrity = 1;
     actor.wreckCleared = false;
@@ -894,6 +918,8 @@ function toggleInspection(force) {
         rig = createRigState();
         playerCombatActive = true;
         resetSquadBattle();
+        sortieObjective = createSortieObjective(activeContract);
+        renderObjectiveStatus();
         boutLedger = createBoutLedger(boutRoster());
         clearBoutResult();
         controls.recenterLook();
@@ -1118,10 +1144,18 @@ function frame(now) {
                 const actorOutput = hostileOutput(actor.condition, actor.behavior);
                 const canManeuver = actorOutput.structure > .05 && actorOutput.command > .05 && actorOutput.power > .12 && actorOutput.mobility > .05;
                 const actorConfig = aiLocomotionConfig(actor);
-                const maneuver = advanceEnemyMotion(actor.motion, actor.rig, target.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior);
+                const posture = damagePosture(actor.condition, actor.behavior);
+                actor.teamPlanLeft = Math.max(0, (actor.teamPlanLeft ?? 0) - FIXED_DT);
+                if (actor.teamPlanLeft === 0 || actor.teamPlanTargetId !== target.id) {
+                    actor.teamIntent = squadIntent(actor, battleParticipants(), target, objectivePointForTeam(sortieObjective, actor.team), posture);
+                    actor.teamPlanTargetId = target.id;
+                    actor.teamPlanLeft = .24 + ((actor.id.charCodeAt(actor.id.length - 1) || 0) % 3) * .04;
+                }
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
+                maneuver = { ...maneuver, throttle: maneuver.throttle * Math.max(.66, posture.paceScale), strafe: (maneuver.strafe ?? 0) * Math.max(.56, posture.strafeScale), steer: maneuver.steer * Math.max(.62, posture.steerScale) };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
                 shoveDisabledWrecks(actor.rig, actorConfig);
-                arena.updateCombatantRig(actor.id, actor.rig);
+                arena.updateCombatantRig(actor.id, actor.rig, { target: target.rig, posture, dt: FIXED_DT });
                 if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
                 if (actor.weaponSpec && actor.weaponState) {
                     advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
@@ -1130,6 +1164,11 @@ function frame(now) {
                     const shot = advanceHostileController(actor.controller, actor.condition, FIXED_DT, target.active === false);
                     if (shot !== null) attemptAiFire(actor, target, shot);
                 }
+            }
+            if (!aftermathDriving && !testEnded) {
+                const objectiveOutcome = advanceSortieObjective(sortieObjective, battleParticipants(), FIXED_DT);
+                renderObjectiveStatus();
+                if (objectiveOutcome) finishSortie(objectiveOutcome.victory, objectiveOutcome.reason);
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);

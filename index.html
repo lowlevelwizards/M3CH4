@@ -15,9 +15,9 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
     "./assemblyPhysics.js": "./assemblyPhysics.js?v=k3c0",
-    "./combat.js": "./combat.js?v=k3l5",
+    "./combat.js": "./combat.js?v=k3o1",
     "./components.js": "./components.js?v=k3l1",
-    "./contracts.js": "./contracts.js?v=k3h0",
+    "./contracts.js": "./contracts.js?v=k3n2",
     "./progression.js": "./progression.js?v=k3l1",
     "./economy.js": "./economy.js?v=k3l0",
     "./acquisition.js": "./acquisition.js?v=k3l1",
@@ -28,8 +28,8 @@
     "./fieldService.js": "./fieldService.js?v=k3j0",
     "./hostileRig.js": "./hostileRig.js?v=k3j0",
     "./locomotion.js": "./locomotion.js?v=k3i0",
-    "./scene.js": "./sceneAssembly.js?v=k3l5",
-    "./enemyMotion.js": "./enemyMotion.js?v=k3m0",
+    "./scene.js": "./sceneAssembly.js?v=k3o1",
+    "./enemyMotion.js": "./enemyMotion.js?v=k3n3",
     "./tacticalAwareness.js": "./tacticalAwareness.js?v=k3m0",
     "./squadBattle.js": "./squadBattle.js?v=k3k0",
     "./wreckPhysics.js": "./wreckPhysics.js?v=k3k1",
@@ -42,10 +42,10 @@
     "./boutSession.js": "./boutSession.js?v=k3l0"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=k3l3" />
+    <link rel="stylesheet" href="./styles.css?v=k3o1" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3m.0 — Tactical Awareness</title>
+    <title>MECH ARENA — 0.0.1k.3o.1 — Combat Depth</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -64,6 +64,7 @@
 
     <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
     <div id="team-status" class="team-status" aria-live="polite">ALLY 3/3 · HOSTILE 3/3</div>
+    <div id="objective-status" class="objective-status" aria-live="polite">OBJ · BREAK HOSTILE TEAM</div>
     <div id="player-damage-hud" class="player-damage-hud" aria-label="player component condition">
       <span data-system="structure"><b>FRAME</b><i>100</i></span>
       <span data-system="mobility"><b>MOVE</b><i>100</i></span>
@@ -198,7 +199,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3n0"></script>
-    <script type="module" src="./garageMountUI.js?v=k3n0"></script>
+    <script type="module" src="./main.js?v=k3o1"></script>
+    <script type="module" src="./garageMountUI.js?v=k3o1"></script>
   </body>
 </html>
