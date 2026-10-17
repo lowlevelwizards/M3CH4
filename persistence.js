@@ -11,6 +11,7 @@ import { createEconomyState } from './economy.js';
 import { hydrateDamageFate } from './damageFate.js';
 import { hasStarterInventory, makeStarterAssembly, STARTER_DEFINITION_IDS } from './acquisition.js';
 import { CIRCUIT_ORDER, createLegacyProgressionState, createProgressionState, loadProgression } from './progression.js';
+import { CAMPAIGN_STORAGE_KEY } from './campaign.js';
 
 export const MACHINE_SAVE_KEY = 'mech-arena-machine-v1';
 export const MACHINE_SAVE_V3_KEY = 'mech-arena-machine-v3';
@@ -325,7 +326,7 @@ export function storeMachine(storage, state) {
 export function clearMachineSave(storage) {
     if (!storage) return false;
     try {
-        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY])
+        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY, CAMPAIGN_STORAGE_KEY])
             storage.removeItem(key);
         return true;
     } catch {
