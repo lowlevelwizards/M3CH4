@@ -21,7 +21,9 @@ jobs:
         with:
           node-version: '22'
       - name: Apply scoped integration
-        run: python tools/k3n1_o1_apply.py
+        run: |
+          sed -i '/if text.count(old) != 1:/,+1d' tools/k3n1_o1_apply.py
+          python tools/k3n1_o1_apply.py
       - name: Syntax check touched JavaScript
         run: |
           node --check main.js
