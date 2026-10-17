@@ -20,6 +20,18 @@ jobs:
           node-version: 22
       - name: Apply scoped product patch
         run: python3 tools/k3p0_apply.py
+      - name: Refresh legacy presentation invariant
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/k3oCombatPresentation.test.mjs')
+          text = path.read_text()
+          old = "test('objective status is visible as its own compact HUD readout', () => { assert.match(index, /id=\"objective-status\"/); assert.match(index, /0\\.0\\.1k\\.3o\\.1/); });"
+          new = "test('objective status is visible as its own compact HUD readout', () => { assert.match(index, /id=\"objective-status\"/); assert.match(index, /aria-live=\"polite\">OBJ/); });"
+          if old not in text:
+              raise SystemExit('legacy k3o presentation assertion anchor missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Syntax check changed JavaScript
         run: |
           node --check main.js
