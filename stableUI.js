@@ -1,11 +1,12 @@
 /** k.3q.0 — garage surface for the named three-machine stable.
  * Inactive bays are edited as persisted physical assemblies; only a commissioned,
  * fieldable bay can replace the live v8 machine projection and reload into the yard.
+ * k.3q.2 records each BO3 round against its explicit rig id and contract wins once.
  */
 import { BY_ID, SLOTS } from './components.js';
 import { activePlayerArena } from './scene.js';
 import { loadMachine } from './persistence.js';
-import { subscribeBoutResult } from './boutSession.js';
+import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import {
     activateRig, clearStable, commissionRig, loadStable, mountPartOnRig,
     originalPartsRemaining, recordActiveDeployment, registerAcquiredPart, renameRig,
@@ -36,6 +37,7 @@ let stable = loaded.stable;
 let selectedRigId = stable.activeRigId;
 let messageTimer = null;
 const seenBoutResults = new WeakSet();
+const seenRoundResults = new WeakSet();
 
 const labels = { structure: 'FRAME', mobility: 'MOBILITY', power: 'POWER', command: 'COMMAND', combat: 'COMBAT' };
 const percent = value => `${Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 100)}%`;
@@ -327,11 +329,37 @@ document.addEventListener('m3ch4:assembly-mutated', () => {
 
 document.addEventListener('m3ch4:stable-status-cleared', () => render(), { passive: true });
 
+subscribeRoundResult(result => {
+    if (!result || typeof result !== 'object' || seenRoundResults.has(result) || !result.round?.rigId) return;
+    seenRoundResults.add(result);
+    syncFromLiveSave();
+    const rig = rigById(stable, result.round.rigId);
+    if (!rig?.commissioned) return;
+    rig.career.deployments += 1;
+    if (result.round.victory) rig.career.roundWins += 1;
+    else rig.career.roundLosses += 1;
+    for (const serial of Object.values(rig.installed)) {
+        const history = stable.partHistory?.[serial];
+        if (history) history.deployments = (Number(history.deployments) || 0) + 1;
+    }
+    storeStable(storage, stable);
+    render();
+});
+
 subscribeBoutResult(result => {
     if (!result || typeof result !== 'object' || seenBoutResults.has(result)) return;
     seenBoutResults.add(result);
     syncFromLiveSave();
-    recordActiveDeployment(stable, !!result.victory);
+    if (result.series?.rounds) {
+        if (result.victory) {
+            for (const rigId of new Set(result.series.participatingRigIds || result.series.rounds.map(round => round.rigId))) {
+                const rig = rigById(stable, rigId);
+                if (rig?.commissioned) rig.career.contractWins += 1;
+            }
+        }
+    } else {
+        recordActiveDeployment(stable, !!result.victory);
+    }
     storeStable(storage, stable);
     render();
 });

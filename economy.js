@@ -1,5 +1,8 @@
-/** k.3d.0 recovery economy, extended in k.3f.0 with authored contract payouts. */
+/** k.3d.0 recovery economy, extended in k.3f.0 with authored contract payouts.
+ * k.3q.2 defers settlement between BO3 rounds and aggregates ammunition at the end.
+ */
 import { selectedContract } from './contracts.js';
+import { seriesSettlementDirective } from './series.js';
 
 export const STARTING_CREDITS = 600;
 export const VICTORY_PAYOUT = 850; // Yard Dog / fallback contract value.
@@ -17,6 +20,11 @@ const REPAIR_RATES = Object.freeze({
 
 const nonNegativeInteger = value => Number.isSafeInteger(value) && value >= 0 ? value : 0;
 const missing = (current, maximum) => Math.max(0, Number(maximum) - Number(current));
+
+function browserStorage() {
+    try { return globalThis.localStorage ?? null; }
+    catch { return null; }
+}
 
 export function createEconomyState(credits = STARTING_CREDITS) {
     return { credits: nonNegativeInteger(credits) };
@@ -46,14 +54,32 @@ export function totalRepairQuote(condition) {
 
 export function settleSortie({ credits, victory, roundsFired, repairEstimate = 0, victoryPayout = null }) {
     const before = nonNegativeInteger(credits);
-    const rounds = nonNegativeInteger(roundsFired);
+    const currentRounds = nonNegativeInteger(roundsFired);
+    const directive = seriesSettlementDirective(browserStorage(), currentRounds);
+    if (directive && !directive.terminal) {
+        return {
+            victory: !!victory,
+            creditsBefore: before,
+            creditsAfter: before,
+            grossPayout: 0,
+            ammoCost: 0,
+            netPayout: 0,
+            repairEstimate: nonNegativeInteger(Math.ceil(repairEstimate)),
+            roundsFired: currentRounds,
+            deferred: true,
+            series: directive.series,
+        };
+    }
+
+    const finalVictory = directive?.terminal ? !!directive.victory : !!victory;
+    const rounds = directive?.terminal ? directive.roundsFired : currentRounds;
     const selectedPayout = nonNegativeInteger(victoryPayout ?? selectedContract().payout) || VICTORY_PAYOUT;
-    const grossPayout = victory ? selectedPayout : RECOVERY_PAYOUT;
+    const grossPayout = finalVictory ? selectedPayout : RECOVERY_PAYOUT;
     const ammoCost = rounds * AMMO_COST_PER_ROUND;
     const nominalNet = grossPayout - ammoCost;
     const after = Math.max(0, before + nominalNet);
     return {
-        victory: !!victory,
+        victory: finalVictory,
         creditsBefore: before,
         creditsAfter: after,
         grossPayout,
@@ -61,5 +87,7 @@ export function settleSortie({ credits, victory, roundsFired, repairEstimate = 0
         netPayout: after - before,
         repairEstimate: nonNegativeInteger(Math.ceil(repairEstimate)),
         roundsFired: rounds,
+        deferred: false,
+        series: directive?.series ?? null,
     };
 }
