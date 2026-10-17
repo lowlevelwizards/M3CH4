@@ -1,0 +1,21 @@
+name: k.3q.2 temporary validation
+on:
+  push:
+    branches: ["k3q2-bo3-stable-rotation"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full test suite
+        run: npm test
+      - name: Changed JavaScript syntax
+        run: node --check series.js && node --check seriesUI.js && node --check boutSession.js && node --check economy.js && node --check stableUI.js && node --check garageMountUI.js
+      - name: Whitespace check
+        run: git diff --check eecb05f2661d3837875988fbf8df649d0e669cdd..HEAD
