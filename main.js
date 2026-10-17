@@ -135,6 +135,7 @@ let testEndReason = null;
 let sortieRoundsFired = 0;
 let fieldService = createFieldServiceState();
 const faultSupportState = createFaultSupportState();
+let lastPlayerScreenId = null;
 let servicePointerId = null;
 let serviceKeyHeld = false;
 // All six rigs share the same physical yard. Dynamic rig boxes collide in stepRig,
@@ -419,7 +420,9 @@ function renderObjectiveStatus() {
 }
 function renderSquadStatus() {
     const counts = squadCounts(playerCombatActive, aiActors);
-    teamStatus.textContent = `ALLY ${counts.friendly}/${friendlyTeamTotal} · HOSTILE ${counts.hostile}/${hostileTeamTotal}`;
+    const screener = friendlySupportActors.find(actor => faultSupportForActor(faultSupportState, actor.id)?.casualtyId === 'player');
+    const supportCue = screener ? ` · ${screener.label} COVERING` : '';
+    teamStatus.textContent = `ALLY ${counts.friendly}/${friendlyTeamTotal} · HOSTILE ${counts.hostile}/${hostileTeamTotal}${supportCue}`;
     teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
     teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
     renderObjectiveStatus();
@@ -569,6 +572,7 @@ function resetAiActor(actor) {
 }
 function resetSquadBattle() {
     resetFaultSupportState(faultSupportState);
+    lastPlayerScreenId = null;
     for (const actor of aiActors) resetAiActor(actor);
     mirrorTargetCondition(targetAssembly, targetCondition);
     arena.resetTargetDamage(targetCondition);
@@ -1190,6 +1194,18 @@ function frame(now) {
             if (!aftermathDriving) {
                 const participants = battleParticipants();
                 updateFaultSupportAssignments(faultSupportState, participants, FIXED_DT);
+                const playerScreener = friendlySupportActors.find(actor => faultSupportForActor(faultSupportState, actor.id)?.casualtyId === 'player');
+                const playerScreenId = playerScreener?.id ?? null;
+                if (playerScreenId !== lastPlayerScreenId) {
+                    lastPlayerScreenId = playerScreenId;
+                    renderSquadStatus();
+                    if (playerScreener) {
+                        shotReport.classList.remove('faded', 'disabled-part');
+                        shotReport.classList.add('penetrated');
+                        shotReport.textContent = `${playerScreener.label} COVERING · HOLD POSITION FOR FIELD SERVICE`;
+                        reportFade = Math.max(reportFade, 1.8);
+                    }
+                }
                 for (const actor of aiActors) {
                 if (!actor.active) {
                     actor.wreckAge += FIXED_DT;
@@ -1263,7 +1279,11 @@ function frame(now) {
         accumulator = 0;
     // Re-sample after body-follow compensation before rendering the cockpit/gun.
     input = controls.sample();
-    arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt);
+    const playerRecoveryState = weaponFailureState(playerCondition, fieldService);
+    arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
+        weaponFault: playerRecoveryState === 'faulted',
+        weaponServicing: fieldService.held,
+    });
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {
         sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
@@ -1422,6 +1442,7 @@ function handleFieldServiceCompleted() {
     persistMachine();
 }
 function handleFieldServiceInterrupted() {
+    soundEmpty();
     shotReport.classList.remove('faded', 'penetrated');
     shotReport.classList.add('disabled-part');
     shotReport.textContent = 'FIELD SERVICE INTERRUPTED · STOP COMPLETELY AND HOLD';
@@ -1434,16 +1455,18 @@ function renderAmmo() {
     const suffix = !playerCombatActive ? ' · MISSION KILLED' : testEnded ? ' · SORTIE ENDED' :
         failure === 'destroyed' ? ' · DESTROYED' :
         failure === 'unrecoverable' ? ' · FAULT · BYPASS SPENT' :
+        fieldService.held ? ' · FIELD SERVICE' :
         failure === 'faulted' ? ' · FAULTED' :
         output.weapon < .95 ? ' · DAMAGED' : '';
     weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${suffix}` : 'NO WEAPON';
+    const servicePercent = Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100);
     ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
+        fieldService.held ? `SERVICE ${servicePercent}%` :
         serviceAvailable ? `FAULT ${Math.round(weaponIntegrityRatio(playerCondition) * 100)}%` :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
     if (serviceAvailable) {
-        const percent = Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100);
-        reloadButton.textContent = fieldService.held ? `FIELD SERVICE ${percent}%` : stationary ? 'HOLD FIELD SERVICE' : 'STOP TO FIELD SERVICE';
+        reloadButton.textContent = fieldService.held ? `FIELD SERVICE ${servicePercent}%` : stationary ? 'HOLD FIELD SERVICE' : 'STOP TO FIELD SERVICE';
         reloadButton.disabled = inspecting || testEnded || !stationary;
         reloadButton.classList.toggle('servicing', fieldService.held);
     }
