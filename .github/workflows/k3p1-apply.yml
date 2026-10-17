@@ -1,0 +1,46 @@
+name: Apply and verify k.3p.1
+
+on:
+  push:
+    branches:
+      - feature/k3p1-fault-support-exploitation
+    paths:
+      - '.github/workflows/k3p1-apply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3p1-fault-support-exploitation
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply focused fault-support patch
+        run: python3 tools/k3p1_apply.py
+      - name: Syntax check touched JavaScript
+        run: |
+          node --check main.js
+          node --check squadCoordination.js
+          node --check faultSupport.js
+      - name: Run complete test suite
+        run: npm test
+      - name: Validate branch diff
+        run: |
+          git fetch origin main
+          git diff --check origin/main...HEAD
+          git diff --check
+      - name: Remove temporary patch machinery
+        run: rm -f tools/k3p1_apply.py .github/workflows/k3p1-apply.yml
+      - name: Commit verified product state
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'k.3p.1: add squad fault support and exploitation'
+          git push origin HEAD:feature/k3p1-fault-support-exploitation
