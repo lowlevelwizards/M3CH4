@@ -8,7 +8,8 @@ test('post-bout aftermath is long enough to inhabit the cleared yard', () => {
     assert.ok(SORTIE_OUTRO_SECONDS >= 3.8 && SORTIE_OUTRO_SECONDS <= 5.0);
     const source = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
     assert.match(source, /aftermathDriving/);
-    assert.match(source, /if \(!aftermathDriving\) for \(const actor of aiActors\)/);
+    assert.match(source, /if \(!aftermathDriving\)/);
+    assert.match(source, /for \(const actor of aiActors\)/);
     assert.match(source, /controls\.setEnabled\(victory && playerCombatActive/);
 });
 

@@ -46,7 +46,7 @@ function separatedPoint(point, actor, allies, amount = 2.6) {
 
 /** Produce one stable team intent for an actor. `objectivePoint` is the place this
  * team currently wants to control/reach, not a pathfinding waypoint. */
-export function squadIntent(actor, roster, target, objectivePoint = null, posture = null) {
+export function squadIntent(actor, roster, target, objectivePoint = null, posture = null, support = null) {
     const self = rigOf(actor);
     const targetRig = rigOf(target);
     if (!actor || !self || !targetRig)
@@ -70,6 +70,30 @@ export function squadIntent(actor, roster, target, objectivePoint = null, postur
     }
     if (posture?.preferredMode === 'HOLD')
         return { mode: 'ANCHOR', role, point: { x: self.x, z: self.z }, brakeBias: .72, note: `${posture.state} · HOLD` };
+
+    if (support?.screenTarget) {
+        const casualty = rigOf(support.screenTarget);
+        const threat = rigOf(support.screenThreat ?? target);
+        const dx = (threat?.x ?? targetRig.x) - casualty.x;
+        const dz = (threat?.z ?? targetRig.z) - casualty.z;
+        const length = Math.max(.001, Math.hypot(dx, dz));
+        const nx = dx / length, nz = dz / length;
+        const tx = -nz, tz = nx;
+        const side = deterministicSide(actor.id);
+        const point = {
+            x: casualty.x + nx * 2.8 + tx * side * .65,
+            z: casualty.z + nz * 2.8 + tz * side * .65,
+        };
+        const settled = distance(self, point) < 1.5;
+        return {
+            mode: 'SCREEN', role,
+            point: separatedPoint(point, actor, allies, 1.1),
+            throttleScale: settled ? .45 : .9,
+            brakeBias: settled ? .62 : .2,
+            note: `SCREEN ${support.screenTarget.label ?? support.screenTarget.id}`,
+            supportTargetId: support.screenTarget.id,
+        };
+    }
 
     // A stranded machine should rejoin the fight before attempting a clever flank.
     if (allyCenter && nearestAlly.distance > 11.5) {

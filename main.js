@@ -15,6 +15,7 @@ import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyM
 import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
 import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from './aiFieldService.js';
 import { squadIntent } from './squadCoordination.js';
+import { createFaultSupportState, exploitServicingTarget, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
 import { advanceSortieObjective, createSortieObjective, objectivePointForTeam, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
@@ -133,6 +134,7 @@ let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
 let fieldService = createFieldServiceState();
+const faultSupportState = createFaultSupportState();
 let servicePointerId = null;
 let serviceKeyHeld = false;
 // All six rigs share the same physical yard. Dynamic rig boxes collide in stepRig,
@@ -385,7 +387,7 @@ let inventoryPreviewSerial = null;
 installPartGridStyles();
 function actorById(id) {
     if (id === 'player')
-        return { id: 'player', team: FRIENDLY_TEAM, label: 'YOU', rig, condition: playerCondition, assembly, active: playerCombatActive };
+        return { id: 'player', team: FRIENDLY_TEAM, label: 'YOU', rig, condition: playerCondition, assembly, active: playerCombatActive, fieldService };
     return aiActors.find(actor => actor.id === id) ?? null;
 }
 function battleParticipants() {
@@ -556,6 +558,7 @@ function resetAiActor(actor) {
     actor.teamIntent = null;
     actor.teamPlanLeft = 0;
     actor.teamPlanTargetId = null;
+    actor.teamSupportTargetId = null;
     actor.wreckAge = 0;
     actor.wreckIntegrity = 1;
     actor.wreckCleared = false;
@@ -565,6 +568,7 @@ function resetAiActor(actor) {
     arena.updateCombatantDamage(actor.id, actor.condition);
 }
 function resetSquadBattle() {
+    resetFaultSupportState(faultSupportState);
     for (const actor of aiActors) resetAiActor(actor);
     mirrorTargetCondition(targetAssembly, targetCondition);
     arena.resetTargetDamage(targetCondition);
@@ -1183,7 +1187,10 @@ function frame(now) {
             }
             // Score, damage, target choice and opposing locomotion are frozen once the
             // sortie resolves. Only the surviving player's physical rig keeps coasting/walking.
-            if (!aftermathDriving) for (const actor of aiActors) {
+            if (!aftermathDriving) {
+                const participants = battleParticipants();
+                updateFaultSupportAssignments(faultSupportState, participants, FIXED_DT);
+                for (const actor of aiActors) {
                 if (!actor.active) {
                     actor.wreckAge += FIXED_DT;
                     continue;
@@ -1195,9 +1202,18 @@ function frame(now) {
                 const actorConfig = aiLocomotionConfig(actor);
                 const recovery = aiWeaponRecoveryDirective(actor, target);
                 const posture = aiWeaponRecoveryPosture(damagePosture(actor.condition, actor.behavior), recovery);
+                const screenAssignment = faultSupportForActor(faultSupportState, actor.id);
+                const supportTargetId = screenAssignment?.casualtyId ?? null;
+                if (actor.teamSupportTargetId !== supportTargetId) {
+                    actor.teamSupportTargetId = supportTargetId;
+                    actor.teamPlanLeft = 0;
+                }
+                const screenTarget = supportTargetId ? participants.find(candidate => candidate.id === supportTargetId) ?? null : null;
+                const screenThreat = screenAssignment?.threatId ? participants.find(candidate => candidate.id === screenAssignment.threatId) ?? null : null;
                 actor.teamPlanLeft = Math.max(0, (actor.teamPlanLeft ?? 0) - FIXED_DT);
                 if (actor.teamPlanLeft === 0 || actor.teamPlanTargetId !== target.id) {
-                    actor.teamIntent = squadIntent(actor, battleParticipants(), target, objectivePointForTeam(sortieObjective, actor.team), posture);
+                    actor.teamIntent = squadIntent(actor, participants, target, objectivePointForTeam(sortieObjective, actor.team), posture, { screenTarget, screenThreat });
+                    actor.teamIntent = exploitServicingTarget(actor.teamIntent, target, posture);
                     actor.teamPlanTargetId = target.id;
                     actor.teamPlanLeft = .24 + ((actor.id.charCodeAt(actor.id.length - 1) || 0) % 3) * .04;
                 }
@@ -1225,6 +1241,7 @@ function frame(now) {
                     const shot = advanceHostileController(actor.controller, actor.condition, FIXED_DT, target.active === false);
                     if (shot !== null) attemptAiFire(actor, target, shot);
                 }
+            }
             }
             if (!aftermathDriving && !testEnded) {
                 const objectiveOutcome = advanceSortieObjective(sortieObjective, battleParticipants(), FIXED_DT);
