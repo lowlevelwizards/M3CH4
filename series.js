@@ -19,7 +19,7 @@ const finite = value => Number.isFinite(value);
 const nonNegativeInteger = value => Number.isSafeInteger(value) && value >= 0 ? value : 0;
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
-export function createSeries(contractId, rigId, rigName = null, now = Date.now(), id = null) {
+export function createSeries(contractId, rigId, rigName = null, assignmentId = null, now = Date.now(), id = null) {
     const contract = cleanId(contractId);
     const rig = cleanId(rigId);
     if (!contract || !rig) throw new Error('BO3 series requires a contract and opening machine');
@@ -36,6 +36,7 @@ export function createSeries(contractId, rigId, rigName = null, now = Date.now()
         enemyWins: 0,
         currentRigId: rig,
         currentRigName: cleanName(rigName) || null,
+        currentAssignmentId: cleanId(assignmentId) || null,
         participatingRigIds: [rig],
         rounds: [],
         totalRoundsFired: 0,
@@ -61,6 +62,7 @@ export function normalizeSeries(value) {
             round: index + 1,
             rigId,
             rigName: cleanName(round.rigName) || null,
+            assignmentId: cleanId(round.assignmentId) || null,
             victory: round.victory,
             reason: typeof round.reason === 'string' ? round.reason.slice(0, 160) : '',
             roundsFired,
@@ -71,6 +73,7 @@ export function normalizeSeries(value) {
     const participatingRigIds = [...new Set(rounds.map(round => round.rigId))];
     const currentRigId = value.currentRigId == null ? null : cleanId(value.currentRigId);
     const currentRigName = value.currentRigName == null ? null : cleanName(value.currentRigName);
+    const currentAssignmentId = value.currentAssignmentId == null ? null : cleanId(value.currentAssignmentId);
     const finalVictory = value.finalVictory == null ? null : !!value.finalVictory;
     if (value.phase === 'round_active' && !currentRigId) throw new Error('Active BO3 round requires a machine');
     if (value.phase === 'complete' && finalVictory === null) throw new Error('Completed BO3 series requires a result');
@@ -89,6 +92,7 @@ export function normalizeSeries(value) {
         enemyWins,
         currentRigId,
         currentRigName,
+        currentAssignmentId,
         participatingRigIds: value.phase === 'round_active' && currentRigId
             ? [...new Set([...participatingRigIds, currentRigId])]
             : participatingRigIds,
@@ -129,14 +133,14 @@ export function clearSeries(storage) {
     catch { return false; }
 }
 
-export function startSeries(storage, contractId, rigId, rigName = null, now = Date.now()) {
-    const next = createSeries(contractId, rigId, rigName, now);
+export function startSeries(storage, contractId, rigId, rigName = null, assignmentId = null, now = Date.now()) {
+    const next = createSeries(contractId, rigId, rigName, assignmentId, now);
     return storeSeries(storage, next)
         ? { ok: true, series: normalizeSeries(next) }
         : { ok: false, reason: 'BO3 SERIES STORAGE UNAVAILABLE' };
 }
 
-export function beginSeriesRound(storage, rigId, rigName = null) {
+export function beginSeriesRound(storage, rigId, rigName = null, assignmentId = null) {
     const current = loadSeries(storage);
     const rig = cleanId(rigId);
     if (!current || current.phase !== 'intermission') return { ok: false, reason: 'SERIES IS NOT WAITING FOR A MACHINE' };
@@ -147,6 +151,7 @@ export function beginSeriesRound(storage, rigId, rigName = null) {
         roundNumber: current.rounds.length + 1,
         currentRigId: rig,
         currentRigName: cleanName(rigName) || null,
+        currentAssignmentId: cleanId(assignmentId) || null,
         participatingRigIds: [...new Set([...current.participatingRigIds, rig])],
     };
     return storeSeries(storage, next)
@@ -176,6 +181,7 @@ export function recordSeriesRound(storage, result, now = Date.now()) {
         round: current.rounds.length + 1,
         rigId: current.currentRigId,
         rigName: current.currentRigName,
+        assignmentId: current.currentAssignmentId,
         victory,
         reason: typeof result?.reason === 'string' ? result.reason.slice(0, 160) : '',
         roundsFired: null,
@@ -201,8 +207,9 @@ export function recordSeriesRound(storage, result, now = Date.now()) {
         roundNumber: Math.min(MAX_ROUNDS, rounds.length + (phase === 'complete' ? 0 : 1)),
         playerWins,
         enemyWins,
-        currentRigId: phase === 'round_active' ? current.currentRigId : null,
-        currentRigName: phase === 'round_active' ? current.currentRigName : null,
+        currentRigId: null,
+        currentRigName: null,
+        currentAssignmentId: null,
         participatingRigIds: [...new Set([...current.participatingRigIds, round.rigId])],
         rounds,
         finalVictory,
