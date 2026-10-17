@@ -1,11 +1,9 @@
 /** k.3q.2 — persistent best-of-three contract series authority.
  *
- * The series stores only match lifecycle and stable rig ids. Physical machine state
- * remains owned by stable.js / the v8 active-machine projection. One contract is
- * first-to-two; damage persists because every round launches a real stable rig.
+ * This module owns match lifecycle only. It references stable rig ids but never loads
+ * or mutates physical machine state; callers provide whether a fieldable machine still
+ * exists after a round. That keeps BO3 state independent of the machine save graph.
  */
-import { loadStable, rigFieldability } from './stable.js';
-
 export const SERIES_STORAGE_KEY = 'm3ch4-series-v1';
 export const SERIES_VERSION = 1;
 export const SERIES_FORMAT = 'bo3';
@@ -159,20 +157,9 @@ export function beginSeriesRound(storage, rigId, rigName = null, assignmentId = 
         : { ok: false, reason: 'BO3 SERIES STORAGE UNAVAILABLE' };
 }
 
-export function fieldableSeriesRigIds(storage) {
-    if (!storage) return [];
-    try {
-        const stable = loadStable(storage).stable;
-        return stable.rigs
-            .filter(rig => rig.commissioned && rigFieldability(stable, rig.id).fieldable)
-            .map(rig => rig.id);
-    } catch { return []; }
-}
-
-/** Record one physical fight. This does not pay credits or advance campaign state.
- * It may complete the contract if somebody reaches two wins or the player has no
- * commissioned fieldable machine left to continue. */
-export function recordSeriesRound(storage, result, now = Date.now()) {
+/** Record one physical fight. Machine fieldability is supplied by the orchestration
+ * boundary after it has read the authoritative post-hit machine/stable state. */
+export function recordSeriesRound(storage, result, options = {}) {
     const current = loadSeries(storage);
     if (!current || current.phase !== 'round_active') return { ok: false, reason: 'NO ACTIVE BO3 ROUND' };
     if (current.rounds.length >= MAX_ROUNDS) return { ok: false, reason: 'BO3 SERIES ALREADY EXHAUSTED' };
@@ -196,7 +183,7 @@ export function recordSeriesRound(storage, result, now = Date.now()) {
         phase = 'complete';
         finalVictory = playerWins >= WINS_REQUIRED;
         completionReason = 'score';
-    } else if (fieldableSeriesRigIds(storage).length === 0) {
+    } else if (options.hasFieldableMachine === false) {
         phase = 'complete';
         finalVictory = false;
         completionReason = 'no-fieldable-machines';
@@ -214,7 +201,7 @@ export function recordSeriesRound(storage, result, now = Date.now()) {
         rounds,
         finalVictory,
         completionReason,
-        completedAt: phase === 'complete' ? (finite(now) ? now : Date.now()) : null,
+        completedAt: phase === 'complete' ? (finite(options.now) ? options.now : Date.now()) : null,
     };
     if (!storeSeries(storage, next)) return { ok: false, reason: 'BO3 SERIES STORAGE UNAVAILABLE' };
     return { ok: true, series: normalizeSeries(next), round: clone(round), terminal: phase === 'complete' };
