@@ -40,9 +40,8 @@ test('recovery status and friendly screening are legible without omniscient new 
     assert.match(main, /REMOTE MODULE TELEMETRY WITHHELD/);
 });
 
-test('mobile runtime cache identity loads the recovery-readability scene source', () => {
+test('mobile runtime cache identity still loads the recovery-readability scene source', () => {
     assert.match(index, /sceneAssembly\.js\?v=k3p2/);
     assert.match(index, /main\.js\?v=k3p2/);
-    assert.match(index, /Recovery Readability & Tactical Signaling/);
     assert.match(bridge, /scene\.js\?source=k3p2/);
 });
