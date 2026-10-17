@@ -15,14 +15,13 @@ export function squadRole(actor) {
 function centroid(actors) {
     const live = (actors ?? []).filter(actor => actor?.active !== false);
     if (!live.length) return null;
-    return live.reduce((sum, actor) => {
+    let x = 0, z = 0;
+    for (const actor of live) {
         const rig = rigOf(actor);
-        sum.x += rig?.x ?? 0; sum.z += rig?.z ?? 0; return sum;
-    }, { x: 0, z: 0, count: 0, }).count === 0 ? null : (() => {
-        let x = 0, z = 0;
-        for (const actor of live) { const rig = rigOf(actor); x += rig?.x ?? 0; z += rig?.z ?? 0; }
-        return { x: x / live.length, z: z / live.length };
-    })();
+        x += rig?.x ?? 0;
+        z += rig?.z ?? 0;
+    }
+    return { x: x / live.length, z: z / live.length };
 }
 
 function deterministicSide(id = '') {
