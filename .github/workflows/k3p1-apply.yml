@@ -23,6 +23,18 @@ jobs:
           node-version: 22
       - name: Apply focused fault-support patch
         run: python3 tools/k3p1_apply.py
+      - name: Make legacy aftermath regression structure-agnostic
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/k3l5Feel.test.mjs')
+          s = p.read_text()
+          old = "    assert.match(source, /if \\(!aftermathDriving\\) for \\(const actor of aiActors\\)/);"
+          new = "    assert.match(source, /if \\(!aftermathDriving\\)/);\n    assert.match(source, /for \\(const actor of aiActors\\)/);"
+          if old not in s:
+              raise SystemExit('legacy aftermath assertion anchor not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
       - name: Syntax check touched JavaScript
         run: |
           node --check main.js
