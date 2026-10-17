@@ -3,9 +3,11 @@
  * k.3q.2 distinguishes a physical ROUND from a terminal CONTRACT result. Existing
  * bout subscribers intentionally fire only once the BO3 is over, so campaign,
  * salvage and progression keep their old contract-level semantics.
+ * k.3r.0 treats a one-action emergency patch as a legitimate continuation path.
  */
 import { loadSeries, recordSeriesRound } from './series.js';
 import { loadStable, rigFieldability } from './stable.js';
+import { fieldWorkRecoveryPossible } from './fieldWork.js';
 
 let latest = null;
 let latestRound = null;
@@ -17,11 +19,12 @@ function localStorageRef() {
     catch { return null; }
 }
 
-function hasFieldableStableMachine(storage) {
+function hasContinuableStableMachine(storage) {
     if (!storage) return true; // unavailable persistence must not invent a forfeit.
     try {
         const stable = loadStable(storage).stable;
-        return stable.rigs.some(rig => rig.commissioned && rigFieldability(stable, rig.id).fieldable);
+        const fieldable = stable.rigs.some(rig => rig.commissioned && rigFieldability(stable, rig.id).fieldable);
+        return fieldable || fieldWorkRecoveryPossible(stable);
     } catch {
         return true; // storage/read failure is not a legitimate sporting loss.
     }
@@ -38,7 +41,7 @@ export function publishBoutResult(result) {
     const activeSeries = loadSeries(storage);
     if (terminalResult && activeSeries?.phase === 'round_active') {
         const resolution = recordSeriesRound(storage, terminalResult, {
-            hasFieldableMachine: hasFieldableStableMachine(storage),
+            hasFieldableMachine: hasContinuableStableMachine(storage),
         });
         if (resolution.ok) {
             const roundResult = {
