@@ -11,7 +11,7 @@ import {
   squadOutcome,
 } from '../squadBattle.js';
 
-test('formations provide two supports per side on opposite ends of the yard', () => {
+test('formations provide two support spawn positions per side on opposite ends of the yard', () => {
   assert.equal(FRIENDLY_SUPPORTS.length, 2);
   assert.equal(HOSTILE_SUPPORT_SPAWNS.length, 2);
   assert.ok(FRIENDLY_SUPPORTS.every(spawn => spawn.z > 18 && spawn.team === FRIENDLY_TEAM));
@@ -20,10 +20,12 @@ test('formations provide two supports per side on opposite ends of the yard', ()
   assert.ok(Math.min(...HOSTILE_SUPPORT_SPAWNS.map(spawn => Math.abs(spawn.x))) >= 8);
 });
 
-test('contract squads escalate without revealing every later role in Yard Dog', () => {
+test('campaign encounter recipes range from recovery asymmetry to a mixed final', () => {
   assert.deepEqual(hostileSupportRecipes('yard-dog'), ['yard-dog', 'yard-dog']);
+  assert.deepEqual(hostileSupportRecipes('recovery-run'), ['yard-dog']);
   assert.deepEqual(hostileSupportRecipes('cutter'), ['yard-dog', 'cutter']);
   assert.deepEqual(hostileSupportRecipes('mule'), ['yard-dog', 'cutter']);
+  assert.deepEqual(hostileSupportRecipes('circuit-final'), ['cutter', 'mule']);
 });
 
 test('target selection prefers nearby enemies but retains a credible current target', () => {
