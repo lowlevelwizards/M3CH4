@@ -1,97 +1,74 @@
-/** k.3g.0 roster, extended in k.3h.0 with progression-gated selection.
+/** Authored scrapyard jobs + opponent recipes.
  *
- * A contract remains only an opponent recipe + payout + presentation + behavior.
- * Combat, damage and salvage remain owned by their existing systems. Progression
- * only decides which authored opponent may currently be selected.
+ * k.3n.0 expands the original three-opponent ladder into a tiny campaign without
+ * creating a second combat stack. Every node is still an ordinary physical bout;
+ * campaign state only decides which authored job may currently be selected.
  */
 import { accessibleContractId, isContractUnlocked, loadProgression } from './progression.js';
+import { campaignFallbackNode, isCampaignNodeAvailable, loadCampaign } from './campaign.js';
 
 export const CONTRACT_STORAGE_KEY = 'm3ch4-contract-v1';
 
 const YARD_DOG_BEHAVIOR = Object.freeze({
-    id: 'pressure',
-    label: 'PRESSURE FIGHTER',
-    preferredRangeM: 6.2,
-    rangeBandM: 1.0,
-    approachThrottle: .72,
-    approachStrafe: .10,
-    retreatThrottle: .62,
-    strafeThrottle: .68,
-    strafeSeconds: 2.2,
-    braceSeconds: .75,
-    closeAction: 'retreat',
-    closeRetreatM: 0,
-    steerGain: 1.75,
-    yawRateDamping: 1.15,
-    fireCadenceScale: 1.0,
-    spreadScale: 1.0,
+    id: 'pressure', label: 'PRESSURE FIGHTER', preferredRangeM: 6.2, rangeBandM: 1.0,
+    approachThrottle: .72, approachStrafe: .10, retreatThrottle: .62, strafeThrottle: .68,
+    strafeSeconds: 2.2, braceSeconds: .75, closeAction: 'retreat', closeRetreatM: 0,
+    steerGain: 1.75, yawRateDamping: 1.15, fireCadenceScale: 1.0, spreadScale: 1.0,
     aimPriority: Object.freeze(['structure', 'mobility', 'combat', 'structure', 'power', 'command']),
 });
 
+const RECOVERY_BEHAVIOR = Object.freeze({
+    ...YARD_DOG_BEHAVIOR,
+    label: 'YARD CLEANUP CREW',
+    approachThrottle: .58,
+    strafeThrottle: .48,
+    fireCadenceScale: 1.18,
+    spreadScale: 1.18,
+});
+
 const CUTTER_BEHAVIOR = Object.freeze({
-    id: 'skirmisher',
-    label: 'MOBILE SKIRMISHER',
-    preferredRangeM: 8.4,
-    rangeBandM: 1.0,
-    approachThrottle: .82,
-    approachStrafe: .34,
-    retreatThrottle: .86,
-    strafeThrottle: .96,
-    strafeSeconds: 3.4,
-    braceSeconds: .18,
-    closeAction: 'retreat',
-    closeRetreatM: 0,
-    steerGain: 2.05,
-    yawRateDamping: 1.0,
-    fireCadenceScale: .78,
-    spreadScale: 1.10,
+    id: 'skirmisher', label: 'MOBILE SKIRMISHER', preferredRangeM: 8.4, rangeBandM: 1.0,
+    approachThrottle: .82, approachStrafe: .34, retreatThrottle: .86, strafeThrottle: .96,
+    strafeSeconds: 3.4, braceSeconds: .18, closeAction: 'retreat', closeRetreatM: 0,
+    steerGain: 2.05, yawRateDamping: 1.0, fireCadenceScale: .78, spreadScale: 1.10,
     aimPriority: Object.freeze(['mobility', 'combat', 'power', 'mobility', 'command', 'combat']),
 });
 
 const MULE_BEHAVIOR = Object.freeze({
-    id: 'bruiser',
-    label: 'ADVANCING BRUISER',
-    preferredRangeM: 4.8,
-    rangeBandM: .8,
-    approachThrottle: .88,
-    approachStrafe: 0,
-    retreatThrottle: .38,
-    strafeThrottle: .28,
-    strafeSeconds: .55,
-    braceSeconds: 2.35,
-    closeAction: 'brace',
-    closeRetreatM: 1.55,
-    steerGain: 1.45,
-    yawRateDamping: 1.35,
-    fireCadenceScale: 1.22,
-    spreadScale: .82,
+    id: 'bruiser', label: 'ADVANCING BRUISER', preferredRangeM: 4.8, rangeBandM: .8,
+    approachThrottle: .88, approachStrafe: 0, retreatThrottle: .38, strafeThrottle: .28,
+    strafeSeconds: .55, braceSeconds: 2.35, closeAction: 'brace', closeRetreatM: 1.55,
+    steerGain: 1.45, yawRateDamping: 1.35, fireCadenceScale: 1.22, spreadScale: .82,
     aimPriority: Object.freeze(['structure', 'structure', 'mobility', 'command', 'structure', 'power']),
+});
+
+const yardLoadout = Object.freeze({
+    structure: 'frame-sr', mobility: 'legs-yard', power: 'power-air',
+    command: 'cab-cyclops', combat: 'gun-short',
 });
 
 export const CONTRACTS = Object.freeze([
     Object.freeze({
-        id: 'yard-dog',
-        name: 'YARD DOG',
-        opponentSerial: 'YD-01',
-        serialPrefix: 'YD01',
-        role: 'BALANCED SCRAPPER',
-        payout: 850,
-        loadout: Object.freeze({
-            structure: 'frame-sr', mobility: 'legs-yard', power: 'power-air',
-            command: 'cab-cyclops', combat: 'gun-short',
-        }),
-        behavior: YARD_DOG_BEHAVIOR,
+        id: 'yard-dog', name: 'YARD DOG', opponentSerial: 'YD-01', serialPrefix: 'YD01',
+        role: 'BALANCED SCRAPPER', payout: 850, risk: 'LIGHT', kind: 'OPENING BOUT',
+        loadout: yardLoadout, behavior: YARD_DOG_BEHAVIOR,
         salvagePriority: Object.freeze(['combat', 'power', 'mobility', 'command', 'structure']),
         knownEquipment: Object.freeze(['Yardwalker', 'Stump Cannon', 'A-1 Generator']),
+        salvageHint: 'BASELINE YARD HARDWARE',
         briefing: 'Conventional yard rig. Predictable pressure, measured sidesteps and a heavy short cannon.',
     }),
     Object.freeze({
-        id: 'cutter',
-        name: 'CUTTER',
-        opponentSerial: 'CUT-01',
-        serialPrefix: 'CUT01',
-        role: 'FAST / LIGHT',
-        payout: 950,
+        id: 'recovery-run', name: 'RECOVERY RUN', opponentSerial: 'REC-01', serialPrefix: 'REC01',
+        role: 'LOW-RISK YARD WORK', payout: 450, risk: 'LOW', kind: 'OPTIONAL RECOVERY',
+        loadout: yardLoadout, behavior: RECOVERY_BEHAVIOR,
+        salvagePriority: Object.freeze(['power', 'combat', 'mobility', 'structure', 'command']),
+        knownEquipment: Object.freeze(['Common Yard Lots', 'Repairable Hardware']),
+        salvageHint: 'COMMON / STABILIZING SALVAGE',
+        briefing: 'A smaller cleanup crew working a quiet corner of the yard. Lower pay, lighter opposition and useful common hardware.',
+    }),
+    Object.freeze({
+        id: 'cutter', name: 'CUTTER', opponentSerial: 'CUT-01', serialPrefix: 'CUT01',
+        role: 'FAST / LIGHT', payout: 950, risk: 'MODERATE', kind: 'CIRCUIT BOUT',
         loadout: Object.freeze({
             structure: 'frame-utility', mobility: 'legs-compact', power: 'power-air',
             command: 'cab-utility', combat: 'gun-light',
@@ -99,15 +76,12 @@ export const CONTRACTS = Object.freeze([
         behavior: CUTTER_BEHAVIOR,
         salvagePriority: Object.freeze(['mobility', 'combat', 'command', 'power', 'structure']),
         knownEquipment: Object.freeze(['Kestrel', 'Needle Cannon']),
+        salvageHint: 'HIGH-MOBILITY HARDWARE',
         briefing: 'Light skirmisher. Keeps distance, changes lateral direction often and hunts exposed systems.',
     }),
     Object.freeze({
-        id: 'mule',
-        name: 'MULE',
-        opponentSerial: 'MULE-01',
-        serialPrefix: 'MULE01',
-        role: 'HEAVY / TOUGH',
-        payout: 1050,
+        id: 'mule', name: 'MULE', opponentSerial: 'MULE-01', serialPrefix: 'MULE01',
+        role: 'HEAVY / TOUGH', payout: 1050, risk: 'HEAVY', kind: 'CIRCUIT BOUT',
         loadout: Object.freeze({
             structure: 'frame-wedge', mobility: 'legs-hauler', power: 'power-dynamo',
             command: 'cab-cyclops', combat: 'gun-short',
@@ -115,7 +89,17 @@ export const CONTRACTS = Object.freeze([
         behavior: MULE_BEHAVIOR,
         salvagePriority: Object.freeze(['mobility', 'structure', 'combat', 'power', 'command']),
         knownEquipment: Object.freeze(['Hauler H2', 'W-3 Wedge']),
+        salvageHint: 'HEAVY / DURABLE HARDWARE',
         briefing: 'Heavy bruiser. Walks down space, braces in cannon range and favors deliberate center-mass fire.',
+    }),
+    Object.freeze({
+        id: 'circuit-final', name: 'CIRCUIT FINAL', opponentSerial: 'FIN-01', serialPrefix: 'FIN01',
+        role: 'MIXED SCRAPYARD CREW', payout: 1450, risk: 'SEVERE', kind: 'FINAL CONTRACT',
+        loadout: yardLoadout, behavior: YARD_DOG_BEHAVIOR,
+        salvagePriority: Object.freeze(['combat', 'mobility', 'structure', 'power', 'command']),
+        knownEquipment: Object.freeze(['Pressure Lead', 'Kestrel Wing', 'Hauler Wing']),
+        salvageHint: 'MIXED SIGNATURE HARDWARE',
+        briefing: 'The circuit crew fields all three yard doctrines together. Expect pressure, flanking and a heavy anchor in one fight.',
     }),
 ]);
 
@@ -135,22 +119,33 @@ function browserProgression() {
     return typeof window !== 'undefined' ? loadProgression() : null;
 }
 
-export function selectedContract(storage = browserSessionStorage(), progression = browserProgression()) {
+function browserCampaign() {
+    return typeof window !== 'undefined' ? loadCampaign() : null;
+}
+
+function allowedId(requestedId, progression, campaign) {
+    if (campaign) return isCampaignNodeAvailable(campaign, requestedId) ? requestedId : campaignFallbackNode(campaign);
+    if (progression) return accessibleContractId(progression, requestedId);
+    return BY_ID.has(requestedId) ? requestedId : DEFAULT_CONTRACT_ID;
+}
+
+export function selectedContract(storage = browserSessionStorage(), progression = browserProgression(), campaign = browserCampaign()) {
     let id = DEFAULT_CONTRACT_ID;
     try { id = storage?.getItem(CONTRACT_STORAGE_KEY) || DEFAULT_CONTRACT_ID; }
-    catch { /* Session storage is optional; fall back to Yard Dog. */ }
-    if (progression)
-        id = accessibleContractId(progression, id);
+    catch { /* Session storage is optional. */ }
+    id = allowedId(id, progression, campaign);
     return contractById(id);
 }
 
-export function selectContract(id, storage = browserSessionStorage(), progression = browserProgression()) {
+export function selectContract(id, storage = browserSessionStorage(), progression = browserProgression(), campaign = browserCampaign()) {
     const contract = BY_ID.get(id);
     if (!contract)
-        return { ok: false, reason: 'UNKNOWN CONTRACT', contract: selectedContract(storage, progression) };
-    if (progression && !isContractUnlocked(progression, id))
-        return { ok: false, reason: 'CONTRACT LOCKED', contract: selectedContract(storage, progression) };
+        return { ok: false, reason: 'UNKNOWN CONTRACT', contract: selectedContract(storage, progression, campaign) };
+    if (campaign && !isCampaignNodeAvailable(campaign, id))
+        return { ok: false, reason: 'CAMPAIGN NODE LOCKED', contract: selectedContract(storage, progression, campaign) };
+    if (!campaign && progression && BY_ID.has(id) && ['yard-dog', 'cutter', 'mule'].includes(id) && !isContractUnlocked(progression, id))
+        return { ok: false, reason: 'CONTRACT LOCKED', contract: selectedContract(storage, progression, campaign) };
     try { storage?.setItem(CONTRACT_STORAGE_KEY, contract.id); }
-    catch { return { ok: false, reason: 'CONTRACT SELECTION UNAVAILABLE', contract: selectedContract(storage, progression) }; }
+    catch { return { ok: false, reason: 'CONTRACT SELECTION UNAVAILABLE', contract: selectedContract(storage, progression, campaign) }; }
     return { ok: true, contract };
 }
