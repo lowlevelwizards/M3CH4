@@ -5,8 +5,7 @@ import { loadStable } from '../stable.js';
 import { settleSortie } from '../economy.js';
 import {
     beginSeriesRound, clearSeries, createSeries, decodeSeries, encodeSeries,
-    fieldableSeriesRigIds, loadSeries, noteSeriesRoundAmmo, recordSeriesRound,
-    seriesScore, startSeries,
+    loadSeries, noteSeriesRoundAmmo, recordSeriesRound, seriesScore, startSeries,
 } from '../series.js';
 
 class MemoryStorage {
@@ -121,14 +120,14 @@ test('economy settlement is deferred between rounds and pays once using aggregat
     }
 });
 
-test('running out of commissioned fieldable machines forfeits the unfinished contract', () => {
-    const { storage, machine } = readyStorage();
+test('orchestration can forfeit an unfinished contract when no fieldable machine remains', () => {
+    const { storage } = readyStorage();
     startSeries(storage, 'cutter', 'rig-01', 'MABEL', 'assign-1');
-    const gunSerial = machine.assembly.installed.combat;
-    machine.assembly.owned.find(part => part.serial === gunSerial).condition = 0;
-    storeMachine(storage, machine);
-    assert.deepEqual(fieldableSeriesRigIds(storage), []);
-    const result = recordSeriesRound(storage, { victory: true, reason: 'ROUND WON' });
+    const result = recordSeriesRound(
+        storage,
+        { victory: true, reason: 'ROUND WON' },
+        { hasFieldableMachine: false },
+    );
     assert.equal(result.terminal, true);
     assert.equal(result.series.finalVictory, false);
     assert.equal(result.series.completionReason, 'no-fieldable-machines');
