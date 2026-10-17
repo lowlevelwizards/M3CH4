@@ -26,11 +26,15 @@ test('damage posture turns critical machines into withdrawal and crippled machin
   assert.equal(damagePosture(condition({ mobility: .15 }), { id: 'pressure' }).preferredMode, 'HOLD');
   assert.equal(damagePosture(condition({ combat: 0, structure: .8 }), { id: 'bruiser' }).preferredMode, 'ANCHOR');
 });
-test('squad intent separates roles and regroups isolated actors', () => {
+test('squad intent separates roles, regroups isolated actors, and gives flankers a real angle', () => {
   const pressure = { id: 'pressure', preferredRangeM: 6 }, flank = { id: 'skirmisher', preferredRangeM: 8 }, anchor = { id: 'bruiser', preferredRangeM: 5 };
   assert.equal(squadRole({ behavior: flank }), 'FLANKER'); assert.equal(squadRole({ behavior: anchor }), 'ANCHOR');
   const target = actor('enemy', 'hostile', pressure, 0, -8), isolated = actor('isolated', 'friendly', flank, 14, 12), allyA = actor('ally-a', 'friendly', pressure, 0, 10), allyB = actor('ally-b', 'friendly', anchor, 1, 9);
   assert.equal(squadIntent(isolated, [isolated, allyA, allyB], target).mode, 'REGROUP');
+  const flanker = actor('wing', 'friendly', flank, 2, 8);
+  const flankPlan = squadIntent(flanker, [flanker, allyA, allyB], target);
+  assert.equal(flankPlan.mode, 'FLANK');
+  assert.ok(Math.hypot(flankPlan.point.x - target.rig.x, flankPlan.point.z - target.rig.z) > 2.5);
 });
 test('starting weapons gain strongly different handling signatures without changing their damage values', () => {
   assert.ok(WEAPONS['gun-short'].visualRecoil > WEAPONS['gun-cannon'].visualRecoil);
