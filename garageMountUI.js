@@ -3,6 +3,7 @@
  * the special generator station choice and its validation feedback. */
 import { activePlayerArena } from './scene.js';
 import { generatorMount, installedPart, setGeneratorMount, inspectAssembly } from './components.js';
+import { clearSortieAssignment } from './sortieAssignment.js';
 import './acquisitionUI.js?v=k3n0';
 import './contractUI.js?v=k3o1';
 import './stableUI.js?v=k3q0';
@@ -91,3 +92,14 @@ function mountPanel() {
 const observer = new MutationObserver(() => mountPanel());
 observer.observe(info, { childList: true, subtree: true });
 mountPanel();
+
+// Session-scoped planning state must never survive actions that deliberately replace
+// the campaign/machine context. Capture runs before the older handlers reload/reset.
+document.addEventListener('click', event => {
+    const target = event.target.closest('button');
+    if (!target) return;
+    const confirmedWipe = target.id === 'wipe-save' && target.getAttribute('aria-pressed') === 'true';
+    const campaignRestart = target.classList.contains('campaign-restart');
+    if (!confirmedWipe && !campaignRestart) return;
+    try { clearSortieAssignment(window.sessionStorage); } catch { /* reset continues even if session storage is unavailable */ }
+}, true);
