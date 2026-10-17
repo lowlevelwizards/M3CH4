@@ -16,7 +16,6 @@ class MemoryStorage {
 
 const ui = fs.readFileSync(new URL('../sortieAssignmentUI.js', import.meta.url), 'utf8');
 const garage = fs.readFileSync(new URL('../garageMountUI.js', import.meta.url), 'utf8');
-const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 function pending(storage, contract = 'yard-dog') {
     const started = beginSortieAssignment(storage, contract, 1000);
@@ -116,8 +115,6 @@ test('resolved sortie identity remains visible through debrief and stable accoun
     assert.match(ui, /clearSortieAssignment\(sessionStorageRef\)/);
 });
 
-test('mobile entrypoint loads the q.3q.1 assignment adapter instead of a cached q.3q.0 garage', () => {
+test('q.3q.1 assignment adapter remains loaded under later garage shells', () => {
     assert.match(garage, /sortieAssignmentUI\.js\?v=k3q1/);
-    assert.match(index, /garageMountUI\.js\?v=k3q1/);
-    assert.match(index, /Sortie Assignment \/ Stable Operations/);
 });

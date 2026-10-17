@@ -6,8 +6,9 @@ import { generatorMount, installedPart, setGeneratorMount, inspectAssembly } fro
 import { clearSortieAssignment } from './sortieAssignment.js';
 import './acquisitionUI.js?v=k3n0';
 import './contractUI.js?v=k3o1';
-import './stableUI.js?v=k3q0';
+import './stableUI.js?v=k3q2';
 import './sortieAssignmentUI.js?v=k3q1';
+import './seriesUI.js?v=k3q2';
 
 const info = document.querySelector('#part-info');
 const status = document.querySelector('#field-status');
