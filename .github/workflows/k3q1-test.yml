@@ -1,0 +1,21 @@
+name: k.3q.1 temporary validation
+on:
+  push:
+    branches: ["k3q1-sortie-assignment"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full test suite
+        run: npm test
+      - name: Changed JavaScript syntax
+        run: node --check sortieAssignment.js && node --check sortieAssignmentUI.js && node --check garageMountUI.js
+      - name: Whitespace check
+        run: git diff --check 6291393f658e23ae84c962cbc552d2ab5360bf32..HEAD
