@@ -12,7 +12,8 @@ import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledD
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
-import { noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
+import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
+import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from './aiFieldService.js';
 import { squadIntent } from './squadCoordination.js';
 import { damagePosture } from './damageBehavior.js';
 import { advanceSortieObjective, createSortieObjective, objectivePointForTeam, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
@@ -73,6 +74,7 @@ const primaryEnemyActor = {
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
     behavior: activeContract.behavior,
     spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
+    fieldService: createFieldServiceState(),
     teamIntent: null, teamPlanLeft: 0, teamPlanTargetId: null,
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
 };
@@ -92,6 +94,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null) {
         controller: createHostileController(team === FRIENDLY_TEAM ? 1.0 : 1.55, behavior),
         motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
         behavior, spawn, active: true, targetId: null, killReason: null,
+        fieldService: createFieldServiceState(),
         teamIntent: null, teamPlanLeft: 0, teamPlanTargetId: null,
         wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
     };
@@ -180,6 +183,51 @@ function aiLocomotionConfig(actor) {
     return derateRigConfig(actor.baseConfig, functionalOutput(actor.assembly, actor.driveDamage));
 }
 function hostileLocomotionConfig() { return aiLocomotionConfig(primaryEnemyActor); }
+function primeAiWeaponRecovery(actor, threatRig) {
+    const awareness = actor?.motion?.awareness;
+    if (!actor || !awareness) return;
+    awareness.underFireSeconds = Math.max(awareness.underFireSeconds ?? 0, 4.2);
+    awareness.urgency = Math.max(awareness.urgency ?? 0, 2.35);
+    if (threatRig) awareness.lastThreat = { x: threatRig.x, z: threatRig.z };
+    const config = aiLocomotionConfig(actor);
+    const cover = threatRig ? chooseCoverPoint(
+        actor.rig, threatRig, combatWorldFor(actor.id), config.collisionRadiusM,
+        actor.behavior, actor.motion.lastSide, threatRig) : null;
+    if (cover) {
+        awareness.coverTarget = cover.point;
+        awareness.coverId = cover.coverId;
+        awareness.coverHold = 0;
+    }
+    actor.teamPlanLeft = 0;
+}
+function arrestAiWeaponFailure(actor, beforeIntegrity, threatRig) {
+    if (!actor?.fieldService) return false;
+    const faulted = arrestFirstWeaponFailure(actor.condition, actor.fieldService, beforeIntegrity);
+    if (!faulted) return false;
+    resetDamageFate(actor.condition.parts.combat);
+    primeAiWeaponRecovery(actor, threatRig);
+    return true;
+}
+function interruptAiFieldService(actor) {
+    if (!actor?.fieldService?.held) return;
+    cancelFieldService(actor.fieldService);
+    actor.teamPlanLeft = 0;
+}
+function handleAiFieldServiceCompleted(actor) {
+    actor.controller.triggerLeft = Math.max(actor.controller.triggerLeft ?? 0, .85);
+    actor.teamPlanLeft = 0;
+    if (actor.motion?.awareness) {
+        actor.motion.awareness.underFireSeconds *= .35;
+        actor.motion.awareness.coverTarget = null;
+        actor.motion.awareness.coverId = null;
+        actor.motion.awareness.coverHold = 0;
+    }
+    arena.updateCombatantDamage(actor.id, actor.condition);
+    if (actor.id === 'enemy-0') {
+        mirrorTargetCondition(targetAssembly, targetCondition);
+        renderTarget();
+    }
+}
 let inspection = inspectAssembly(assembly);
 let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
@@ -501,6 +549,7 @@ function resetAiActor(actor) {
         Object.assign(actor.weaponState, createWeaponState(actor.weaponSpec));
     Object.assign(actor.controller, createHostileController(actor.id === 'enemy-0' ? 1.8 : actor.team === FRIENDLY_TEAM ? 1.0 : 1.55, actor.behavior));
     Object.assign(actor.motion, createEnemyMotion(actor.behavior));
+    actor.fieldService = createFieldServiceState();
     actor.active = true;
     actor.targetId = null;
     actor.killReason = null;
@@ -1144,18 +1193,30 @@ function frame(now) {
                 const actorOutput = hostileOutput(actor.condition, actor.behavior);
                 const canManeuver = actorOutput.structure > .05 && actorOutput.command > .05 && actorOutput.power > .12 && actorOutput.mobility > .05;
                 const actorConfig = aiLocomotionConfig(actor);
-                const posture = damagePosture(actor.condition, actor.behavior);
+                const recovery = aiWeaponRecoveryDirective(actor, target);
+                const posture = aiWeaponRecoveryPosture(damagePosture(actor.condition, actor.behavior), recovery);
                 actor.teamPlanLeft = Math.max(0, (actor.teamPlanLeft ?? 0) - FIXED_DT);
                 if (actor.teamPlanLeft === 0 || actor.teamPlanTargetId !== target.id) {
                     actor.teamIntent = squadIntent(actor, battleParticipants(), target, objectivePointForTeam(sortieObjective, actor.team), posture);
                     actor.teamPlanTargetId = target.id;
                     actor.teamPlanLeft = .24 + ((actor.id.charCodeAt(actor.id.length - 1) || 0) % 3) * .04;
                 }
+                if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
                 let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
-                maneuver = { ...maneuver, throttle: maneuver.throttle * Math.max(.66, posture.paceScale), strafe: (maneuver.strafe ?? 0) * Math.max(.56, posture.strafeScale), steer: maneuver.steer * Math.max(.62, posture.steerScale) };
+                if (actor.fieldService.held || recovery.mode === 'SETTLE')
+                    maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
+                else
+                    maneuver = { ...maneuver, throttle: maneuver.throttle * Math.max(.66, posture.paceScale), strafe: (maneuver.strafe ?? 0) * Math.max(.56, posture.strafeScale), steer: maneuver.steer * Math.max(.62, posture.steerScale) };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
                 shoveDisabledWrecks(actor.rig, actorConfig);
-                arena.updateCombatantRig(actor.id, actor.rig, { target: target.rig, posture, dt: FIXED_DT });
+                if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
+                    beginFieldService(actor.condition, actor.fieldService, actor.rig);
+                const serviceStep = advanceFieldService(actor.condition, actor.fieldService, actor.rig, FIXED_DT);
+                if (serviceStep.event === 'completed') handleAiFieldServiceCompleted(actor);
+                arena.updateCombatantRig(actor.id, actor.rig, {
+                    target: target.rig, posture, dt: FIXED_DT,
+                    weaponFault: recovery.active, weaponServicing: actor.fieldService.held,
+                });
                 if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
                 if (actor.weaponSpec && actor.weaponState) {
                     advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
@@ -1386,6 +1447,20 @@ function renderTarget() {
     behavior.className = 'target-row';
     behavior.textContent = `MOTION: ${hostileMotion.phase} · ${hostileMotion.navigation}`;
     targetReadout.appendChild(behavior);
+    if (canFieldService(targetCondition, primaryEnemyActor.fieldService)) {
+        const recovery = document.createElement('div');
+        recovery.className = 'target-row';
+        const pct = Math.round(primaryEnemyActor.fieldService.progress / FIELD_SERVICE_SECONDS * 100);
+        recovery.textContent = primaryEnemyActor.fieldService.held
+            ? `WEAPON RECOVERY: FIELD SERVICE ${pct}%`
+            : 'WEAPON RECOVERY: FAULTED · SEEKING SAFE SERVICE';
+        targetReadout.appendChild(recovery);
+    } else if (primaryEnemyActor.fieldService.used && hostileOutput(targetCondition, primaryEnemyActor.behavior).weapon > .12) {
+        const recovery = document.createElement('div');
+        recovery.className = 'target-row';
+        recovery.textContent = 'WEAPON RECOVERY: EMERGENCY BYPASS SPENT · DEGRADED';
+        targetReadout.appendChild(recovery);
+    }
     if (devPanel.classList.contains('hidden')) {
         const withheld = document.createElement('div');
         withheld.className = 'target-row';
@@ -1570,20 +1645,23 @@ function attemptAiFire(actor, target, shotIndex) {
         applyAiHitToPlayer(actor, contact);
         return;
     }
+    interruptAiFieldService(target);
     const beforePart = partSnapshot(target.condition.parts[contact.slot]);
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
     const hit = applyTargetHit(target.condition, contact.slot, actor.weaponSpec.damage);
+    const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(target, beforeIntegrity, actor.rig);
+    const weaponRecoverable = contact.slot === 'combat' && canFieldService(target.condition, target.fieldService);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
     scoreHit(actor.id, target.id, contact.slot, beforePart, hit, afterPart);
     noteIncomingFire(target.motion, actor.rig, actor.id, hit.internalDamage > 0 ? 1.55 : 1.08);
-    const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+    const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updateCombatantDamage(target.id, target.condition);
     if (target.id === 'enemy-0') {
         mirrorTargetCondition(targetAssembly, targetCondition);
         renderTarget();
     }
-    const kill = hostileMissionKillReason(target.condition, target.behavior);
+    const kill = aiWeaponMissionKillReason(target.condition, target.behavior, target.fieldService);
     if (kill) missionKillAiActor(target, kill, actor.id);
 }
 function attemptFire() {
@@ -1651,13 +1729,16 @@ function attemptFire() {
             renderAmmo();
             return;
         }
+        interruptAiFieldService(targetActor);
         const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
         const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
+        const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(targetActor, beforeIntegrity, rig);
+        const weaponRecoverable = contact.slot === 'combat' && canFieldService(targetActor.condition, targetActor.fieldService);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
         scoreHit('player', targetActor.id, contact.slot, beforePart, hit, afterPart);
         noteIncomingFire(targetActor.motion, rig, 'player', hit.internalDamage > 0 ? 1.65 : 1.12);
-        const visualHit = { ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+        const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
         arena.showShot(contact, visualHit);
         arena.updateCombatantDamage(targetActor.id, targetActor.condition);
         if (targetActor.id === 'enemy-0') {
@@ -1667,8 +1748,8 @@ function attemptFire() {
         soundImpact();
         recoilFlash = .19;
         lastHit = `${targetActor.label} · ${targetLabels[hit.slot]} · ${hit.serial}`;
-        showHitConfirm(hit);
-        const kill = hostileMissionKillReason(targetActor.condition, targetActor.behavior);
+        showHitConfirm(hit, weaponRecoverable ? 'WEAPON FAULT' : null);
+        const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return;
     }

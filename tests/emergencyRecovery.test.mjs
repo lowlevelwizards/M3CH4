@@ -40,9 +40,14 @@ test('first catastrophic weapon hit becomes a recoverable fault instead of dead 
     assert.equal(canFieldService(player, service), true);
     assert.equal(weaponMissionKillReason(player, service), null);
 
-    // Another disabling hit before the bypass is completed is genuinely terminal.
+    // Zero functional integrity is still a disabled, serviceable assembly while the
+    // physical weapon remains intact and this bypass has not been spent.
     player.parts.combat.integrity = 0;
     assert.equal(arrestFirstWeaponFailure(player, service, 115 * WEAPON_FAULT_FLOOR), false);
+    assert.equal(weaponFailureState(player, service), 'faulted');
+    assert.equal(canFieldService(player, service), true);
+    assert.equal(weaponMissionKillReason(player, service), null);
+    player.parts.combat.destroyed = true;
     assert.equal(weaponFailureState(player, service), 'destroyed');
     assert.equal(weaponMissionKillReason(player, service), 'WEAPON DESTROYED');
 });

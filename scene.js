@@ -961,7 +961,12 @@ export function createArenaScene(initial, targetAssembly) {
                 const smoothing = 1 - Math.exp(-dt * (5.2 * (.45 + health * .55)));
                 if (command && commandBase) command.rotation.y = THREE.MathUtils.lerp(command.rotation.y, commandBase.rotation.y - THREE.MathUtils.clamp(error, -.48, .48) * .42, smoothing);
                 if (combat && combatBase) {
-                    combat.rotation.y = THREE.MathUtils.lerp(combat.rotation.y, combatBase.rotation.y - THREE.MathUtils.clamp(error, -.72, .72) * .72, smoothing);
+                    const weaponFault = !!visual?.weaponFault;
+                    const serviceSag = visual?.weaponServicing ? .22 : .14;
+                    const traverseScale = weaponFault ? .18 : .72;
+                    combat.rotation.y = THREE.MathUtils.lerp(combat.rotation.y, combatBase.rotation.y - THREE.MathUtils.clamp(error, -.72, .72) * traverseScale, smoothing);
+                    combat.rotation.x = THREE.MathUtils.lerp(combat.rotation.x, combatBase.rotation.x + (weaponFault ? serviceSag : 0), smoothing);
+                    combat.position.y = THREE.MathUtils.lerp(combat.position.y, combatBase.position.y - (weaponFault ? .045 : 0), smoothing);
                     combat.position.z = combatBase.position.z + (record.recoilKick ?? 0);
                 }
             }
