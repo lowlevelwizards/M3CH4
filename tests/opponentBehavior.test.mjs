@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CONTRACTS, contractById } from '../contracts.js';
+import { contractById } from '../contracts.js';
 import { createEnemyMotion, tacticalManeuver } from '../enemyMotion.js';
 import { hostileAimSlot, hostileOutput } from '../hostileRig.js';
 
@@ -15,8 +15,9 @@ const healthyCondition = () => ({
     ])),
 });
 
-test('contracts expose three distinct authored combat personalities', () => {
-    assert.deepEqual(CONTRACTS.map(contract => contract.behavior.id), ['pressure', 'skirmisher', 'bruiser']);
+test('signature rivals expose three distinct authored combat personalities', () => {
+    const signature = ['yard-dog', 'cutter', 'mule'].map(id => contractById(id));
+    assert.deepEqual(signature.map(contract => contract.behavior.id), ['pressure', 'skirmisher', 'bruiser']);
     assert.ok(contractById('cutter').behavior.preferredRangeM > contractById('yard-dog').behavior.preferredRangeM);
     assert.ok(contractById('yard-dog').behavior.preferredRangeM > contractById('mule').behavior.preferredRangeM);
     assert.ok(contractById('cutter').behavior.strafeThrottle > contractById('yard-dog').behavior.strafeThrottle);
