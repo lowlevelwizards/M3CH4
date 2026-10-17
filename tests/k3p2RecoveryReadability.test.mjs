@@ -35,6 +35,8 @@ test('recovery status and friendly screening are legible without omniscient new 
     assert.match(main, /supportCue = screener \? ` · \$\{screener\.label\} COVERING`/);
     assert.match(main, /fieldService\.held \? `SERVICE \$\{servicePercent\}%`/);
     assert.match(main, /WEAPON RECOVERY: FIELD SERVICE/);
+    assert.match(main, /serviceInterruptedByHit = fieldService\.held/);
+    assert.match(main, /if \(serviceInterruptedByHit\) handleFieldServiceInterrupted\(\)/);
     assert.match(main, /REMOTE MODULE TELEMETRY WITHHELD/);
 });
 

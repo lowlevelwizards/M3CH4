@@ -1605,7 +1605,9 @@ function finishSortie(victory, reason) {
     syncCockpitInstruments();
 }
 function applyAiHitToPlayer(actor, contact) {
+    const serviceInterruptedByHit = fieldService.held;
     stopFieldServiceInput();
+    if (serviceInterruptedByHit) handleFieldServiceInterrupted();
     const partBefore = playerCondition.parts[contact.slot];
     const before = partSnapshot(partBefore);
     const beforeIntegrity = partBefore.integrity;
