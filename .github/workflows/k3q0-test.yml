@@ -1,0 +1,19 @@
+name: k.3q.0 temporary validation
+on:
+  push:
+    branches: ["k3q0-named-stable-foundation"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full test suite
+        run: npm test
+      - name: Changed JavaScript syntax
+        run: node --check stable.js && node --check stableUI.js && node --check garageMountUI.js
+      - name: Whitespace check
+        run: git diff --check 86292e5ecab32a831ec7f92e623b2d16606a9197..HEAD
