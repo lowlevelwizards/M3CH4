@@ -11,7 +11,7 @@ import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
 } from './sortieAssignment.js';
 import {
-    beginSeriesRound, clearSeries, loadSeries, seriesScore, startSeries,
+    beginSeriesRound, clearSeries, loadSeries, startSeries,
 } from './series.js';
 
 const inspectionPanel = document.querySelector('#inspection-panel');
@@ -36,7 +36,6 @@ let sessionStorageRef = null;
 try { localStorageRef = window.localStorage; } catch { /* persistence modules surface unavailable storage */ }
 try { sessionStorageRef = window.sessionStorage; } catch { /* q.1 assignment UI surfaces unavailable storage */ }
 let latestRound = null;
-let latestTerminal = null;
 let debriefRenderQueued = false;
 
 const rigLabel = rig => rig?.name || `RIG ${String(rig?.bay ?? 0).padStart(2, '0')}`;
@@ -68,7 +67,7 @@ function lastAssignmentId(series) {
 function bindCommittedAssignment() {
     const assignment = loadSortieAssignment(sessionStorageRef);
     if (assignment?.phase !== 'deployed' || !assignment.rigId) return { advanced: false, series: activeSeries() };
-    let series = activeSeries();
+    const series = activeSeries();
     if (!series || series.phase === 'complete' || series.contractId !== assignment.contractId) {
         const started = startSeries(
             localStorageRef, assignment.contractId, assignment.rigId, assignment.rigName, assignment.id,
@@ -123,10 +122,13 @@ function pitBanner(series) {
 }
 
 function applyPitState() {
-    inspectionPanel.querySelector(':scope > .bo3-series-banner')?.remove();
+    const existingBanner = inspectionPanel.querySelector(':scope > .bo3-series-banner');
     const series = intermissionSeries();
     document.body.classList.toggle('bo3-pit-locked', !!series);
-    if (!series) return;
+    if (!series) {
+        existingBanner?.remove();
+        return;
+    }
 
     const campaign = inspectionPanel.querySelector(':scope > .campaign-board');
     if (campaign) {
@@ -135,17 +137,18 @@ function applyPitState() {
             button.disabled = true;
             button.title = 'Contract already in progress';
         });
-        campaign.after(pitBanner(series));
+        if (!existingBanner) campaign.after(pitBanner(series));
     }
     const assignment = inspectionPanel.querySelector(':scope > .sortie-assignment');
     if (assignment) {
         assignment.classList.add('bo3-round-assignment');
         const heading = assignment.querySelector('.sortie-assignment-head strong');
-        if (heading) heading.textContent = `CHOOSE ROUND ${series.roundNumber} MACHINE`;
-        const cancel = [...assignment.querySelectorAll('button')].find(button => /CANCEL ASSIGNMENT/i.test(button.textContent || ''));
+        const headingText = `CHOOSE ROUND ${series.roundNumber} MACHINE`;
+        if (heading && heading.textContent !== headingText) heading.textContent = headingText;
+        const cancel = [...assignment.querySelectorAll('button')].find(button => /CANCEL ASSIGNMENT|CONTRACT LOCKED/i.test(button.textContent || ''));
         if (cancel) {
             cancel.disabled = true;
-            cancel.textContent = 'CONTRACT LOCKED';
+            if (cancel.textContent !== 'CONTRACT LOCKED') cancel.textContent = 'CONTRACT LOCKED';
         }
     }
 }
@@ -242,7 +245,6 @@ subscribeRoundResult(result => {
 
 subscribeBoutResult(result => {
     if (!result?.series) return;
-    latestTerminal = result;
     queueDebriefRender();
 });
 
