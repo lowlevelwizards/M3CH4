@@ -1,0 +1,44 @@
+name: Apply and verify k.3p.0
+on:
+  push:
+    branches: [feature/k3p0-recoverable-weapon-disable]
+    paths:
+      - tools/k3p0_apply.py
+      - .github/workflows/k3p0-apply.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/k3p0-recoverable-weapon-disable
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply scoped product patch
+        run: python3 tools/k3p0_apply.py
+      - name: Syntax check changed JavaScript
+        run: |
+          node --check main.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check aiFieldService.js
+      - name: Run complete test suite
+        run: npm test
+      - name: Validate patch hygiene
+        run: |
+          git fetch origin main
+          git diff --check origin/main...HEAD
+          git diff --check
+      - name: Remove temporary patch machinery
+        run: rm -f tools/k3p0_apply.py .github/workflows/k3p0-apply.yml
+      - name: Commit verified product state
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'k.3p.0: recoverable AI weapon disable'
+          git push origin HEAD:feature/k3p0-recoverable-weapon-disable
