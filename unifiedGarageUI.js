@@ -3,6 +3,8 @@
  * Viewed rig changes only a Three.js preview; battle-active rig changes at DEPLOY.
  */
 import { BY_ID } from './components.js';
+import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
+import { partCreditValue } from './partEconomy.js';
 import { activePlayerArena } from './scene.js';
 import { loadMachine } from './persistence.js';
 import { loadStable, storeStable, commissionRig, renameRig, rigById } from './stable.js';
@@ -26,6 +28,7 @@ shell.id = 'unified-garage';
 shell.setAttribute('aria-label','Garage and contract operations');
 shell.innerHTML = '<div class="unified-top"></div><div id="unified-garage-dock"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
 document.body.append(shell);
+installPartGridStyles();
 const top = shell.querySelector('.unified-top');
 const dock = shell.querySelector('#unified-garage-dock');
 const navigator = shell.querySelector('.unified-bay-navigation');
@@ -36,7 +39,7 @@ let storage = null, session = null;
 try { storage = window.localStorage; } catch { /* old storage warnings still apply */ }
 try { session = window.sessionStorage; } catch { /* display a blocking action message */ }
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
-let mode = 'garage', selectedSlot = null, selectedJobId = null;
+let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
@@ -93,7 +96,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; previewSignature = '';
+    selectedSlot = null; selectedHardwareSerial = null; previewSignature = '';
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
     render();
@@ -182,7 +185,7 @@ function summary(view) {
 function moduleStation(view) {
     const station = el('section','unified-stations');
     for (const item of view.health) {
-        const node = button('', () => { selectedSlot = item.slot; render(); },
+        const node = button('', () => { if (selectedSlot !== item.slot) selectedHardwareSerial = null; selectedSlot = item.slot; render(); },
             'unified-station ' + (selectedSlot === item.slot ? 'selected ' : '') +
                 (item.destroyed || item.condition <= .001 && item.serial ? 'critical':''));
         node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
@@ -236,23 +239,75 @@ function moduleDetails(stable, view, machine) {
         box.append(positions);
     }
     if (installed) box.append(button('REMOVE INSTALLED MODULE', () => editModule(slot,null), 'unified-remove'));
-    const choices = el('div','unified-part-list');
-    const owned = stable.inventory.filter(p=>BY_ID.get(p.definitionId)?.slot===slot);
+    // Reuse the original physical part-gallery components and their cached 3D
+    // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
+    // to another rig must remain inspectable but cannot be silently transferred.
+    const choices = el('div','unified-part-gallery part-grid');
+    const owned = stable.inventory.filter(part => BY_ID.get(part.definitionId)?.slot === slot);
+    if (!selectedHardwareSerial || !owned.some(part => part.serial === selectedHardwareSerial))
+        selectedHardwareSerial = installed?.serial ?? owned[0]?.serial ?? null;
     if (!owned.length) choices.append(el('p','unified-muted','NO OWNED MODULES FOR THIS STATION'));
+
+    const entryFor = part => {
+        const definition = BY_ID.get(part.definitionId);
+        return {
+            id: 'garage:' + part.serial, serial: part.serial, sourceSerial: part.serial,
+            slot: definition.slot, definitionId: definition.id, name: definition.name,
+            condition: part.condition, destroyed: !!part.destroyed,
+        };
+    };
+    const ownerFor = serial => stable.rigs.find(rig =>
+        Object.values(rig.installed).includes(serial));
+    const thumbnailFor = (part, entry) =>
+        activePlayerArena()?.arena.partThumbnailDataUrl?.(part.definitionId, entry) ?? null;
+
     for (const part of owned) {
-        const owner = stable.rigs.find(r => Object.values(r.installed).includes(part.serial));
-        const isHere = installed?.serial === part.serial;
+        const owner = ownerFor(part.serial);
         const elsewhere = owner && owner.id !== viewedId;
-        const item = button('', () => editModule(slot,part.serial), 'unified-part' + (isHere?' equipped':''),
-            !!elsewhere || isHere);
-        const name = BY_ID.get(part.definitionId)?.name || part.definitionId;
-        const status = elsewhere ? 'INSTALLED ON '+rigName(owner).toUpperCase() :
-            isHere ? 'INSTALLED HERE' : part.destroyed ? 'DESTROYED · REBUILD FIRST' :
-            pct(part.condition) + ' CONDITION';
-        item.append(el('strong','',name),el('small','',part.serial + ' · ' + status));
-        choices.append(item);
+        const here = installed?.serial === part.serial;
+        const entry = entryFor(part);
+        const definition = BY_ID.get(part.definitionId);
+        const value = partCreditValue(definition, part.condition,
+            { destroyed: part.destroyed, wear: part.wear });
+        const card = createPartCard({
+            entry, thumbnailUrl: thumbnailFor(part, entry), value,
+            selected: selectedHardwareSerial === part.serial,
+            source: here ? 'INSTALLED' : elsewhere ? 'ON ' + rigName(owner) : 'AVAILABLE',
+            onSelect: () => { selectedHardwareSerial = part.serial; render(); },
+        });
+        card.classList.add('unified-part-card');
+        card.title = definition.name + ' · ' + part.serial +
+            (elsewhere ? ' · mounted on ' + rigName(owner) : '');
+        choices.append(card);
     }
     box.append(choices);
+
+    const focused = owned.find(part => part.serial === selectedHardwareSerial);
+    if (focused) {
+        const owner = ownerFor(focused.serial);
+        const elsewhere = owner && owner.id !== viewedId;
+        const here = installed?.serial === focused.serial;
+        const definition = BY_ID.get(focused.definitionId);
+        const entry = entryFor(focused);
+        const value = partCreditValue(definition, focused.condition,
+            { destroyed: focused.destroyed, wear: focused.wear });
+        const detail = createPartDetail({
+            entry, thumbnailUrl: thumbnailFor(focused, entry), value,
+            meta: definition.massKg + ' KG · WEAR ' +
+                Math.round((focused.wear ?? 0) * 100) + '% · REPAIRS ' +
+                (focused.repairs ?? 0) + (elsewhere
+                    ? '\\nMOUNTED ON ' + rigName(owner).toUpperCase()
+                    : here ? '\\nINSTALLED ON THIS MACHINE'
+                    : '\\nAVAILABLE FOR THIS BAY'),
+            actionLabel: here ? 'INSTALLED HERE' :
+                elsewhere ? 'ON ' + rigName(owner).toUpperCase() :
+                'INSTALL · ' + focused.serial,
+            actionDisabled: !!here || !!elsewhere,
+            onAction: () => editModule(slot, focused.serial),
+        });
+        detail.classList.add('unified-part-detail');
+        box.append(detail);
+    }
     return box;
 }
 function editModule(slot,serial) {
@@ -413,6 +468,7 @@ document.addEventListener('m3ch4:bay-picked',event=>{
     if(actualMode(loadSeries(storage))!=='garage')return;
     const slot=event.detail?.slot;
     selectedSlot = slot && selectedSlot!==slot ? slot : null;
+    selectedHardwareSerial = null;
     render();
 });
 const rootWatch=new MutationObserver(queueRender);
