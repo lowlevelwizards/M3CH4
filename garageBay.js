@@ -1,7 +1,7 @@
 /** k.3s.0 — stable bay presentation and mutations independent of the live combat projection.
  * The viewed bay is NOT the combat-active rig. Any bay may be incomplete.
  */
-import { BY_ID, SLOTS, inspectAssembly } from './components.js';
+import { BY_ID, SLOTS, inspectAssembly, generatorMount, setGeneratorMount } from './components.js';
 import { graphFromStations } from './assemblyGraph.js';
 import { createTargetCondition, restoreTargetPart } from './combat.js';
 import { createFunctionalDamage } from './functionalDamage.js';
@@ -112,4 +112,27 @@ export function bayModuleQuote(stable, rigId, slot) {
     const destroyed = !!snapshot?.destroyed || !!owned.destroyed;
     return { amount: destroyed ? rebuildQuote(snapshot) : repairQuote(snapshot),
         destroyed, serial:owned.serial };
+}
+
+/** The same physical generator mount rules apply on every bay, including parked rigs.
+ * This changes only the target rig's assembly graph, never its installed serials.
+ */
+export function setInactiveBayGeneratorMount(storage, rigId, position) {
+    const loaded = loadStable(storage);
+    const stable = loaded.stable;
+    const rig = rigById(stable, rigId);
+    if (!rig || rigId === stable.activeRigId) return { ok:false, reason:'ACTIVE BAY NEEDS LIVE MOUNT' };
+    const assembly = bayAssembly(stable, rigId);
+    const result = setGeneratorMount(assembly, position);
+    if (!result.ok) return result;
+    const inspection = inspectAssembly(assembly);
+    const invalid = inspection.checks.find(c => !c.passes);
+    if (invalid) return { ok:false, reason:invalid.reason };
+    rig.graph = clone(assembly.graph);
+    return storeStable(storage, stable) ? { ok:true, position }
+        : { ok:false, reason:'STABLE SAVE FAILED' };
+}
+export function bayGeneratorMount(stable, rigId) {
+    const assembly = bayAssembly(stable, rigId);
+    return assembly ? generatorMount(assembly) : 'none';
 }
