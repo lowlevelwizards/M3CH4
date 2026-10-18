@@ -117,7 +117,7 @@ test('mobile UX has a single physical bay navigator and explicit contract/setup/
     assert.match(garage,/unifiedGarageUI\.js\?v=k3t0/);
     assert.doesNotMatch(garage,/import '\.\/fieldWorkUI\.js/);
     assert.match(ui,/mode = 'garage'/);
-    assert.match(ui,/mode = 'contracts'/);
+    assert.match(ui,/mode\s*=\s*'contracts'/);
     assert.match(ui,/mode='setup'/);
     assert.match(ui,/return series\?\.phase === 'intermission' \? 'pit'/);
     assert.match(ui,/arena\.rebuildAssembly\(bayAssembly\(stable, viewedId\)\)/);
