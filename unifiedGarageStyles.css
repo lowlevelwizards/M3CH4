@@ -87,3 +87,6 @@ body.inspecting #unified-garage{display:block}
 .unified-mount-options .unified-section-name{grid-column:1/-1}
 .unified-mount-options button{min-height:34px;padding:5px;border:1px solid #78805a;color:#d5be87;background:#2a2b1f;font-size:10px;font-weight:800}
 .unified-mount-options button.unified-mount-selected{background:#42351d;border-color:#e0ac54;color:#f0cc86;opacity:1}
+
+/* Long hardware lists scroll; never shrink their buttons into unreadable cards. */
+#unified-garage-dock > *, .unified-contract-list > *, .unified-part-list > *{flex-shrink:0}
