@@ -30,6 +30,8 @@ import { clearBoutResult, publishBoutResult } from './boutSession.js';
 import { resetDamageFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
+import { loadStable, serialOwner } from './stable.js';
+import { changeInactiveBay, serviceInactiveBay } from './garageBay.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -930,6 +932,72 @@ function refreshAssembly(save = false) {
 }
 refreshAssembly();
 selectPart(null, false);
+// k.3s.0: the five module stations are controlled by the viewed bay, not the
+// battle-active rig. Only edits of the combat-active bay touch this live assembly;
+// inactive bays mutate their own stable record without switching combat authority.
+document.addEventListener('m3ch4:bay-module', event => {
+    const request = event.detail;
+    if (!request || !inspecting || !SLOTS.includes(request.slot)) return;
+    try {
+        const stable = loadStable(saveStorage).stable;
+        if (request.rigId === stable.activeRigId) {
+            const serial = request.serial || null;
+            if (serial) {
+                const owner = serialOwner(stable, serial);
+                if (owner && owner.id !== request.rigId)
+                    throw new Error(serial + ' IS INSTALLED ON ' + (owner.name || owner.id));
+                equipSerial(assembly, request.slot, serial);
+            } else {
+                const removed = remove(assembly, request.slot);
+                if (!removed.ok) throw new Error(removed.reason || 'REMOVE BLOCKED');
+            }
+            refreshAssembly(true);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+            request.result = { ok:true };
+        } else {
+            request.result = changeInactiveBay(saveStorage, request.rigId, request.slot, request.serial);
+        }
+    } catch (error) { request.result = { ok:false, reason:error?.message || 'MODULE CHANGE FAILED' }; }
+});
+document.addEventListener('m3ch4:bay-service', event => {
+    const request = event.detail;
+    if (!request || !inspecting || !SLOTS.includes(request.slot)) return;
+    try {
+        const stable = loadStable(saveStorage).stable;
+        if (request.rigId === stable.activeRigId) {
+            const slot = request.slot;
+            const fitted = installedPart(assembly, slot);
+            if (!fitted) throw new Error('NO INSTALLED MODULE');
+            const state = playerCondition.parts[slot];
+            const destroyed = !!state?.destroyed || !!fitted.instance.destroyed;
+            const cost = destroyed ? rebuildQuote(state) : repairQuote(state);
+            if (cost <= 0 && fitted.instance.condition >= 1) throw new Error('NO REPAIR REQUIRED');
+            if (!destroyed && cost > economy.credits) throw new Error('INSUFFICIENT CREDITS');
+            const charged = destroyed ? Math.min(cost, economy.credits) : cost;
+            economy.credits -= charged;
+            repairInstalledPart(assembly, damage, slot);
+            restoreTargetPart(playerCondition, assembly, slot);
+            updateFunctionalStatus();
+            refreshAssembly(true);
+            arena.updatePilotDamage(playerCondition);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+            request.result = { ok:true, charged, rebuilt:destroyed };
+        } else {
+            const result = serviceInactiveBay(saveStorage, request.rigId, request.slot, economy.credits);
+            if (!result.ok) { request.result = result; return; }
+            // Both save generations hold the SAME global owned serial catalogue.
+            // Reconcile it into the in-memory active assembly before main persists,
+            // otherwise an old v8 copy could silently erase an inactive bay repair.
+            const livePart = assembly.owned.find(part => part.serial === result.serial);
+            if (livePart) Object.assign(livePart, result.part);
+            economy.credits -= result.charged;
+            persistMachine();
+            renderEconomy();
+            request.result = result;
+        }
+    } catch (error) { request.result = { ok:false, reason:error?.message || 'SERVICE FAILED' }; }
+});
+
 document.addEventListener('m3ch4:inventory-changed', () => {
     refreshAssembly(true);
     renderPartInfo();
@@ -1121,7 +1189,9 @@ function syncInspectorLayout() {
     // The actual canvas bounds (not stale window dimensions) are the camera viewport.
     // This also handles landscape-left / landscape-right and Safari toolbar resizing.
     const rect = renderer.domElement.getBoundingClientRect();
-    const panelRight = inspecting ? inspectionPanel.getBoundingClientRect().right - rect.left + 12 : 0;
+    const bayDock = document.querySelector('#unified-garage-dock');
+    const inspector = bayDock && !bayDock.closest('.hidden') ? bayDock : inspectionPanel;
+    const panelRight = inspecting ? inspector.getBoundingClientRect().right - rect.left + 12 : 0;
     arena.setInspectorLayout(panelRight, rect.width, rect.height);
 }
 function resize() {
