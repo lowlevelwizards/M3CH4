@@ -29,7 +29,7 @@ if (!inspectionPanel || !fieldStatus || !assemblyToggle || !debriefSheet || !deb
 
 const styleLink = document.createElement('link');
 styleLink.rel = 'stylesheet';
-styleLink.href = './seriesStyles.css?v=k3q2';
+styleLink.href = './seriesStyles.css?v=k3s2';
 document.head.append(styleLink);
 
 let localStorageRef = null;
