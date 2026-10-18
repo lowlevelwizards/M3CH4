@@ -3,7 +3,7 @@ body.inspecting #inspection-panel { display:none !important; }
 body.inspecting #assembly-toggle { display:none !important; }
 #unified-garage{display:none;position:absolute;z-index:16;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));top:max(52px,calc(env(safe-area-inset-top) + 44px));bottom:max(10px,env(safe-area-inset-bottom));pointer-events:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#dad1b4}
 body.inspecting #unified-garage{display:block}
-#unified-garage button,#unified-garage input{font:inherit}
+#unified-garage button,#unified-garage input{font-family:inherit}
 #unified-garage button{cursor:pointer;touch-action:manipulation}
 #unified-garage button:disabled{opacity:.43;cursor:default}
 .unified-top{height:39px;max-width:min(490px,50vw);display:flex;align-items:center;gap:12px;padding:0 10px;background:#131b17ef;border:1px solid #66766390;pointer-events:auto;box-shadow:0 5px 16px #0007}
@@ -110,4 +110,120 @@ body.inspecting #unified-garage{display:block}
  #unified-garage .unified-part-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
  #unified-garage .unified-part-detail{grid-template-columns:minmax(78px,37%) minmax(0,1fr);gap:6px;padding:6px}
  #unified-garage .unified-part-detail .part-detail-preview{min-height:95px}
+}
+
+/* k.3s.1: fixed, repeatable geometry for every state and machine identity. */
+#unified-garage{
+ --garage-dock-width:clamp(245px,34vw,350px);
+ --garage-header-height:40px;
+}
+#unified-garage .unified-top{
+ box-sizing:border-box;width:var(--garage-dock-width);max-width:none;
+ height:var(--garage-header-height);gap:7px;padding:0 9px;
+}
+#unified-garage .unified-title{font-size:12px;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#unified-garage .unified-credits{font-size:11px;white-space:nowrap}
+#unified-garage .unified-head-actions{flex:0 0 auto}
+#unified-garage .unified-top-action{
+ font-size:10px;font-weight:850;min-height:29px;padding:5px 7px;
+ letter-spacing:.04em;white-space:nowrap;max-width:132px;
+}
+#unified-garage-dock{
+ width:var(--garage-dock-width);top:calc(var(--garage-header-height) + 7px);
+ gap:9px;padding:11px;
+}
+#unified-garage.has-primary #unified-garage-dock{bottom:58px}
+#unified-garage-action{
+ display:none;position:absolute;bottom:0;left:0;box-sizing:border-box;
+ width:var(--garage-dock-width);padding:7px 9px;
+ background:#121c17;border:1px solid #647768;pointer-events:auto;
+}
+#unified-garage.has-primary #unified-garage-action{display:block}
+#unified-garage-action .unified-primary{
+ font-size:12px;font-weight:900;min-height:42px;margin:0;line-height:1.1;
+}
+#unified-garage .unified-bay-navigation{
+ box-sizing:border-box;width:clamp(245px,29vw,342px);
+ max-width:calc(100vw - var(--garage-dock-width) - 25px);
+ min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;
+ gap:7px;padding:7px;right:3%;bottom:10px;touch-action:pan-x;
+}
+#unified-garage .unified-bay-navigation.hidden{display:none}
+#unified-garage .bay-arrow{box-sizing:border-box;width:44px;height:50px}
+#unified-garage .bay-index{
+ min-width:0;width:100%;display:flex;flex-direction:column;
+ align-items:center;justify-content:center;gap:3px;
+}
+#unified-garage .bay-index strong{
+ display:block;box-sizing:border-box;width:100%;max-width:none;
+ text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+ font-size:12px;font-weight:900;
+}
+#unified-garage .bay-index span{
+ display:block;box-sizing:border-box;width:100%;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;
+}
+#unified-garage .bay-dots{justify-content:center;gap:6px;width:100%}
+#unified-garage .bay-dots button{box-sizing:border-box;width:22px;height:22px;font-size:10px}
+#unified-garage .unified-station{
+ box-sizing:border-box;min-height:73px;padding:5px 2px;gap:3px;
+ background:#1c2c23;border-color:#557c5c;color:#a7cdad;
+}
+#unified-garage .unified-station strong{font-size:10px}
+#unified-garage .unified-station small{font-size:9px}
+#unified-garage .unified-station-glyph{font-size:23px;line-height:1;font-weight:700}
+#unified-garage .unified-station.state-empty{
+ background:#252b28;border-color:#4d5651;color:#828e87;
+}
+#unified-garage .unified-station.state-damaged{
+ background:#343021;border-color:#ad8e4f;color:#e0bd76;
+}
+#unified-garage .unified-station.state-critical{
+ background:#36281f;border-color:#c77b4b;color:#e9a273;
+}
+#unified-garage .unified-station.state-disabled,
+#unified-garage .unified-station.state-destroyed{
+ background:#33221e;border-color:#a85c4c;color:#dc8d7f;
+}
+#unified-garage .unified-station.selected{outline:2px solid #e5bb68;outline-offset:1px}
+#unified-garage .unified-station-readout{
+ padding:9px;display:flex;flex-direction:column;gap:5px;
+ background:#202923;border:1px solid #647463;line-height:1.4;
+}
+#unified-garage .unified-station-readout strong{font-size:11px;color:#dfbd79}
+#unified-garage .unified-station-readout small{font-size:10px;color:#a7b5a6}
+#unified-garage .unified-identity-summary{
+ display:flex;justify-content:space-between;align-items:center;gap:8px;
+ border-top:1px solid #6b72574f;padding:8px 0;
+}
+#unified-garage .unified-identity-summary small{font-size:9px;color:#a1b1a2;line-height:1.35}
+#unified-garage .unified-secondary{
+ min-height:31px;padding:5px 7px;flex-shrink:0;
+ color:#dcc68c;background:#2b2a21;border:1px solid #776749;
+ font-size:9px;font-weight:800;
+}
+#unified-garage .unified-contract-list{gap:6px}
+#unified-garage .unified-contract-detail{border:0;padding:4px 1px;gap:12px}
+#unified-garage .unified-contract-detail>strong{font-size:17px}
+#unified-garage .unified-contract-detail p{font-size:12px}
+#unified-garage .unified-contract-detail .unified-job-compact{font-size:11px;line-height:1.45}
+@media(max-height:460px){
+ #unified-garage{--garage-dock-width:clamp(238px,34vw,318px);--garage-header-height:34px}
+ #unified-garage .unified-top-action{font-size:9px;min-height:26px}
+ #unified-garage .unified-station{min-height:60px}
+ #unified-garage .unified-station-glyph{font-size:19px}
+ #unified-garage .unified-bay-navigation{
+  right:1%;bottom:6px;width:clamp(233px,29vw,310px);
+  grid-template-columns:38px minmax(0,1fr) 38px;
+ }
+ #unified-garage .bay-arrow{width:38px;height:44px}
+ #unified-garage.has-primary #unified-garage-dock{bottom:54px}
+}
+@media(max-width:690px){
+ #unified-garage{--garage-dock-width:clamp(236px,41vw,300px)}
+ #unified-garage .unified-bay-navigation{max-width:calc(100vw - var(--garage-dock-width) - 15px)}
+ #unified-garage .unified-top{gap:5px;padding:0 6px}
+ #unified-garage .unified-top-action{font-size:9px;max-width:100px;padding:4px 5px}
+ #unified-garage .unified-title{font-size:10px}
+ #unified-garage .unified-station-glyph{font-size:18px}
 }
