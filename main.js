@@ -1862,6 +1862,14 @@ function attemptAiFire(actor, target, shotIndex) {
     // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
     // raycasts remain authoritative and can still discover low cover / intervening rigs.
     if (actor.motion?.awareness?.lineOfSight === false) return;
+    // A real trigger pull consumes ammunition BEFORE resolving the raycast.
+    // Cover impacts, misses and friendly obstruction are still fired rounds.
+    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
+    if (consumed === null) return;
+    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
+    soundFire();
+    const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
+    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
@@ -1880,10 +1888,6 @@ function attemptAiFire(actor, target, shotIndex) {
     if (obstruction)
         noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
     if (contact.slot === null || contact.actorId !== target.id) return;
-    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
-    if (consumed === null) return;
-    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
-    soundFire();
     if (target.id === 'player') {
         applyAiHitToPlayer(actor, contact);
         return;
