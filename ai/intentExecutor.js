@@ -24,6 +24,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
     }
     state.lastPosition={x:rig.x,z:rig.z};
     const retry=state.stalledFor>2.5;
+    const failedWaypoint=retry?state.route?.waypoints?.[state.route.index]??null:null;
     if(retry){state.replanAttempts++;state.abortReason='STALLED AT WAYPOINT';}
     if(state.key!==key||retry||(!state.route&&state.retryLeft===0)){
         const territory=['CAPTURE','CONTEST','DEFEND'].includes(intent?.goal)&&
