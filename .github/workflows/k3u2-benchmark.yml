@@ -1,0 +1,23 @@
+name: k.3u.2 headless tactical benchmark
+on:
+  push:
+    branches: ["k3u2-tactical-breakthrough"]
+    paths: [".github/workflows/k3u2-benchmark.yml"]
+  workflow_dispatch:
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run controlled headless 3v3 cohorts
+        run: node research/headlessDominationStudy.mjs 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k3u2-domination-benchmark
+          path: study-results/
+          if-no-files-found: warn
