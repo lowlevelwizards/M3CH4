@@ -1,4 +1,4 @@
-name: k.3u.2 headless tactical benchmark
+name: k.3u.2 matched-policy headless benchmark
 on:
   push:
     branches: ["k3u2-tactical-breakthrough"]
