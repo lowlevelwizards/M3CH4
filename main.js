@@ -1405,6 +1405,10 @@ function frame(now) {
                 const selected=decidePilot(actor.brain,
                     {id:actor.id,position:{x:actor.rig.x,z:actor.rig.z}},order,{
                         capability,weaponRecovery:recovery,
+                        world:DEFAULT_WORLD,
+                        preferredRangeM:actor.behavior?.preferredRangeM,
+                        personality:actor.behavior?.id,
+                        underFireSeconds:actor.motion?.awareness?.underFireSeconds??0,
                         retreatPoint:{x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
                     },aiClock);
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
