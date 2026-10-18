@@ -17,7 +17,7 @@ import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryP
 import { squadIntent } from './squadCoordination.js';
 import { createFaultSupportState, exploitServicingTarget, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
-import { advanceSortieObjective, createSortieObjective, objectivePointForTeam, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
+import { advanceSortieObjective, createSortieObjective, dominationPointForActor, objectivePointForTeam, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 import { contractById } from './contracts.js';
@@ -416,10 +416,24 @@ function resolveActorTarget(actor) {
     actor.targetId = chooseSquadTarget(actor, candidates, actor.targetId);
     return actor.targetId ? candidates.find(candidate => candidate.id === actor.targetId) ?? null : null;
 }
+const dominationHud=document.createElement('div');
+dominationHud.id='domination-hud';
+dominationHud.setAttribute('aria-label','Three point Domination score and control');
+objectiveStatus.insertAdjacentElement('afterend',dominationHud);
 function renderObjectiveStatus() {
     const text = objectiveStatusText(sortieObjective);
     if (objectiveStatus.textContent !== text) objectiveStatus.textContent = text;
     objectiveStatus.classList.toggle('contested', !!sortieObjective?.contested);
+    const dom=sortieObjective?.domination;
+    const domActive=sortieObjective?.type==='domination'&&!inspecting;
+    dominationHud.classList.toggle('hidden',!domActive);
+    if (domActive && dom) {
+        const points=dom.points.map(p=>p.id+' '+(p.contested?'!':p.owner==='friendly'?'▲':
+            p.owner==='hostile'?'▼':'·')+' '+Math.round(Math.abs(p.influence)*100)+'%').join('  |  ');
+        const score='DOMINATION  '+Math.floor(sortieObjective.friendlyProgress)+' — '+
+            Math.floor(sortieObjective.hostileProgress)+' / '+dom.scoreToWin+'  ·  '+points;
+        if(dominationHud.textContent!==score)dominationHud.textContent=score;
+    }
     arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 }
 function renderSquadStatus() {
@@ -1368,7 +1382,15 @@ function frame(now) {
                 const screenThreat = screenAssignment?.threatId ? participants.find(candidate => candidate.id === screenAssignment.threatId) ?? null : null;
                 actor.teamPlanLeft = Math.max(0, (actor.teamPlanLeft ?? 0) - FIXED_DT);
                 if (actor.teamPlanLeft === 0 || actor.teamPlanTargetId !== target.id) {
-                    actor.teamIntent = squadIntent(actor, participants, target, objectivePointForTeam(sortieObjective, actor.team), posture, { screenTarget, screenThreat });
+                    const dominationTarget=dominationPointForActor(sortieObjective,actor);
+                    actor.teamIntent = squadIntent(actor, participants, target,
+                        dominationTarget??objectivePointForTeam(sortieObjective, actor.team), posture,
+                        { screenTarget, screenThreat });
+                    if(dominationTarget && posture?.preferredMode!=='WITHDRAW' &&
+                        posture?.preferredMode!=='HOLD' && !screenTarget) {
+                        actor.teamIntent={mode:'DOMINATE',role:actor.teamIntent.role,point:dominationTarget,
+                            note:'SECURE POINT '+dominationTarget.id,throttleScale:.94};
+                    }
                     actor.teamIntent = exploitServicingTarget(actor.teamIntent, target, posture);
                     actor.teamPlanTargetId = target.id;
                     actor.teamPlanLeft = .24 + ((actor.id.charCodeAt(actor.id.length - 1) || 0) % 3) * .04;
