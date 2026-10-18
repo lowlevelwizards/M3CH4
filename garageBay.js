@@ -99,7 +99,8 @@ export function serviceInactiveBay(storage, rigId, slot, credits) {
     stable.inventory = assembly.owned.map(p => ({ serial:p.serial, definitionId:p.definitionId,
         condition:p.condition, destroyed:!!p.destroyed, wear:p.wear, repairs:p.repairs }));
     if (!storeStable(storage, stable)) return { ok:false, reason:'STABLE SAVE FAILED' };
-    return { ok:true, charged, serial:part.serial, rebuilt:destroyed };
+    return { ok:true, charged, serial:part.serial, rebuilt:destroyed,
+        part:stable.inventory.find(p => p.serial === part.serial) };
 }
 export function bayModuleQuote(stable, rigId, slot) {
     const rig = rigById(stable, rigId);
