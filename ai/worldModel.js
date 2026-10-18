@@ -65,6 +65,7 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
     };
     memory.lastTime=time;
     return {missions,time,kind:objective?.type??'elimination',teams,zones,
+        zoneRadius:objective?.radius??4.7,
         score:{friendly:objective?.friendlyProgress??0,hostile:objective?.hostileProgress??0,
             max:objective?.domination?.scoreToWin??0},
         knowledge};
