@@ -224,9 +224,12 @@ function moduleStation(view) {
             render();
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(el('span','unified-station-glyph', STATION_GLYPHS[item.slot]));
+        // Module station always reads internal integrity: the same quantity a
+        // 22% pit patch actually restores. Armor/wear remain separate in details.
         node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
-            item.serial ? (item.armorRatio < item.condition - .01
-                ? 'ARM ' + pct(item.armorRatio) : pct(item.condition)) : 'EMPTY'));
+            item.serial ? pct(item.condition) : 'EMPTY'));
+        node.title=item.serial?'INTERNAL '+pct(item.condition)+' · ARMOR '+
+            pct(item.armorRatio)+' · WEAR '+pct(item.wear):'NOT INSTALLED';
         node.setAttribute('aria-label',SLOT_LABELS[item.slot]+' '+item.label);
         node.setAttribute('aria-pressed',String(selectedSlot===item.slot));
         station.append(node);
@@ -498,18 +501,46 @@ function renderContracts(stable) {
         return;
     }
     selectedJobId = null;
-    const list=el('section','unified-contract-list');
+    // Keep this as a genuine unlock graph, not a flat list. All links are
+    // derived from prereqs in campaign.js; coordinates are presentation only.
+    const list=el('section','unified-campaign-map');
+    list.setAttribute('aria-label','Connected Scrapyard Circuit contracts');
+    const locations={
+        'yard-dog':[150,38], 'recovery-run':[49,140], cutter:[150,140],
+        domination:[251,140], mule:[150,244], 'circuit-final':[150,347],
+    };
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 300 385');
+    svg.setAttribute('preserveAspectRatio','none');
+    svg.setAttribute('aria-hidden','true');
+    for(const node of CAMPAIGN_NODES) {
+        if(!node.prereq)continue;
+        const origin=locations[node.prereq],end=locations[node.id];
+        if(!origin||!end)continue;
+        const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d','M '+origin[0]+' '+(origin[1]+25)+' V '+(end[1]-50)+
+            ' H '+end[0]+' V '+(end[1]-26));
+        path.setAttribute('class','campaign-link'+
+            (campaign.clearedNodes.includes(node.prereq)?' unlocked':''));
+        svg.append(path);
+    }
+    list.append(svg);
     for(const node of CAMPAIGN_NODES) {
         const c=contractById(node.id),available=unlocked.includes(node.id);
         const choice=button('',()=>{selectedJobId=c.id;dock.scrollTop=0;render();},
             'unified-contract '+(available?'':' locked'), !available);
+        choice.dataset.node=node.id;
+        choice.classList.add('campaign-node-tile');
+        choice.append(el('span','node-stage',node.stage));
         choice.append(el('strong','',c.name.toUpperCase()),el('small','',
             c.objective.label.toUpperCase()+' · RISK '+c.risk.toUpperCase()+' · ₡'+c.payout));
         choice.append(el('small','',!available?'LOCKED':campaign.clearedNodes.includes(c.id)?'CLEARED · REPLAY':'AVAILABLE'));
+        if(!node.required)choice.append(el('small','node-optional','OPTIONAL'));
         list.append(choice);
     }
+    dock.append(el('p','unified-muted','SCRAPYARD CIRCUIT · CONNECTED JOBS · TAP A NODE TO OPEN ITS BRIEFING.'));
     dock.append(list);
-    dock.append(el('p','unified-muted','SELECT AN AVAILABLE JOB TO OPEN ITS BRIEFING.'));
+    dock.append(el('p','unified-muted','SOLID CONNECTIONS MARK UNLOCKED PATHS. OPTIONAL JOBS DO NOT BLOCK THE CIRCUIT.'));
 }
 function renderStationReadout(view) {
     if (!selectedSlot) return null;
@@ -541,8 +572,14 @@ function patchInPit(stable,view,series) {
     wrap.append(el('strong','unified-section-name',action?'FIELD WORK · SPENT':'FIELD WORK · ONE ACTION'));
     if(action) {
         const owner=rigById(stable,action.rigId);
-        wrap.append(el('p','',rigName(owner).toUpperCase()+' · '+SLOT_LABELS[action.slot]+
-            ' · '+action.serial+' · PATCHED TO 22% · NO ARMOR RESTORED'));
+        const verified=view.health.find(part=>part.slot===action.slot &&
+            part.serial===action.serial);
+        const condition=verified?'INTERNAL '+pct(verified.condition)+' · ARMOR '+
+            pct(verified.armorRatio)+' · WEAR '+pct(verified.wear):'SAVE VERIFICATION UNAVAILABLE';
+        wrap.append(el('p','unified-patch-proof',rigName(owner).toUpperCase()+
+            ' · '+SLOT_LABELS[action.slot]+' · '+action.serial+' · '+condition));
+        if(!verified || Math.abs(verified.condition-action.restoredCondition)>.015)
+            wrap.append(el('p','unified-warning','PATCH CONDITION MISMATCH · VERIFY BEFORE DEPLOYMENT'));
         wrap.append(el('small','unified-warning',rigName(owner).toUpperCase()+' COMMITTED TO ROUND '+series.roundNumber));
     } else {
         const choices=fieldPatchCandidates(stable).filter(c=>c.rigId===view.rig.id);
@@ -562,6 +599,8 @@ function patchInPit(stable,view,series) {
     return wrap;
 }
 function renderPit(stable,view,series) {
+    const patch=currentIntermissionFieldAction(storage,series);
+    if(patch?.rigId===viewedId && !selectedSlot)selectedSlot=patch.slot;
     const contract=contractById(series.contractId);
     dock.append(el('div','unified-job-compact','BEST OF THREE · '+contract.name.toUpperCase()+
         ' · ROUND '+series.roundNumber+' · YOU '+series.playerWins+' — '+series.enemyWins+' HOSTILE'));
