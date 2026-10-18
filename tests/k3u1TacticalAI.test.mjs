@@ -247,3 +247,51 @@ test('unreachable routes report a failure once and throttle reattempts',()=>{
     }
     assert.equal(state.failures,1);
 });
+
+test('opposing opening squads physically leave spawn and acquire a visible contact without omniscience',()=>{
+    const dt=1/60,world=DEFAULT_WORLD;
+    const actors=[
+        unit('ally-1','friendly',-9,21,{rig:createRigState({x:-9,z:21,yaw:0})}),
+        unit('ally-2','friendly',9,21,{rig:createRigState({x:9,z:21,yaw:0})}),
+        unit('enemy-0','hostile',0,-22,{rig:createRigState({x:0,z:-22,yaw:Math.PI})}),
+        unit('enemy-1','hostile',-9,-21,{rig:createRigState({x:-9,z:-21,yaw:Math.PI})}),
+        unit('enemy-2','hostile',9,-21,{rig:createRigState({x:9,z:-21,yaw:Math.PI})}),
+    ];
+    for(const a of actors){
+        a.motion=createEnemyMotion({id:'pressure',label:'SEARCH',
+            preferredRangeM:6.2,rangeBandM:1,approachThrottle:.72,approachStrafe:.10,
+            retreatThrottle:.62,strafeThrottle:.68,strafeSeconds:2.2,braceSeconds:.75,
+            closeAction:'retreat',closeRetreatM:0,steerGain:1.75,yawRateDamping:1.15});
+        a.brain=createPilotBrain();a.executor=createIntentExecutor();
+    }
+    const memory=createWorldModel(),objectiveState={type:'elimination'};
+    let contactsFound=false,plans={};
+    for(let tick=0;tick<60*35;tick++){
+        const time=tick*dt;
+        if(tick%60===0){
+            const snapshot=observeBattlefield(memory,actors,objectiveState,world,time);
+            contactsFound ||= snapshot.knowledge.friendly.contacts.some(c=>c.visible) ||
+                snapshot.knowledge.hostile.contacts.some(c=>c.visible);
+            plans={
+                friendly:planTeam(snapshot,'friendly').orders,
+                hostile:planTeam(snapshot,'hostile').orders,
+            };
+        }
+        for(const actor of actors){
+            const cap=actorCapabilities(actor);
+            const decision=decidePilot(actor.brain,{
+                id:actor.id,position:{x:actor.rig.x,z:actor.rig.z}
+            },plans[actor.team]?.[actor.id],{capability:cap,world},time);
+            const instruction=executeIntent(actor.executor,decision,actor.rig,world,.95,dt);
+            const drive=advanceEnemyMotion(actor.motion,actor.rig,actor.rig,dt,
+                true,world,.95,actor.motion.behavior,instruction);
+            stepRig(actor.rig,drive,dt,DEFAULT_RIG_CONFIG,world);
+        }
+        if(contactsFound)break;
+    }
+    assert.equal(contactsFound,true,
+        'Crews failed to acquire contact: '+JSON.stringify(actors.map(a=>({
+            id:a.id,position:{x:a.rig.x,z:a.rig.z},
+            goal:a.brain.intent?.goal,route:a.executor.lastFailure
+        }))));
+});
