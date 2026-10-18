@@ -17,6 +17,7 @@ export const CAMPAIGN_NODES = Object.freeze([
     Object.freeze({ id: 'yard-dog', stage: '01', lane: 'opening', required: true, prereq: null }),
     Object.freeze({ id: 'recovery-run', stage: '02A', lane: 'recovery', required: false, prereq: 'yard-dog' }),
     Object.freeze({ id: 'cutter', stage: '02B', lane: 'risk', required: true, prereq: 'yard-dog' }),
+    Object.freeze({ id: 'domination', stage: '02C', lane: 'territory', required: false, prereq: 'yard-dog' }),
     Object.freeze({ id: 'mule', stage: '03', lane: 'pressure', required: true, prereq: 'cutter' }),
     Object.freeze({ id: 'circuit-final', stage: '04', lane: 'final', required: true, prereq: 'mule' }),
 ]);
@@ -76,8 +77,10 @@ export function availableCampaignNodes(state) {
     if (cleared.has('yard-dog')) {
         available.add('cutter');
         available.add('recovery-run');
+        available.add('domination');
     }
     if (campaign.defeats > 0) available.add('recovery-run');
+    if (campaign.status === 'complete') available.add('domination');
     if (cleared.has('cutter')) available.add('mule');
     if (cleared.has('mule')) available.add('circuit-final');
     return CAMPAIGN_NODES.map(node => node.id).filter(id => available.has(id));
