@@ -90,3 +90,24 @@ body.inspecting #unified-garage{display:block}
 
 /* Long hardware lists scroll; never shrink their buttons into unreadable cards. */
 #unified-garage-dock > *, .unified-contract-list > *, .unified-part-list > *{flex-shrink:0}
+
+/* Restore the original physical inventory rack inside the unified bay. The
+   rendered thumbnail is the same authored gameplay part (not a stock icon). */
+#unified-garage .unified-part-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:3px}
+#unified-garage .unified-part-card{width:100%;min-width:0;min-height:82px;aspect-ratio:1.12/1;flex-shrink:0}
+#unified-garage .unified-part-card img{width:calc(100% - 6px);height:calc(100% - 6px);object-fit:contain}
+#unified-garage .unified-part-card .part-card-slot{font-size:13px}
+#unified-garage .unified-part-card .part-card-source{max-width:77%;font-size:8px}
+#unified-garage .unified-part-card .part-card-value,
+#unified-garage .unified-part-card .part-card-condition{font-size:8px}
+#unified-garage .unified-part-detail{display:grid;grid-template-columns:minmax(96px,40%) minmax(0,1fr);gap:9px;min-height:116px;margin:4px 0 0;padding:9px}
+#unified-garage .unified-part-detail .part-detail-preview{min-height:110px}
+#unified-garage .unified-part-detail h3{font-size:12px;line-height:1.25}
+#unified-garage .unified-part-detail .part-detail-meta{font-size:9px;line-height:1.4;overflow-wrap:anywhere}
+#unified-garage .unified-part-detail .part-detail-value{font-size:10px}
+#unified-garage .unified-part-detail .part-detail-action{min-height:39px;font-size:10px;padding:7px 5px;overflow-wrap:anywhere}
+@media(max-width:690px){
+ #unified-garage .unified-part-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #unified-garage .unified-part-detail{grid-template-columns:minmax(78px,37%) minmax(0,1fr);gap:6px;padding:6px}
+ #unified-garage .unified-part-detail .part-detail-preview{min-height:95px}
+}
