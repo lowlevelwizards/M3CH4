@@ -67,6 +67,22 @@ function injectStyles() {
 @media(max-width:730px){.debrief-content{width:min(700px,96vw)!important;padding:8px 10px!important}.debrief-page{padding-left:15px;padding-right:15px}.debrief-edge{width:25px;height:48px}.score-layout,.salvage-layout{gap:6px}.score-card{padding:6px}.score-stat{min-height:34px;padding:4px}.score-stat b{font-size:10px}.score-standing{grid-template-columns:13px minmax(54px,1fr) 36px minmax(70px,1.2fr);font-size:6.5px}.salvage-browser,.salvage-inspector{padding:5px}.salvage-browser .part-card{min-height:52px}}
 @media(max-height:430px){.debrief-content{height:88dvh;max-height:88dvh!important}.debrief-result-summary{padding-bottom:1px}.debrief-page-result h1{font-size:15px;margin:3px 0 5px}.debrief-page-result .debrief-row{min-height:27px;padding:4px 6px}.debrief-page-result .sheet-muted{margin-top:4px}.score-stat{min-height:31px}.score-stat b{font-size:9px}.score-explain{margin-top:4px;padding-top:3px}.score-standing{min-height:17px}.salvage-head{padding-bottom:3px}.salvage-browser .part-grid-toolbar{margin-bottom:3px}.salvage-browser .part-card{min-height:46px}.salvage-inspector .part-detail{grid-template-rows:minmax(72px,1fr) auto}.debrief-page-nav{padding:4px 0}.debrief-content>.sheet-done{min-height:28px;padding:4px 8px}}
 `;
+    // A report should be touch-operable without pixel-perfect precision.
+    // These scoped overrides apply after the compact landscape rules above.
+    style.textContent += `
+#sortie-debrief .debrief-edge{width:40px;height:58px;min-height:44px;touch-action:manipulation}
+#sortie-debrief .debrief-edge-left{left:2px}
+#sortie-debrief .debrief-edge-right{right:2px}
+#sortie-debrief .debrief-page-nav button{min-height:36px;min-width:75px;font-size:9px;touch-action:manipulation}
+#sortie-debrief .salvage-browser .part-card{min-height:58px;touch-action:manipulation}
+#sortie-debrief .salvage-inspector .part-detail-action{min-height:42px;font-size:9px;touch-action:manipulation}
+#sortie-debrief #debrief-garage{min-height:39px!important;font-size:9px!important;touch-action:manipulation}
+@media(max-height:430px){
+ #sortie-debrief .debrief-edge{width:34px;height:52px}
+ #sortie-debrief .debrief-page-nav button{min-height:33px;min-width:70px}
+ #sortie-debrief .salvage-inspector .part-detail-action{min-height:39px}
+}
+`;
     document.head.append(style);
 }
 
