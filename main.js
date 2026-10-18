@@ -1910,7 +1910,12 @@ function attemptAiFire(actor, target, shotIndex) {
         noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48);
     if (obstruction)
         noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
-    if (contact.slot === null || contact.actorId !== target.id) return;
+    if (contact.slot === null || contact.actorId !== target.id) {
+        // Every fired round gets a real tracer even if it only hits cover,
+        // another machine, or open air. Damage still requires a valid hit.
+        arena.showCombatantShot(actor.id,contact,null);
+        return;
+    }
     if (target.id === 'player') {
         applyAiHitToPlayer(actor, contact);
         return;
