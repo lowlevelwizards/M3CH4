@@ -88,7 +88,10 @@ export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.
     // Prefer physically direct entries first. The grid-search fallback
     // evaluates only nearby alternatives, keeping 60Hz phone pacing bounded.
     const sorted=candidates.filter(point=>valid(point,world,collisionRadius+.34))
-        .sort((a,b)=>length(from,a)-length(from,b));
+        .sort((a,b)=> {
+            const penalty=p=>avoid&&length(p,avoid)<3.0?12:0;
+            return length(from,a)+penalty(a)-length(from,b)-penalty(b);
+        });
     for(const point of sorted)
         if(clearSegment(from,point,world,collisionRadius+.34))
             return {ok:true,waypoints:[point],cost:length(from,point),approach:point};
