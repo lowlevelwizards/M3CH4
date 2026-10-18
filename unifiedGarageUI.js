@@ -455,6 +455,8 @@ function renderCounter(machine) {
         },
     });
     details.classList.add('counter-lot-detail');
+    const asking=details.querySelector('.part-detail-value');
+    if(asking) asking.textContent='ASKING PRICE · ₡'+chosen.price.toLocaleString();
     dock.append(details);
     dock.append(el('p','unified-muted',
         stock.offers.every(lot=>lot.sold)
