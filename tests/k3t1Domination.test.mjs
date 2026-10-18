@@ -142,10 +142,10 @@ test('presentation exposes three distinct physical sites and capture/ownership d
 test('tactical movement treats occupation as an explicit hold order, not a generic orbit',()=>{
     const ai=file('enemyMotion.js');
     const main=file('main.js');
-    assert.match(ai,/teamIntent\?\.mode === 'DOMINATE'/);
+    assert.match(ai,/teamIntent\?\.mode==='ORDER'/);
     assert.match(ai,/brake:\.82/);
-    assert.match(main,/dominationPointForActor\(sortieObjective,actor\)/);
-    assert.match(main,/mode:'DOMINATE'/);
+    assert.match(main,/planTeam\(aiSnapshot/);
+    assert.match(main,/executeIntent\(actor\.executor/);
     assert.match(main,/sortieObjective.type!=='domination' \|\| !outcome.victory/);
     assert.match(main,/domination-hud/);
 });
