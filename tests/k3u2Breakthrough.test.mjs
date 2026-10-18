@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createStrategicState,evaluateStrategy } from '../ai/strategicState.js';
 import { planTeam } from '../ai/teamPlanner.js';
-import { planApproachRoute } from '../ai/navigation.js';
+import { planApproachRoute, planRoute } from '../ai/navigation.js';
 import { createIntentExecutor,executeIntent } from '../ai/intentExecutor.js';
 import { chooseDefendPosition } from '../ai/positioning.js';
 import { DEFAULT_WORLD } from '../locomotion.js';
@@ -168,4 +168,16 @@ test('majority-break plan can coordinate an intercept screener with a capturer',
  assert.ok(roles.every(Boolean));
  assert.ok(roles.some(r=>['SCREEN','INTERCEPT','FLANKER','CAPTURER'].includes(r)));
  assert.ok(Object.values(plan.orders).some(o=>o.goal==='CONTEST'));
+});
+
+test('a physically legal machine beside inflated cover can plan an actual exit waypoint',()=>{
+ const world={minX:-20,maxX:20,minZ:-20,maxZ:20,
+    obstacles:[{id:'screen',minX:-1,maxX:1,minZ:-2,maxZ:2,height:3}]};
+ const from={x:2,z:0},goal={x:10,z:0};
+ const route=planRoute(world,from,goal,1.2);
+ assert.equal(route.ok,true,route.reason);
+ assert.equal(route.recoveredStart,true);
+ assert.ok(route.waypoints.length>=2);
+ assert.ok(route.waypoints[0].x>2.4);
+ assert.deepEqual(route.waypoints.at(-1),goal);
 });
