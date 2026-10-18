@@ -177,6 +177,94 @@ export function createArenaScene(initial, targetAssembly) {
         }
         stagingFixtures.visible=inspecting;
     }
+    // Four real components on one battered dealer's table. The counter is a
+    // mutually exclusive garage viewing mode: no combat meshes or extra loadout
+    // geometry are created. Cards and these physical objects share lot serials.
+    const vendorRoot = new THREE.Group();
+    vendorRoot.name='used-parts-counter-table';
+    vendorRoot.visible=false;
+    scene.add(vendorRoot);
+    const vendorPicks=[],vendorPads=new Map();
+    let vendorEnabled=false;
+    function clearVendorTable() {
+        vendorRoot.traverse(object=>{
+            if(!object.isMesh)return;
+            object.geometry?.dispose?.();
+            const mats=Array.isArray(object.material)?object.material:[object.material];
+            mats.forEach(mat=>mat?.dispose?.());
+        });
+        vendorRoot.clear();vendorPicks.length=0;vendorPads.clear();
+    }
+    function vendorBox(width,height,depth,color,x,y,z,parent=vendorRoot) {
+        const material=new THREE.MeshStandardMaterial({color,roughness:.89,metalness:.28});
+        const mesh=new THREE.Mesh(new THREE.BoxGeometry(width,height,depth),material);
+        mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;
+        parent.add(mesh);return mesh;
+    }
+    function setVendorStock(offers=[]) {
+        clearVendorTable();
+        vendorBox(10.0,.18,2.65,0x654632,0,.75,0);
+        vendorBox(9.9,.065,2.6,0x967647,0,.865,0);
+        for(const x of [-4.3,4.3])for(const z of [-.98,.98])
+            vendorBox(.23,.72,.23,0x343d38,x,.34,z);
+        vendorBox(10.1,.12,.19,0xb38742,0,.95,-1.27);
+        (offers||[]).slice(0,4).forEach((offer,i)=>{
+            const x=(i-1.5)*2.40;
+            const tray=vendorBox(2.14,.06,2.17,offer.sold?0x333732:0x3e4a42,x,.97,0);
+            tray.userData.vendorSerial=offer.serial;vendorPicks.push(tray);
+            const light=vendorBox(2.09,.04,.12,offer.sold?0x5b4138:0xb99151,x,1.018,-1.02);
+            vendorPads.set(offer.serial,{light,sold:offer.sold});
+            if(offer.sold)return;
+            const def=BY_ID.get(offer.definitionId);
+            if(!def)return;
+            const assembly={serial:'COUNTER',name:'VENDOR',owned:[{
+                serial:offer.serial,definitionId:offer.definitionId,
+                condition:offer.condition,wear:offer.wear,repairs:offer.repairs,
+                destroyed:false,
+            }],installed:{[def.slot]:offer.serial}};
+            const visual=buildExteriorRig(assembly);
+            const bounds=new THREE.Box3().setFromObject(visual.root);
+            const size=bounds.getSize(new THREE.Vector3());
+            const scale=Math.min(1,1.86/Math.max(.1,size.x),
+                1.86/Math.max(.1,size.z),1.95/Math.max(.1,size.y));
+            visual.root.scale.setScalar(scale);
+            visual.root.position.set(x-(bounds.min.x+bounds.max.x)*.5*scale,
+                1.04-bounds.min.y*scale,-(bounds.min.z+bounds.max.z)*.5*scale);
+            for(const mesh of visual.pickMeshes){
+                mesh.userData.vendorSerial=offer.serial;vendorPicks.push(mesh);
+                if(mesh.material instanceof THREE.MeshStandardMaterial && offer.condition<.98){
+                    mesh.material.color.lerp(new THREE.Color(0x6e3228),Math.min(.55,(1-offer.condition)*.42));
+                    mesh.material.color.multiplyScalar(Math.max(.50,1-(1-offer.condition)*.28));
+                }
+            }
+            vendorRoot.add(visual.root);
+        });
+        vendorRoot.visible=inspecting&&vendorEnabled;
+    }
+    function setVendorMode(enabled) {
+        vendorEnabled=!!enabled;
+        vendorRoot.visible=inspecting&&vendorEnabled;
+        exterior.root.visible=inspecting&&!vendorEnabled;
+        stagingFixtures.visible=inspecting&&!vendorEnabled;
+        if(vendorEnabled) {
+            desiredTarget.set(0,1.30,0);
+            radius=Math.max(radius,9.6);
+        } else focusPart(null);
+    }
+    function selectVendorLot(serial) {
+        for(const [id,pad] of vendorPads)
+            pad.light.material.color.setHex(pad.sold?0x5b4138:id===serial?0xeac572:0xb99151);
+    }
+    function pickVendorLot(clientX,clientY,canvas) {
+        if(!inspecting||!vendorEnabled)return null;
+        const rect=canvas.getBoundingClientRect();
+        const pointer=new THREE.Vector2(((clientX-rect.left)/rect.width)*2-1,
+            -((clientY-rect.top)/rect.height)*2+1);
+        vendorRoot.updateWorldMatrix(true,true);
+        camera.updateMatrixWorld();
+        raycaster.setFromCamera(pointer,camera);
+        return raycaster.intersectObjects(vendorPicks,false)[0]?.object.userData.vendorSerial??null;
+    }
     const GARAGE_RIG_YAW = -0.10;
     const cockpit = buildCockpit(scene);
     // The information display is still a real Three.js cockpit layer, but it rides the
@@ -1083,14 +1171,15 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function setInspection(enabled) {
         inspecting = enabled;
-        exterior.root.visible = enabled;
+        exterior.root.visible = enabled && !vendorEnabled;
+        vendorRoot.visible = enabled && vendorEnabled;
         cockpit.visible = !enabled;
         combinerHud.visible = !enabled;
         blackout.visible = !enabled;
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
         garageRoot.visible = enabled;
-        stagingFixtures.visible = enabled;
+        stagingFixtures.visible = enabled && !vendorEnabled;
         arenaHemisphere.visible = !enabled;
         sun.visible = !enabled;
         coolRim.visible = !enabled;
@@ -1606,6 +1695,7 @@ export function createArenaScene(initial, targetAssembly) {
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
+        setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,

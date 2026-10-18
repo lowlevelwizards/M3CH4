@@ -227,3 +227,29 @@ body.inspecting #unified-garage{display:block}
  #unified-garage .unified-title{font-size:10px}
  #unified-garage .unified-station-glyph{font-size:18px}
 }
+
+/* k.3t.0 — a cramped used-part counter, not another RPG shop inventory. */
+#unified-garage .unified-head-actions{gap:5px}
+#unified-garage .unified-head-actions .unified-top-action{font-size:9px;padding:4px 5px;max-width:89px}
+#unified-garage[data-mode="vendor"] #unified-garage-dock{gap:10px}
+#unified-garage .counter-intro{display:flex;flex-direction:column;gap:6px;padding:9px;background:#302719;border:1px solid #8b7045}
+#unified-garage .counter-intro strong{font:900 12px/1.2 ui-monospace,monospace;color:#e6bc71}
+#unified-garage .counter-intro p{font:800 10px/1.4 ui-monospace,monospace;color:#d3b993;margin:0}
+#unified-garage .counter-intro small{font:800 9px/1.4 ui-monospace,monospace;color:#92ae93}
+#unified-garage .counter-lots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#unified-garage .counter-lot{box-sizing:border-box;width:100%;min-height:94px}
+#unified-garage .counter-lot .part-card-source{max-width:60%;font-size:9px}
+#unified-garage .counter-lot-detail{display:grid;grid-template-columns:minmax(94px,38%) minmax(0,1fr);gap:9px;padding:9px}
+#unified-garage .counter-lot-detail .part-detail-preview{min-height:118px}
+#unified-garage .counter-lot-detail h3{font-size:12px}
+#unified-garage .counter-lot-detail .part-detail-meta{font-size:9px;line-height:1.4;overflow-wrap:anywhere}
+#unified-garage .counter-lot-detail .part-detail-value{font-size:11px}
+#unified-garage .counter-lot-detail .part-detail-action{font-size:10px;line-height:1.2;min-height:42px;overflow-wrap:anywhere}
+@media(max-height:430px){
+ #unified-garage .counter-intro{gap:3px;padding:6px}
+ #unified-garage .counter-intro strong{font-size:11px}
+ #unified-garage .counter-lot{min-height:76px}
+ #unified-garage .counter-lot-detail{padding:6px;gap:6px;grid-template-columns:minmax(82px,36%) minmax(0,1fr)}
+ #unified-garage .counter-lot-detail .part-detail-preview{min-height:94px}
+ #unified-garage .counter-lot-detail .part-detail-action{min-height:38px}
+}
