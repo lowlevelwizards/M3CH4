@@ -3,6 +3,7 @@
  * Viewed rig changes only a Three.js preview; battle-active rig changes at DEPLOY.
  */
 import { BY_ID } from './components.js';
+import { loadCounter } from './usedPartsCounter.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
 import { partCreditValue } from './partEconomy.js';
 import { activePlayerArena } from './scene.js';
@@ -42,6 +43,7 @@ try { session = window.sessionStorage; } catch { /* display a blocking action me
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
+let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
@@ -142,8 +144,8 @@ function preview(stable, series) {
 }
 function navRender(stable, currentMode) {
     navigator.replaceChildren();
-    navigator.classList.toggle('hidden', currentMode === 'contracts');
-    if (currentMode === 'contracts') return;
+    navigator.classList.toggle('hidden', currentMode === 'contracts' || currentMode === 'vendor');
+    if (currentMode === 'contracts' || currentMode === 'vendor') return;
     const view = bayStatus(stable, viewedId);
     navigator.append(button('‹', () => stepBay(-1), 'bay-arrow', viewedId === BAY_IDS[0]));
     const label = el('div','bay-index');
@@ -161,10 +163,17 @@ function navRender(stable, currentMode) {
 function renderTop(currentMode, series, machine) {
     top.replaceChildren();
     const title = el('strong','unified-title', currentMode === 'pit' ? 'INTERMISSION · PIT' :
-        currentMode === 'setup' ? 'SORTIE SETUP' : currentMode === 'contracts' ? 'SCRAPYARD CIRCUIT' : 'GARAGE');
+        currentMode === 'setup' ? 'SORTIE SETUP' : currentMode === 'contracts' ? 'SCRAPYARD CIRCUIT' :
+        currentMode === 'vendor' ? 'PARTS COUNTER' : 'GARAGE');
     const balance = el('small','unified-credits','₡' + Number(machine.economy?.credits ?? 0).toLocaleString());
     const actions = el('div','unified-head-actions');
-    if (currentMode === 'garage') actions.append(button('CONTRACTS ›', () => { selectedJobId = null; mode = 'contracts'; dock.scrollTop = 0; render(); }, 'unified-top-action'));
+    if (currentMode === 'garage') {
+        actions.append(button('COUNTER ›',()=>{mode='vendor';dock.scrollTop=0;render();},'unified-top-action'));
+        actions.append(button('JOBS ›',()=>{selectedJobId=null;mode='contracts';dock.scrollTop=0;render();},'unified-top-action'));
+    }
+    if (currentMode === 'vendor') actions.append(button('‹ GARAGE',()=>{
+        mode='garage';selectedLotSerial=null;dock.scrollTop=0;render();
+    },'unified-top-action'));
     if (currentMode === 'contracts') actions.append(button(selectedJobId ? '‹ ALL JOBS' : '‹ GARAGE', () => {
         if (selectedJobId) selectedJobId = null;
         else mode = 'garage';
@@ -389,6 +398,77 @@ function renderGarage(stable,machine,view) {
     dock.append(identity);
     if (identityExpanded) dock.append(appendIdentityForm(view,stable));
 }
+function renderCounter(machine) {
+    const campaign=loadCampaign(storage);
+    const {stock,persisted}=loadCounter(storage,campaign.sorties);
+    const offers=stock.offers;
+    const viewing=offers.find(item=>item.serial===selectedLotSerial);
+    if(!viewing) selectedLotSerial=(offers.find(item=>!item.sold)||offers[0]).serial;
+    const chosen=offers.find(item=>item.serial===selectedLotSerial);
+    const heading=el('section','counter-intro');
+    heading.append(el('strong','','THE BACKLOT PARTS COUNTER'));
+    heading.append(el('p','','FOUR AS-IS LOTS. NO GUARANTEES. NO REFUNDS.'));
+    heading.append(el('small','',
+        'NEW STOCK AFTER YOUR NEXT COMPLETED CONTRACT · LOT '+String(campaign.sorties+1).padStart(2,'0')));
+    dock.append(heading);
+    const tiles=el('section','counter-lots part-grid');
+    const arena=activePlayerArena()?.arena;
+    for (const offer of offers) {
+        const def=BY_ID.get(offer.definitionId);
+        const card=createPartCard({
+            entry:{id:offer.id,sourceSerial:offer.serial,definitionId:offer.definitionId,
+                name:def.name,slot:def.slot,condition:offer.condition,
+                destroyed:false},
+            thumbnailUrl:arena?.partThumbnailDataUrl?.(offer.definitionId,offer)??null,
+            value:offer.price,source:offer.sold?'SOLD':'AS-IS',
+            selected:offer.serial===selectedLotSerial,claimed:offer.sold,
+            onSelect:()=>{selectedLotSerial=offer.serial;render();},
+        });
+        card.classList.add('counter-lot');
+        card.setAttribute('aria-label',def.name+' · '+offer.serial+' · '+
+            Math.round(offer.condition*100)+' percent · ₡'+offer.price+
+            (offer.sold?' · sold':' · for sale'));
+        tiles.append(card);
+    }
+    dock.append(tiles);
+    const def=BY_ID.get(chosen.definitionId);
+    const yardValue=partCreditValue(def,chosen.condition,{wear:chosen.wear});
+    const details=createPartDetail({
+        entry:{id:chosen.id,sourceSerial:chosen.serial,name:def.name,
+            definitionId:def.id,slot:def.slot,condition:chosen.condition},
+        thumbnailUrl:arena?.partThumbnailDataUrl?.(chosen.definitionId,chosen)??null,
+        value:chosen.price,
+        meta:'CONDITION '+pct(chosen.condition)+' · WEAR '+pct(chosen.wear)+
+            '\nPRIOR REPAIRS '+chosen.repairs+' · YARD VALUE ≈ ₡'+yardValue+
+            '\nASKING ₡'+chosen.price+' · SOLD AS-IS'+
+            (chosen.sold?'\nSOLD · EMPTY TABLE SLOT':''),
+        actionLabel:chosen.sold?'SOLD OUT':!persisted?'COUNTER UNAVAILABLE':
+            machine.economy.credits<chosen.price?
+                'NEED ₡'+(chosen.price-machine.economy.credits)+' MORE':
+                'BUY SERIAL '+chosen.serial+' · ₡'+chosen.price,
+        actionDisabled:chosen.sold||!persisted||machine.economy.credits<chosen.price,
+        onAction:()=>{
+            const result=emitEdit('m3ch4:counter-buy',{serial:chosen.serial});
+            message(result.ok?
+                'PURCHASED '+chosen.serial+' · STORED IN OWNED HARDWARE':result.reason,!result.ok);
+            if(result.ok) {vendorTableSignature='';render();}
+        },
+    });
+    details.classList.add('counter-lot-detail');
+    dock.append(details);
+    dock.append(el('p','unified-muted',
+        stock.offers.every(lot=>lot.sold)
+            ? 'SOLD OUT. NEW LOTS AFTER YOUR NEXT COMPLETED CONTRACT.'
+            : 'SOME PARTS COST MORE TO REPAIR THAN THEY ARE WORTH. INSPECT BEFORE BUYING.'));
+    const visualKey=stock.cycle+':'+offers.map(offer=>offer.serial+':'+offer.sold).join('|');
+    if(arena) {
+        if(visualKey!==vendorTableSignature){
+            arena.setVendorStock(offers);
+            vendorTableSignature=visualKey;
+        }
+        arena.selectVendorLot(selectedLotSerial);
+    }
+}
 function takeContract(stable,jobId) {
     const result=beginSortieAssignment(session,jobId);
     if (!result.ok) {message(result.reason,true);return;}
@@ -525,12 +605,20 @@ function render() {
     renderTop(state,series,machine);
     actionBar.replaceChildren();
     dock.replaceChildren();
+    const selling=state==='vendor';
+    const arena=activePlayerArena()?.arena;
+    if(selling!==vendorShowing) {
+        arena?.setVendorMode(selling);
+        vendorShowing=selling;
+        previewSignature='';
+    }
     if(state==='garage')renderGarage(stable,machine,view);
     else if(state==='contracts')renderContracts(stable);
     else if(state==='setup')renderSetup(stable,view);
     else if(state==='pit')renderPit(stable,view,series);
+    else if(state==='vendor')renderCounter(machine);
     navRender(stable,state);
-    preview(stable,series);
+    if (!selling) preview(stable,series);
     dock.scrollTop = previousScroll;
     shell.classList.toggle('has-primary',actionBar.childElementCount>0);
     shell.dataset.mode=state;
@@ -542,6 +630,10 @@ function queueRender() {
 }
 document.addEventListener('m3ch4:assembly-mutated',()=>{previewSignature='';queueRender();});
 document.addEventListener('m3ch4:inventory-changed',()=>{previewSignature='';queueRender();});
+document.addEventListener('m3ch4:counter-picked',event=>{
+    if(actualMode(loadSeries(storage))!=='vendor') return;
+    selectedLotSerial=event.detail?.serial??selectedLotSerial;render();
+});
 document.addEventListener('m3ch4:stable-status-cleared',queueRender);
 document.addEventListener('m3ch4:bay-picked',event=>{
     if(actualMode(loadSeries(storage))!=='garage')return;
