@@ -234,7 +234,10 @@ function runBout(seed,settings){
       const outcome=advanceSortieObjective(state,actors,DT);
       const ours=state.domination.points.filter(p=>p.owner==='friendly'&&!p.contested).length;
       const theirs=state.domination.points.filter(p=>p.owner==='hostile'&&!p.contested).length;
-      const scoring=ours>=2||theirs>=2;
+      // Real awarded score, not merely ownership count: experimental local
+      // majority pressure can award reduced progress while contested.
+      const scoring=state.friendlyProgress>prevScore.friendly+1e-9 ||
+          state.hostileProgress>prevScore.hostile+1e-9;
       if(scoring){
           metrics.totalScoringSeconds+=DT;
           if(metrics.firstMajorityAt===null)metrics.firstMajorityAt=t;
@@ -333,8 +336,10 @@ function main(){
     const config=[
  {name:'no-damage-strict',accuracy:0,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler']},
  {name:'no-damage-superiority',accuracy:0,policy:'superiority',variantTeam:'none',variant:['yard','kestrel','hauler']},
+ {name:'no-damage-pressure',accuracy:0,policy:'pressure',variantTeam:'none',variant:['yard','kestrel','hauler']},
  {name:'armed-strict',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler']},
  {name:'armed-superiority',accuracy:.70,policy:'superiority',variantTeam:'none',variant:['yard','kestrel','hauler']},
+ {name:'armed-pressure',accuracy:.70,policy:'pressure',variantTeam:'none',variant:['yard','kestrel','hauler']},
  {name:'worn-05',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.05},
  {name:'worn-15',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.15},
  {name:'worn-25',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.25},
