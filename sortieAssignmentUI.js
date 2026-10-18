@@ -316,8 +316,10 @@ function appendResolvedMachineRow() {
     debriefLines.prepend(row);
 }
 
-const debriefObserver = new MutationObserver(appendResolvedMachineRow);
-debriefObserver.observe(debriefLines, { childList: true });
+// The base debrief announces completion explicitly. Observing the result-row
+// subtree made legacy and BO3 adapters rebuild one another's content while the
+// player was tapping the report.
+document.addEventListener('m3ch4:debrief-opened', appendResolvedMachineRow);
 
 subscribeBoutResult(result => {
     const assignment = loadSortieAssignment(sessionStorageRef);
