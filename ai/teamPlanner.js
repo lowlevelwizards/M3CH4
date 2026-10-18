@@ -25,11 +25,21 @@ function zoneJobs(snapshot,team,strategy=null) {
         if(strategy?.phase==='ROTATE'&&z.contested&&strategy.target!==z.id)
             base-=.35;
         if(strategy?.phase==='HOLD_MAJORITY'&&friendlyOwned)base+=.13;
-        return [{id:job+':'+z.id,kind:job,objectiveId:z.id,point:{...z.point},
+        const primary={id:job+':'+z.id,kind:job,objectiveId:z.id,point:{...z.point},
             priority:base,defended:friendlyOwned,contested:z.contested,
             note:enemyMajority&&threat?'BREAK ENEMY MAJORITY':
                 ourMajority&&friendlyOwned?'PROTECT SCORING MAJORITY':
-                enemyOwned?'RECAPTURE':friendlyOwned?'DEFEND':'CLAIM NEUTRAL'}];
+                enemyOwned?'RECAPTURE':friendlyOwned?'DEFEND':'CLAIM NEUTRAL'};
+        // A real two-rig attack: one pilot occupies the scoring footprint
+        // while another screens the objective approach, not an extra
+        // fixed-ID script. A screen still has physical occupancy and can die.
+        if(z.id===strategy?.target &&
+           ['BREAK_MAJORITY','ROTATE'].includes(strategy.phase)&&threat)
+            return [primary,{id:'SCREEN:'+z.id,kind:'SCREEN',
+                objectiveId:z.id,point:{...z.point},priority:base-.12,
+                defended:false,contested:z.contested,
+                note:'SCREEN CAPTURER · INTERCEPT APPROACH'}];
+        return [primary];
     });
 }
 function suitability(actor,job,team) {
@@ -39,7 +49,8 @@ function suitability(actor,job,team) {
     const travel=d/Math.max(.6,3.6*cap.speed);
     const here=d<3.5;
     const role=actor.behavior;
-    const offense=job.kind==='CONTEST'?Math.min(cap.weapon,cap.endurance)*.17:0;
+    const offense=['CONTEST','SCREEN'].includes(job.kind)?
+        Math.min(cap.weapon,cap.endurance)*.17:0;
     const toughness=job.kind==='DEFEND'?cap.endurance*.2:0;
     const maneuver=job.kind==='CAPTURE'?(role==='skirmisher'?.12:0)+cap.speed*.16:0;
     const positional=here?.26:0;
@@ -106,7 +117,10 @@ export function planTeam(snapshot,team,options={}) {
                     'ROTATE · '+job.note:job.note,
                 strategy:strategy?.phase??'TAKE_GROUND',
                 role:job.kind==='DEFEND'?'ANCHOR':
-                    job.kind==='CONTEST'?'INTERCEPT':'CAPTURER'};
+                    job.kind==='SCREEN'?'SCREEN':
+                    job.kind==='CONTEST'?'INTERCEPT':
+                    strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
+                        'FLANKER':'CAPTURER'};
         }
         return {team,orders,reason:strategy?.reason??'TERRITORY MAJORITY',
             strategy:strategy?.phase??'TAKE_GROUND',
