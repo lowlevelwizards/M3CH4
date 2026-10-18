@@ -259,6 +259,7 @@ function deploymentBlockReason() {
     const current = functionalOutput(assembly, damage);
     return disabledReason(playerCondition, current) ?? (!current.weaponOperational ? 'WEAPON OFFLINE' : null);
 }
+let playerMissionKillReason=null;
 function updateFunctionalStatus() {
     output = functionalOutput(assembly, damage);
     if (rigConfig)
@@ -277,9 +278,17 @@ function updateFunctionalStatus() {
         faults.push('WEAPON LOST');
     else if (output.weapon < .99)
         faults.push(`WEAPON ${Math.round(output.weapon * 100)}%`);
-    faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
-    faultStrip.classList.toggle('faulted', faults.length > 0);
-    faultStrip.classList.toggle('nominal', faults.length === 0);
+    // A confirmed mission kill outranks ongoing subsystem telemetry; don't
+    // let the next systems tick overwrite the only important warning.
+    if(!playerCombatActive && playerMissionKillReason) {
+        faultStrip.textContent='RIG DISABLED · '+playerMissionKillReason;
+        faultStrip.classList.add('faulted');
+        faultStrip.classList.remove('nominal');
+    } else {
+        faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
+        faultStrip.classList.toggle('faulted', faults.length > 0);
+        faultStrip.classList.toggle('nominal', faults.length === 0);
+    }
     renderPlayerDamageHUD();
 }
 function required(selector) {
@@ -598,6 +607,7 @@ function missionKillPlayer(reason, attackerId = null) {
     if (!playerCombatActive) return;
     recordMissionKill(boutLedger, { attackerId, victimId: 'player', reason, time: performance.now() / 1000 });
     playerCombatActive = false;
+    playerMissionKillReason=reason;
     rig.vx = 0; rig.vz = 0; rig.yawRate = 0;
     stopFireInput();
     stopFieldServiceInput();
@@ -641,6 +651,7 @@ function resetAiActor(actor) {
     arena.updateCombatantDamage(actor.id, actor.condition);
 }
 function resetSquadBattle() {
+    playerMissionKillReason=null;
     leaveAlliedObservation();
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
