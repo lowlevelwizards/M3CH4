@@ -20,7 +20,7 @@ test('fresh campaign exposes only the opening bout', () => {
 
 test('Yard Dog opens the recovery/Cutter fork and Cutter advances to Mule', () => {
   let campaign = win(createCampaignState(), 'yard-dog', 850);
-  assert.deepEqual(availableCampaignNodes(campaign), ['yard-dog', 'recovery-run', 'cutter']);
+  assert.deepEqual(availableCampaignNodes(campaign), ['yard-dog', 'recovery-run', 'cutter', 'domination']);
   campaign = win(campaign, 'recovery-run', 450);
   assert.equal(isCampaignNodeAvailable(campaign, 'mule'), false, 'optional recovery does not bypass Cutter');
   campaign = win(campaign, 'cutter', 950);
