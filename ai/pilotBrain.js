@@ -18,7 +18,8 @@ export function decidePilot(brain,actor,assignment,context,now) {
     const service=!!context?.weaponRecovery?.active;
     let proposed;
     if(service) proposed={goal:context.weaponRecovery.mode==='WITHDRAW'?'WITHDRAW':'SERVICE',
-        point:assignment?.point??actor.position,utility:.98,
+        point:context.weaponRecovery.mode==='WITHDRAW'
+            ? context.retreatPoint??actor.position : actor.position,utility:.98,
         reason:'WEAPON SERVICE / SAFE RECOVERY'};
     else if(unsafe && capability.canMove)
         proposed={goal:'WITHDRAW',point:context.retreatPoint??actor.position,
