@@ -181,3 +181,26 @@ test('a physically legal machine beside inflated cover can plan an actual exit w
  assert.ok(route.waypoints[0].x>2.4);
  assert.deepEqual(route.waypoints.at(-1),goal);
 });
+
+test('experimental pressure scoring requires owned local 2v1 advantage and runs slower than uncontested hold',()=>{
+ const contract={objective:{type:'domination',capturePolicy:'pressure',
+    points:[{id:'A',x:0,z:0},{id:'B',x:12,z:0},{id:'C',x:-12,z:0}],
+    radius:4.7,captureSeconds:3.6,scoreRate:1,scoreToWin:60}};
+ const state=createSortieObjective(contract);
+ state.domination.points[0].owner='friendly';state.domination.points[0].influence=1;
+ state.domination.points[1].owner='friendly';state.domination.points[1].influence=1;
+ const rigs=[{active:true,team:'friendly',rig:{x:0,z:0}},
+   {active:true,team:'friendly',rig:{x:12,z:0}},
+   {active:true,team:'friendly',rig:{x:12.3,z:.5}},
+   {active:true,team:'hostile',rig:{x:12,z:1}}];
+ for(let i=0;i<120;i++)advanceSortieObjective(state,rigs,1/60);
+ assert.equal(state.domination.capturePolicy,'pressure');
+ assert.equal(state.domination.points[1].contested,true);
+ assert.ok(state.friendlyProgress>1 && state.friendlyProgress<2);
+ // Remove the second local capturer; the lone defender restores a complete
+ // scoring veto even if the point was previously owned.
+ rigs[2].active=false;
+ const before=state.friendlyProgress;
+ for(let i=0;i<120;i++)advanceSortieObjective(state,rigs,1/60);
+ assert.ok(Math.abs(state.friendlyProgress-before)<1e-6);
+});
