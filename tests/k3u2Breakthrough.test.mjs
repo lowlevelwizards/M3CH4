@@ -130,7 +130,7 @@ test('weapon transaction consumes a real shot once regardless of hit/miss outcom
  assert.ok(section.indexOf('fireWeapon(actor.weaponState, actor.weaponSpec)')<
    section.indexOf('arena.traceCombatantShot('));
  assert.ok(section.indexOf('fireWeapon(actor.weaponState, actor.weaponSpec)')<
-   section.indexOf('if (contact.slot === null || contact.actorId !== target.id) return;'));
+   section.indexOf('if (contact.slot === null || contact.actorId !== target.id) {'));
  assert.match(section,/applyRecoil\(actor\.rig/);
 });
 test('service instructions pick actual cover and cannot repair an unavailable module',()=>{
