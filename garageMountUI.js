@@ -7,7 +7,7 @@ import { clearSortieAssignment } from './sortieAssignment.js';
 import './acquisitionUI.js?v=k3s2';
 import './contractUI.js?v=k3o1';
 import './stableUI.js?v=k3q2';
-import './sortieAssignmentUI.js?v=k3q1';
+import './sortieAssignmentUI.js?v=k3s2';
 import './seriesUI.js?v=k3s2';
 import './unifiedGarageUI.js?v=k3s2';
 
