@@ -122,7 +122,7 @@ test('live combat exposes player recovery to friendly support and keeps support 
     assert.match(source, /fieldService \};/);
     assert.match(source, /updateFaultSupportAssignments\(faultSupportState, participants, FIXED_DT\)/);
     assert.match(source, /faultSupportForActor\(faultSupportState, actor\.id\)/);
-    assert.match(source, /teamSupportTargetId !== supportTargetId/);
-    assert.match(source, /squadIntent\(actor, participants, target,[\s\S]*\{ screenTarget, screenThreat \}\)/);
-    assert.match(source, /exploitServicingTarget\(actor\.teamIntent, target, posture\)/);
+    assert.match(source, /screening\?\.casualtyId/);
+    assert.match(source, /goal:'SCREEN'/);
+    assert.match(source, /decidePilot\(actor\.brain/);
 });
