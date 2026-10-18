@@ -1,0 +1,21 @@
+name: k.3t.0 temporary validation
+on:
+  push:
+    branches: ["k3t0-used-parts-counter"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full regression
+        run: npm test
+      - name: Syntax checks
+        run: node --check main.js && node --check scene.js && node --check usedPartsCounter.js && node --check unifiedGarageUI.js && node --check stableUI.js && node --check tests/k3t0UsedCounter.test.mjs
+      - name: Whitespace checks
+        run: git diff --check 3ac317a4f4de4a0e9ba94083d02a438459eaf0b3..HEAD
