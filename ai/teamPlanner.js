@@ -42,7 +42,7 @@ function suitability(actor,job,team) {
     return job.priority+offense+toughness+maneuver+positional-penalty+
         (cap.canFight?.04:-.09);
 }
-function assignExhaustive(actors,jobs,team) {
+function assignExhaustive(actors,jobs,team,playerZoneId=null) {
     const entries=actors.slice(0,4).sort((a,b)=>a.id.localeCompare(b.id));
     let best=-Infinity,bestList=[];
     function walk(i,score,chosen,counts){
@@ -60,7 +60,8 @@ function assignExhaustive(actors,jobs,team) {
             const n=counts.get(job.objectiveId)??0;
             // First unit wins most value. A second can reinforce, but piling the
             // entire team onto one objective wastes the other two positions.
-            const duplication=n===0?0:n===1?.43:.88;
+            const duplication=(n===0?0:n===1?.43:.88)+
+                (playerZoneId===job.objectiveId&&job.defended&&!job.contested?.32:0);
             counts.set(job.objectiveId,n+1);
             chosen.push(job);walk(i+1,score+value-duplication,chosen,counts);
             chosen.pop();if(n)counts.set(job.objectiveId,n);else counts.delete(job.objectiveId);
@@ -81,7 +82,7 @@ export function planTeam(snapshot,team) {
         const player=view.allies.find(a=>a.id==='player');
         const playerZone=player?snapshot.zones.find(z=>
             dist(z.point,player.position)<4.7):null;
-        for(const pair of assignExhaustive(actors,jobs,team)) {
+        for(const pair of assignExhaustive(actors,jobs,team,playerZone?.id)) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
                 note:'UNABLE TO REACH OBJECTIVE',score:0};continue;}
