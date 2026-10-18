@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createSortieObjective, advanceSortieObjective, objectivePointForTeam, objectivePresentation, objectiveStatusText, dominationPointForActor } from '../sortieObjectives.js';
+import { createSortieObjective, advanceSortieObjective, objectivePointForTeam, objectivePresentation, objectiveStatusText } from '../sortieObjectives.js';
 import { contractById, selectContract } from '../contracts.js';
+import { createWorldModel, observeBattlefield } from '../ai/worldModel.js';
+import { planTeam } from '../ai/teamPlanner.js';
 import { DEFAULT_WORLD } from '../locomotion.js';
 import { createCampaignState, availableCampaignNodes, CAMPAIGN_REQUIRED_NODES } from '../campaign.js';
 import { hostileSupportRecipes } from '../squadBattle.js';
@@ -114,15 +116,16 @@ test('disabled or destroyed rig never captures or contests a point',()=>{
     advance(state,[A,{...A,id:'enemy-0',team:'hostile',active:false}],10);
     assert.equal(state.domination.points[0].contested,false);
 });
-test('AI has deterministic distinct lane assignments, player remains unscripted',()=>{
+test('AI assigns territory dynamically instead of pinning every ID to a lane',()=>{
     const state=newState();
-    assert.equal(dominationPointForActor(state,{id:'ally-1'}).id,'A');
-    assert.equal(dominationPointForActor(state,{id:'ally-2'}).id,'C');
-    assert.equal(dominationPointForActor(state,{id:'enemy-0'}).id,'B');
-    assert.equal(dominationPointForActor(state,{id:'enemy-1'}).id,'A');
-    assert.equal(dominationPointForActor(state,{id:'enemy-2'}).id,'C');
+    const crew=[unit('ally-1','friendly',-9,21),
+        unit('ally-2','friendly',9,21),unit('enemy-0','hostile',0,-22),
+        unit('enemy-1','hostile',-9,-21),unit('enemy-2','hostile',9,-21)];
+    const snapshot=observeBattlefield(createWorldModel(),crew,state,DEFAULT_WORLD,1);
+    const orders=planTeam(snapshot,'hostile').orders;
+    assert.equal(Object.keys(orders).length,3);
+    assert.equal(new Set(Object.values(orders).map(o=>o.objectiveId)).size,3);
     assert.equal(objectivePointForTeam(state,'friendly').id,'B');
-    assert.equal(dominationPointForActor(createSortieObjective({objective:{type:'elimination'}}),{id:'enemy-0'}),null);
 });
 test('presentation exposes three distinct physical sites and capture/ownership data',()=>{
     const state=newState();advance(state,[A,B],5);
@@ -143,7 +146,7 @@ test('tactical movement treats occupation as an explicit hold order, not a gener
     const ai=file('enemyMotion.js');
     const main=file('main.js');
     assert.match(ai,/teamIntent\?\.mode==='ORDER'/);
-    assert.match(ai,/brake:\.82/);
+    assert.match(ai,/brake:\.85/);
     assert.match(main,/planTeam\(aiSnapshot/);
     assert.match(main,/executeIntent\(actor\.executor/);
     assert.match(main,/sortieObjective.type!=='domination' \|\| !outcome.victory/);
