@@ -1,0 +1,75 @@
+/** Sparse deterministic A* grid for the compact industrial arena. Static AABBs
+ * are inflated by collision radius; moving rigs stay in the legacy local
+ * collision/recovery layer. Planner never teleports an actor.
+ */
+const length=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+function valid(p,world,pad) {
+    if(p.x<world.minX+pad||p.x>world.maxX-pad||
+        p.z<world.minZ+pad||p.z>world.maxZ-pad)return false;
+    return !(world.obstacles??[]).some(o=>!o.dynamic &&
+        p.x>o.minX-pad&&p.x<o.maxX+pad&&p.z>o.minZ-pad&&p.z<o.maxZ+pad);
+}
+function clearSegment(a,b,world,pad) {
+    const samples=Math.max(2,Math.ceil(length(a,b)/.9));
+    for(let i=0;i<=samples;i++){
+        const t=i/samples;
+        if(!valid({x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t},world,pad))return false;
+    }
+    return true;
+}
+function buildNodes(world,step,pad) {
+    const nodes=[];
+    for(let x=world.minX+pad;x<=world.maxX-pad;x+=step)
+        for(let z=world.minZ+pad;z<=world.maxZ-pad;z+=step) {
+            const p={x:Math.round(x*100)/100,z:Math.round(z*100)/100};
+            if(valid(p,world,pad))nodes.push(p);
+        }
+    return nodes;
+}
+export function planRoute(world,from,goal,radius=.95) {
+    if(!world||!from||!goal)return {ok:false,reason:'NO ROUTE DATA',waypoints:[]};
+    const pad=radius+.34;
+    if(!valid(goal,world,pad))return {ok:false,reason:'GOAL BLOCKED',waypoints:[]};
+    if(clearSegment(from,goal,world,pad))return {ok:true,waypoints:[{...goal}],cost:length(from,goal)};
+    const step=4.0,nodes=buildNodes(world,step,pad);
+    const all=[{x:from.x,z:from.z},...nodes,{x:goal.x,z:goal.z}],n=all.length;
+    const start=0,end=n-1,open=new Set([start]);
+    const g=new Array(n).fill(Infinity),f=new Array(n).fill(Infinity);
+    const via=new Array(n).fill(-1),closed=new Set();
+    g[start]=0;f[start]=length(from,goal);
+    // Bound to a compact yard: no graph pre-processing / navmesh dependency.
+    for(let iterations=0;iterations<n*2&&open.size;iterations++){
+        const current=[...open].sort((a,b)=>f[a]-f[b]||a-b)[0];
+        if(current===end){
+            const indexes=[];let at=current;
+            while(at!==start&&at>=0){indexes.push(at);at=via[at];}
+            const route=indexes.reverse().map(i=>({...all[i]}));
+            // Elide any intermediate corner with unobstructed visibility.
+            const smooth=[];let origin=from;
+            for(let i=0;i<route.length;){
+                let j=route.length-1;
+                while(j>i&&!clearSegment(origin,route[j],world,pad))j--;
+                smooth.push(route[j]);origin=route[j];i=j+1;
+            }
+            return {ok:true,waypoints:smooth,cost:g[end]};
+        }
+        open.delete(current);closed.add(current);
+        for(let candidate=1;candidate<n;candidate++){
+            if(candidate===current||closed.has(candidate))continue;
+            const d=length(all[current],all[candidate]);
+            if(d>step*1.51&&candidate!==end&&current!==start)continue;
+            if(!clearSegment(all[current],all[candidate],world,pad))continue;
+            const alt=g[current]+d;
+            if(alt>=g[candidate])continue;
+            via[candidate]=current;g[candidate]=alt;
+            f[candidate]=alt+length(all[candidate],all[end]);open.add(candidate);
+        }
+    }
+    return {ok:false,reason:'NO PASSABLE PATH',waypoints:[]};
+}
+export function nextWaypoint(routeState,position,radius=1.6){
+    const points=routeState?.waypoints??[];
+    while(routeState.index<points.length-1 &&
+        length(position,points[routeState.index])<radius)routeState.index++;
+    return points[routeState.index]??null;
+}
