@@ -18,7 +18,8 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
     const key=[intent?.goal,intent?.objectiveId??'',Math.round(goal.x),Math.round(goal.z)].join(':');
     if(state.lastPosition) {
         const traveled=d(state.lastPosition,rig);
-        if(traveled<.055&&d(rig,goal)>2)state.stalledFor+=dt;
+        const finalWaypoint=state.route?.waypoints?.at(-1)??goal;
+        if(traveled<.055&&d(rig,finalWaypoint)>1.6)state.stalledFor+=dt;
         else state.stalledFor=Math.max(0,state.stalledFor-dt*2);
     }
     state.lastPosition={x:rig.x,z:rig.z};
