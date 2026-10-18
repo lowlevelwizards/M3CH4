@@ -30,6 +30,7 @@ export function createSortieObjective(contract) {
         domination: spec.type===OBJECTIVE_TYPES.DOMINATION ? {
             points: (spec.points??[]).map(p=>({id:p.id,x:p.x,z:p.z,influence:0,owner:null,contested:false,friendly:0,hostile:0})),
             captureSeconds: Number(spec.captureSeconds)||4.2,
+            capturePolicy: spec.capturePolicy==='superiority'?'superiority':'strict',
             scoreToWin: Number(spec.scoreToWin)||60,
             scoreRate: Number(spec.scoreRate)||1.0,
         } : null,
@@ -55,6 +56,12 @@ function updateDomination(state,participants,dt) {
         if(!point.contested) {
             const direction=point.friendly>0?1:point.hostile>0?-1:0;
             if(direction)point.influence=clamp(point.influence+direction*tick/spec.captureSeconds,-1,1);
+        } else if(spec.capturePolicy==='superiority') {
+            // Experimental A/B rule only: 2v1 can slowly push influence,
+            // but a physically contested zone NEVER contributes team score.
+            const net=point.friendly-point.hostile;
+            if(net)point.influence=clamp(point.influence+
+                Math.sign(net)*Math.min(Math.abs(net),2)*tick/(spec.captureSeconds*3),-1,1);
         }
         point.owner=point.influence>=.995?'friendly':
             point.influence<=-.995?'hostile':null;
