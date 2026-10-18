@@ -98,7 +98,7 @@ test('capture approach is inside the zone and the actual rig collision radius is
 });
 test('executor does not misdiagnose a stopped rig already inside its capture approach',()=>{
  const state=createIntentExecutor();
- const from={x:-10,z:18},intent={goal:'CAPTURE',objectiveId:'A',
+ const from={x:-9,z:22},intent={goal:'CAPTURE',objectiveId:'A',
      point:{x:-17,z:-1.5},radius:4.7};
  const first=executeIntent(state,intent,from,DEFAULT_WORLD,1.1,1/60);
  assert.equal(first.mode,'ORDER');
