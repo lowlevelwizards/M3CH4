@@ -24,6 +24,7 @@ const SUPPORT_RECIPES = Object.freeze({
     // smaller two-rig crew creates a real low-risk fallback without a new game mode.
     'recovery-run': Object.freeze(['yard-dog']),
     cutter: Object.freeze(['yard-dog', 'cutter']),
+    domination: Object.freeze(['cutter', 'mule']),
     mule: Object.freeze(['yard-dog', 'cutter']),
     // Primary final opponent is the pressure lead; its wings supply the other two
     // doctrines so the finale exercises the entire existing combat vocabulary.

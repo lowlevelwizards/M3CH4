@@ -83,6 +83,25 @@ export const CONTRACTS = Object.freeze([
         briefing: 'Light skirmisher. Keeps distance, changes lateral direction often and hunts exposed systems.',
     }),
     Object.freeze({
+        id: 'domination', name: 'THREE POINT LOCK', opponentSerial: 'DOM-01', serialPrefix: 'DOM01',
+        role: 'TERRITORY CREW', payout: 1100, risk: 'MODERATE', kind: 'DOMINATION CONTRACT',
+        loadout: yardLoadout, behavior: YARD_DOG_BEHAVIOR,
+        objective: Object.freeze({
+            type:'domination',label:'SECURE TWO OF THREE',description:
+                'Capture A, B and C. Hold two uncontested points to score; first to 60 wins. Contested zones stop paying.',
+            radius:4.7,captureSeconds:3.6,scoreToWin:60,scoreRate:1.2,
+            points:Object.freeze([
+                Object.freeze({id:'A',x:-17,z:-1.5}),
+                Object.freeze({id:'B',x:0,z:-9.1}),
+                Object.freeze({id:'C',x:17,z:1.5}),
+            ]),
+        }),
+        salvagePriority: Object.freeze(['mobility','command','combat','power','structure']),
+        knownEquipment:Object.freeze(['Yardwalker Lead','Kestrel Flank','Hauler Anchor']),
+        salvageHint:'TERRITORY CREW SPARES',
+        briefing:'Three marked yards. Capture a zone by occupying it uncontested. Hold two or more points to accrue contract score; contest their zones to stop them scoring. Winning the firefight helps, but mobility and map control decide the outcome.',
+    }),
+    Object.freeze({
         id: 'mule', name: 'MULE', opponentSerial: 'MULE-01', serialPrefix: 'MULE01',
         role: 'HEAVY / TOUGH', payout: 1050, risk: 'HEAVY', kind: 'CIRCUIT BOUT',
         loadout: Object.freeze({

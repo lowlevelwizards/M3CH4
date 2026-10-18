@@ -17,8 +17,8 @@ function fakeStorage() {
 }
 
 test('campaign board exposes the three rivals plus recovery work and a final', () => {
-    assert.deepEqual(CONTRACTS.map(contract => contract.id), ['yard-dog', 'recovery-run', 'cutter', 'mule', 'circuit-final']);
-    assert.deepEqual(CONTRACTS.map(contract => contract.payout), [850, 450, 950, 1050, 1450]);
+    assert.deepEqual(CONTRACTS.map(contract => contract.id), ['yard-dog', 'recovery-run', 'cutter', 'domination', 'mule', 'circuit-final']);
+    assert.deepEqual(CONTRACTS.map(contract => contract.payout), [850, 450, 950, 1100, 1050, 1450]);
     assert.equal(contractById('recovery-run').risk, 'LOW');
     assert.equal(contractById('circuit-final').risk, 'SEVERE');
 });

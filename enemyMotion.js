@@ -223,7 +223,26 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     const tactical = advanceTacticalAwareness(motion, enemy, player, dt, world, radius, profile, motion.lastSide);
     const trackingPoint = tactical.mode === 'SEARCH' && tactical.point ? tactical.point : player;
     let base;
-    if (tactical.mode === 'SEEK_COVER' && tactical.point) {
+    // Territorial orders take priority over circling/skirmish posture until the
+    // point is actually occupied. Once inside, brace and face the enemy rather
+    // than tactically wandering outside the scoring circle.
+    if (teamIntent?.mode === 'DOMINATE' && teamIntent.point &&
+        tactical.mode !== 'SEEK_COVER' && tactical.mode !== 'TAKE_COVER') {
+        const point=teamIntent.point;
+        const d=distance(from,point);
+        const face=clamp(headingError(enemy,player)*profile.steerGain -
+            enemy.yawRate*profile.yawRateDamping);
+        if(d>1.9){
+            base=driveToward(enemy,point,d);
+            base.throttle*=teamIntent.throttleScale??1;
+        }else{
+            base={throttle:0,strafe:0,steer:face,brake:.82};
+        }
+        motion.phase='DOMINATION';
+        motion.navigation='SECURE '+(point.id??'ZONE')+' · '+d.toFixed(1)+'m';
+        motion.waypoint=point;
+    }
+    else if (tactical.mode === 'SEEK_COVER' && tactical.point) {
         const d = distance(from, tactical.point);
         base = driveToward(enemy, tactical.point, d);
         base.steer = clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);

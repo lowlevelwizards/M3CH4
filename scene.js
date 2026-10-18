@@ -973,8 +973,62 @@ export function createArenaScene(initial, targetAssembly) {
     objectiveRing.position.y = .045;
     objectiveRing.visible = false;
     arenaPresentationRoot.add(objectiveRing);
+    const dominationMarkers=new Map();
+    const dominationRoot=new THREE.Group();
+    dominationRoot.name='three-point-territory';
+    arenaPresentationRoot.add(dominationRoot);
+    function dominationMarker(id) {
+        if(dominationMarkers.has(id))return dominationMarkers.get(id);
+        const group=new THREE.Group();
+        const zoneMat=new THREE.MeshBasicMaterial({
+            color:0x89958d,side:THREE.DoubleSide,transparent:true,opacity:.67,depthWrite:false,
+        });
+        const zone=new THREE.Mesh(new THREE.RingGeometry(.95,1,48),zoneMat);
+        zone.rotation.x=-Math.PI/2;zone.position.y=.055;group.add(zone);
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(.075,.13,2.25,6),
+            new THREE.MeshStandardMaterial({color:0x414a44,metalness:.55,roughness:.72}));
+        post.position.y=1.18;group.add(post);
+        const beaconMat=new THREE.MeshBasicMaterial({color:0x89958d});
+        const beacon=new THREE.Mesh(new THREE.BoxGeometry(.37,.19,.37),beaconMat);
+        beacon.position.y=2.39;group.add(beacon);
+        // Physically planted letter placard; billboarding preserves readability
+        // from either spawn without an intrusive floating giant 3D UI.
+        const canvas=document.createElement('canvas');
+        canvas.width=128;canvas.height=128;
+        const ctx=canvas.getContext('2d');
+        ctx.clearRect(0,0,128,128);
+        ctx.fillStyle='#142019';ctx.fillRect(8,8,112,112);
+        ctx.strokeStyle='#d6ae62';ctx.lineWidth=8;ctx.strokeRect(9,9,110,110);
+        ctx.fillStyle='#f3d28b';ctx.font='bold 86px monospace';
+        ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(id,64,70);
+        const tex=new THREE.CanvasTexture(canvas);
+        const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
+            map:tex,transparent:true,depthTest:false,
+        }));
+        sprite.position.y=3.35;sprite.scale.set(1.5,1.5,1);group.add(sprite);
+        dominationRoot.add(group);
+        const marker={group,zone,zoneMat,beaconMat,sprite};
+        dominationMarkers.set(id,marker);
+        return marker;
+    }
     function updateObjectivePresentation(presentation) {
-        objectiveRing.visible = !!presentation?.visible;
+        const domination=presentation?.visible && presentation.type==='domination';
+        objectiveRing.visible=!!presentation?.visible&&!domination;
+        dominationRoot.visible=!!domination;
+        if(domination){
+            for(const p of presentation.points??[]){
+                const marker=dominationMarker(p.id);
+                marker.group.position.set(p.x,0,p.z);
+                marker.zone.scale.setScalar(Math.max(2,Number(presentation.radius)||4.7));
+                const tone=p.contested?0xe39855:p.owner==='friendly'?0x79c4a0:
+                    p.owner==='hostile'?0xd87969:0x9b9e94;
+                marker.zoneMat.color.setHex(tone);
+                marker.zoneMat.opacity=p.contested?.96:.72;
+                marker.beaconMat.color.setHex(tone);
+                marker.zone.material.needsUpdate=true;
+            }
+            return;
+        }
         if (!presentation?.visible) return;
         objectiveRing.position.set(presentation.point?.x ?? 0, .045, presentation.point?.z ?? 0);
         const radius = Math.max(1, Number(presentation.radius) || 5);
