@@ -9,6 +9,7 @@ import './contractUI.js?v=k3o1';
 import './stableUI.js?v=k3q2';
 import './sortieAssignmentUI.js?v=k3q1';
 import './seriesUI.js?v=k3q2';
+import './fieldWorkUI.js?v=k3r0';
 
 const info = document.querySelector('#part-info');
 const status = document.querySelector('#field-status');

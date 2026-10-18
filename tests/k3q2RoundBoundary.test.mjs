@@ -89,13 +89,9 @@ test('intermediate debrief explicitly defers settlement and suppresses salvage p
     assert.match(css, /data-debrief-page="2"/);
 });
 
-test('mobile entrypoint advances q.3q.2 cache identities for lifecycle modules', () => {
+test('q.3q.2 series shell remains loaded under later garage releases', () => {
     const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-    assert.match(html, /0\.0\.1k\.3q\.2 — Best-of-Three Stable Rotation/);
-    assert.match(html, /"\.\/economy\.js": "\.\/economy\.js\?v=k3q2"/);
-    assert.match(html, /"\.\/boutSession\.js": "\.\/boutSession\.js\?v=k3q2"/);
     assert.match(html, /"\.\/series\.js": "\.\/series\.js\?v=k3q2"/);
-    assert.match(html, /garageMountUI\.js\?v=k3q2/);
     const garage = fs.readFileSync(new URL('../garageMountUI.js', import.meta.url), 'utf8');
     assert.match(garage, /seriesUI\.js\?v=k3q2/);
 });
