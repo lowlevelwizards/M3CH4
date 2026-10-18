@@ -16,6 +16,7 @@ import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTarget
 import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from './aiFieldService.js';
 import { createWorldModel, observeBattlefield } from './ai/worldModel.js';
 import { planTeam } from './ai/teamPlanner.js';
+import { createStrategicState, evaluateStrategy } from './ai/strategicState.js';
 import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
 import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
 import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
@@ -377,6 +378,7 @@ let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0, aiPlanCooldown=0;
+let strategicMemory=createStrategicState();
 const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
@@ -601,6 +603,7 @@ function resetAiActor(actor) {
 }
 function resetSquadBattle() {
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;aiPlanCooldown=0;
+    strategicMemory=createStrategicState();
     aiTrace.rows.length=0;
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
@@ -1364,8 +1367,12 @@ function frame(now) {
                 aiPlanCooldown-=FIXED_DT;
                 if(aiPlanCooldown<=0||!aiSnapshot){
                     aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,DEFAULT_WORLD,aiClock);
-                    aiPlans={friendly:planTeam(aiSnapshot,FRIENDLY_TEAM),
-                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM)};
+                    const friendlyStrategy=evaluateStrategy(strategicMemory,aiSnapshot,FRIENDLY_TEAM);
+                    const hostileStrategy=evaluateStrategy(strategicMemory,aiSnapshot,HOSTILE_TEAM);
+                    aiPlans={
+                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy}),
+                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy}),
+                    };
                     aiPlanCooldown=.85;
                 }
                 updateFaultSupportAssignments(faultSupportState, participants, FIXED_DT);
@@ -1532,6 +1539,7 @@ function frame(now) {
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
             `LOS AUDIT ${lastCoverAudit}`,
+            `AI TEAMS  F:${aiPlans.friendly?.strategy??'-'} → ${aiPlans.friendly?.target??'-'} / H:${aiPlans.hostile?.strategy??'-'} → ${aiPlans.hostile?.target??'-'}`,
             `AI PLANS\n${formatAiTrace(aiTrace)}`,
             `RIG VIS   ${arena.combatantVisualAudit().ok ? `OK · ${arena.combatantVisualAudit().actors} ACTORS` : `MISPLACED ${arena.combatantVisualAudit().misplaced.join(',')}`}`,
             `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
