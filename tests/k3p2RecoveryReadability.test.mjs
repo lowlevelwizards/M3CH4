@@ -41,7 +41,7 @@ test('recovery status and friendly screening are legible without omniscient new 
 });
 
 test('mobile runtime cache identity still loads the recovery-readability scene source', () => {
-    assert.match(index, /sceneAssembly\.js\?v=k3s1/);
-    assert.match(index, /main\.js\?v=k3s2/);
-    assert.match(bridge, /scene\.js\?source=k3s1/);
+    assert.match(index, /sceneAssembly\.js\?v=k3t0/);
+    assert.match(index, /main\.js\?v=k3t0/);
+    assert.match(bridge, /scene\.js\?source=k3t0/);
 });
