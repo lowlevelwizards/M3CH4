@@ -6,7 +6,7 @@ import { loadStable, storeStable, rigById, mountPartOnRig, commissionRig, rename
 import { createTargetCondition } from '../combat.js';
 import { recordSeriesRound, startSeries } from '../series.js';
 import { applyEmergencyFieldPatch, FIELD_PATCH_CONDITION } from '../fieldWork.js';
-import { BAY_IDS, BAY_SLOTS, bayAssembly, bayStatus, bayHealth, changeInactiveBay, serviceInactiveBay } from '../garageBay.js';
+import { BAY_IDS, BAY_SLOTS, bayAssembly, bayStatus, bayHealth, changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount, bayGeneratorMount } from '../garageBay.js';
 
 class MemoryStorage {
     constructor() { this.map = new Map(); }
@@ -126,4 +126,19 @@ test('mobile UX has a single physical bay navigator and explicit contract/setup/
     assert.match(ui,/FIELD PATCH/);
     assert.match(css,/body\.inspecting #inspection-panel \{ display:none !important; \}/);
     assert.match(css,/body\.inspecting #assembly-toggle \{ display:none !important; \}/);
+});
+
+test('parked rig generator mounting obeys physical graph constraints without changing the active rig',()=>{
+    const storage=fixture();
+    let stable=loadStable(storage).stable;
+    const first=bayGeneratorMount(stable,'rig-01');
+    assert.equal(bayGeneratorMount(stable,'rig-02'),'standard');
+    const mounted=setInactiveBayGeneratorMount(storage,'rig-02','offset');
+    assert.equal(mounted.ok,true,mounted.reason);
+    stable=loadStable(storage).stable;
+    assert.equal(bayGeneratorMount(stable,'rig-02'),'offset');
+    assert.equal(bayGeneratorMount(stable,'rig-01'),first);
+    assert.equal(stable.activeRigId,'rig-01');
+    assert.equal(setInactiveBayGeneratorMount(storage,'rig-02','standard').ok,true);
+    assert.equal(bayGeneratorMount(loadStable(storage).stable,'rig-02'),'standard');
 });
