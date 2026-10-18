@@ -296,9 +296,9 @@ function moduleDetails(stable, view, machine) {
             meta: definition.massKg + ' KG · WEAR ' +
                 Math.round((focused.wear ?? 0) * 100) + '% · REPAIRS ' +
                 (focused.repairs ?? 0) + (elsewhere
-                    ? '\\nMOUNTED ON ' + rigName(owner).toUpperCase()
-                    : here ? '\\nINSTALLED ON THIS MACHINE'
-                    : '\\nAVAILABLE FOR THIS BAY'),
+                    ? '\nMOUNTED ON ' + rigName(owner).toUpperCase()
+                    : here ? '\nINSTALLED ON THIS MACHINE'
+                    : '\nAVAILABLE FOR THIS BAY'),
             actionLabel: here ? 'INSTALLED HERE' :
                 elsewhere ? 'ON ' + rigName(owner).toUpperCase() :
                 'INSTALL · ' + focused.serial,
@@ -438,6 +438,9 @@ function launch(stable,jobId) {
 }
 function render() {
     if(!document.body.classList.contains('inspecting'))return;
+    // Keep the focused gallery and its installation action in view when the
+    // selected serial changes; rebuilding the DOM must not jump back to the top.
+    const previousScroll = dock.scrollTop;
     const {stable,series,machine}=data();
     reconcileFieldPatches(storage,stable);
     const view=bayStatus(stable,viewedId);
@@ -454,6 +457,7 @@ function render() {
     else if(state==='pit')renderPit(stable,view,series);
     navRender(stable,state);
     preview(stable,series);
+    dock.scrollTop = previousScroll;
     shell.dataset.mode=state;
 }
 function queueRender() {
