@@ -96,14 +96,22 @@ export function planTeam(snapshot,team) {
         return {team,orders,reason:'TERRITORY MAJORITY',scoring:Math.floor(snapshot.score[team])};
     }
     const contacts=view.contacts.filter(c=>c.confidence>.12);
-    for(const actor of actors) {
+    for(const [index,actor] of actors.entries()) {
         const nearest=[...contacts].sort((a,b)=>
             dist(actor.position,a.position)-dist(actor.position,b.position))[0];
         if(nearest) orders[actor.id]={goal:nearest.visible?'ENGAGE':'SEARCH',
             targetActorId:nearest.id,point:{...nearest.position},
             score:nearest.confidence,note:nearest.visible?'ENGAGE OBSERVED THREAT':'LAST KNOWN CONTACT'};
-        else if(snapshot.missions?.[team])orders[actor.id]={
-            goal:'CAPTURE',point:{...snapshot.missions[team]},score:.78,note:'ADVANCE OBJECTIVE'};
+        else if(snapshot.missions?.[team]){
+            const rally=snapshot.missions[team];
+            const search=snapshot.kind==='elimination';
+            // Opening search uses a broad front, not a pile-up at the central
+            // loading house. It depends on roster order, not permanent pilot IDs.
+            const flank=index%2===0?-10:10;
+            const point=search?{x:rally.x+flank,z:rally.z}:rally;
+            orders[actor.id]={goal:search?'SEARCH':'CAPTURE',point,
+                score:.78,note:search?'SWEEP FLANK FOR CONTACT':'ADVANCE OBJECTIVE'};
+        }
         else orders[actor.id]={goal:'HOLD',point:{...actor.position},score:.2,note:'NO CONTACT'};
     }
     return {team,orders,reason:contacts.length?'CONTACT':'OBJECTIVE / SEARCH'};
