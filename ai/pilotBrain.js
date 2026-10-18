@@ -28,6 +28,9 @@ export function decidePilot(brain,actor,assignment,context,now) {
     else if(!capability.canMove)
         proposed={goal:'HOLD',point:actor.position,utility:.83,
             reason:'MOBILITY UNAVAILABLE · DEFEND POSITION'};
+    else if(capability.endurance<.30 && context?.underFireSeconds>1.4)
+        proposed={goal:'WITHDRAW',point:context.retreatPoint??actor.position,
+            utility:.93,reason:'WOUNDED UNDER SUSTAINED FIRE'};
     else if(assignment)
         proposed={...assignment,utility:assignment.score??.64,
             reason:assignment.reason??assignment.note??'TEAM ASSIGNMENT'};
@@ -39,7 +42,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
     // steering noise. Objective capture still goes to the physical zone.
     const newTask=changed||!last;
     if(proposed.point&&context?.world &&
-        (newTask||now-brain.lastGeometryAt>=.9)) {
+        now-brain.lastGeometryAt>=(newTask?.75:1.2)) {
         if(proposed.goal==='ENGAGE')proposed.point=chooseFightPosition(
             context.world,actor.position,proposed.point,
             context.preferredRangeM??6,context.personality??'pressure');
