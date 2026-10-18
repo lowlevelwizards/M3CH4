@@ -205,9 +205,10 @@ const STATION_GLYPHS = Object.freeze({
 function moduleStation(view) {
     const station = el('section','unified-stations');
     for (const item of view.health) {
+        const weakest = Math.min(item.condition, item.armorRatio);
         const state = !item.serial ? 'empty' : item.destroyed ? 'destroyed'
-            : item.condition <= .001 ? 'disabled' : item.condition < .38 ? 'critical'
-            : item.condition < .78 ? 'damaged' : 'operational';
+            : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
+            : weakest < .78 ? 'damaged' : 'operational';
         const node = button('', () => {
             if (selectedSlot !== item.slot) selectedHardwareSerial = null;
             selectedSlot = selectedSlot === item.slot ? null : item.slot;
@@ -215,7 +216,8 @@ function moduleStation(view) {
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(el('span','unified-station-glyph', STATION_GLYPHS[item.slot]));
         node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
-            item.serial ? pct(item.condition) : 'EMPTY'));
+            item.serial ? (item.armorRatio < item.condition - .01
+                ? 'ARM ' + pct(item.armorRatio) : pct(item.condition)) : 'EMPTY'));
         node.setAttribute('aria-label',SLOT_LABELS[item.slot]+' '+item.label);
         node.setAttribute('aria-pressed',String(selectedSlot===item.slot));
         station.append(node);
@@ -238,6 +240,9 @@ function moduleDetails(stable, view, machine) {
           ' · ' + installed.serial + ' · ' + state.label
         : 'STATION EMPTY'));
     if (installed) {
+        box.append(el('small','unified-system-condition',
+            'INTEGRITY ' + pct(state.condition) + ' · ARMOR ' +
+            pct(state.armorRatio) + ' · WEAR ' + pct(state.wear)));
         const quote = bayModuleQuote(stable, viewedId, slot);
         if (quote && (quote.amount > 0 || state.condition < 1)) {
             const affordable = quote.destroyed || quote.amount <= machine.economy.credits;
@@ -430,7 +435,10 @@ function renderStationReadout(view) {
     const group=el('div','unified-station-readout');
     const name=current.part ? BY_ID.get(current.part.definitionId)?.name ?? current.part.definitionId : 'NO MODULE INSTALLED';
     group.append(el('strong','',SLOT_LABELS[selectedSlot]+' · '+name));
-    group.append(el('small','',current.serial ? current.serial+' · '+current.label+' · '+pct(current.condition) : 'EMPTY · RETURN TO GARAGE TO INSTALL'));
+    group.append(el('small','',current.serial
+        ? current.serial+' · '+current.label+' · INTERNAL '+pct(current.condition)+
+            ' · ARMOR '+pct(current.armorRatio)+' · WEAR '+pct(current.wear)
+        : 'EMPTY · RETURN TO GARAGE TO INSTALL'));
     return group;
 }
 function renderSetup(stable, view) {
