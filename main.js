@@ -1170,7 +1170,11 @@ const endPointer = (event) => {
     pointers.delete(event.pointerId);
     if (inspecting && event.type === 'pointerup' && !pointer.dragged) {
         const slot = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
-        selectPart(slot === selectedPart ? null : slot, slot !== null);
+        if (document.querySelector('#unified-garage')) {
+            // The viewed bay may not be the combat-active rig. Let the unified
+            // station UI own part selection instead of opening the old active bay.
+            document.dispatchEvent(new CustomEvent('m3ch4:bay-picked',{detail:{slot}}));
+        } else selectPart(slot === selectedPart ? null : slot, slot !== null);
     }
 };
 renderer.domElement.addEventListener('pointerup', endPointer);
