@@ -213,7 +213,7 @@ export function createArenaScene(initial, targetAssembly) {
             const tray=vendorBox(2.14,.06,2.17,offer.sold?0x333732:0x3e4a42,x,.97,0);
             tray.userData.vendorSerial=offer.serial;vendorPicks.push(tray);
             const light=vendorBox(2.09,.04,.12,offer.sold?0x5b4138:0xb99151,x,1.018,-1.02);
-            vendorPads.set(offer.serial,light);
+            vendorPads.set(offer.serial,{light,sold:offer.sold});
             if(offer.sold)return;
             const def=BY_ID.get(offer.definitionId);
             if(!def)return;
@@ -252,8 +252,8 @@ export function createArenaScene(initial, targetAssembly) {
         } else focusPart(null);
     }
     function selectVendorLot(serial) {
-        for(const [id,light] of vendorPads)
-            light.material.color.setHex(id===serial?0xeac572:0xb99151);
+        for(const [id,pad] of vendorPads)
+            pad.light.material.color.setHex(pad.sold?0x5b4138:id===serial?0xeac572:0xb99151);
     }
     function pickVendorLot(clientX,clientY,canvas) {
         if(!inspecting||!vendorEnabled)return null;
