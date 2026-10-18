@@ -87,10 +87,13 @@ test('combat commits live damage before any synchronous subscriber can score or 
 test('one explicit debrief-open event coordinates BO3 and salvage without a self-rendering observer loop',()=>{
     const series=source('seriesUI.js');
     const salvage=source('acquisitionUI.js');
+    const assignment=source('sortieAssignmentUI.js');
     assert.match(series,/addEventListener\('m3ch4:debrief-opened'/);
     assert.match(salvage,/addEventListener\('m3ch4:debrief-opened'/);
     assert.doesNotMatch(series,/debriefObserver\.observe/);
     assert.doesNotMatch(salvage,/observer\.observe\(sheet/);
+    assert.doesNotMatch(assignment,/debriefObserver\.observe/);
+    assert.match(assignment,/addEventListener\('m3ch4:debrief-opened'/);
     assert.match(series,/CONTINUE TO INTERMISSION/);
     assert.match(series,/INTEGRITY|INT ' \+ percent\(part\.condition\)/);
     assert.match(series,/percent\(part\.armorRatio\)/);
