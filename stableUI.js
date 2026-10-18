@@ -321,7 +321,7 @@ partInfo.addEventListener('click', event => {
 
 document.addEventListener('m3ch4:inventory-changed', event => {
     syncFromLiveSave();
-    if (event.detail?.serial) registerAcquiredPart(stable, event.detail.serial, 'bout salvage');
+    if (event.detail?.serial) registerAcquiredPart(stable, event.detail.serial, event.detail?.source || 'bout salvage');
     storeStable(storage, stable);
     render();
 });
