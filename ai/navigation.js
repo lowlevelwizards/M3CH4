@@ -30,6 +30,29 @@ export function planRoute(world,from,goal,radius=.95) {
     if(!world||!from||!goal)return {ok:false,reason:'NO ROUTE DATA',waypoints:[]};
     const pad=radius+.34;
     if(!valid(goal,world,pad))return {ok:false,reason:'GOAL BLOCKED',waypoints:[]};
+    if(!valid(from,world,pad)){
+        // A real chassis may be physically legal but inside our *inflated*
+        // safety envelope beside a concrete screen. Searching from that
+        // start as though it were an obstacle makes every A* edge impossible.
+        // Guide it to the nearest clearance point using PHYSICAL steering.
+        // Never teleport, alter collision geometry, or invent a route through
+        // the actual obstacle.
+        let escape=null,best=Infinity;
+        for(const reach of [.65,1.2,1.8,2.6,3.5,4.5]){
+            for(let i=0;i<16;i++){
+                const angle=i*Math.PI/8;
+                const p={x:from.x+Math.cos(angle)*reach,z:from.z+Math.sin(angle)*reach};
+                const d=length(from,p);
+                if(d<best&&valid(p,world,pad)){escape=p;best=d;}
+            }
+            if(escape)break;
+        }
+        if(!escape)return {ok:false,reason:'NO CLEARANCE FROM START',waypoints:[]};
+        const continuation=planRoute(world,escape,goal,radius);
+        if(!continuation.ok)return continuation;
+        return {...continuation,waypoints:[escape,...continuation.waypoints],
+            cost:best+continuation.cost,recoveredStart:true};
+    }
     if(clearSegment(from,goal,world,pad))return {ok:true,waypoints:[{...goal}],cost:length(from,goal)};
     const step=4.0,nodes=buildNodes(world,step,pad);
     const all=[{x:from.x,z:from.z},...nodes,{x:goal.x,z:goal.z}],n=all.length;
