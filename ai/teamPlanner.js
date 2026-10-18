@@ -98,7 +98,8 @@ export function planTeam(snapshot,team,options={}) {
             const playerCoverage=playerZone?.id===job.objectiveId&&
                 !job.contested&&job.kind==='DEFEND';
             orders[actor.id]={goal:job.kind,objectiveId:job.objectiveId,
-                point:{...job.point},score:clamp(suitabilityScore/1.7),
+                point:{...job.point},radius:snapshot.zoneRadius??4.7,
+                score:clamp(suitabilityScore/1.7),
                 note:playerCoverage?'SUPPORT PLAYER POSITION':job.note,
                 reason:strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
                     'ROTATE · '+job.note:job.note,
