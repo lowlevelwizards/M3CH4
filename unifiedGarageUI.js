@@ -26,11 +26,12 @@ const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
 shell.id = 'unified-garage';
 shell.setAttribute('aria-label','Garage and contract operations');
-shell.innerHTML = '<div class="unified-top"></div><div id="unified-garage-dock"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
+shell.innerHTML = '<div class="unified-top"></div><div id="unified-garage-dock"></div><div id="unified-garage-action"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
 document.body.append(shell);
 installPartGridStyles();
 const top = shell.querySelector('.unified-top');
 const dock = shell.querySelector('#unified-garage-dock');
+const actionBar = shell.querySelector('#unified-garage-action');
 const navigator = shell.querySelector('.unified-bay-navigation');
 const notice = shell.querySelector('.unified-notice');
 const sheet = document.querySelector('#sortie-debrief');
@@ -40,9 +41,21 @@ try { storage = window.localStorage; } catch { /* old storage warnings still app
 try { session = window.sessionStorage; } catch { /* display a blocking action message */ }
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
+let identityExpanded = false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
+// A pending q.1 assignment is the authority for restoring sortie setup on reload.
+// Never resurrect an already launched contract as a fresh pre-sortie selection.
+const restoredAssignment = loadSortieAssignment(session);
+if (restoredAssignment?.phase === 'pending' && !loadSeries(storage)) {
+    const campaign = loadCampaign();
+    if (availableCampaignNodes(campaign).includes(restoredAssignment.contractId)) {
+        mode = 'setup';
+        selectedJobId = restoredAssignment.contractId;
+        if (BAY_IDS.includes(restoredAssignment.rigId)) viewedId = restoredAssignment.rigId;
+    }
+}
 
 const el = (tag, cls, text) => {
     const node = document.createElement(tag);
@@ -96,7 +109,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; previewSignature = '';
+    selectedSlot = null; selectedHardwareSerial = null; identityExpanded = false; previewSignature = '';
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
     render();
@@ -151,10 +164,14 @@ function renderTop(currentMode, series, machine) {
         currentMode === 'setup' ? 'SORTIE SETUP' : currentMode === 'contracts' ? 'SCRAPYARD CIRCUIT' : 'GARAGE');
     const balance = el('small','unified-credits','₡' + Number(machine.economy?.credits ?? 0).toLocaleString());
     const actions = el('div','unified-head-actions');
-    if (currentMode === 'garage') actions.append(button('CONTRACTS', () => { mode = 'contracts'; render(); }, 'unified-top-action'));
-    if (currentMode === 'contracts') actions.append(button('BACK TO GARAGE', () => { mode = 'garage'; render(); }, 'unified-top-action'));
+    if (currentMode === 'garage') actions.append(button('CONTRACTS ›', () => { selectedJobId = null; mode = 'contracts'; dock.scrollTop = 0; render(); }, 'unified-top-action'));
+    if (currentMode === 'contracts') actions.append(button(selectedJobId ? '‹ ALL JOBS' : '‹ GARAGE', () => {
+        if (selectedJobId) selectedJobId = null;
+        else mode = 'garage';
+        dock.scrollTop = 0; render();
+    }, 'unified-top-action'));
     if (currentMode === 'setup') actions.append(button('BACK TO JOBS', () => {
-        cancelSortieAssignment(session); mode='contracts'; render();
+        cancelSortieAssignment(session); mode='contracts'; dock.scrollTop = 0; render();
     },'unified-top-action'));
     if (currentMode === 'pit') {
         const contract = contractById(series.contractId);
@@ -182,12 +199,21 @@ function summary(view) {
     }
     return status;
 }
+const STATION_GLYPHS = Object.freeze({
+    structure:'⬡', mobility:'⋀', power:'ϟ', command:'◉', combat:'✦',
+});
 function moduleStation(view) {
     const station = el('section','unified-stations');
     for (const item of view.health) {
-        const node = button('', () => { if (selectedSlot !== item.slot) selectedHardwareSerial = null; selectedSlot = item.slot; render(); },
-            'unified-station ' + (selectedSlot === item.slot ? 'selected ' : '') +
-                (item.destroyed || item.condition <= .001 && item.serial ? 'critical':''));
+        const state = !item.serial ? 'empty' : item.destroyed ? 'destroyed'
+            : item.condition <= .001 ? 'disabled' : item.condition < .38 ? 'critical'
+            : item.condition < .78 ? 'damaged' : 'operational';
+        const node = button('', () => {
+            if (selectedSlot !== item.slot) selectedHardwareSerial = null;
+            selectedSlot = selectedSlot === item.slot ? null : item.slot;
+            render();
+        }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
+        node.append(el('span','unified-station-glyph', STATION_GLYPHS[item.slot]));
         node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
             item.serial ? pct(item.condition) : 'EMPTY'));
         node.setAttribute('aria-label',SLOT_LABELS[item.slot]+' '+item.label);
@@ -334,55 +360,89 @@ function appendIdentityForm(view, stable) {
     wrap.append(input,action);
     return wrap;
 }
+
 function renderGarage(stable,machine,view) {
     dock.append(bayHeader(view), summary(view), moduleStation(view));
-    if(selectedSlot) dock.append(moduleDetails(stable,view,machine));
-    else dock.append(el('p','unified-muted','CHOOSE A STATION TO INSPECT, INSTALL, REMOVE OR SERVICE OWNED HARDWARE.'));
-    dock.append(appendIdentityForm(view,stable));
-    dock.append(el('div','unified-career',view.rig.career.deployments+' DEPLOYMENTS · '+
-        view.rig.career.roundWins+' ROUND WINS · '+(view.rig.career.fieldServices||0)+' FIELD PATCHES'));
+    if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
+    else dock.append(el('p','unified-muted','TAP A STATION OR PART ON THE MACHINE TO INSPECT ITS HARDWARE.'));
+    const completed = view.health.filter(item => !!item.serial).length;
+    const identity = el('div','unified-identity-summary');
+    if (!view.rig.commissioned) {
+        identity.append(el('small','',completed + ' / 5 STATIONS INSTALLED'));
+        if (view.readiness.fieldable) {
+            identity.append(button('NAME & COMMISSION MACHINE',()=>{
+                identityExpanded = true; render();
+            },'unified-secondary'));
+        }
+    } else {
+        identity.append(el('small','',view.rig.career.deployments + ' DEPLOYMENTS · ' +
+            view.rig.career.roundWins + ' ROUND WINS · ' +
+            (view.rig.career.fieldServices||0) + ' FIELD PATCHES'));
+        identity.append(button(identityExpanded ? 'CLOSE DETAILS' : 'MACHINE DETAILS / RENAME',
+            ()=>{identityExpanded = !identityExpanded;render();},'unified-secondary'));
+    }
+    dock.append(identity);
+    if (identityExpanded) dock.append(appendIdentityForm(view,stable));
+}
+function takeContract(stable,jobId) {
+    const result=beginSortieAssignment(session,jobId);
+    if (!result.ok) {message(result.reason,true);return;}
+    selectedJobId = jobId;
+    mode='setup';
+    assignment(stable,jobId,viewedId);
+    dock.scrollTop=0;render();
 }
 function renderContracts(stable) {
     const campaign=loadCampaign();
     const unlocked=availableCampaignNodes(campaign);
+    if (selectedJobId && unlocked.includes(selectedJobId)) {
+        const c=contractById(selectedJobId);
+        const detail=el('section','unified-contract-detail');
+        detail.append(el('small','unified-muted','CONTRACT BRIEFING'));
+        detail.append(el('strong','',c.name.toUpperCase()));
+        detail.append(el('div','unified-job-compact',
+            c.objective.label + ' · RISK ' + c.risk.toUpperCase() + ' · ₡' + c.payout));
+        detail.append(el('p','',c.briefing));
+        detail.append(el('div','unified-muted','OBJECTIVE · ' + c.objective.description));
+        detail.append(el('div','unified-muted','KNOWN EQUIPMENT · '+c.knownEquipment.join(' / ')));
+        detail.append(el('div','unified-muted','SALVAGE · '+c.salvageHint));
+        dock.append(detail);
+        setPrimary('TAKE CONTRACT · ₡' + c.payout,()=>takeContract(stable,c.id));
+        return;
+    }
+    selectedJobId = null;
     const list=el('section','unified-contract-list');
     for(const node of CAMPAIGN_NODES) {
         const c=contractById(node.id),available=unlocked.includes(node.id);
-        const choice=button('',()=>{selectedJobId=c.id;render();},
-            'unified-contract '+(selectedJobId===c.id?'selected':'')+(available?'':' locked'),
-            !available);
+        const choice=button('',()=>{selectedJobId=c.id;dock.scrollTop=0;render();},
+            'unified-contract '+(available?'':' locked'), !available);
         choice.append(el('strong','',c.name.toUpperCase()),el('small','',
-            (c.objective?.label||c.kind).toUpperCase()+' · RISK '+c.risk.toUpperCase()+' · ₡'+c.payout));
+            c.objective.label.toUpperCase()+' · RISK '+c.risk.toUpperCase()+' · ₡'+c.payout));
         choice.append(el('small','',!available?'LOCKED':campaign.clearedNodes.includes(c.id)?'CLEARED · REPLAY':'AVAILABLE'));
         list.append(choice);
     }
     dock.append(list);
-    if(selectedJobId && unlocked.includes(selectedJobId)) {
-        const c=contractById(selectedJobId);
-        const detail=el('section','unified-contract-detail');
-        detail.append(el('strong','',c.name.toUpperCase()));
-        detail.append(el('p','',c.briefing));
-        detail.append(el('div','unified-muted','KNOWN EQUIPMENT · '+c.knownEquipment.join(' / ')));
-        detail.append(el('div','unified-muted','SALVAGE · '+c.salvageHint));
-        detail.append(button('TAKE CONTRACT',()=>{
-            const result=beginSortieAssignment(session,c.id);
-            if(!result.ok) {message(result.reason,true);return;}
-            mode='setup';
-            assignment(stable,c.id,viewedId);
-            render();
-        },'unified-primary'));
-        dock.append(detail);
-    } else dock.append(el('p','unified-muted','CHOOSE AN AVAILABLE JOB TO READ ITS BRIEFING.'));
+    dock.append(el('p','unified-muted','SELECT AN AVAILABLE JOB TO OPEN ITS BRIEFING.'));
+}
+function renderStationReadout(view) {
+    if (!selectedSlot) return null;
+    const current=view.health.find(item=>item.slot===selectedSlot);
+    const group=el('div','unified-station-readout');
+    const name=current.part ? BY_ID.get(current.part.definitionId)?.name ?? current.part.definitionId : 'NO MODULE INSTALLED';
+    group.append(el('strong','',SLOT_LABELS[selectedSlot]+' · '+name));
+    group.append(el('small','',current.serial ? current.serial+' · '+current.label+' · '+pct(current.condition) : 'EMPTY · RETURN TO GARAGE TO INSTALL'));
+    return group;
 }
 function renderSetup(stable, view) {
-    if(!selectedJobId) { mode='contracts';render();return; }
+    if (!selectedJobId) {mode='contracts';render();return;}
     const c=contractById(selectedJobId);
-    dock.append(el('div','unified-job-compact',c.name.toUpperCase() + ' · RISK ' +
-        c.risk.toUpperCase() + ' · ₡' + c.payout), bayHeader(view),summary(view),moduleStation(view));
-    dock.append(el('p','unified-muted','SWIPE OR USE THE ARROWS TO CHOOSE WHICH MACHINE TAKES THIS JOB. LOADOUT CHANGES REQUIRE RETURNING TO GARAGE.'));
-    dock.append(button('DEPLOY '+view.name.toUpperCase(),()=>launch(stable,c.id),
-        'unified-primary',!view.canDeploy));
-    if(!view.canDeploy) dock.append(el('p','unified-warning',view.reason || 'MACHINE NOT COMMISSIONED'));
+    dock.append(el('div','unified-job-compact',c.name.toUpperCase()+' · RISK '+
+        c.risk.toUpperCase()+' · ₡'+c.payout),bayHeader(view),summary(view),moduleStation(view));
+    const readout=renderStationReadout(view);
+    if (readout) dock.append(readout);
+    dock.append(el('p','unified-muted','CHOOSE A BAY BELOW. INSPECT HARDWARE HERE; RETURN TO GARAGE TO CHANGE LOADOUTS.'));
+    if (!view.canDeploy) dock.append(el('p','unified-warning',view.reason || 'MACHINE NOT COMMISSIONED'));
+    setPrimary('DEPLOY '+view.name.toUpperCase(),()=>launch(stable,c.id),!view.canDeploy);
 }
 function patchInPit(stable,view,series) {
     const wrap=el('section','unified-field-work');
@@ -416,12 +476,17 @@ function renderPit(stable,view,series) {
     dock.append(el('div','unified-job-compact',contract.name.toUpperCase()+
         ' · ROUND '+series.roundNumber+' · YOU '+series.playerWins+' — '+series.enemyWins+' HOSTILE'));
     dock.append(bayHeader(view),summary(view),moduleStation(view));
+    const readout=renderStationReadout(view);
+    if (readout) dock.append(readout);
     dock.append(el('p','unified-muted','PIT LOCKED · DAMAGE PERSISTS · NO LOADOUT CHANGES OR FULL REPAIRS.'));
     dock.append(patchInPit(stable,view,series));
     const committed=fieldWorkCommitment(storage);
     const canGo=view.canDeploy && (!committed || committed.rigId===viewedId);
-    dock.append(button((committed?'DEPLOY ':'SEND ')+view.name.toUpperCase()+' · ROUND '+series.roundNumber,
-        ()=>launch(stable,series.contractId), 'unified-primary', !canGo));
+    setPrimary((committed?'DEPLOY ':'SEND ')+view.name.toUpperCase()+' · ROUND '+series.roundNumber,
+        ()=>launch(stable,series.contractId), !canGo);
+}
+function setPrimary(label,callback,disabled=false) {
+    actionBar.replaceChildren(button(label,callback,'unified-primary',disabled));
 }
 function launch(stable,jobId) {
     const series=loadSeries(storage);
@@ -450,6 +515,7 @@ function render() {
         if(committed && viewedId!==committed.rigId){viewedId=committed.rigId;previewSignature='';return render();}
     }
     renderTop(state,series,machine);
+    actionBar.replaceChildren();
     dock.replaceChildren();
     if(state==='garage')renderGarage(stable,machine,view);
     else if(state==='contracts')renderContracts(stable);
@@ -458,6 +524,7 @@ function render() {
     navRender(stable,state);
     preview(stable,series);
     dock.scrollTop = previousScroll;
+    shell.classList.toggle('has-primary',actionBar.childElementCount>0);
     shell.dataset.mode=state;
 }
 function queueRender() {
@@ -477,21 +544,21 @@ document.addEventListener('m3ch4:bay-picked',event=>{
 });
 const rootWatch=new MutationObserver(queueRender);
 rootWatch.observe(document.body,{attributes:true,attributeFilter:['class']});
-// Horizontal swipe across the 3D bay changes which machine is *viewed*. It never
-// changes activeRigId, cannot spend an assignment, and leaves orbit/pinch intact.
+// Only swiping over the dedicated bay strip changes machines. A drag over
+// the 3D surface is always orbit/pan/pinch, regardless of its distance.
+// Ignore gestures started on actionable arrow/dot buttons.
 let swipeStart=null;
-const surface=document.querySelector('#game');
-surface?.addEventListener('pointerdown',event=>{
-    if(event.pointerType==='touch'&&document.body.classList.contains('inspecting'))
-        swipeStart={x:event.clientX,y:event.clientY,id:event.pointerId};
-},true);
-surface?.addEventListener('pointerup',event=>{
-    if(!swipeStart||swipeStart.id!==event.pointerId)return;
+navigator.addEventListener('pointerdown',event=>{
+    if (event.pointerType!=='touch' || event.target.closest('button')) return;
+    swipeStart={x:event.clientX,y:event.clientY,id:event.pointerId};
+});
+navigator.addEventListener('pointerup',event=>{
+    if (!swipeStart || swipeStart.id!==event.pointerId) return;
     const dx=event.clientX-swipeStart.x,dy=event.clientY-swipeStart.y;
     swipeStart=null;
-    if(Math.abs(dx)>95&&Math.abs(dx)>Math.abs(dy)*1.8 &&
-        actualMode(loadSeries(storage))!=='contracts')stepBay(dx<0?1:-1);
-},true);
+    if (Math.abs(dx)>44 && Math.abs(dx)>Math.abs(dy)*1.35) stepBay(dx<0?1:-1);
+});
+navigator.addEventListener('pointercancel',()=>{swipeStart=null;});
 document.addEventListener('click',event=>{
     const target=event.target.closest('button');
     if(!target)return;
@@ -502,7 +569,7 @@ document.addEventListener('click',event=>{
         try{session?.removeItem(key);}catch{}
     } else if(target.id==='debrief-garage'&&loadSeries(storage)?.phase!=='intermission') {
         clearFieldWorkSeries(storage);
-        mode='garage';selectedJobId=null;selectedSlot=null;
+        mode='garage';selectedJobId=null;selectedSlot=null;identityExpanded=false;
     }
 },true);
 queueRender();
