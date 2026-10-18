@@ -53,8 +53,18 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
         id:p.id,point:{x:p.x,z:p.z},owner:p.owner,contested:!!p.contested,
         influence:p.influence??0,friendly:p.friendly??0,hostile:p.hostile??0,
     }))??[];
+    // An approximate battlefield rally is publicly known even with no enemy
+    // sighting. That keeps crews moving/searching behind the loading house.
+    const missions={
+        friendly:objective?.type==='elimination'?{x:0,z:-8}:
+            objective?.type==='breakthrough'?{...objective.friendlyGoal}:
+                objective?.point?{...objective.point}:{x:0,z:-8},
+        hostile:objective?.type==='elimination'?{x:0,z:8}:
+            objective?.type==='breakthrough'?{...objective.hostileGoal}:
+                objective?.point?{...objective.point}:{x:0,z:8},
+    };
     memory.lastTime=time;
-    return {time,kind:objective?.type??'elimination',teams,zones,
+    return {missions,time,kind:objective?.type??'elimination',teams,zones,
         score:{friendly:objective?.friendlyProgress??0,hostile:objective?.hostileProgress??0,
             max:objective?.domination?.scoreToWin??0},
         knowledge};
