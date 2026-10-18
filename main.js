@@ -427,6 +427,7 @@ function renderObjectiveStatus() {
     const dom=sortieObjective?.domination;
     const domActive=sortieObjective?.type==='domination'&&!inspecting;
     dominationHud.classList.toggle('hidden',!domActive);
+    document.body.classList.toggle('domination-active',!!domActive);
     if (domActive && dom) {
         const points=dom.points.map(p=>p.id+' '+(p.contested?'!':p.owner==='friendly'?'▲':
             p.owner==='hostile'?'▼':'·')+' '+Math.round(Math.abs(p.influence)*100)+'%').join('  |  ');
@@ -446,10 +447,12 @@ function renderSquadStatus() {
     renderObjectiveStatus();
     syncCockpitInstruments();
 }
+// HUD percentages are INTERNAL integrity, matching field patches and pit data.
+// Armor is a separate protective layer; combining the two made a 22% internal
+// field patch appear to restore only single-digit "health".
 function playerPartRemaining(part) {
     if (!part) return 0;
-    const total = Math.max(1, part.maxIntegrity + part.maxArmor);
-    return Math.max(0, Math.min(1, (part.integrity + part.armor) / total));
+    return Math.max(0, Math.min(1,part.integrity / Math.max(1,part.maxIntegrity)));
 }
 function syncCockpitInstruments() {
     if (!arena?.updateCockpitInstruments) return;
@@ -549,6 +552,48 @@ function missionKillAiActor(actor, reason, attackerId = null) {
     renderSquadStatus();
     checkSquadOutcome();
 }
+
+const observeOverlay = document.createElement('section');
+observeOverlay.id='allied-observation';
+observeOverlay.classList.add('hidden');
+observeOverlay.setAttribute('aria-label','Observe surviving allied mechs');
+const observeCaption=document.createElement('strong');
+const observePrev=document.createElement('button');
+observePrev.type='button';observePrev.textContent='‹';
+const observeNext=document.createElement('button');
+observeNext.type='button';observeNext.textContent='›';
+observePrev.setAttribute('aria-label','Previous ally');
+observeNext.setAttribute('aria-label','Next ally');
+observeOverlay.append(observePrev,observeCaption,observeNext);
+document.body.append(observeOverlay);
+let observedAllyId=null;
+function activeAllies(){return friendlySupportActors.filter(actor=>actor.active);}
+function setObservedAlly(direction=0){
+    const allies=activeAllies();
+    if(!allies.length){observedAllyId=null;arena.setSpectatorRig(null);observeCaption.textContent='NO ACTIVE ALLIES';return;}
+    let index=allies.findIndex(actor=>actor.id===observedAllyId);
+    index=direction===0&&index>=0?index:(index+direction+allies.length)%allies.length;
+    if(index<0)index=0;
+    const ally=allies[index];
+    observedAllyId=ally.id;
+    observeCaption.textContent='OBSERVING · '+(ally.label||ally.id).toUpperCase()+
+        ' · '+(index+1)+'/'+allies.length;
+    arena.setSpectatorRig(ally.rig);
+}
+observePrev.addEventListener('click',()=>setObservedAlly(-1));
+observeNext.addEventListener('click',()=>setObservedAlly(1));
+function enterAlliedObservation(){
+    if(!activeAllies().length)return;
+    observeOverlay.classList.remove('hidden');
+    document.body.classList.add('observing-allies');
+    setObservedAlly(0);
+}
+function leaveAlliedObservation(){
+    observeOverlay.classList.add('hidden');
+    document.body.classList.remove('observing-allies');
+    observedAllyId=null;
+    arena.setSpectatorRig(null);
+}
 function missionKillPlayer(reason, attackerId = null) {
     if (!playerCombatActive) return;
     recordMissionKill(boutLedger, { attackerId, victimId: 'player', reason, time: performance.now() / 1000 });
@@ -557,13 +602,16 @@ function missionKillPlayer(reason, attackerId = null) {
     stopFireInput();
     stopFieldServiceInput();
     controls.setEnabled(false);
-    faultStrip.textContent = `MISSION KILL · ${reason} · ALLIES STILL ENGAGED`;
+    // A single failure announcement replaces lower-priority feedback. Don't
+    // permanently duplicate the mission kill in the shot/hit report.
+    faultStrip.textContent = 'RIG DISABLED · ' + reason;
     faultStrip.classList.remove('nominal');
     faultStrip.classList.add('faulted');
-    shotReport.classList.remove('faded', 'penetrated');
-    shotReport.classList.add('disabled-part');
-    shotReport.textContent = `YOU ARE COMBAT INEFFECTIVE · ${reason} · ALLIED RIGS CONTINUE`;
-    reportFade = 9999;
+    shotReport.classList.add('faded');
+    shotReport.classList.remove('penetrated','disabled-part');
+    shotReport.textContent = '';
+    reportFade = 0;
+    enterAlliedObservation();
     renderSquadStatus();
     renderAmmo();
     persistMachine();
@@ -593,6 +641,7 @@ function resetAiActor(actor) {
     arena.updateCombatantDamage(actor.id, actor.condition);
 }
 function resetSquadBattle() {
+    leaveAlliedObservation();
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
     for (const actor of aiActors) resetAiActor(actor);
@@ -1350,6 +1399,10 @@ function frame(now) {
             // Score, damage, target choice and opposing locomotion are frozen once the
             // sortie resolves. Only the surviving player's physical rig keeps coasting/walking.
             if (!aftermathDriving) {
+                if(!playerCombatActive && observedAllyId){
+                    const watched=friendlySupportActors.find(actor=>actor.id===observedAllyId);
+                    if(!watched?.active)setObservedAlly(1);
+                }
                 const participants = battleParticipants();
                 updateFaultSupportAssignments(faultSupportState, participants, FIXED_DT);
                 const playerScreener = friendlySupportActors.find(actor => faultSupportForActor(faultSupportState, actor.id)?.casualtyId === 'player');
