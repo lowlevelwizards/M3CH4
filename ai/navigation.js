@@ -73,3 +73,25 @@ export function nextWaypoint(routeState,position,radius=1.6){
         length(position,points[routeState.index])<radius)routeState.index++;
     return points[routeState.index]??null;
 }
+
+/** Capture/defense needs ANY safe position inside the scoring circle, not a
+ * single exact center coordinate. Distinct entry bearings allow recovery from
+ * a blocked segment without changing the physical collision envelope. */
+export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.95,attempt=0){
+    const maxEntry=Math.max(.2,zoneRadius-collisionRadius-.4);
+    const candidates=[{x:center.x,z:center.z}];
+    for(let i=0;i<12;i++){
+        const angle=(i+attempt*3)*Math.PI/6;
+        candidates.push({x:center.x+Math.cos(angle)*maxEntry*.72,
+            z:center.z+Math.sin(angle)*maxEntry*.72});
+    }
+    let best=null,score=Infinity;
+    for(const point of candidates){
+        const path=planRoute(world,from,point,collisionRadius);
+        if(!path.ok)continue;
+        const weight=path.cost+Math.max(0,zoneRadius/2-
+            Math.hypot(center.x-point.x,center.z-point.z))*.05;
+        if(weight<score-1e-6){score=weight;best={...path,approach:point};}
+    }
+    return best??{ok:false,reason:'NO SAFE OBJECTIVE APPROACH',waypoints:[]};
+}
