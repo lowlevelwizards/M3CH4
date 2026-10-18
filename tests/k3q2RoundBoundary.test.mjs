@@ -83,7 +83,7 @@ test('intermediate debrief explicitly defers settlement and suppresses salvage p
     const ui = fs.readFileSync(new URL('../seriesUI.js', import.meta.url), 'utf8');
     const css = fs.readFileSync(new URL('../seriesStyles.css', import.meta.url), 'utf8');
     assert.match(ui, /CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS/);
-    assert.match(ui, /CONTINUE TO PIT/);
+    assert.match(ui, /CONTINUE TO INTERMISSION/);
     assert.doesNotMatch(css, /bo3-round-debrief \.debrief-page-nav\{/);
     assert.doesNotMatch(css, /bo3-round-debrief \[data-debrief-page="1"\]/);
     assert.match(css, /bo3-round-debrief \[data-debrief-page="2"\]/);
