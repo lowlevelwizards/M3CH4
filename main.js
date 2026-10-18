@@ -959,6 +959,24 @@ document.addEventListener('m3ch4:bay-module', event => {
         }
     } catch (error) { request.result = { ok:false, reason:error?.message || 'MODULE CHANGE FAILED' }; }
 });
+// An inter-round patch writes both persistent saves before reloading. Reconcile the
+// same serial into the running in-memory authority first: the normal pagehide save
+// must not undo that external, successful field-work transaction.
+document.addEventListener('m3ch4:bay-reconcile-patch', event => {
+    const serial = event.detail?.serial, slot = event.detail?.slot;
+    if (!serial || !SLOTS.includes(slot)) return;
+    const saved = loadMachine(saveStorage);
+    const authoritativePart = saved.assembly.owned.find(part => part.serial === serial);
+    const livePart = assembly.owned.find(part => part.serial === serial);
+    if (!authoritativePart || !livePart) return;
+    Object.assign(livePart, authoritativePart);
+    if (assembly.installed[slot] === serial && saved.assembly.installed[slot] === serial) {
+        const snapshot = saved.playerCondition?.parts?.[slot];
+        if (snapshot && playerCondition.parts[slot]) Object.assign(playerCondition.parts[slot], snapshot);
+        if (slot === 'mobility' && saved.damage?.drives?.[serial])
+            damage.drives[serial] = { ...saved.damage.drives[serial] };
+    }
+});
 document.addEventListener('m3ch4:bay-generator-mount', event => {
     const request = event.detail;
     if (!request || !inspecting) return;
