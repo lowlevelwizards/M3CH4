@@ -1,0 +1,21 @@
+name: k.3s.2 temporary validation
+on:
+  push:
+    branches: ["k3s2-bo3-results-damage-touch"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full regression
+        run: npm test
+      - name: Touched JavaScript syntax
+        run: node --check main.js && node --check seriesUI.js && node --check acquisitionUI.js && node --check garageBay.js && node --check unifiedGarageUI.js && node --check tests/k3s2BO3ResultLifecycle.test.mjs
+      - name: Whitespace
+        run: git diff --check e11ada4f33aff5ed25d905ea93849538a35fe17b..HEAD
