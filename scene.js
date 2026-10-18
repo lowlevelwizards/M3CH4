@@ -111,6 +111,72 @@ export function createArenaScene(initial, targetAssembly) {
     garageRoot.name = 'garage-bay';
     garageRoot.visible = false;
     scene.add(garageRoot);
+    // Non-gameplay supports make unfinished bays read as machinery undergoing
+    // assembly rather than disconnected modules levitating over the service pad.
+    const stagingFixtures = new THREE.Group();
+    stagingFixtures.name = 'garage-work-fixtures';
+    scene.add(stagingFixtures);
+    function clearStagingFixtures() {
+        stagingFixtures.traverse(node => {
+            if (!node.isMesh) return;
+            node.geometry?.dispose?.();
+            if (Array.isArray(node.material)) node.material.forEach(mat => mat.dispose?.());
+            else node.material?.dispose?.();
+        });
+        stagingFixtures.clear();
+    }
+    function stagingBox(w,h,d,color,x,y,z) {
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),
+            new THREE.MeshStandardMaterial({color,roughness:.87,metalness:.22}));
+        mesh.position.set(x,y,z);
+        mesh.castShadow=true;mesh.receiveShadow=true;
+        stagingFixtures.add(mesh);
+        return mesh;
+    }
+    function stagingPost(x,z,top) {
+        stagingBox(.18,Math.max(.20,top-.11),.18,0x394644,x,(top-.11)/2,z);
+        stagingBox(.38,.12,.37,0xae833c,x,top-.04,z);
+        stagingBox(.48,.13,.48,0x252e2b,x,.085,z);
+    }
+    function updateGarageFixtures(assembly) {
+        clearStagingFixtures();
+        const hasFrame=!!installedPart(assembly,'structure');
+        const hasMobility=!!installedPart(assembly,'mobility');
+        if (hasFrame && hasMobility) return;
+        if (!hasFrame) {
+            const loose=['mobility','power','command','combat'].filter(slot=>installedPart(assembly,slot));
+            // Put each loose physical module on a real low repair table, keeping its
+            // original meshes and ownership/picking tags. No fictional mounting.
+            const z=0;
+            loose.forEach((slot,index)=>{
+                const group=exterior.partGroups.get(slot);
+                if(!group)return;
+                const x=(index-(loose.length-1)/2)*1.45;
+                stagingBox(1.16,.16,1.06,0x47534e,x,.69,z);
+                stagingBox(1.25,.09,1.12,0xb38842,x,.81,z);
+                for(const dx of [-.45,.45])for(const dz of [-.35,.35])stagingPost(x+dx,z+dz,.62);
+                group.position.set(x,1.25,z);
+                const bounds=new THREE.Box3().setFromObject(group);
+                if(Number.isFinite(bounds.min.y))group.position.y+=.88-bounds.min.y;
+            });
+            if(!loose.length){
+                // The empty bay still has a believable reserved assembly station.
+                stagingBox(2.6,.17,1.7,0x3e4842,0,.13,0);
+                stagingBox(2.45,.05,1.55,0x80632e,0,.25,0);
+                for(const x of [-1.03,1.03])for(const z of [-.65,.65])
+                    stagingBox(.20,.07,.20,0xb38c4a,x,.31,z);
+            }
+        } else if (!hasMobility) {
+            // Support an otherwise assembled torso on four garage jack stands.
+            for(const x of [-.68,.68])for(const z of [-.49,.49]){
+                stagingBox(.48,.14,.50,0x3a423e,x,.1,z);
+                stagingBox(.14,1.45,.14,0x78817a,x,.88,z);
+                stagingBox(.44,.16,.56,0xb58a42,x,1.62,z);
+            }
+            stagingBox(2.03,.12,.21,0x57615c,0,1.57,0);
+        }
+        stagingFixtures.visible=inspecting;
+    }
     const GARAGE_RIG_YAW = -0.10;
     const cockpit = buildCockpit(scene);
     // The information display is still a real Three.js cockpit layer, but it rides the
@@ -1024,6 +1090,7 @@ export function createArenaScene(initial, targetAssembly) {
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
         garageRoot.visible = enabled;
+        stagingFixtures.visible = enabled;
         arenaHemisphere.visible = !enabled;
         sun.visible = !enabled;
         coolRim.visible = !enabled;
@@ -1045,6 +1112,7 @@ export function createArenaScene(initial, targetAssembly) {
     function rebuildAssembly(assembly) {
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
+        updateGarageFixtures(assembly);
         for (const mesh of exterior.pickMeshes)
             mesh.userData.actorId = 'player';
         pilotColors = captureColors(exterior.pickMeshes);
