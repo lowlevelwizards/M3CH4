@@ -37,7 +37,7 @@ try { storage = window.localStorage; } catch { /* old storage warnings still app
 try { session = window.sessionStorage; } catch { /* display a blocking action message */ }
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedJobId = null;
-let renderScheduled = false, previewSignature = '';
+let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
 
@@ -59,6 +59,8 @@ function message(text, failed = false) {
     notice.textContent = text;
     notice.classList.toggle('error', failed);
     notice.classList.toggle('shown', true);
+    if (noticeTimer !== null) window.clearTimeout(noticeTimer);
+    noticeTimer = window.setTimeout(()=>{notice.classList.remove('shown');noticeTimer=null;},2700);
 }
 function data() {
     const stable = loadStable(storage).stable;
@@ -119,6 +121,7 @@ function preview(stable, series) {
         arena.focusPart(selectedSlot);
     } else {
         arena.selectPart(selectedSlot);
+        arena.focusPart(selectedSlot);
     }
 }
 function navRender(stable, currentMode) {
@@ -179,7 +182,7 @@ function summary(view) {
 function moduleStation(view) {
     const station = el('section','unified-stations');
     for (const item of view.health) {
-        const node = button('', () => { selectedSlot = item.slot; previewSignature = ''; render(); },
+        const node = button('', () => { selectedSlot = item.slot; render(); },
             'unified-station ' + (selectedSlot === item.slot ? 'selected ' : '') +
                 (item.destroyed || item.condition <= .001 && item.serial ? 'critical':''));
         node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
