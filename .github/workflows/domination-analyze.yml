@@ -1,0 +1,25 @@
+name: Analyze completed 700-bout Domination study
+on:
+  push:
+    branches: ["research-headless-domination-20261018"]
+    paths: [".github/workflows/domination-analyze.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: domination-headless-cohorts
+          path: study-results
+          run-id: 39169313912
+          github-token: ${{ github.token }}
+      - name: Paired conditions and team comparisons
+        run: node research/summarizeDomination.mjs
