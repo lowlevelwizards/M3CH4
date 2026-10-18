@@ -14,7 +14,9 @@ jobs:
         with:
           node-version: 22
       - name: Run controlled headless 3v3 cohorts
-        run: node research/headlessDominationStudy.mjs 40
+        run: node research/headlessDominationStudy.mjs 20
+      - name: Paired roster and wear analysis
+        run: node research/summarizeK3u2.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
