@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { DEFAULT_WORLD } from '../locomotion.js';
+import { DEFAULT_WORLD, DEFAULT_RIG_CONFIG, createRigState, stepRig } from '../locomotion.js';
+import { createEnemyMotion, advanceEnemyMotion } from '../enemyMotion.js';
+import { advanceSortieObjective } from '../sortieObjectives.js';
+import { chooseFightPosition, chooseDefendPosition } from '../ai/positioning.js';
 import { createWorldModel, observeBattlefield, actorCapabilities } from '../ai/worldModel.js';
 import { planTeam } from '../ai/teamPlanner.js';
 import { createPilotBrain, decidePilot } from '../ai/pilotBrain.js';
@@ -167,4 +170,80 @@ test('cross-mode objectives use the same team/pilot pipeline',()=>{
         assert.equal(Object.keys(orders).length,1);
         assert.ok(['CAPTURE','SEARCH','ENGAGE','HOLD'].includes(orders['ally-1'].goal));
     }
+});
+
+test('unarmed, opponent-free team physically moves onto multiple Domination nodes and starts scoring',()=>{
+    const state=objective(),world=DEFAULT_WORLD,dt=1/60;
+    const actors=[
+        unit('ally-1','friendly',-9,21,{rig:createRigState({x:-9,z:21,yaw:0})}),
+        unit('ally-2','friendly',9,21,{rig:createRigState({x:9,z:21,yaw:0})}),
+    ];
+    for(const actor of actors) {
+        actor.motion=createEnemyMotion({id:'pressure',label:'TEST PILOT',
+            preferredRangeM:6.2,rangeBandM:1,approachThrottle:.72,
+            approachStrafe:.10,retreatThrottle:.62,strafeThrottle:.68,
+            strafeSeconds:2.2,braceSeconds:.75,closeAction:'retreat',
+            closeRetreatM:0,steerGain:1.75,yawRateDamping:1.15});
+        actor.brain=createPilotBrain();actor.executor=createIntentExecutor();
+    }
+    const memory=createWorldModel();
+    let snapshot=null,plan=null;
+    for(let tick=0;tick<60*45;tick++) {
+        const now=tick*dt;
+        if(tick%60===0) {
+            snapshot=observeBattlefield(memory,actors,state,world,now);
+            plan=planTeam(snapshot,'friendly').orders;
+        }
+        for(const actor of actors) {
+            const cap=snapshot.knowledge.friendly.allies.find(a=>a.id===actor.id).capability;
+            const intent=decidePilot(actor.brain,
+                {id:actor.id,position:{x:actor.rig.x,z:actor.rig.z}},
+                plan[actor.id],{capability:cap,world,personality:'pressure'},now);
+            const command=executeIntent(actor.executor,intent,actor.rig,world,.95,dt);
+            const motion=advanceEnemyMotion(actor.motion,actor.rig,actor.rig,
+                dt,true,world,.95,actor.motion.behavior,command);
+            stepRig(actor.rig,motion,dt,DEFAULT_RIG_CONFIG,world);
+        }
+        advanceSortieObjective(state,actors,dt);
+    }
+    const owned=state.domination.points.filter(point=>point.owner==='friendly');
+    assert.ok(owned.length>=2,
+        'Expected 2 captured zones. Actual: '+JSON.stringify({
+            rigs:actors.map(a=>({id:a.id,x:a.rig.x,z:a.rig.z,
+                route:a.executor.lastFailure,mode:a.motion.phase})),
+            zones:state.domination.points.map(p=>({id:p.id,owner:p.owner,influence:p.influence}))
+        }));
+    assert.ok(state.friendlyProgress>0,'Capture should produce majority score');
+});
+test('position candidates are static-world valid and do not replace physical steering',()=>{
+    const self={x:-9,z:19},enemy={x:16,z:1};
+    const fire=chooseFightPosition(DEFAULT_WORLD,self,enemy,7,'skirmisher');
+    const guard=chooseDefendPosition(DEFAULT_WORLD,self,{x:-17,z:-1.5});
+    for(const p of [fire,guard]) {
+        assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));
+        for(const o of DEFAULT_WORLD.obstacles.filter(o=>!o.dynamic))
+            assert.ok(!(p.x>o.minX-1.4&&p.x<o.maxX+1.4&&
+                p.z>o.minZ-1.4&&p.z<o.maxZ+1.4),
+                'Candidate intersects '+o.id);
+    }
+});
+test('safe servicing retreats away from its abandoned capture target',()=>{
+    const brain=createPilotBrain(),actor={id:'enemy-1',position:{x:0,z:0}};
+    const out=decidePilot(brain,actor,{goal:'CAPTURE',objectiveId:'B',
+        point:{x:0,z:-9},score:.8},{
+            capability:{canMove:true,endurance:1,command:1},
+            weaponRecovery:{active:true,mode:'WITHDRAW'},
+            retreatPoint:{x:0,z:20}
+        },10);
+    assert.equal(out.goal,'WITHDRAW');
+    assert.deepEqual(out.point,{x:0,z:20});
+});
+test('unreachable routes report a failure once and throttle reattempts',()=>{
+    const state=createIntentExecutor(),actor={x:0,z:22};
+    const order={goal:'CAPTURE',point:{x:0,z:0}};
+    for(let i=0;i<80;i++) {
+        const result=executeIntent(state,order,actor,DEFAULT_WORLD,.95,1/60);
+        assert.equal(result.mode,'ANCHOR');
+    }
+    assert.equal(state.failures,1);
 });
