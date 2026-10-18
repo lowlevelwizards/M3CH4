@@ -93,6 +93,7 @@ export function planTeam(snapshot,team,options={}) {
         for(const pair of assignExhaustive(actors,jobs,team,playerZone?.id,strategy)) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
+                role:'ANCHOR',reason:'UNABLE TO REACH OBJECTIVE',
                 note:'UNABLE TO REACH OBJECTIVE',score:0};continue;}
             const suitabilityScore=suitability(actor,job,team);
             const playerCoverage=playerZone?.id===job.objectiveId&&
