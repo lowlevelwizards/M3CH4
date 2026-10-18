@@ -1,10 +1,11 @@
+import { chooseFightPosition, chooseDefendPosition } from './positioning.js';
 /** One coherent decision authority per pilot. Plans are sticky; invalidation,
  * critical damage, weapon-service safety, and sharply better team jobs interrupt.
  * Pure and deterministic: no clock, browser, storage or physics dependencies.
  */
 const DIST=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createPilotBrain(){return {intent:null,committedUntil:0,
-    lastDecision:-Infinity,lastReason:'INIT',history:[]};}
+    lastDecision:-Infinity,lastGeometryAt:-Infinity,lastReason:'INIT',history:[]};}
 function record(brain,next,now) {
     brain.intent=next;brain.lastReason=next.reason;brain.lastDecision=now;
     brain.history.push({time:now,goal:next.goal,objectiveId:next.objectiveId??null,
@@ -34,7 +35,20 @@ export function decidePilot(brain,actor,assignment,context,now) {
     const identity=i=>i?.goal+'|'+(i?.objectiveId??'')+'|'+(i?.targetActorId??'');
     const changed=identity(last)!==identity(proposed);
     const incompatible=last?.objectiveId&&context?.invalidObjectives?.includes(last.objectiveId);
-    const emergency=service||unsafe||!capability.canMove||incompatible;
+    // Geometry updates are slow intentional positioning choices, not 60Hz
+    // steering noise. Objective capture still goes to the physical zone.
+    const newTask=changed||!last;
+    if(proposed.point&&context?.world &&
+        (newTask||now-brain.lastGeometryAt>=.9)) {
+        if(proposed.goal==='ENGAGE')proposed.point=chooseFightPosition(
+            context.world,actor.position,proposed.point,
+            context.preferredRangeM??6,context.personality??'pressure');
+        else if(proposed.goal==='DEFEND')proposed.point=chooseDefendPosition(
+            context.world,actor.position,proposed.point);
+        brain.lastGeometryAt=now;
+    } else if(!newTask&&last?.point)proposed.point=last.point;
+    const emergency=service||unsafe||!capability.canMove||incompatible||
+        (proposed.goal==='SCREEN'&&last?.goal!=='SCREEN');
     const improvement=(proposed.utility??0)-(last?.utility??0);
     if(changed&&!emergency&&last&&now<brain.committedUntil&&improvement<.27)
         return last;
