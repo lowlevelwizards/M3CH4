@@ -523,7 +523,11 @@ function showHitConfirm(hit, text = null) {
 }
 function checkSquadOutcome() {
     const outcome = squadOutcome(playerCombatActive, aiActors);
-    if (outcome && !testEnded)
+    // Domination is won by territory. A wiped hostile squad no longer grants
+    // instant victory; living friendlies still have to hold the majority. The
+    // loss of every friendly combatant remains an immediate mission failure.
+    if (outcome && !testEnded &&
+        (sortieObjective.type!=='domination' || !outcome.victory))
         finishSortie(outcome.victory, outcome.reason);
 }
 function missionKillAiActor(actor, reason, attackerId = null) {
