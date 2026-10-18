@@ -571,9 +571,9 @@ function activeAllies(){return friendlySupportActors.filter(actor=>actor.active)
 function setObservedAlly(direction=0){
     const allies=activeAllies();
     if(!allies.length){observedAllyId=null;arena.setSpectatorRig(null);observeCaption.textContent='NO ACTIVE ALLIES';return;}
-    let index=allies.findIndex(actor=>actor.id===observedAllyId);
-    index=direction===0&&index>=0?index:(index+direction+allies.length)%allies.length;
-    if(index<0)index=0;
+    const current=allies.findIndex(actor=>actor.id===observedAllyId);
+    const index=current<0?0:direction===0?current:
+        (current+direction+allies.length)%allies.length;
     const ally=allies[index];
     observedAllyId=ally.id;
     observeCaption.textContent='OBSERVING · '+(ally.label||ally.id).toUpperCase()+
