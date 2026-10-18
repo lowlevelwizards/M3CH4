@@ -1425,6 +1425,8 @@ function frame(now) {
                         capability,weaponRecovery:recovery,
                         world:DEFAULT_WORLD,
                         preferredRangeM:actor.behavior?.preferredRangeM,
+                        collisionRadius:actorConfig.collisionRadiusM+.3,
+                        threatPosition:target?.rig??null,
                         personality:actor.behavior?.id,
                         underFireSeconds:actor.motion?.awareness?.underFireSeconds??0,
                         retreatPoint:recovery.active&&actor.serviceCover?
