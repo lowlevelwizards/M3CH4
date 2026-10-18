@@ -77,7 +77,7 @@ export function nextWaypoint(routeState,position,radius=1.6){
 /** Capture/defense needs ANY safe position inside the scoring circle, not a
  * single exact center coordinate. Distinct entry bearings allow recovery from
  * a blocked segment without changing the physical collision envelope. */
-export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.95,attempt=0){
+export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.95,attempt=0,avoid=null){
     const maxEntry=Math.max(.2,zoneRadius-collisionRadius-.4);
     const candidates=[{x:center.x,z:center.z}];
     for(let i=0;i<12;i++){
