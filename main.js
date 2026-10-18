@@ -590,6 +590,8 @@ function resetAiActor(actor) {
     actor.targetId = null;
     actor.killReason = null;
     actor.teamIntent=null;
+    actor.lastServiceCoverCheck=-Infinity;
+    actor.serviceCover=null;
     actor.brain=createPilotBrain();
     actor.executor=createIntentExecutor();
     actor.teamSupportTargetId = null;
@@ -1409,6 +1411,15 @@ function frame(now) {
                 if(screenTarget?.active&&screenTarget.rig)order={
                     goal:'SCREEN',point:{x:screenTarget.rig.x,z:screenTarget.rig.z},
                     score:.91,reason:'PROTECT FIELD SERVICE',targetActorId:screenTarget.id};
+                // A recoverable weapon needs actual defensible ground, not a
+                // hardcoded world-edge coordinate. Cache cover searches to
+                // avoid doing expensive obstacle evaluation every physics tick.
+                if(recovery.active&&recovery.mode==='WITHDRAW'&&target&&
+                    (aiClock-(actor.lastServiceCoverCheck??-Infinity)>1.4)){
+                    actor.lastServiceCoverCheck=aiClock;
+                    actor.serviceCover=chooseCoverPoint(actor.rig,target.rig,DEFAULT_WORLD,
+                        actorConfig.collisionRadiusM,actor.behavior)?.point??null;
+                }
                 const selected=decidePilot(actor.brain,
                     {id:actor.id,position:{x:actor.rig.x,z:actor.rig.z}},order,{
                         capability,weaponRecovery:recovery,
@@ -1416,7 +1427,9 @@ function frame(now) {
                         preferredRangeM:actor.behavior?.preferredRangeM,
                         personality:actor.behavior?.id,
                         underFireSeconds:actor.motion?.awareness?.underFireSeconds??0,
-                        retreatPoint:{x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
+                        retreatPoint:recovery.active&&actor.serviceCover?
+                            actor.serviceCover:
+                            {x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
                     },aiClock);
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT);
