@@ -102,7 +102,8 @@ function renderScore(result) {
     const layout = document.createElement('div'); layout.className = 'score-layout';
 
     const personal = document.createElement('section'); personal.className = 'score-card score-personal';
-    const personalTitle = document.createElement('h2'); personalTitle.textContent = 'YOUR BOUT';
+    const personalTitle = document.createElement('h2');
+    personalTitle.textContent = result.terminal === false ? 'ROUND ' + result.round.round + ' SCORE' : 'YOUR BOUT';
     const personalKick = document.createElement('div'); personalKick.className = 'score-kicker';
     personalKick.textContent = player
         ? `RANK ${rank}/${standings.length}${result.score.mvp?.id === 'player' ? ' · MVP' : ''} · ${player.survived ? 'RETURNED TO BAY' : 'MISSION KILLED'}`
@@ -132,12 +133,16 @@ function renderScore(result) {
     }
 
     const match = document.createElement('section'); match.className = 'score-card score-match';
-    const matchTitle = document.createElement('h2'); matchTitle.textContent = 'FIELD RESULT';
+    const matchTitle = document.createElement('h2');
+    matchTitle.textContent = result.terminal === false ? 'ROUND RESULT · BO3 IN PROGRESS' : 'FIELD RESULT';
     const matchKick = document.createElement('div'); matchKick.className = 'score-kicker';
     matchKick.textContent = result.victory ? 'FRIENDLY TEAM CONTROLS THE FIELD' : 'HOSTILE TEAM CONTROLS THE FIELD';
     const meta = document.createElement('div'); meta.className = 'score-match-meta';
     const mvp = document.createElement('div'); mvp.innerHTML = `<span>MVP</span><b>${result.score.mvp?.label ?? '—'} · ${Math.round(result.score.mvp?.combatScore ?? 0)}</b>`;
-    const preservation = document.createElement('div'); preservation.innerHTML = `<span>WRECK PRESERVATION</span><b>${result.victory ? `${result.wreckPreservation}%` : '—'}</b>`;
+    const preservation = document.createElement('div');
+    preservation.innerHTML = `<span>${result.terminal === false ? 'MATCH SCORE' : 'WRECK PRESERVATION'}</span><b>${result.terminal === false
+        ? result.series.playerWins + ' — ' + result.series.enemyWins
+        : result.victory ? result.wreckPreservation + '%' : '—'}</b>`;
     meta.append(mvp, preservation);
     const table = document.createElement('div'); table.className = 'score-standings';
     standings.forEach((row, index) => {
@@ -151,7 +156,7 @@ function renderScore(result) {
         item.append(rankEl, name, score, stats); table.append(item);
     });
     match.append(matchTitle, matchKick, meta, table);
-    if (result.victory) {
+    if (result.victory && result.terminal !== false) {
         const order = document.createElement('div'); order.className = 'draft-order';
         const orderIds = result.score.draftOrder ?? [];
         const numbered = orderIds.map((id, index) => `${index + 1}. ${actorLabel(result, id)}`).join('  →  ');
