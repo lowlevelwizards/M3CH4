@@ -303,7 +303,11 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     };
     const magnitude = Math.hypot(dir.x, dir.z);
 
-    if (magnitude > .15 && !motion.route && motion.recoveryCooldown <= 0) {
+    // The tactical A* route owns static-obstacle navigation. Don't run a
+    // second independent local detour planner against the same wall; it can
+    // continually override the selected route and trap the machine.
+    if(teamIntent?.mode==='ORDER')motion.route=null;
+    if (teamIntent?.mode!=='ORDER'&&magnitude>.15&&!motion.route&&motion.recoveryCooldown<=0) {
         const direction = { x: dir.x / magnitude, z: dir.z / magnitude };
         const endpoint = { x: from.x + direction.x * 5, z: from.z + direction.z * 5 };
         const blocker = firstBlock(from, endpoint, world, radius + .52);
