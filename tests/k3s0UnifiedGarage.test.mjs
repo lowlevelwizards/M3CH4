@@ -142,3 +142,13 @@ test('parked rig generator mounting obeys physical graph constraints without cha
     assert.equal(setInactiveBayGeneratorMount(storage,'rig-02','standard').ok,true);
     assert.equal(bayGeneratorMount(loadStable(storage).stable,'rig-02'),'standard');
 });
+
+test('physical tap reaches the same station UI without mutating combat-active selection',()=>{
+    const main=fs.readFileSync(new URL('../main.js',import.meta.url),'utf8');
+    const ui=fs.readFileSync(new URL('../unifiedGarageUI.js',import.meta.url),'utf8');
+    assert.match(main,/m3ch4:bay-picked/);
+    assert.match(ui,/addEventListener\('m3ch4:bay-picked'/);
+    assert.match(ui,/selectedSlot = slot && selectedSlot!==slot \? slot : null/);
+    assert.match(main,/m3ch4:bay-reconcile-patch/);
+    assert.match(ui,/m3ch4:bay-reconcile-patch/);
+});
