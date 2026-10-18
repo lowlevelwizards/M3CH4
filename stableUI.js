@@ -67,6 +67,10 @@ function syncFromLiveSave() {
     if (!storage) return false;
     const machine = loadMachine(storage);
     try {
+        // Parked bays may be edited by the unified garage while this adapter is
+        // idle. Refresh first: saving the old closure would erase those bay edits.
+        loaded = loadStable(storage);
+        stable = loaded.stable;
         syncActiveMachineIntoStable(stable, machine);
         return storeStable(storage, stable);
     } catch {

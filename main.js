@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
-import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, } from './components.js';
+import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -30,6 +30,8 @@ import { clearBoutResult, publishBoutResult } from './boutSession.js';
 import { resetDamageFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
+import { loadStable, serialOwner } from './stable.js';
+import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount } from './garageBay.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -930,6 +932,115 @@ function refreshAssembly(save = false) {
 }
 refreshAssembly();
 selectPart(null, false);
+// k.3s.0: the five module stations are controlled by the viewed bay, not the
+// battle-active rig. Only edits of the combat-active bay touch this live assembly;
+// inactive bays mutate their own stable record without switching combat authority.
+document.addEventListener('m3ch4:bay-module', event => {
+    const request = event.detail;
+    if (!request || !inspecting || !SLOTS.includes(request.slot)) return;
+    try {
+        const stable = loadStable(saveStorage).stable;
+        if (request.rigId === stable.activeRigId) {
+            const serial = request.serial || null;
+            if (serial) {
+                const owner = serialOwner(stable, serial);
+                if (owner && owner.id !== request.rigId)
+                    throw new Error(serial + ' IS INSTALLED ON ' + (owner.name || owner.id));
+                equipSerial(assembly, request.slot, serial);
+            } else {
+                const removed = remove(assembly, request.slot);
+                if (!removed.ok) throw new Error(removed.reason || 'REMOVE BLOCKED');
+            }
+            refreshAssembly(true);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+            request.result = { ok:true };
+        } else {
+            request.result = changeInactiveBay(saveStorage, request.rigId, request.slot, request.serial);
+        }
+    } catch (error) { request.result = { ok:false, reason:error?.message || 'MODULE CHANGE FAILED' }; }
+});
+// An inter-round patch writes both persistent saves before reloading. Reconcile the
+// same serial into the running in-memory authority first: the normal pagehide save
+// must not undo that external, successful field-work transaction.
+document.addEventListener('m3ch4:bay-reconcile-patch', event => {
+    const serial = event.detail?.serial, slot = event.detail?.slot;
+    if (!serial || !SLOTS.includes(slot)) return;
+    const saved = loadMachine(saveStorage);
+    const authoritativePart = saved.assembly.owned.find(part => part.serial === serial);
+    const livePart = assembly.owned.find(part => part.serial === serial);
+    if (!authoritativePart || !livePart) return;
+    Object.assign(livePart, authoritativePart);
+    if (assembly.installed[slot] === serial && saved.assembly.installed[slot] === serial) {
+        const snapshot = saved.playerCondition?.parts?.[slot];
+        if (snapshot && playerCondition.parts[slot]) Object.assign(playerCondition.parts[slot], snapshot);
+        if (slot === 'mobility' && saved.damage?.drives?.[serial])
+            damage.drives[serial] = { ...saved.damage.drives[serial] };
+    }
+});
+document.addEventListener('m3ch4:bay-generator-mount', event => {
+    const request = event.detail;
+    if (!request || !inspecting) return;
+    try {
+        const stable = loadStable(saveStorage).stable;
+        if (request.rigId === stable.activeRigId) {
+            const prior = generatorMount(assembly);
+            const result = setGeneratorMount(assembly, request.position);
+            if (!result.ok) { request.result = result; return; }
+            const validation = inspectAssembly(assembly).checks.find(check => !check.passes);
+            if (validation) {
+                setGeneratorMount(assembly, prior);
+                request.result = { ok:false, reason:validation.reason };
+                return;
+            }
+            refreshAssembly(true);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+            request.result = { ok:true };
+        } else {
+            request.result = setInactiveBayGeneratorMount(saveStorage, request.rigId, request.position);
+        }
+    } catch (error) {
+        request.result = { ok:false, reason:error?.message || 'GENERATOR MOUNT FAILED' };
+    }
+});
+document.addEventListener('m3ch4:bay-service', event => {
+    const request = event.detail;
+    if (!request || !inspecting || !SLOTS.includes(request.slot)) return;
+    try {
+        const stable = loadStable(saveStorage).stable;
+        if (request.rigId === stable.activeRigId) {
+            const slot = request.slot;
+            const fitted = installedPart(assembly, slot);
+            if (!fitted) throw new Error('NO INSTALLED MODULE');
+            const state = playerCondition.parts[slot];
+            const destroyed = !!state?.destroyed || !!fitted.instance.destroyed;
+            const cost = destroyed ? rebuildQuote(state) : repairQuote(state);
+            if (cost <= 0 && fitted.instance.condition >= 1) throw new Error('NO REPAIR REQUIRED');
+            if (!destroyed && cost > economy.credits) throw new Error('INSUFFICIENT CREDITS');
+            const charged = destroyed ? Math.min(cost, economy.credits) : cost;
+            economy.credits -= charged;
+            repairInstalledPart(assembly, damage, slot);
+            restoreTargetPart(playerCondition, assembly, slot);
+            updateFunctionalStatus();
+            refreshAssembly(true);
+            arena.updatePilotDamage(playerCondition);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+            request.result = { ok:true, charged, rebuilt:destroyed };
+        } else {
+            const result = serviceInactiveBay(saveStorage, request.rigId, request.slot, economy.credits);
+            if (!result.ok) { request.result = result; return; }
+            // Both save generations hold the SAME global owned serial catalogue.
+            // Reconcile it into the in-memory active assembly before main persists,
+            // otherwise an old v8 copy could silently erase an inactive bay repair.
+            const livePart = assembly.owned.find(part => part.serial === result.serial);
+            if (livePart) Object.assign(livePart, result.part);
+            economy.credits -= result.charged;
+            persistMachine();
+            renderEconomy();
+            request.result = result;
+        }
+    } catch (error) { request.result = { ok:false, reason:error?.message || 'SERVICE FAILED' }; }
+});
+
 document.addEventListener('m3ch4:inventory-changed', () => {
     refreshAssembly(true);
     renderPartInfo();
@@ -1059,7 +1170,11 @@ const endPointer = (event) => {
     pointers.delete(event.pointerId);
     if (inspecting && event.type === 'pointerup' && !pointer.dragged) {
         const slot = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
-        selectPart(slot === selectedPart ? null : slot, slot !== null);
+        if (document.querySelector('#unified-garage')) {
+            // The viewed bay may not be the combat-active rig. Let the unified
+            // station UI own part selection instead of opening the old active bay.
+            document.dispatchEvent(new CustomEvent('m3ch4:bay-picked',{detail:{slot}}));
+        } else selectPart(slot === selectedPart ? null : slot, slot !== null);
     }
 };
 renderer.domElement.addEventListener('pointerup', endPointer);
@@ -1121,7 +1236,9 @@ function syncInspectorLayout() {
     // The actual canvas bounds (not stale window dimensions) are the camera viewport.
     // This also handles landscape-left / landscape-right and Safari toolbar resizing.
     const rect = renderer.domElement.getBoundingClientRect();
-    const panelRight = inspecting ? inspectionPanel.getBoundingClientRect().right - rect.left + 12 : 0;
+    const bayDock = document.querySelector('#unified-garage-dock');
+    const inspector = bayDock && !bayDock.closest('.hidden') ? bayDock : inspectionPanel;
+    const panelRight = inspecting ? inspector.getBoundingClientRect().right - rect.left + 12 : 0;
     arena.setInspectorLayout(panelRight, rect.width, rect.height);
 }
 function resize() {
