@@ -1,0 +1,21 @@
+name: k.3u.1 temporary tactical AI CI
+on:
+  push:
+    branches: ["k3u1-unified-tactical-ai"]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Full regression suite
+        run: npm test
+      - name: Tactical AI syntax
+        run: node --check main.js && node --check enemyMotion.js && for f in ai/*.js tests/k3u1TacticalAI.test.mjs; do node --check "$f"; done
+      - name: Whitespace
+        run: git diff --check b0569641792a449c608dde883409374c4d76f955..HEAD
