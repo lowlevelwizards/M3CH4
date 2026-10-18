@@ -30,7 +30,8 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
         const territory=['CAPTURE','CONTEST','DEFEND'].includes(intent?.goal)&&
             Number.isFinite(intent?.radius);
         const route=territory?
-            planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts):
+            planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
+                failedWaypoint):
             planRoute(world,rig,goal,collisionRadius);
         state.route=route.ok?{waypoints:route.waypoints,index:0}:null;
         state.key=key;
