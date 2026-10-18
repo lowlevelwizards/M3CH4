@@ -357,13 +357,21 @@ function main(){
           wornTeam:configItem.wornTeam?(swapped?'friendly':'hostile'):null};
         const pairedAsymmetric=configItem.variantTeam!=='none'||!!configItem.wornTeam;
         const index=pairedAsymmetric?Math.floor(i/2):i;
-        rows.push(runBout(0x13579bdf+index*37621+config.indexOf(configItem)*100001,opt));
+        // Identical seeds and initial rigs across competing capture policies.
+        // Otherwise A/B comparisons confound rule changes with different
+        // spawn offsets, targeted subsystem RNG and initial movement.
+        const bucket=configItem.name.startsWith('no-damage-')?'territory':
+            configItem.name.startsWith('armed-')?'armed':configItem.name;
+        const cohorts=['territory','armed','worn-05','worn-15','worn-25',
+            'worn-40','light-vs-balanced','heavy-vs-balanced'];
+        rows.push(runBout(0x13579bdf+index*37621+
+            Math.max(0,cohorts.indexOf(bucket))*100001,opt));
       }
       const subset=rows.filter(r=>r.scenario===configItem.name);
       console.log('GROUP '+configItem.name+' '+JSON.stringify(groupReport(subset)));
     }
     const report={meta:{baseline:'PR42 + k3u2 strategic planner and truthful AI ammo',games:rows.length,perGroup:n,
-        maxSeconds:MAX_SECONDS,fixedDt:DT,hitApproximation:true,
+        maxSeconds:MAX_SECONDS,fixedDt:DT,hitApproximation:true,matchedPolicySeeds:true,
         estimator:'2D physical cover+forward arc+probabilistic direct-target mesh contact',
         otherGameRules:'production decision, physics, capture, weapon cycles, localized damage, field servicing'},
         overall:groupReport(rows),groups:Object.fromEntries(config.map(x=>[
