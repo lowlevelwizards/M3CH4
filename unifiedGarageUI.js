@@ -35,7 +35,8 @@ const oldDeploy = document.querySelector('#assembly-toggle');
 let storage = null, session = null;
 try { storage = window.localStorage; } catch { /* old storage warnings still apply */ }
 try { session = window.sessionStorage; } catch { /* display a blocking action message */ }
-let viewedId = 'rig-01', mode = 'garage', selectedSlot = null, selectedJobId = null;
+let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
+let mode = 'garage', selectedSlot = null, selectedJobId = null;
 let renderScheduled = false, previewSignature = '';
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
@@ -344,7 +345,10 @@ function patchInPit(stable,view,series) {
                 if(!assign.ok){message(assign.reason,true);return;}
                 const result=applyEmergencyFieldPatch(storage,{seriesId:series.id,rigId:c.rigId,slot:c.slot});
                 message(result.ok?'FIELD PATCH COMPLETE · '+view.name.toUpperCase()+' COMMITTED':result.reason,!result.ok);
-                if(result.ok) window.location.reload();
+                if(result.ok) {
+                    document.dispatchEvent(new CustomEvent('m3ch4:bay-reconcile-patch',{detail:result.action}));
+                    window.location.reload();
+                }
             },'unified-service'));
     }
     return wrap;
