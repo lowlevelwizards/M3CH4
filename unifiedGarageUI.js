@@ -409,6 +409,12 @@ function queueRender() {
 document.addEventListener('m3ch4:assembly-mutated',()=>{previewSignature='';queueRender();});
 document.addEventListener('m3ch4:inventory-changed',()=>{previewSignature='';queueRender();});
 document.addEventListener('m3ch4:stable-status-cleared',queueRender);
+document.addEventListener('m3ch4:bay-picked',event=>{
+    if(actualMode(loadSeries(storage))!=='garage')return;
+    const slot=event.detail?.slot;
+    selectedSlot = slot && selectedSlot!==slot ? slot : null;
+    render();
+});
 const rootWatch=new MutationObserver(queueRender);
 rootWatch.observe(document.body,{attributes:true,attributeFilter:['class']});
 // Horizontal swipe across the 3D bay changes which machine is *viewed*. It never
