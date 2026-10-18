@@ -41,11 +41,21 @@ export function bayHealth(stable, rigId) {
         const internal = partState?.maxIntegrity > 0 && partState.serial === serial
             ? partState.integrity / partState.maxIntegrity : physical;
         const condition = Math.max(0, Math.min(1, physical, internal));
-        return { slot, serial: serial || null, part: part || null, condition,
-            destroyed: !!part?.destroyed || !!partState?.destroyed,
-            label: !part ? 'EMPTY' : part.destroyed || partState?.destroyed ? 'DESTROYED'
-                : condition <= .001 ? 'DISABLED' : condition < .38 ? 'CRITICAL'
-                : condition < .78 ? 'DAMAGED' : 'READY' };
+        // Armor is protective plating, not the serialized module's internal
+        // health. Show it separately so 100% integrity never conceals a stripped
+        // armor plate; wear is lifetime abrasion, not remaining health.
+        const armorRatio = partState?.maxArmor > 0 && partState.serial === serial
+            ? Math.max(0, Math.min(1, partState.armor / partState.maxArmor))
+            : 1;
+        const wear = Math.max(0, Math.min(1, Number(part?.wear) || 0));
+        const destroyed = !!part?.destroyed || !!partState?.destroyed;
+        const impaired = Math.min(condition, armorRatio);
+        return { slot, serial: serial || null, part: part || null, condition, armorRatio, wear,
+            destroyed,
+            label: !part ? 'EMPTY' : destroyed ? 'DESTROYED'
+                : condition <= .001 ? 'DISABLED'
+                : impaired < .38 ? 'CRITICAL'
+                : impaired < .995 ? (armorRatio < condition ? 'ARMOR WORN' : 'DAMAGED') : 'READY' };
     });
 }
 export function bayStatus(stable, rigId) {
@@ -61,7 +71,7 @@ export function bayStatus(stable, rigId) {
         rig, readiness, health,
         name: rig?.name || 'RIG ' + String(rig?.bay || 1).padStart(2,'0'),
         state: !rig?.commissioned ? (missing.length === SLOTS.length ? 'EMPTY' : readiness.fieldable ? 'READY TO COMMISSION' : 'INCOMPLETE')
-            : readiness.fieldable ? (health.some(s => s.condition < .78) ? 'DAMAGED · FIELDABLE' : 'READY')
+            : readiness.fieldable ? (health.some(s => Math.min(s.condition, s.armorRatio) < .995) ? 'DAMAGED · FIELDABLE' : 'READY')
             : 'NOT FIELDABLE',
         reason: readiness.fieldable ? null : reasons,
         canDeploy: !!rig?.commissioned && readiness.fieldable,

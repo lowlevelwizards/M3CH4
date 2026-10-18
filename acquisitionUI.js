@@ -6,7 +6,7 @@
 import { activePlayerArena } from './scene.js';
 import { loadMachine, storeMachine } from './persistence.js';
 import { recoverSalvage } from './acquisition.js';
-import { latestBoutResult, subscribeBoutResult } from './boutSession.js';
+import { latestBoutResult, latestRoundResult, subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles, sortPartEntries } from './partGridUI.js';
 import {
@@ -40,7 +40,7 @@ let selectedEntryId = null;
 let currentPageIndex = 0;
 let lastRenderedResult = null;
 let pageScrollFrame = null;
-let autoGarageTimer = null;
+// The player confirms the recovered serial and leaves when ready; no auto-exit timer.
 
 function setGarageAction(primary, secondary = '', mode = 'return') {
     garage.replaceChildren();
@@ -66,6 +66,22 @@ function injectStyles() {
 .salvage-draft{height:calc(100% - 13px);display:flex;flex-direction:column;min-height:0;color:#d8d0b9;font:7px/1.25 ui-monospace,monospace}.salvage-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex:0 0 auto;padding:0 1px 5px}.salvage-head h2{margin:0;color:#edc77a;font:900 11px/1 ui-monospace,monospace;letter-spacing:.08em}.salvage-head span{color:#8fa293;font-size:6.5px;text-align:right}.salvage-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(210px,.85fr);gap:8px;flex:1 1 auto;min-height:0}.salvage-browser,.salvage-inspector{min-width:0;min-height:0;border:1px solid #68776d;background:#111714;padding:6px}.salvage-browser{display:flex;flex-direction:column}.salvage-browser .part-grid-toolbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;flex:0 0 auto;margin:0 0 5px}.salvage-browser .part-grid-toolbar button{min-height:22px;padding:3px 2px;font-size:6px}.salvage-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding-right:2px}.salvage-browser .part-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:4px}.salvage-browser .part-card{min-height:58px;aspect-ratio:1.18/1}.salvage-browser .part-card-slot{font-size:9px}.salvage-browser .part-card-value,.salvage-browser .part-card-condition,.salvage-browser .part-card-source{font-size:5.8px}.wreck-grid-section{margin-top:5px}.wreck-grid-section:first-child{margin-top:0}.wreck-grid-section>header{padding:2px 1px;font-size:7px}.wreck-grid-section>header small{font-size:5.5px}.salvage-inspector{display:flex;flex-direction:column}.salvage-inspector .part-detail{display:grid;grid-template-columns:1fr;grid-template-rows:minmax(86px,1fr) auto;gap:5px;height:100%;min-height:0;margin:0;padding:0;border:0;background:transparent}.salvage-inspector .part-detail-preview{min-height:0}.salvage-inspector .part-detail-copy{padding:4px 2px 0}.salvage-inspector .part-detail h3{font-size:10px}.salvage-inspector .part-detail-meta{font-size:6.5px;line-height:1.3}.salvage-inspector .part-detail-value{font-size:9px}.salvage-inspector .part-detail-action{min-height:31px;margin-top:5px}.salvage-empty,.salvage-placeholder{padding:12px 6px;color:#87978a;text-align:center;border:1px dashed #59665a}.salvage-confirm-note{margin-top:4px;color:#89998e;font-size:6px}.salvage-action-message{margin:5px 0 0;padding:5px 6px;border:1px solid #bb7255;color:#efb188;background:#2c1815;font:800 6.5px/1.3 ui-monospace,monospace}
 @media(max-width:730px){.debrief-content{width:min(700px,96vw)!important;padding:8px 10px!important}.debrief-page{padding-left:15px;padding-right:15px}.debrief-edge{width:25px;height:48px}.score-layout,.salvage-layout{gap:6px}.score-card{padding:6px}.score-stat{min-height:34px;padding:4px}.score-stat b{font-size:10px}.score-standing{grid-template-columns:13px minmax(54px,1fr) 36px minmax(70px,1.2fr);font-size:6.5px}.salvage-browser,.salvage-inspector{padding:5px}.salvage-browser .part-card{min-height:52px}}
 @media(max-height:430px){.debrief-content{height:88dvh;max-height:88dvh!important}.debrief-result-summary{padding-bottom:1px}.debrief-page-result h1{font-size:15px;margin:3px 0 5px}.debrief-page-result .debrief-row{min-height:27px;padding:4px 6px}.debrief-page-result .sheet-muted{margin-top:4px}.score-stat{min-height:31px}.score-stat b{font-size:9px}.score-explain{margin-top:4px;padding-top:3px}.score-standing{min-height:17px}.salvage-head{padding-bottom:3px}.salvage-browser .part-grid-toolbar{margin-bottom:3px}.salvage-browser .part-card{min-height:46px}.salvage-inspector .part-detail{grid-template-rows:minmax(72px,1fr) auto}.debrief-page-nav{padding:4px 0}.debrief-content>.sheet-done{min-height:28px;padding:4px 8px}}
+`;
+    // A report should be touch-operable without pixel-perfect precision.
+    // These scoped overrides apply after the compact landscape rules above.
+    style.textContent += `
+#sortie-debrief .debrief-edge{width:40px;height:58px;min-height:44px;touch-action:manipulation}
+#sortie-debrief .debrief-edge-left{left:2px}
+#sortie-debrief .debrief-edge-right{right:2px}
+#sortie-debrief .debrief-page-nav button{min-height:36px;min-width:75px;font-size:9px;touch-action:manipulation}
+#sortie-debrief .salvage-browser .part-card{min-height:58px;touch-action:manipulation}
+#sortie-debrief .salvage-inspector .part-detail-action{min-height:42px;font-size:9px;touch-action:manipulation}
+#sortie-debrief #debrief-garage{min-height:39px!important;font-size:9px!important;touch-action:manipulation}
+@media(max-height:430px){
+ #sortie-debrief .debrief-edge{width:34px;height:52px}
+ #sortie-debrief .debrief-page-nav button{min-height:33px;min-width:70px}
+ #sortie-debrief .salvage-inspector .part-detail-action{min-height:39px}
+}
 `;
     document.head.append(style);
 }
@@ -102,7 +118,8 @@ function renderScore(result) {
     const layout = document.createElement('div'); layout.className = 'score-layout';
 
     const personal = document.createElement('section'); personal.className = 'score-card score-personal';
-    const personalTitle = document.createElement('h2'); personalTitle.textContent = 'YOUR BOUT';
+    const personalTitle = document.createElement('h2');
+    personalTitle.textContent = result.terminal === false ? 'ROUND ' + result.round.round + ' SCORE' : 'YOUR BOUT';
     const personalKick = document.createElement('div'); personalKick.className = 'score-kicker';
     personalKick.textContent = player
         ? `RANK ${rank}/${standings.length}${result.score.mvp?.id === 'player' ? ' · MVP' : ''} · ${player.survived ? 'RETURNED TO BAY' : 'MISSION KILLED'}`
@@ -123,19 +140,25 @@ function renderScore(result) {
         personal.append(grid);
         const explain = document.createElement('div'); explain.className = 'score-explain';
         const draftRank = (result.score.draftOrder ?? []).indexOf('player');
-        explain.textContent = draftRank >= 0
-            ? `SALVAGE PRIORITY #${draftRank + 1} · score and participation determine claim order; destroying parts does not award bonus score.`
-            : 'LOW PARTICIPATION CAN DROP A PILOT BEHIND QUALIFIED TEAMMATES IN SALVAGE ORDER.';
+        explain.textContent = result.terminal === false
+            ? 'ROUND SCORE · CONTRACT SALVAGE AND PAYOUT SETTLE AFTER THE BO3 SERIES.'
+            : draftRank >= 0
+                ? `SALVAGE PRIORITY #${draftRank + 1} · score and participation determine claim order; destroying parts does not award bonus score.`
+                : 'LOW PARTICIPATION CAN DROP A PILOT BEHIND QUALIFIED TEAMMATES IN SALVAGE ORDER.';
         personal.append(explain);
     }
 
     const match = document.createElement('section'); match.className = 'score-card score-match';
-    const matchTitle = document.createElement('h2'); matchTitle.textContent = 'FIELD RESULT';
+    const matchTitle = document.createElement('h2');
+    matchTitle.textContent = result.terminal === false ? 'ROUND RESULT · BO3 IN PROGRESS' : 'FIELD RESULT';
     const matchKick = document.createElement('div'); matchKick.className = 'score-kicker';
     matchKick.textContent = result.victory ? 'FRIENDLY TEAM CONTROLS THE FIELD' : 'HOSTILE TEAM CONTROLS THE FIELD';
     const meta = document.createElement('div'); meta.className = 'score-match-meta';
     const mvp = document.createElement('div'); mvp.innerHTML = `<span>MVP</span><b>${result.score.mvp?.label ?? '—'} · ${Math.round(result.score.mvp?.combatScore ?? 0)}</b>`;
-    const preservation = document.createElement('div'); preservation.innerHTML = `<span>WRECK PRESERVATION</span><b>${result.victory ? `${result.wreckPreservation}%` : '—'}</b>`;
+    const preservation = document.createElement('div');
+    preservation.innerHTML = `<span>${result.terminal === false ? 'MATCH SCORE' : 'WRECK PRESERVATION'}</span><b>${result.terminal === false
+        ? result.series.playerWins + ' — ' + result.series.enemyWins
+        : result.victory ? result.wreckPreservation + '%' : '—'}</b>`;
     meta.append(mvp, preservation);
     const table = document.createElement('div'); table.className = 'score-standings';
     standings.forEach((row, index) => {
@@ -149,7 +172,7 @@ function renderScore(result) {
         item.append(rankEl, name, score, stats); table.append(item);
     });
     match.append(matchTitle, matchKick, meta, table);
-    if (result.victory) {
+    if (result.victory && result.terminal !== false) {
         const order = document.createElement('div'); order.className = 'draft-order';
         const orderIds = result.score.draftOrder ?? [];
         const numbered = orderIds.map((id, index) => `${index + 1}. ${actorLabel(result, id)}`).join('  →  ');
@@ -252,7 +275,8 @@ function renderDraft(result) {
     const title = document.createElement('div'); title.className = 'debrief-page-title'; title.textContent = '03 / SALVAGE';
     salvagePage.append(title);
     setGarageAction('RETURN TO GARAGE');
-    if (!result?.victory || !result.draft || sheet.classList.contains('hidden')) return;
+    if (!result?.victory || result.terminal === false || !result.draft ||
+        sheet.classList.contains('hidden')) return;
 
     advanceAiDraft(result.draft, 'player');
     const choices = playerClaimChoices(result.draft);
@@ -300,8 +324,8 @@ function renderDraft(result) {
 
     if (currentDrafter(result.draft) === 'player')
         setGarageAction('RETURN TO GARAGE', 'UNCLAIMED SALVAGE WILL BE FORFEITED', 'forfeit');
-    else if (!currentDrafter(result.draft) && autoGarageTimer === null)
-        scheduleGarageReturn(result);
+    else if (!currentDrafter(result.draft))
+        setGarageAction('CLAIM SECURED · RETURN TO GARAGE', 'RECOVERED SERIALS ARE SAVED', 'complete');
 }
 
 function showClaimProblem(message) {
@@ -321,17 +345,6 @@ function rollbackDraftClaim(draft, entry, entryId) {
     const pickIndex = [...draft.picks].reverse().findIndex(pick => pick.actorId === 'player' && pick.entryId === entryId);
     if (pickIndex >= 0) draft.picks.splice(draft.picks.length - 1 - pickIndex, 1);
     draft.cursor = Math.max(0, draft.cursor - 1);
-}
-
-function scheduleGarageReturn(result) {
-    if (autoGarageTimer !== null) window.clearTimeout(autoGarageTimer);
-    const playerClaimed = result.draft.picks.some(pick => pick.actorId === 'player' && !pick.skipped);
-    setGarageAction(playerClaimed ? 'CLAIM SECURED' : 'DRAFT COMPLETE', 'RETURNING TO GARAGE…', 'complete');
-    autoGarageTimer = window.setTimeout(() => {
-        autoGarageTimer = null;
-        if (!sheet.classList.contains('hidden') && result === latestBoutResult() && !currentDrafter(result.draft))
-            garage.click();
-    }, 900);
 }
 
 function claimPlayerPart(result, entry) {
@@ -406,7 +419,7 @@ function movePage(direction) {
 }
 
 function syncPager(result) {
-    const hasSalvage = !!result?.victory;
+    const hasSalvage = !!result?.victory && result.terminal !== false;
     salvagePage.hidden = !hasSalvage;
     const salvageButton = pageButtons.find(button => Number(button.dataset.debriefTarget) === 2);
     if (salvageButton) salvageButton.hidden = !hasSalvage;
@@ -435,7 +448,8 @@ garage.addEventListener('click', () => {
 }, true);
 
 function render() {
-    const result = latestBoutResult();
+    // Intermediate rounds have a real scorecard, but never expose salvage.
+    const result = latestBoutResult() ?? latestRoundResult();
     const newResult = !!result && result !== lastRenderedResult;
     if (newResult) selectedEntryId = null;
     renderScore(result);
@@ -448,12 +462,13 @@ function render() {
     } else if (!result) {
         lastRenderedResult = null;
         selectedEntryId = null;
-        if (autoGarageTimer !== null) { window.clearTimeout(autoGarageTimer); autoGarageTimer = null; }
-    }
+     }
 }
 
 injectStyles();
 subscribeBoutResult(render);
-const observer = new MutationObserver(render);
-observer.observe(sheet, { attributes: true, attributeFilter: ['class'] });
+subscribeRoundResult(render);
+// Report content is mounted exactly once by main.js. A declarative event avoids
+// re-rendering touch targets while the player is interacting with them.
+document.addEventListener('m3ch4:debrief-opened', render);
 render();

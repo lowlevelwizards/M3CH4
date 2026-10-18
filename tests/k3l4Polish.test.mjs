@@ -24,5 +24,5 @@ test('result page centers its compact accounting block and destructive return is
   assert.match(acquisition, /debrief-result-summary/);
   assert.match(acquisition, /UNCLAIMED SALVAGE WILL BE FORFEITED/);
   assert.match(acquisition, /data-mode=\"forfeit\"/);
-  assert.match(acquisition, /setGarageAction\(playerClaimed \? 'CLAIM SECURED'/);
+  assert.match(acquisition, /setGarageAction\('CLAIM SECURED · RETURN TO GARAGE'/);
 });

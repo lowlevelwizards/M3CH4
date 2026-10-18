@@ -1668,6 +1668,10 @@ function renderDebrief(summary, reason) {
     }
     debriefSheet.classList.remove('hidden');
     debriefSheet.setAttribute('aria-hidden', 'false');
+    // Publish one explicit UI transition *after* the base report is mounted.
+    // BO3 and salvage decorators own separate sections; neither needs to observe
+    // and recursively rewrite the other's DOM.
+    document.dispatchEvent(new CustomEvent('m3ch4:debrief-opened', { detail: { summary, reason } }));
 }
 function finishSortie(victory, reason) {
     if (testEnded)
@@ -1685,7 +1689,12 @@ function finishSortie(victory, reason) {
     const score = scoreBout(boutLedger, { winningTeam, survivors });
     const wrecks = victory ? buildWreckManifests(aiActors.filter(actor => actor.team === HOSTILE_TEAM)) : [];
     const draft = victory ? createSalvageDraft({ draftOrder: score.draftOrder, manifests: wrecks }) : null;
-    publishBoutResult({
+    // Save *current* integrity, armor, actuator damage and serialized inventory
+    // BEFORE the synchronous round subscribers read stable fieldability or update
+    // machine careers. The old ordering evaluated the previous saved condition.
+    syncOwnedWeaponCondition();
+    persistMachine();
+    const resolvedResult = publishBoutResult({
         victory, reason, winningTeam, score, wrecks, draft,
         charter: SCRAPYARD_CHARTER,
         wreckPreservation: victory ? wreckPreservation(wrecks) : 0,
@@ -1712,8 +1721,18 @@ function finishSortie(victory, reason) {
     sortiePhase = 'outro';
     sortieOutroRemaining = SORTIE_OUTRO_SECONDS;
     pendingDebrief = { summary, reason };
-    sortieOutroTitle.textContent = victory ? 'SORTIE COMPLETE' : 'SORTIE FAILED';
-    sortieOutroReason.textContent = victory ? reason : `${reason} · RECOVERY CREW INBOUND`;
+    const match = resolvedResult?.series;
+    if (match) {
+        sortieOutroTitle.textContent = resolvedResult.terminal
+            ? (match.finalVictory ? 'CONTRACT WON' : 'CONTRACT LOST')
+            : `ROUND ${resolvedResult.round.round} ${victory ? 'WON' : 'LOST'}`;
+        sortieOutroReason.textContent =
+            `BEST OF THREE · YOU ${match.playerWins} — ${match.enemyWins} HOSTILE` +
+            (resolvedResult.terminal ? ' · SERIES COMPLETE' : ' · RETURN TO PIT');
+    } else {
+        sortieOutroTitle.textContent = victory ? 'SORTIE COMPLETE' : 'SORTIE FAILED';
+        sortieOutroReason.textContent = victory ? reason : `${reason} · RECOVERY CREW INBOUND`;
+    }
     sortieOutro.classList.remove('hidden');
     sortieOutro.classList.toggle('failed', !victory);
     sortieOutro.setAttribute('aria-hidden', 'false');

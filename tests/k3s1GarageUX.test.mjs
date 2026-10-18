@@ -27,7 +27,7 @@ test('five physical station icons return with accessible missing, damaged and de
     assert.match(ui,/state-' \+ state/);
     assert.match(ui,/!item\.serial \? 'empty'/);
     assert.match(ui,/item\.destroyed \? 'destroyed'/);
-    assert.match(ui,/item\.condition < \.78 \? 'damaged'/);
+    assert.match(ui,/weakest < \.995 \? 'damaged'/);
     assert.match(css, /\.unified-station\.state-empty/);
     assert.match(css, /\.unified-station\.state-destroyed/);
     assert.match(css, /\.unified-station\.state-damaged/);

@@ -31,7 +31,8 @@ test('garage is an isolated service-bay presentation at a stable origin', () => 
 test('post-bout flow exposes compact two-card layouts and explicit page arrows', () => {
     assert.match(acquisition, /score-layout/);
     assert.match(acquisition, /salvage-layout/);
-    assert.match(acquisition, /scheduleGarageReturn/);
+    assert.doesNotMatch(acquisition, /scheduleGarageReturn/);
+    assert.match(acquisition, /CLAIM SECURED · RETURN TO GARAGE/);
     assert.match(html, /id="debrief-prev"/);
     assert.match(html, /id="debrief-next"/);
 });
