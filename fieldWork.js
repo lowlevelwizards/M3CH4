@@ -273,14 +273,18 @@ export function applyEmergencyFieldPatch(storage, { seriesId, rigId, slot, now =
     const patched = patchStableUnsafe(stable, rigId, slot, now, true);
     if (!patched) return { ok: false, reason: 'FIELD PATCH TARGET LOST' };
 
-    let machineChanged = false;
-    if (stable.activeRigId === rigId) {
-        const machine = loadMachine(storage);
-        if (!patchMachineUnsafe(machine, slot, candidate.serial))
-            return { ok: false, reason: 'LIVE MACHINE DOES NOT MATCH PATCH TARGET' };
-        if (!storeMachine(storage, machine)) return { ok: false, reason: 'MACHINE SAVE WRITE FAILED' };
-        machineChanged = true;
-    }
+    // The v8 active projection also owns the global serialized inventory copy.
+    // Even a patch to a parked rig must update that inventory entry, or the next
+    // loadStable() would mirror stale condition into the stable and undo the patch.
+    const machine = loadMachine(storage);
+    const ownedCopy = machine.assembly.owned?.find(part => part.serial === candidate.serial);
+    if (!ownedCopy) return { ok: false, reason: 'PATCH SERIAL MISSING FROM GLOBAL INVENTORY' };
+    ownedCopy.condition = FIELD_PATCH_CONDITION;
+    ownedCopy.destroyed = false;
+    if (stable.activeRigId === rigId && !patchMachineUnsafe(machine, slot, candidate.serial))
+        return { ok: false, reason: 'LIVE MACHINE DOES NOT MATCH PATCH TARGET' };
+    if (!storeMachine(storage, machine)) return { ok: false, reason: 'MACHINE SAVE WRITE FAILED' };
+    const machineChanged = true;
     if (!storeStable(storage, stable)) {
         if (machineChanged) storeMachine(storage, originalMachine);
         return { ok: false, reason: 'STABLE SAVE WRITE FAILED' };
