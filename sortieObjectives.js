@@ -74,7 +74,7 @@ function updateDomination(state,participants,dt) {
         // scoring drastically, but local 2v1 superiority is not a permanent
         // zero-progress veto. This is NEVER enabled by the authored contract.
         const opponent=team==='friendly'?'hostile':'friendly';
-        return spec.capturePolicy==='pressure'&&point[team]>point[opponent]?.30:0;
+        return spec.capturePolicy==='pressure'&&point[team]>point[opponent] ? .30 : 0;
     };
     const held=team=>points.filter(p=>weight(p,team)>0);
     const ours=held('friendly'),theirs=held('hostile');
