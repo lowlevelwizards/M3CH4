@@ -1,0 +1,25 @@
+name: Headless 3v3 Domination research
+on:
+  push:
+    branches: ["research-headless-domination-20261018"]
+  workflow_dispatch:
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check simulator syntax
+        run: node --check research/headlessDominationStudy.mjs
+      - name: Execute reproducible 3v3 cohorts
+        run: |
+          time node research/headlessDominationStudy.mjs 4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: domination-headless-cohorts
+          path: study-results/
+          if-no-files-found: warn
