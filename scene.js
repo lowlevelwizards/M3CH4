@@ -1081,6 +1081,16 @@ export function createArenaScene(initial, targetAssembly) {
     let panelRightPx = 0;
     let viewportWidth = 1;
     let viewportHeight = 1;
+    // Spectator view is presentation-only. Disabled player controls stay off while
+    // the combat simulation continues to run independently for surviving allies.
+    let spectatorRig=null;
+    const spectatorPosition=new THREE.Vector3();
+    const spectatorLook=new THREE.Vector3();
+    function setSpectatorRig(rig=null) {
+        spectatorRig=rig;
+        cockpit.visible=!inspecting&&!spectatorRig;
+        combinerHud.visible=!inspecting&&!spectatorRig;
+    }
     let visualYaw = 0;
     let visualX = 0;
     let visualZ = 8;
@@ -1157,6 +1167,14 @@ export function createArenaScene(initial, targetAssembly) {
         else {
             camera.position.set(visualX + impactJitter * .62, 2.42 + cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
             camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72, 'YXZ');
+            if(spectatorRig) {
+                const yaw=physicsYawToViewYaw(spectatorRig.yaw||0);
+                spectatorPosition.set(spectatorRig.x+Math.sin(yaw)*5.2,
+                    4.1,spectatorRig.z+Math.cos(yaw)*5.2);
+                spectatorLook.set(spectatorRig.x,1.65,spectatorRig.z);
+                camera.position.lerp(spectatorPosition,1-Math.exp(-5*dt));
+                camera.lookAt(spectatorLook);
+            }
         }
         updateSquadMarkers();
     }
@@ -1227,8 +1245,8 @@ export function createArenaScene(initial, targetAssembly) {
         inspecting = enabled;
         exterior.root.visible = enabled && !vendorEnabled;
         vendorRoot.visible = enabled && vendorEnabled;
-        cockpit.visible = !enabled;
-        combinerHud.visible = !enabled;
+        cockpit.visible = !enabled && !spectatorRig;
+        combinerHud.visible = !enabled && !spectatorRig;
         blackout.visible = !enabled;
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
@@ -1748,7 +1766,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, rebuildAssembly, selectPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
