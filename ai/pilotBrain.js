@@ -46,7 +46,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
         if(proposed.goal==='ENGAGE')proposed.point=chooseFightPosition(
             context.world,actor.position,proposed.point,
             context.preferredRangeM??6,context.personality??'pressure');
-        else if(proposed.goal==='DEFEND')proposed.point=chooseDefendPosition(
+        else if(['DEFEND','SCREEN'].includes(proposed.goal))proposed.point=chooseDefendPosition(
             context.world,actor.position,proposed.point,
             Math.min(3,Math.max(1.8,(proposed.radius??4.7)-1.3)),
             context.threatPosition??null,context.personality??'pressure',
