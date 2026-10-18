@@ -6,7 +6,7 @@
 import { activePlayerArena } from './scene.js';
 import { loadMachine, storeMachine } from './persistence.js';
 import { recoverSalvage } from './acquisition.js';
-import { latestBoutResult, subscribeBoutResult } from './boutSession.js';
+import { latestBoutResult, latestRoundResult, subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles, sortPartEntries } from './partGridUI.js';
 import {
@@ -40,7 +40,7 @@ let selectedEntryId = null;
 let currentPageIndex = 0;
 let lastRenderedResult = null;
 let pageScrollFrame = null;
-let autoGarageTimer = null;
+// The player confirms the recovered serial and leaves when ready; no auto-exit timer.
 
 function setGarageAction(primary, secondary = '', mode = 'return') {
     garage.replaceChildren();
@@ -123,9 +123,11 @@ function renderScore(result) {
         personal.append(grid);
         const explain = document.createElement('div'); explain.className = 'score-explain';
         const draftRank = (result.score.draftOrder ?? []).indexOf('player');
-        explain.textContent = draftRank >= 0
-            ? `SALVAGE PRIORITY #${draftRank + 1} · score and participation determine claim order; destroying parts does not award bonus score.`
-            : 'LOW PARTICIPATION CAN DROP A PILOT BEHIND QUALIFIED TEAMMATES IN SALVAGE ORDER.';
+        explain.textContent = result.terminal === false
+            ? 'ROUND SCORE · CONTRACT SALVAGE AND PAYOUT SETTLE AFTER THE BO3 SERIES.'
+            : draftRank >= 0
+                ? `SALVAGE PRIORITY #${draftRank + 1} · score and participation determine claim order; destroying parts does not award bonus score.`
+                : 'LOW PARTICIPATION CAN DROP A PILOT BEHIND QUALIFIED TEAMMATES IN SALVAGE ORDER.';
         personal.append(explain);
     }
 
@@ -252,7 +254,8 @@ function renderDraft(result) {
     const title = document.createElement('div'); title.className = 'debrief-page-title'; title.textContent = '03 / SALVAGE';
     salvagePage.append(title);
     setGarageAction('RETURN TO GARAGE');
-    if (!result?.victory || !result.draft || sheet.classList.contains('hidden')) return;
+    if (!result?.victory || result.terminal === false || !result.draft ||
+        sheet.classList.contains('hidden')) return;
 
     advanceAiDraft(result.draft, 'player');
     const choices = playerClaimChoices(result.draft);
@@ -300,8 +303,8 @@ function renderDraft(result) {
 
     if (currentDrafter(result.draft) === 'player')
         setGarageAction('RETURN TO GARAGE', 'UNCLAIMED SALVAGE WILL BE FORFEITED', 'forfeit');
-    else if (!currentDrafter(result.draft) && autoGarageTimer === null)
-        scheduleGarageReturn(result);
+    else if (!currentDrafter(result.draft))
+        setGarageAction('CLAIM SECURED · RETURN TO GARAGE', 'RECOVERED SERIALS ARE SAVED', 'complete');
 }
 
 function showClaimProblem(message) {
@@ -321,17 +324,6 @@ function rollbackDraftClaim(draft, entry, entryId) {
     const pickIndex = [...draft.picks].reverse().findIndex(pick => pick.actorId === 'player' && pick.entryId === entryId);
     if (pickIndex >= 0) draft.picks.splice(draft.picks.length - 1 - pickIndex, 1);
     draft.cursor = Math.max(0, draft.cursor - 1);
-}
-
-function scheduleGarageReturn(result) {
-    if (autoGarageTimer !== null) window.clearTimeout(autoGarageTimer);
-    const playerClaimed = result.draft.picks.some(pick => pick.actorId === 'player' && !pick.skipped);
-    setGarageAction(playerClaimed ? 'CLAIM SECURED' : 'DRAFT COMPLETE', 'RETURNING TO GARAGE…', 'complete');
-    autoGarageTimer = window.setTimeout(() => {
-        autoGarageTimer = null;
-        if (!sheet.classList.contains('hidden') && result === latestBoutResult() && !currentDrafter(result.draft))
-            garage.click();
-    }, 900);
 }
 
 function claimPlayerPart(result, entry) {
@@ -406,7 +398,7 @@ function movePage(direction) {
 }
 
 function syncPager(result) {
-    const hasSalvage = !!result?.victory;
+    const hasSalvage = !!result?.victory && result.terminal !== false;
     salvagePage.hidden = !hasSalvage;
     const salvageButton = pageButtons.find(button => Number(button.dataset.debriefTarget) === 2);
     if (salvageButton) salvageButton.hidden = !hasSalvage;
@@ -435,7 +427,8 @@ garage.addEventListener('click', () => {
 }, true);
 
 function render() {
-    const result = latestBoutResult();
+    // Intermediate rounds have a real scorecard, but never expose salvage.
+    const result = latestBoutResult() ?? latestRoundResult();
     const newResult = !!result && result !== lastRenderedResult;
     if (newResult) selectedEntryId = null;
     renderScore(result);
@@ -448,12 +441,13 @@ function render() {
     } else if (!result) {
         lastRenderedResult = null;
         selectedEntryId = null;
-        if (autoGarageTimer !== null) { window.clearTimeout(autoGarageTimer); autoGarageTimer = null; }
-    }
+     }
 }
 
 injectStyles();
 subscribeBoutResult(render);
-const observer = new MutationObserver(render);
-observer.observe(sheet, { attributes: true, attributeFilter: ['class'] });
+subscribeRoundResult(render);
+// Report content is mounted exactly once by main.js. A declarative event avoids
+// re-rendering touch targets while the player is interacting with them.
+document.addEventListener('m3ch4:debrief-opened', render);
 render();
