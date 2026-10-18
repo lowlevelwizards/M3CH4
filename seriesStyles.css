@@ -1,1 +1,24 @@
-.bo3-series-banner{display:grid;grid-template-columns:1fr auto;gap:7px 10px;align-items:center;padding:8px 10px;border:1px solid #b18f4e;background:#252219;color:#d9cfb6;font:7px/1.25 ui-monospace,monospace}.bo3-series-banner strong{display:block;color:#efc774;font-size:10px;letter-spacing:.08em}.bo3-series-banner small{display:block;margin-top:2px;color:#93a392;font-size:6px}.bo3-series-banner p{grid-column:1/-1;margin:0;padding-top:6px;border-top:1px solid #8f774344;color:#aeb7a7;font-size:6px}.bo3-score{display:grid;grid-template-columns:auto 18px 8px 18px auto;align-items:center;gap:3px;color:#8fa08f;font-size:5.8px}.bo3-score b{color:#f0ca7d;font-size:15px;text-align:center}.bo3-score i{font-style:normal;color:#6e786f;text-align:center}.bo3-round-assignment{border-color:#a4864f!important}.bo3-round-assignment .sortie-assignment-head strong{color:#f0ca7d}.bo3-contract-locked{opacity:.72}.bo3-contract-locked .campaign-node{cursor:not-allowed}.bo3-pit-locked #garage-context{position:relative}.bo3-pit-locked #garage-context:after{content:'PIT SERVICE LOCKED · CONTRACT IN PROGRESS';position:sticky;bottom:0;display:block;margin:6px 0 0;padding:5px 7px;border:1px solid #8e7442;background:#211e17;color:#d8b66f;font:700 6px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-align:center;pointer-events:none}.bo3-round-debrief .debrief-page-nav,.bo3-round-debrief .debrief-edge,.bo3-round-debrief [data-debrief-page="1"],.bo3-round-debrief [data-debrief-page="2"]{display:none!important}.bo3-round-debrief .debrief-pages{transform:none!important}.bo3-round-debrief [data-debrief-page="0"]{display:flex!important;transform:none!important;opacity:1!important}.bo3-terminal-row strong{color:#f0ca7d}@media(max-height:430px){.bo3-series-banner{padding:6px 8px}.bo3-series-banner p{display:none}.bo3-series-banner strong{font-size:8.5px}.bo3-score b{font-size:13px}}
+.bo3-series-banner{display:grid;grid-template-columns:1fr auto;gap:7px 10px;align-items:center;padding:8px 10px;border:1px solid #b18f4e;background:#252219;color:#d9cfb6;font:7px/1.25 ui-monospace,monospace}.bo3-series-banner strong{display:block;color:#efc774;font-size:10px;letter-spacing:.08em}.bo3-series-banner small{display:block;margin-top:2px;color:#93a392;font-size:6px}.bo3-series-banner p{grid-column:1/-1;margin:0;padding-top:6px;border-top:1px solid #8f774344;color:#aeb7a7;font-size:6px}.bo3-score{display:grid;grid-template-columns:auto 18px 8px 18px auto;align-items:center;gap:3px;color:#8fa08f;font-size:5.8px}.bo3-score b{color:#f0ca7d;font-size:15px;text-align:center}.bo3-score i{font-style:normal;color:#6e786f;text-align:center}.bo3-round-assignment{border-color:#a4864f!important}.bo3-round-assignment .sortie-assignment-head strong{color:#f0ca7d}.bo3-contract-locked{opacity:.72}.bo3-contract-locked .campaign-node{cursor:not-allowed}.bo3-pit-locked #garage-context{position:relative}.bo3-pit-locked #garage-context:after{content:'PIT SERVICE LOCKED · CONTRACT IN PROGRESS';position:sticky;bottom:0;display:block;margin:6px 0 0;padding:5px 7px;border:1px solid #8e7442;background:#211e17;color:#d8b66f;font:700 6px/1.2 ui-monospace,monospace;letter-spacing:.06em;text-align:center;pointer-events:none}.bo3-round-debrief [data-debrief-page="2"],.bo3-round-debrief [data-debrief-target="2"]{display:none!important}.bo3-round-debrief .debrief-pages{transform:none!important}.bo3-round-debrief [data-debrief-page="0"]{display:flex!important;transform:none!important;opacity:1!important}.bo3-terminal-row strong{color:#f0ca7d}@media(max-height:430px){.bo3-series-banner{padding:6px 8px}.bo3-series-banner p{display:none}.bo3-series-banner strong{font-size:8.5px}.bo3-score b{font-size:13px}}
+/* Match indicator: compact cockpit-facing BO3 context, not a second full HUD. */
+#bo3-combat-hud{
+    position:absolute;z-index:13;left:50%;top:max(7px,env(safe-area-inset-top));
+    transform:translateX(-50%);pointer-events:none;
+    display:flex;align-items:center;gap:12px;
+    padding:5px 10px;white-space:nowrap;
+    background:#141c17de;border:1px solid #907c48a8;
+    color:#e9c77c;font:800 9px/1.2 ui-monospace,monospace;
+    letter-spacing:.045em;
+}
+#bo3-combat-hud span{color:#bdd4b3;font-size:9px;font-weight:700}
+body.inspecting #bo3-combat-hud{display:none}
+body.bo3-round-active:not(.inspecting) #look-heading{display:none}
+.bo3-round-debrief .debrief-page-nav,.bo3-round-debrief .debrief-edge{pointer-events:auto}
+.bo3-round-debrief .debrief-row.damage strong{color:#e5ac62}
+@media(max-width:730px){
+ #bo3-combat-hud{gap:6px;padding:4px 7px;font-size:7px;max-width:76vw}
+ #bo3-combat-hud span{font-size:7px}
+}
+@media(max-height:430px){
+ #bo3-combat-hud{top:max(4px,env(safe-area-inset-top))}
+ .bo3-round-debrief .debrief-page-result .debrief-row{min-height:23px}
+}
