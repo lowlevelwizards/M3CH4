@@ -231,5 +231,8 @@ test('pit integration makes field work legible and enforces patch-to-next-round 
     assert.match(ui, /assignment\?\.rigId !== commitment\.rigId/);
     assert.match(ui, /stopImmediatePropagation/);
     assert.match(css, /FIELD PATCH · COMMITTED/);
-    assert.match(garage, /fieldWorkUI\.js\?v=k3r0/);
+    assert.match(garage, /unifiedGarageUI\.js\?v=k3s0/);
+    const unified = fs.readFileSync(new URL('../unifiedGarageUI.js', import.meta.url), 'utf8');
+    assert.match(unified, /fieldWorkCommitment/);
+    assert.match(unified, /applyEmergencyFieldPatch/);
 });
