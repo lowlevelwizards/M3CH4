@@ -152,3 +152,20 @@ test('dev diagnostics include team strategy, target, route and pilot decision de
  assert.match(debug,/routeFailure/);
  assert.match(debug,/committedFor/);
 });
+
+test('majority-break plan can coordinate an intercept screener with a capturer',()=>{
+ const snap=getSnapshot(12,[zone('A',-17,-1.5,'hostile',true,1,1),
+   zone('B',0,-9.1,'hostile',true,1,1),zone('C',17,1.5,'friendly')]);
+ const strategy=evaluateStrategy(createStrategicState(),snap,'hostile');
+ // Hostile majority is preserved; friendly team must break it, with 3 pilots
+ // in the synthetic scenario to evaluate allocation of a second screener.
+ const fr=snap.knowledge.friendly.allies;
+ fr.push({...fr[1],id:'ally-3',position:{x:0,z:19}});
+ const fstate=createStrategicState();
+ const urgent=evaluateStrategy(fstate,snap,'friendly');
+ const plan=planTeam(snap,'friendly',{strategy:urgent});
+ const roles=Object.values(plan.orders).map(o=>o.role);
+ assert.ok(roles.every(Boolean));
+ assert.ok(roles.some(r=>['SCREEN','INTERCEPT','FLANKER','CAPTURER'].includes(r)));
+ assert.ok(Object.values(plan.orders).some(o=>o.goal==='CONTEST'));
+});
