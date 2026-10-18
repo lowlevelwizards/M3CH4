@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { decodeMachine, loadMachine, storeMachine } from '../persistence.js';
-import { loadStable, storeStable, rigById, mountPartOnRig, commissionRig } from '../stable.js';
+import { loadStable, storeStable, rigById, mountPartOnRig, commissionRig, renameRig } from '../stable.js';
 import { createTargetCondition } from '../combat.js';
 import { recordSeriesRound, startSeries } from '../series.js';
 import { applyEmergencyFieldPatch, FIELD_PATCH_CONDITION } from '../fieldWork.js';
@@ -28,6 +28,7 @@ function fixture() {
         const result = mountPartOnRig(stable,'rig-02',slot,'SPARE-'+slot);
         assert.equal(result.ok,true,slot + ': ' + result.reason);
     }
+    assert.equal(renameRig(stable,'rig-01','MABEL').ok,true);
     assert.equal(commissionRig(stable,'rig-02','DOGTOOTH').ok,true);
     assert.equal(storeStable(storage,stable),true);
     return storage;
@@ -61,6 +62,7 @@ test('viewing any of three bays does not change combat-active machine or seriali
 });
 test('the same five physical station operations work on parked bays and never steal owned serials',()=>{
     const storage=fixture();
+    const originalCombat=loadMachine(storage).assembly.installed.combat;
     assert.equal(changeInactiveBay(storage,'rig-02','combat',null).ok,true);
     assert.equal(bayStatus(loadStable(storage).stable,'rig-02').canDeploy,false);
     assert.equal(changeInactiveBay(storage,'rig-02','combat','SPARE-combat').ok,true);
@@ -70,7 +72,7 @@ test('the same five physical station operations work on parked bays and never st
     const stable=loadStable(storage).stable;
     assert.equal(rigById(stable,'rig-02').installed.combat,'SPARE-combat');
     assert.equal(stable.activeRigId,'rig-01');
-    assert.equal(loadMachine(storage).assembly.installed.combat,'A-1'.replace('A-1',loadMachine(storage).assembly.installed.combat));
+    assert.equal(loadMachine(storage).assembly.installed.combat,originalCombat);
 });
 test('parked rig service repairs exact serial and can be mirrored to shared active inventory',()=>{
     const storage=fixture();
