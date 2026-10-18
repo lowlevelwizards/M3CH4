@@ -18,7 +18,7 @@ import {
     fieldPatchCandidates, fieldWorkCommitment, partLifecycle,
     reconcileFieldPatches, clearFieldWorkAll, clearFieldWorkSeries,
 } from './fieldWork.js';
-import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote } from './garageBay.js';
+import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
 
 const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
@@ -218,6 +218,19 @@ function moduleDetails(stable, view, machine) {
                 },'unified-service',!affordable));
         }
     }
+    if (installed && slot === 'power') {
+        const currentMount = bayGeneratorMount(stable, viewedId);
+        const positions = el('section','unified-mount-options');
+        positions.append(el('div','unified-section-name','PHYSICAL GENERATOR MOUNT'));
+        for (const [position,label] of [['standard','REAR / DIRECT'],['offset','LEFT OUTRIGGER / +85 KG']]) {
+            positions.append(button(label,()=>{
+                const result=emitEdit('m3ch4:bay-generator-mount',{rigId:viewedId,position});
+                message(result.ok?'GENERATOR MOUNTED · '+label:result.reason,!result.ok);
+                if(result.ok){previewSignature='';render();}
+            },position===currentMount?'unified-mount-selected':'',position===currentMount));
+        }
+        box.append(positions);
+    }
     if (installed) box.append(button('REMOVE INSTALLED MODULE', () => editModule(slot,null), 'unified-remove'));
     const choices = el('div','unified-part-list');
     const owned = stable.inventory.filter(p=>BY_ID.get(p.definitionId)?.slot===slot);
@@ -414,7 +427,7 @@ document.addEventListener('click',event=>{
     if(wipe||restart){
         clearFieldWorkAll(storage);
         try{session?.removeItem(key);}catch{}
-    } else if(target.id==='debrief-garage'&&loadSeries(storage)?.phase==='complete') {
+    } else if(target.id==='debrief-garage'&&loadSeries(storage)?.phase!=='intermission') {
         clearFieldWorkSeries(storage);
         mode='garage';selectedJobId=null;selectedSlot=null;
     }
