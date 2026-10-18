@@ -27,14 +27,20 @@ export function chooseFightPosition(world,self,target,desiredRange=6,style='pres
     }
     return choice??{...self};
 }
-export function chooseDefendPosition(world,self,zone,radius=3.0){
+export function chooseDefendPosition(world,self,zone,radius=3.0,threat=null,
+    style='pressure',collisionRadius=1.4){
     if(!zone||!world)return zone??self;
     let best=null,score=-Infinity;
-    for(let i=0;i<8;i++){
-        const a=i*Math.PI/4;
-        const p={x:zone.x+Math.cos(a)*radius*.72,z:zone.z+Math.sin(a)*radius*.72};
-        if(!passable(p,world))continue;
-        const value=-dist(self,p)*.03+ (i%2===0?.04:0);
+    // Every candidate is INSIDE the scoring zone. Facing a threat is useful,
+    // but occupying the point is non-negotiable for an anchoring machine.
+    for(let i=0;i<12;i++){
+        const a=i*Math.PI/6;
+        const p={x:zone.x+Math.cos(a)*radius*.70,z:zone.z+Math.sin(a)*radius*.70};
+        if(!passable(p,world,collisionRadius))continue;
+        const firing=threat?tacticalLineOfSight(p,threat,world):null;
+        const priority=style==='bruiser'?.09:.13;
+        const value=-dist(self,p)*.025+(firing?.20:0)+
+            (threat&&!firing&&style==='bruiser'?.10:0)+priority;
         if(value>score){best=p;score=value;}
     }
     return best??{...zone};
