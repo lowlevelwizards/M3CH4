@@ -16,7 +16,7 @@ jobs:
         run: node --check research/headlessDominationStudy.mjs
       - name: Execute reproducible 3v3 cohorts
         run: |
-          time node research/headlessDominationStudy.mjs 4
+          time node research/headlessDominationStudy.mjs 100
       - uses: actions/upload-artifact@v4
         if: always()
         with:
