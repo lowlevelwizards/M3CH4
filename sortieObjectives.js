@@ -45,17 +45,6 @@ function activeInZone(participants, team, point, radius) {
     return (participants ?? []).filter(participant => participant?.active !== false && participant?.team === team && dist(rigOf(participant), point) <= radius);
 }
 
-/** A fixed lane per AI machine creates readable opening formations. The player
- * remains free to reinforce, steal or rotate between any of the three positions.
- * Keep objective movement separate from combat targeting and damage authority. */
-export function dominationPointForActor(state, actor) {
-    if(state?.type!==OBJECTIVE_TYPES.DOMINATION) return null;
-    const points=state.domination?.points;
-    if(!points?.length)return null;
-    const index=actor?.id==='ally-1'?0:actor?.id==='ally-2'?2:
-        actor?.id==='enemy-1'?0:actor?.id==='enemy-2'?2:1;
-    return {x:points[index].x,z:points[index].z,id:points[index].id};
-}
 function updateDomination(state,participants,dt) {
     const spec=state.domination, points=spec.points;
     const tick=Math.min(.25,dt);
