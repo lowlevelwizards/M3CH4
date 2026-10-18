@@ -7,6 +7,7 @@
 import { contractById } from './contracts.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
+import { bayHealth, SLOT_LABELS } from './garageBay.js';
 import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
 } from './sortieAssignment.js';
@@ -36,7 +37,30 @@ let sessionStorageRef = null;
 try { localStorageRef = window.localStorage; } catch { /* persistence modules surface unavailable storage */ }
 try { sessionStorageRef = window.sessionStorage; } catch { /* q.1 assignment UI surfaces unavailable storage */ }
 let latestRound = null;
+// The debrief is opened by one explicit event from main. Do not observe the
+// report's descendants: rewriting rows from a subtree observer recursively
+// schedules another render and prevents reliable touch/click interaction.
 let debriefRenderQueued = false;
+const hud = document.createElement('section');
+hud.id = 'bo3-combat-hud';
+hud.setAttribute('aria-label','Best of three round and match score');
+hud.setAttribute('aria-live','polite');
+document.body.append(hud);
+function renderCombatSeries() {
+    const match = activeSeries();
+    const visible = match?.phase === 'round_active';
+    hud.classList.toggle('hidden', !visible);
+    document.body.classList.toggle('bo3-round-active',!!visible);
+    if (!visible) return;
+    hud.replaceChildren();
+    const contract = document.createElement('strong');
+    contract.textContent = contractById(match.contractId).name.toUpperCase() + ' · BEST OF THREE';
+    const score = document.createElement('span');
+    score.textContent = 'ROUND ' + match.roundNumber + ' / 3 · YOU ' +
+        match.playerWins + ' — ' + match.enemyWins + ' HOSTILE';
+    hud.append(contract,score);
+}
+
 
 const rigLabel = rig => rig?.name || `RIG ${String(rig?.bay ?? 0).padStart(2, '0')}`;
 
@@ -183,8 +207,18 @@ function renderRoundIntermission(series, round) {
     appendDebriefRow('MATCH', `YOU ${series.playerWins} — ${series.enemyWins} HOSTILE`, 'primary');
     appendDebriefRow('ASSIGNED MACHINE', `${round.rigName || rigLabel(rig)} · ${round.rigId.toUpperCase()}`, 'progression');
     appendDebriefRow('RETURNED CONDITION', readinessText(stable, round.rigId), rigFieldability(stable, round.rigId).fieldable ? '' : 'repair');
+    for (const part of bayHealth(stable, round.rigId)) {
+        const percent = value => Math.round(Math.max(0,Math.min(1,value))*100) + '%';
+        const reading = part.serial
+            ? 'INT ' + percent(part.condition) + ' · ARM ' + percent(part.armorRatio) +
+                ' · WEAR ' + percent(part.wear)
+            : 'NOT INSTALLED';
+        appendDebriefRow(SLOT_LABELS[part.slot] + ' · ' + part.label,
+            reading, part.destroyed || part.condition <= .001 ? 'repair'
+                : Math.min(part.condition, part.armorRatio) < .78 ? 'damage' : '');
+    }
     appendDebriefRow('CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS');
-    debriefGarage.textContent = `RETURN TO PIT · CHOOSE ROUND ${series.roundNumber} MACHINE`;
+    debriefGarage.textContent = 'CONTINUE TO PIT · ROUND ' + series.roundNumber;
 }
 
 function decorateTerminalDebrief(series) {
@@ -241,17 +275,21 @@ subscribeRoundResult(result => {
         });
     }
     queueDebriefRender();
+    renderCombatSeries();
 });
 
 subscribeBoutResult(result => {
     if (!result?.series) return;
     queueDebriefRender();
+    renderCombatSeries();
 });
 
-// The main debrief appears after the physical aftermath delay. Watch only DOM changes;
-// q.2 rewrites the result page after the existing report has finished populating.
-const debriefObserver = new MutationObserver(queueDebriefRender);
-debriefObserver.observe(debriefSheet, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'aria-hidden'] });
+// main.js emits this once the result rows exist. Neither the BO3 decorator
+// nor the salvage gallery observes its own DOM mutations.
+document.addEventListener('m3ch4:debrief-opened', () => {
+    renderSeriesDebrief();
+    renderCombatSeries();
+});
 
 // Round intermission returns to a locked pit, not the unrestricted garage. A fresh
 // q.1 pending assignment is created for the same contract and only its rig is mutable.
@@ -301,4 +339,5 @@ pitObserver.observe(inspectionPanel, { childList: true, subtree: true });
 
 const binding = bindCommittedAssignment();
 applyPitState();
+renderCombatSeries();
 scheduleActiveRoundResume(binding);
