@@ -32,6 +32,8 @@ import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
 import { loadStable, serialOwner } from './stable.js';
 import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount } from './garageBay.js';
+import { buyCounterLot } from './usedPartsCounter.js';
+import { loadCampaign } from './campaign.js';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -977,6 +979,22 @@ document.addEventListener('m3ch4:bay-reconcile-patch', event => {
             damage.drives[serial] = { ...saved.damage.drives[serial] };
     }
 });
+// The running v8 machine is authoritative for credits and the global serial
+// inventory. Counter transactions must update it here, not a stale UI copy.
+document.addEventListener('m3ch4:counter-buy', event => {
+    const request=event.detail;
+    if (!request || !inspecting ||
+        document.querySelector('#unified-garage')?.dataset.mode!=='vendor') return;
+    const result=buyCounterLot(saveStorage,loadCampaign(saveStorage).sorties,
+        request.serial,{assembly,damage,playerCondition,economy});
+    request.result=result;
+    if (!result.ok) return;
+    renderEconomy();
+    document.dispatchEvent(new CustomEvent('m3ch4:inventory-changed',{
+        detail:{serial:result.part.serial,definitionId:result.part.definitionId,
+            source:'used parts counter'},
+    }));
+});
 document.addEventListener('m3ch4:bay-generator-mount', event => {
     const request = event.detail;
     if (!request || !inspecting) return;
@@ -1169,6 +1187,11 @@ const endPointer = (event) => {
             active.dragged = true;
     pointers.delete(event.pointerId);
     if (inspecting && event.type === 'pointerup' && !pointer.dragged) {
+        if (document.querySelector('#unified-garage')?.dataset.mode==='vendor') {
+            const serial=arena.pickVendorLot(event.clientX,event.clientY,renderer.domElement);
+            if (serial) document.dispatchEvent(new CustomEvent('m3ch4:counter-picked',{detail:{serial}}));
+            return;
+        }
         const slot = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
         if (document.querySelector('#unified-garage')) {
             // The viewed bay may not be the combat-active rig. Let the unified
