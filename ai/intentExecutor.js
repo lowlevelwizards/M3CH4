@@ -5,8 +5,9 @@
 import { planRoute, nextWaypoint } from './navigation.js';
 const d=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createIntentExecutor(){return {route:null,key:null,
-    lastPosition:null,stalledFor:0,lastFailure:null,failures:0};}
+    lastPosition:null,stalledFor:0,lastFailure:null,failures:0,retryLeft:0};}
 export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
+    state.retryLeft=Math.max(0,(state.retryLeft??0)-dt);
     const goal=intent?.point??{x:rig.x,z:rig.z};
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE';
     if(stationary) {
@@ -21,15 +22,19 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
     }
     state.lastPosition={x:rig.x,z:rig.z};
     const retry=state.stalledFor>2.5;
-    if(state.key!==key||!state.route||retry){
+    if(state.key!==key||retry||(!state.route&&state.retryLeft===0)){
         const route=planRoute(world,rig,goal,collisionRadius);
         state.route=route.ok?{waypoints:route.waypoints,index:0}:null;
         state.key=key;
-        if(!route.ok){state.lastFailure=route.reason;state.failures++;}
+        if(!route.ok){state.lastFailure=route.reason;state.failures++;
+            state.retryLeft=2.5;}
         else state.lastFailure=null;
         state.stalledFor=0;
     }
-    const waypoint=state.route?nextWaypoint(state.route,rig)??goal:goal;
+    if(!state.route)return {mode:'ANCHOR',point:{x:rig.x,z:rig.z},
+        role:'TACTICAL',brakeBias:1,
+        note:'ROUTE FAILURE · '+state.lastFailure,routeFailure:state.lastFailure};
+    const waypoint=nextWaypoint(state.route,rig)??goal;
     return {mode:'ORDER',point:waypoint,role:'TACTICAL',
         objectiveId:intent?.objectiveId,throttleScale:intent?.goal==='WITHDRAW'?.92:1,
         brakeBias:intent?.goal==='DEFEND'&&d(rig,goal)<3.2?.65:0,
