@@ -91,7 +91,7 @@ test('one explicit debrief-open event coordinates BO3 and salvage without a self
     assert.match(salvage,/addEventListener\('m3ch4:debrief-opened'/);
     assert.doesNotMatch(series,/debriefObserver\.observe/);
     assert.doesNotMatch(salvage,/observer\.observe\(sheet/);
-    assert.match(series,/CONTINUE TO PIT/);
+    assert.match(series,/CONTINUE TO INTERMISSION/);
     assert.match(series,/INTEGRITY|INT ' \+ percent\(part\.condition\)/);
     assert.match(series,/percent\(part\.armorRatio\)/);
     assert.match(series,/percent\(part\.wear\)/);
