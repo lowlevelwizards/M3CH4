@@ -9,7 +9,7 @@ import './contractUI.js?v=k3o1';
 import './stableUI.js?v=k3q2';
 import './sortieAssignmentUI.js?v=k3q1';
 import './seriesUI.js?v=k3q2';
-import './unifiedGarageUI.js?v=k3s0a';
+import './unifiedGarageUI.js?v=k3s1';
 
 const info = document.querySelector('#part-info');
 const status = document.querySelector('#field-status');
