@@ -160,7 +160,7 @@ function navRender(stable, currentMode) {
 }
 function renderTop(currentMode, series, machine) {
     top.replaceChildren();
-    const title = el('strong','unified-title', currentMode === 'pit' ? 'CONTRACT PIT' :
+    const title = el('strong','unified-title', currentMode === 'pit' ? 'INTERMISSION · PIT' :
         currentMode === 'setup' ? 'SORTIE SETUP' : currentMode === 'contracts' ? 'SCRAPYARD CIRCUIT' : 'GARAGE');
     const balance = el('small','unified-credits','₡' + Number(machine.economy?.credits ?? 0).toLocaleString());
     const actions = el('div','unified-head-actions');
@@ -208,7 +208,7 @@ function moduleStation(view) {
         const weakest = Math.min(item.condition, item.armorRatio);
         const state = !item.serial ? 'empty' : item.destroyed ? 'destroyed'
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
-            : weakest < .78 ? 'damaged' : 'operational';
+            : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
             if (selectedSlot !== item.slot) selectedHardwareSerial = null;
             selectedSlot = selectedSlot === item.slot ? null : item.slot;
@@ -481,7 +481,7 @@ function patchInPit(stable,view,series) {
 }
 function renderPit(stable,view,series) {
     const contract=contractById(series.contractId);
-    dock.append(el('div','unified-job-compact',contract.name.toUpperCase()+
+    dock.append(el('div','unified-job-compact','BEST OF THREE · '+contract.name.toUpperCase()+
         ' · ROUND '+series.roundNumber+' · YOU '+series.playerWins+' — '+series.enemyWins+' HOSTILE'));
     dock.append(bayHeader(view),summary(view),moduleStation(view));
     const readout=renderStationReadout(view);
