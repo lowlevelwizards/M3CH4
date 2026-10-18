@@ -55,8 +55,7 @@ export function bayHealth(stable, rigId) {
             label: !part ? 'EMPTY' : destroyed ? 'DESTROYED'
                 : condition <= .001 ? 'DISABLED'
                 : impaired < .38 ? 'CRITICAL'
-                : impaired < .78 ? 'DAMAGED'
-                : armorRatio < .995 ? 'ARMOR WORN' : 'READY' };
+                : impaired < .995 ? (armorRatio < condition ? 'ARMOR WORN' : 'DAMAGED') : 'READY' };
     });
 }
 export function bayStatus(stable, rigId) {
