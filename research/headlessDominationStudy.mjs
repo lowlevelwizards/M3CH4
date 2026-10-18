@@ -136,7 +136,7 @@ function runBout(seed,settings){
         noMajoritySeconds:0,totalScoringSeconds:0,captureEvents:0,
         contestedEvents:0,recaptureEvents:0,deadlocks:0,damagingShots:0,
         scoreByTeam:{friendly:0,hostile:0},actors:[]};
-    let oldOwners=['', '', ''],oldContest=[false,false,false],
+    let oldOwners=['', '', ''],lastClaimedOwners=[null,null,null],oldContest=[false,false,false],
         oldLeader=null,plans={},snapshot=null,planLeft=0;
     const count=team=>actors.filter(a=>a.team===team&&a.active).length;
     // Each trial is independent; no user-managed player is present.
@@ -213,7 +213,7 @@ function runBout(seed,settings){
         // of striking a true exposed target with scenario-defined sensitivity.
         const chance=clamp(settings.accuracy-(Math.max(0,distance-8)*.006)-
             Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
-        if(rng()>chance)continue;
+        if(settings.accuracy===0||rng()>chance)continue;
         // Match game's unusual ammo semantics: no ammo consumed by misses or
         // cover hits because main.js calls fireWeapon only after mesh contact.
         if(fireWeapon(a.weaponState,a.weaponSpec)===null)continue;
@@ -243,7 +243,8 @@ function runBout(seed,settings){
             const holder=actors.filter(a=>a.active&&a.team===p.owner&&
                 dist(a.rig,p)<=state.radius).sort((a,b)=>dist(a.rig,p)-dist(b.rig,p))[0];
             if(holder)holder.stats.captures++;
-            if(oldOwners[i]&&oldOwners[i]!==p.owner)metrics.recaptureEvents++;
+            if(lastClaimedOwners[i]&&lastClaimedOwners[i]!==p.owner)metrics.recaptureEvents++;
+            lastClaimedOwners[i]=p.owner;
           }
           oldOwners[i]=p.owner;
         }
@@ -309,6 +310,13 @@ function groupReport(rows){
     noContact:rows.filter(x=>x.firstContactAt===null).length,
     noDamage:rows.filter(x=>x.damagingShots===0).length,
     meanKills:roll(rows.map(x=>x.kills)),
+    meanServices:roll(rows.map(x=>sum(x.actors,a=>a.serviceCount))),
+    meanRouteFailures:roll(rows.map(x=>sum(x.actors,a=>a.routeErrors))),
+    meanPlanChanges:roll(rows.map(x=>sum(x.actors,a=>a.goalChanges))),
+    shareWithRecaptures:rows.filter(x=>x.recaptureEvents>0).length/count,
+    shareWithLeadChange:rows.filter(x=>x.scoreLeadChanges>0).length/count,
+    meanSurvivingRigs:roll(rows.map(x=>x.actors.filter(a=>a.alive).length)),
+    meanShotsAttempted:roll(rows.map(x=>sum(x.actors,a=>a.shotTriggers))),
     damageShotsPerGame:roll(rows.map(x=>x.damagingShots)),
     killReasons:rows.reduce((acc,x)=>{for(const [k,v]of Object.entries(x.killReasons))
         acc[k]=(acc[k]??0)+v;return acc;},{}),
@@ -317,6 +325,7 @@ function groupReport(rows){
 function main(){
     const n=Number(process.argv[2]??60);
     const config=[
+      {name:'territory-no-damage',accuracy:0,variantTeam:'none',variant:['yard','kestrel','hauler'],wear:0},
       {name:'mirror-low-hit',accuracy:.46,variantTeam:'none',variant:['yard','kestrel','hauler'],wear:0},
       {name:'mirror-mid-hit',accuracy:.70,variantTeam:'none',variant:['yard','kestrel','hauler'],wear:0},
       {name:'mirror-high-hit',accuracy:.88,variantTeam:'none',variant:['yard','kestrel','hauler'],wear:0},
@@ -332,7 +341,9 @@ function main(){
         const opt={...configItem,variantTeam:configItem.variantTeam==='none'?'none':
           swapped?'friendly':'hostile',
           wornTeam:configItem.wornTeam?(swapped?'friendly':'hostile'):null};
-        rows.push(runBout(0x13579bdf+i*37621+config.indexOf(configItem)*100001,opt));
+        const pairedAsymmetric=configItem.variantTeam!=='none'||!!configItem.wornTeam;
+        const index=pairedAsymmetric?Math.floor(i/2):i;
+        rows.push(runBout(0x13579bdf+index*37621+config.indexOf(configItem)*100001,opt));
       }
       const subset=rows.filter(r=>r.scenario===configItem.name);
       console.log('GROUP '+configItem.name+' '+JSON.stringify(groupReport(subset)));
