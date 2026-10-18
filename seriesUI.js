@@ -215,10 +215,10 @@ function renderRoundIntermission(series, round) {
             : 'NOT INSTALLED';
         appendDebriefRow(SLOT_LABELS[part.slot] + ' · ' + part.label,
             reading, part.destroyed || part.condition <= .001 ? 'repair'
-                : Math.min(part.condition, part.armorRatio) < .78 ? 'damage' : '');
+                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '');
     }
     appendDebriefRow('CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS');
-    debriefGarage.textContent = 'CONTINUE TO PIT · ROUND ' + series.roundNumber;
+    debriefGarage.textContent = 'CONTINUE TO INTERMISSION · ROUND ' + series.roundNumber;
 }
 
 function decorateTerminalDebrief(series) {
