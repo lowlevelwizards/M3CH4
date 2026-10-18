@@ -125,8 +125,6 @@ function navRender(stable, currentMode) {
     navigator.classList.toggle('hidden', currentMode === 'contracts');
     if (currentMode === 'contracts') return;
     const view = bayStatus(stable, viewedId);
-    navigator.append(button('‹','', 'visually-hidden', true)); // replaced below for accessible controls
-    navigator.lastChild.remove();
     navigator.append(button('‹', () => stepBay(-1), 'bay-arrow', viewedId === BAY_IDS[0]));
     const label = el('div','bay-index');
     label.append(el('strong','',view.name.toUpperCase()), el('span','',
@@ -333,7 +331,7 @@ function patchInPit(stable,view,series) {
                 if(!assign.ok){message(assign.reason,true);return;}
                 const result=applyEmergencyFieldPatch(storage,{seriesId:series.id,rigId:c.rigId,slot:c.slot});
                 message(result.ok?'FIELD PATCH COMPLETE · '+view.name.toUpperCase()+' COMMITTED':result.reason,!result.ok);
-                if(result.ok){previewSignature='';render();}
+                if(result.ok) window.location.reload();
             },'unified-service'));
     }
     return wrap;
@@ -366,6 +364,7 @@ function launch(stable,jobId) {
 function render() {
     if(!document.body.classList.contains('inspecting'))return;
     const {stable,series,machine}=data();
+    reconcileFieldPatches(storage,stable);
     const view=bayStatus(stable,viewedId);
     const state=actualMode(series);
     if(state==='pit') {
