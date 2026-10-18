@@ -565,3 +565,25 @@ body.inspecting .orbit-help {
 .objective-status.contested{border-color:#dc755bbb;color:#ffc09c;background:#35201bd9}
 body.inspecting .objective-status{display:none}
 @media(max-height:430px){.objective-status{top:max(82px,calc(env(safe-area-inset-top) + 72px));font-size:7px}}
+
+/* k.3t.1 — score and the three zones stay legible while aiming on a phone. */
+#domination-hud {
+ position:absolute;z-index:7;left:50%;transform:translateX(-50%);
+ top:max(120px,calc(env(safe-area-inset-top) + 109px));
+ max-width:calc(100vw - 130px);padding:6px 9px;
+ color:#bfe0bd;background:#111f19ea;border:1px solid #789d79a8;
+ font:900 9px/1.3 ui-monospace,SFMono-Regular,monospace;
+ text-align:center;white-space:nowrap;pointer-events:none;
+ letter-spacing:.03em;box-shadow:0 2px 15px #0009;
+}
+#domination-hud.hidden,body.inspecting #domination-hud {display:none}
+body:not(.inspecting) .objective-status:has(+ #domination-hud:not(.hidden)){
+ top:max(92px,calc(env(safe-area-inset-top) + 82px));
+ max-width:76vw;
+}
+@media(max-width:760px){
+ #domination-hud{font-size:7px;top:max(107px,calc(env(safe-area-inset-top) + 97px));max-width:calc(100vw - 28px);padding:4px 6px}
+}
+@media(max-height:430px){
+ #domination-hud{top:max(100px,calc(env(safe-area-inset-top) + 90px))}
+}
