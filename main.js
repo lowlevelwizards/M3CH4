@@ -2219,7 +2219,7 @@ function attemptFire() {
     // traverses the ordinary camera→muzzle raycaster and first real hit.
     const degradedSpread=weaponSpreadMultiplier(output);
     const multi=weaponSpec.pellets>1;
-    const [baseX,baseY]=shotSpread(shot,multi?.004*degradedSpread:
+    const [baseX,baseY]=shotSpread(shot,multi ? .004*degradedSpread :
         weaponSpec.spread*degradedSpread);
     const contacts=multi
         ? shotContacts(shot,weaponSpec,degradedSpread,
@@ -2237,12 +2237,19 @@ function attemptFire() {
     let impactSoundPlayed=false;
     for(const contact of contacts){
         if(testEnded)break;
-        const affected=resolvePlayerShotContact(contact,weaponSpec.damage,!impactSoundPlayed);
+        const affected=resolvePlayerShotContact(contact,weaponSpec.damage,
+            !impactSoundPlayed,!multi);
         if(affected)impactSoundPlayed=true;
+    }
+    // Do not replace a verified six-pellet hit with a generic MISS merely
+    // because another pellet in the same shell sailed into empty space.
+    if(multi&&!impactSoundPlayed&&!testEnded) {
+        const cover=contacts.find(c=>c.blockedBy);
+        lastHit=cover?`COVER · ${cover.blockedBy}`:'RANGE SURFACE / MISS';
     }
     renderAmmo();
 }
-function resolvePlayerShotContact(contact,damage,audible=true) {
+function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
     if (contact.slot !== null && contact.actorId) {
         const targetActor = actorById(contact.actorId);
         if (!targetActor) return;
@@ -2311,7 +2318,7 @@ function resolvePlayerShotContact(contact,damage,audible=true) {
     }
     else {
         arena.showShot(contact, null);
-        if(!lastHit||!contact.blockedBy)lastHit = contact.blockedBy ? `COVER · ${contact.blockedBy}` : 'RANGE SURFACE / MISS';
+        if(recordMiss)lastHit = contact.blockedBy ? `COVER · ${contact.blockedBy}` : 'RANGE SURFACE / MISS';
     }
     return false;
 }
