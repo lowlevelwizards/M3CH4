@@ -20,7 +20,7 @@ jobs:
           node --check main.js
           for f in ai/*.js unifiedGarageUI.js garageMountUI.js; do node --check "$f"; done
           git diff --check HEAD^ HEAD
-      - name: Complete regression suite
+      - name: Complete regression suite including updated release URLs
         run: npm test
       - name: Existing physical 3v3 Domination smoke
         run: node research/headlessDominationStudy.mjs 1
