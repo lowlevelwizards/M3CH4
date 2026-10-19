@@ -19,6 +19,7 @@ const BASE_VALUES = Object.freeze({
     'gun-cannon': 1250,
     'gun-short': 1150,
     'gun-light': 1350,
+    'gun-scatter': 1250,
 });
 
 const clamp01 = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));

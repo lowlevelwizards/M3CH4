@@ -28,6 +28,13 @@ function tone(frequency, endFrequency, duration, volume, kind) {
     oscillator.stop(ctx.currentTime + duration + .01);
 }
 export function soundFire() { tone(112, 39, .22, .21, 'sawtooth'); tone(210, 70, .08, .055, 'triangle'); }
+/** One heavy shell report per trigger, not a sound per pellet. Synthesized on demand,
+ * leaves no persistent nodes and gracefully ignores unavailable mobile audio. */
+export function soundScatter() {
+    tone(82,32,.37,.21,'sawtooth');
+    tone(235,62,.17,.09,'square');
+    tone(520,105,.095,.035,'triangle');
+}
 export function soundImpact() { tone(340, 80, .13, .09, 'square'); }
 export function soundReload() { tone(480, 190, .12, .045, 'triangle'); }
 export function soundEmpty() { tone(550, 370, .06, .025, 'square'); }

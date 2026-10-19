@@ -26,7 +26,12 @@ export function generateCounterStock(cycle=0) {
     const choices = [...CATALOG];
     const offers = [];
     for (let i=0;i<COUNTER_SIZE;i++) {
-        const at=Math.floor(random()*choices.length);
+        // This common welded yard-gun is the featured fourth-family part.
+        // Reserve ONE real used listing each stock rotation so owners of old
+        // saves can acquire it after their next completed contract. The
+        // remaining three lots keep their established deterministic lottery.
+        const at=i===0 ? choices.findIndex(def=>def.id==='gun-scatter') :
+            Math.floor(random()*choices.length);
         const definition=choices.splice(at,1)[0];
         const roll=random();
         // Most are worn; occasionally a decent module slips through. A seller

@@ -20,7 +20,7 @@ test('first fourteen catalogue identities and factory serials remain stable', ()
 test('bounded baseline has legal comparisons and reports illegality rather than simulating parked rigs', () => {
     const report = runPartIdentityBaseline();
     assert.equal(report.hz, 60);
-    assert.equal(report.mechanical.length, 27);
+    assert.equal(report.mechanical.length, 36);
     assert.equal(report.powerAndCab.length, 18);
     for (const family of ['legs-yard','legs-compact','legs-hauler']) {
         assert.ok(report.mechanical.some(x => x.ready && x.legs === family), family + ' must have a legal sample');

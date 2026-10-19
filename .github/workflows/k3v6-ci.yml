@@ -1,0 +1,60 @@
+name: k3v6 Scrapyard Scattergun CI
+on:
+  push:
+    branches: ["k3v6-scrapyard-scattergun"]
+  pull_request:
+    paths:
+      - "scattergun.js"
+      - "combat.js"
+      - "components.js"
+      - "scene.js"
+      - "sceneAssembly.js"
+      - "main.js"
+      - "audio.js"
+      - "partEconomy.js"
+      - "index.html"
+      - "tests/**"
+      - "research/scattergunStudy.mjs"
+      - "research/scattergunGeometryAudit.mjs"
+      - ".github/workflows/k3v6-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate changed source
+        run: |
+          for f in scattergun.js combat.js components.js scene.js main.js audio.js research/scattergunStudy.mjs research/scattergunGeometryAudit.mjs tests/k3v6Scattergun.test.mjs; do node --check "$f"; done
+      - name: Preserve all earlier gameplay / UI tests
+        run: npm test
+      - name: Quantitative firing / ammunition / effective range study
+        run: |
+          set -o pipefail
+          mkdir -p study-results
+          node research/scattergunStudy.mjs | tee study-results/scatter-pattern.md
+          node research/scattergunStudy.mjs --json > study-results/scatter-pattern.json
+          node research/partIdentityBaseline.mjs > study-results/part-identity.md
+      - name: Exact Three.js authored model and 96-ray near/far first-hit test
+        run: |
+          set -o pipefail
+          npm install --no-save --no-package-lock three@0.186.0
+          node research/scattergunGeometryAudit.mjs | tee study-results/real-pellet-rays.json
+          node research/frameShieldingAudit.mjs --assert > study-results/real-shielding.md
+          node research/cockpitIdentityAudit.mjs > study-results/cockpit.json
+      - name: Previous power, physics and headless three-on-three smoke
+        run: |
+          node research/powerResponseStudy.mjs > study-results/power.md
+          node research/mobilityTemperamentStudy.mjs > study-results/legs.md
+          node research/headlessDominationStudy.mjs 2 > study-results/domination.md
+      - name: Save study
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k3v6-scattergun-validation
+          path: study-results/
+          if-no-files-found: warn

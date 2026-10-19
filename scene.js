@@ -1419,7 +1419,14 @@ export function createArenaScene(initial, targetAssembly) {
         barrel.scale.y = Math.max(.3, (extension - .23) / 1.13);
         barrel.position.z = -(extension + .23) / 2;
         flashMesh.position.z = -extension;
-        breech.scale.setScalar(spec.id === 'gun-short' ? 1.14 : spec.id === 'gun-light' ? .75 : 1);
+        const scatter=spec.id==='gun-scatter';
+        breech.scale.set(scatter?1.40:spec.id==='gun-short'?1.14:spec.id==='gun-light'?.75:1,
+            scatter?1.25:spec.id==='gun-short'?1.14:spec.id==='gun-light'?.75:1,
+            scatter?1.20:spec.id==='gun-short'?1.14:spec.id==='gun-light'?.75:1);
+        barrel.scale.x=scatter?2.40:1;
+        barrel.scale.z=scatter?2.40:1;
+        barrel.scale.y=scatter?.86:1;
+        scatterGreebles.visible=scatter;
     }
     function traceShot(spreadX, spreadY, muzzleZ) {
         camera.updateMatrixWorld();
@@ -1465,7 +1472,7 @@ export function createArenaScene(initial, targetAssembly) {
         target.exterior.root.updateWorldMatrix(true, true);
         const combatGroup = shooter.exterior.partGroups.get('combat');
         const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : -1.58;
+        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : -1.58;
         const muzzle = combatGroup
             ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
             : shooter.exterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
@@ -1610,7 +1617,7 @@ export function createArenaScene(initial, targetAssembly) {
         const friendly = shooter?.team === 'friendly';
         if (shooter) {
             const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-            const profile = weaponId === 'gun-short' ? { kick: .24, recovery: 1.9 } : weaponId === 'gun-light' ? { kick: .085, recovery: 4.2 } : { kick: .15, recovery: 2.8 };
+            const profile = weaponId === 'gun-scatter' ? {kick:.36,recovery:1.55} : weaponId === 'gun-short' ? { kick: .24, recovery: 1.9 } : weaponId === 'gun-light' ? { kick: .085, recovery: 4.2 } : { kick: .15, recovery: 2.8 };
             shooter.recoilKick = Math.min(.42, (shooter.recoilKick ?? 0) + profile.kick);
             shooter.recoilRecovery = profile.recovery;
         }
@@ -2193,6 +2200,21 @@ function buildCockpit(scene) {
     gunPivot.add(flashMesh);
     cockpit.add(gunPivot);
     cockpit.userData.gunPivot = gunPivot;
+    // Reusable (never per-shot) physical scattergun ironwork in pilot view.
+    const scatterGreebles=new THREE.Group();
+    const chokeRing=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.14,8),
+        new THREE.MeshStandardMaterial({color:0x8f713e,roughness:.81,metalness:.24}));
+    chokeRing.rotation.x=Math.PI/2;
+    chokeRing.position.set(0,-.04,-1.15);
+    scatterGreebles.add(chokeRing);
+    const cassette=box(.50,.26,.34,metal);
+    cassette.position.set(-.06,-.34,.08);
+    scatterGreebles.add(cassette);
+    const rib=box(.52,.09,.66,teal);
+    rib.position.set(0,.19,-.55);
+    scatterGreebles.add(rib);
+    scatterGreebles.visible=false;
+    gunPivot.add(scatterGreebles);
     cockpit.userData.gunBarrel = barrel;
     cockpit.userData.gunBreech = breech;
     cockpit.userData.flashMesh = flashMesh;
@@ -2493,6 +2515,31 @@ export function buildExteriorRig(assembly) {
                 // Two opposed slots visibly distinguish the lightweight muzzle brake.
                 add(plate(.30, .035, .12, m(0x181e1d)), 0, .10, -2.12);
                 add(plate(.31, .24, .29, m(0x54574f)), 0, -.01, .49);
+                break;
+            }
+            case 'gun-scatter': {
+                // The first true scatter archetype: broad single choke, welded
+                // reinforcement collars, exposed cycling linkage and a 4-shell
+                // cassette. One physical bore from the middle of this choke is
+                // where every pellet ray actually begins.
+                const trunnion=add(cyl(.36,.36,.58,steel,10),-.10,.01,.20);
+                trunnion.rotation.z=Math.PI/2;
+                add(plate(.93,.61,.72,m(yellow)),0,.04,.01);
+                add(plate(.85,.18,.84,m(0x665a3e)),0,.34,-.07);
+                add(plate(.51,.47,.50,m(teal)),0,-.26,.36);
+                const choke=add(cyl(.325,.385,.85,brightSteel,8),0,-.06,-.62);
+                choke.rotation.x=Math.PI/2;
+                const collar=add(cyl(.38,.38,.19,steel,8),0,-.06,-1.02);
+                collar.rotation.x=Math.PI/2;
+                const throat=add(cyl(.20,.20,.025,0x151c1b,8),0,-.06,-1.124);
+                throat.rotation.x=Math.PI/2;
+                for(const side of [-1,1]) {
+                    add(plate(.13,.20,.76,m(0x83522f)),side*.40,.02,-.55);
+                    add(plate(.12,.075,.64,m(teal)),side*.42,.29,-.27);
+                    add(plate(.12,.10,.63,m(steel)),side*.28,.23,-.58); // exposed barrel brace
+                }
+                add(plate(.28,.15,.57,steel),-.30,-.28,.47);
+                add(plate(.44,.13,.17,m(0x4b4e46)),0,.12,.60);
                 break;
             }
             case 'gun-cannon':

@@ -28,6 +28,8 @@ export const CATALOG = [
     { id: 'gun-light', name: 'Deactivated needle cannon', slot: 'combat', massKg: 255, center: SLOT_CENTERS.combat, envelope: [0.76, 0.63, 2.36], accepts: 'U1', description: 'A light long-tube trial mount; saves 155 kg but has 24 kW nominal stabilizer demand. Light live-fire range variant.', powerKw: -24, functionReady: true },
     // b.6: one additional frame; earlier definition IDs, owned serials and physics are preserved.
     { id: 'frame-wedge', name: 'W-3 Wedge monocoque', slot: 'structure', massKg: 1450, center: SLOT_CENTERS.structure, envelope: [1.88, .84, 1.88], accepts: 'U1', description: 'Shallow tapered monocoque with a sloped armored nose, buried structural spine and low roof-mounted U1 station. Carries up to 4,850 kg.', powerKw: 0, loadLimitKg: 4850, functionReady: true },
+    // k.3v.6 — append after all fourteen factory serial IDs; old saves remain stable.
+    { id: 'gun-scatter', name: 'Scrapyard S-6 scattergun', slot: 'combat', massKg: 375, center: SLOT_CENTERS.combat, envelope: [1.10, 1.00, 1.92], accepts: 'U1', description: 'Welded six-pellet industrial scattergun: fat choke, four-shell box, exposed cycle lever and heavy single-shell recoil. Short-range armor stripping; every pellet strikes physically.', powerKw: -12, functionReady: true },
 ];
 // Independent mechanical mounting metadata; mesh geometry and hit envelopes remain unchanged.
 for (const part of CATALOG) {
