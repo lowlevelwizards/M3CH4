@@ -70,7 +70,7 @@ export function createPartDetail({ entry, thumbnailUrl = null, value = 0, meta =
     const preview = document.createElement('div'); preview.className = 'part-detail-preview';
     if (thumbnailUrl) { const img = document.createElement('img'); img.src = thumbnailUrl; img.alt = ''; preview.append(img); }
     const copy = document.createElement('div'); copy.className = 'part-detail-copy';
-    const title = document.createElement('h3'); title.textContent = entry?.name ?? entry?.definition?.name ?? entry?.definitionId ?? 'COMPONENT';
+    const title = document.createElement('h3'); title.textContent = entry?.name ?? entry?.definition?.name ?? entry?.definitionId ?? 'PART';
     const info = document.createElement('div'); info.className = 'part-detail-meta';
     const serial = entry?.sourceSerial ?? entry?.serial ?? '—';
     info.textContent = `SERIAL ${serial}\n${status.toUpperCase()} · ${Math.round(clamp01(entry?.condition) * 100)}%${meta ? `\n${meta}` : ''}`;
