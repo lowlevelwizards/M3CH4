@@ -1,4 +1,5 @@
 import { zoneOpportunity, casualtyAssignment, assaultStagingPoint } from './adaptiveTactics.js';
+import { scoreForecast,reserveAnchors,assignmentSwitchCost,canStageAssault,teamPosture } from './objectiveDiscipline.js';
 /** Small exhaustive team assignment planner. Six rigs total makes a full general
  * scheduler unnecessary. Jobs are real tactical consequences of the objective.
  * No path, transform, ammo or damage mutation happens here.
@@ -22,7 +23,8 @@ function zoneJobs(snapshot,team,strategy=null) {
             z.contested?1.18:1;
         let base=(enemyOwned?.94:friendlyOwned?.59:.83)*urgency+
             (zoneOpportunity(z,team,ourMajority)-.95)*.55;
-        if(friendlyOwned&&!z.contested&&ourMajority)base+=.18;
+        base+=(scoreForecast(z,team,ourMajority)-1)*.27;
+        if(friendlyOwned&&!z.contested&&ourMajority)base+=.35;
         if(strategy?.target===z.id && ['ROTATE','BREAK_MAJORITY'].includes(strategy.phase))
             base+=.55;
         if(strategy?.phase==='ROTATE'&&z.contested&&strategy.target!==z.id)
@@ -61,7 +63,7 @@ function suitability(actor,job,team) {
     return job.priority+offense+toughness+maneuver+positional-penalty+
         (cap.canFight?.04:-.09)+casualtyAssignment(actor,job,job.zone);
 }
-function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null) {
+function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={}) {
     const entries=actors.slice(0,4).sort((a,b)=>a.id.localeCompare(b.id));
     let best=-Infinity,bestList=[];
     function walk(i,score,chosen,counts){
@@ -74,7 +76,10 @@ function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null) {
             return;
         }
         for(const job of jobs) {
-            const value=suitability(entries[i],job,team);
+            const previousOrder=previous[entries[i].id];
+            const oldZone=jobs.find(j=>j.objectiveId===previousOrder?.objectiveId)?.zone;
+            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team);
+            const value=suitability(entries[i],job,team)-switchPenalty;
             if(value<0)continue;
             const n=counts.get(job.objectiveId)??0;
             // First unit wins most value. A second can reinforce, but piling the
@@ -99,12 +104,27 @@ export function planTeam(snapshot,team,options={}) {
     if(snapshot.kind==='domination'&&snapshot.zones.length) {
         const strategy=options.strategy??null;
         const jobs=zoneJobs(snapshot,team,strategy);
+        const posture=teamPosture(snapshot,team);
+        // A crippled/outnumbered squad should not allocate its remaining
+        // fighting machine to a speculative screening maneuver.
+        if(posture.disadvantaged)
+            for(const job of jobs)if(job.kind==='SCREEN')job.priority-=.40;
+        const previous=options.previousOrders??{};
         // The player's physical occupation counts as team coverage but the
         // squad never issues player input or forces a player to defend a point.
         const player=view.allies.find(a=>a.id==='player');
         const playerZone=player?snapshot.zones.find(z=>
             dist(z.point,player.position)<4.7):null;
-        const assignedPairs=assignExhaustive(actors,jobs,team,playerZone?.id,strategy);
+        const anchorPairs=reserveAnchors(actors,snapshot.zones,team,player,snapshot.zoneRadius??4.7);
+        const anchoredIds=new Set(anchorPairs.map(p=>p.actor.id));
+        for(const {actor,zone} of anchorPairs){
+            orders[actor.id]={goal:'DEFEND',objectiveId:zone.id,point:{...zone.point},
+                radius:snapshot.zoneRadius??4.7,score:.96,anchor:true,role:'ANCHOR',
+                note:'HOLD PAYING OBJECTIVE',reason:'SCORING ANCHOR · '+zone.id,
+                strategy:strategy?.phase??'TAKE_GROUND'};
+        }
+        const assignedPairs=assignExhaustive(actors.filter(a=>!anchoredIds.has(a.id)),
+            jobs,team,playerZone?.id,strategy,previous);
         for(const pair of assignedPairs) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
@@ -115,6 +135,7 @@ export function planTeam(snapshot,team,options={}) {
                 !job.contested&&job.kind==='DEFEND';
             orders[actor.id]={goal:job.kind,objectiveId:job.objectiveId,
                 point:{...job.point},radius:snapshot.zoneRadius??4.7,
+                contested:job.contested,
                 score:clamp(suitabilityScore/1.7),
                 note:playerCoverage?'SUPPORT PLAYER POSITION':job.note,
                 reason:strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
@@ -130,7 +151,7 @@ export function planTeam(snapshot,team,options={}) {
         // allies cover approaches instead of crowding the player's point.
         if(playerZone && playerZone.owner===team&&!playerZone.contested) {
             for(const [id,order] of Object.entries(orders)){
-                if(order.objectiveId!==playerZone.id||order.goal==='SCREEN')continue;
+                if(order.anchor||order.objectiveId!==playerZone.id||order.goal==='SCREEN')continue;
                 const alternatives=jobs.filter(j=>j.objectiveId!==playerZone.id)
                   .sort((a,b)=>b.priority-a.priority);
                 if(alternatives.length && order.goal==='DEFEND' &&
@@ -142,40 +163,58 @@ export function planTeam(snapshot,team,options={}) {
                 }
             }
         }
-        // Synchronize a real two-rig assault for at most four seconds.
-        // The staging state cannot hold a squad hostage if one rig is late.
+        // Elimination ends Domination in k3u5. Only exploit the LAST public
+        // surviving opponent when actually seen and when scoring is secure.
+        // Never invent a location or sacrifice a reserved scoring anchor.
+        if(posture.finishOpportunity){
+            const lastEnemy=view.contacts.find(c=>c.visible&&c.confidence>.7);
+            if(lastEnemy){
+                const free=actors.filter(a=>!orders[a.id]?.anchor&&a.capability?.canFight&&
+                    a.capability?.canMove&&dist(a.position,lastEnemy.position)<18)
+                    .sort((a,b)=>dist(a.position,lastEnemy.position)-dist(b.position,lastEnemy.position));
+                const hunter=free[0];
+                if(hunter)orders[hunter.id]={
+                    goal:'ENGAGE',targetActorId:lastEnemy.id,point:{...lastEnemy.position},
+                    role:'INTERCEPT',score:.85,reason:'VISIBLE LAST OPPONENT · FINISH',
+                    note:'SUPPRESS FINAL HOSTILE',strategy:'FINISH',anchor:false};
+            }
+        }
+        // A raid must be a genuinely coordinated opportunity, not a default
+        // replacement for useful scoring. Physical anchors are never drafted.
         const memory=options.assaultMemory;
-        if(memory && ['ROTATE','BREAK_MAJORITY'].includes(strategy?.phase)) {
-            const paired=Object.entries(orders).filter(([,o])=>
-                o.objectiveId===strategy.target&&['CONTEST','CAPTURE','SCREEN'].includes(o.goal));
-            if(paired.length>=2){
-                if(memory.target!==strategy.target){
-                    memory.target=strategy.target;memory.since=snapshot.time??0;
-                }
-                const age=(snapshot.time??0)-(memory.since??0);
-                if(age<4){
-                    const attackZone=snapshot.zones.find(z=>z.id===strategy.target);
-                    const far=paired.filter(([id])=>{
-                        const me=actors.find(a=>a.id===id);
-                        return me&&dist(me.position,attackZone.point)>7;
-                    });
-                    if(far.length>0){
-                        const [leaderId]=paired[0], leader=actors.find(a=>a.id===leaderId);
-                        for(const [id,order] of paired){
-                            const me=actors.find(a=>a.id===id);
-                            if(!me||!leader)continue;
-                            orders[id]={...order,goal:'STAGE',radius:null,
-                              point:assaultStagingPoint(me,attackZone.point,leader),
-                              role:order.role,reason:'ASSEMBLE FOR ASSAULT · '+strategy.target};
-                        }
-                    }
+        if(memory){
+            const now=snapshot.time??0;
+            const target=snapshot.zones.find(z=>z.id===strategy?.target);
+            const phase=['BREAK_MAJORITY','ROTATE'].includes(strategy?.phase);
+            const paired=Object.entries(orders).filter(([,o])=>!o.anchor&&
+                o.objectiveId===strategy?.target&&['CONTEST','CAPTURE','SCREEN'].includes(o.goal));
+            const ready=phase&&canStageAssault({pair:paired,actors,zone:target,team,now,memory,
+                majorityHeld:posture.preserve});
+            if(memory.target && (!ready || now-(memory.since??now)>=2.5)){
+                memory.cooldownUntil=now+14;
+                memory.completed=(memory.completed??0)+1;
+                memory.target=null;
+            }
+            if(ready&&!memory.target) {
+                memory.target=target.id;memory.since=now;
+                memory.attempts=(memory.attempts??0)+1;
+            }
+            if(ready && memory.target===target.id && now-memory.since<2.5){
+                const attacker=actors.find(a=>a.id===paired[0][0]);
+                for(const [id,order] of paired){
+                    const me=actors.find(a=>a.id===id);
+                    if(!me||!attacker)continue;
+                    orders[id]={...order,goal:'STAGE',radius:null,
+                        point:assaultStagingPoint(me,target.point,attacker),
+                        role:'FLANKER',reason:'ASSEMBLE · '+target.id};
                 }
             }
-        }else if(memory){memory.target=null;}
+        }
         return {team,orders,reason:strategy?.reason??'TERRITORY MAJORITY',
             strategy:strategy?.phase??'TAKE_GROUND',
             target:strategy?.target??null,stalledFor:strategy?.stalledFor??0,
-            scoring:Math.floor(snapshot.score[team])};
+            scoring:Math.floor(snapshot.score[team]),
+            anchors:anchorPairs.length,posture};
     }
     const contacts=view.contacts.filter(c=>c.confidence>.12);
     for(const [index,actor] of actors.entries()) {

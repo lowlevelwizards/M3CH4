@@ -51,20 +51,26 @@ export function decidePilot(brain,actor,assignment,context,now) {
             context.world,actor.position,proposed.point,
             Math.min(3,Math.max(1.8,(proposed.radius??4.7)-1.3)),
             context.threatPosition??null,context.personality??'pressure',
-            context.collisionRadius??1.4,context.nearbyAllies??[]);
+            context.collisionRadius??1.4,context.nearbyAllies??[],
+            context.underFireSeconds??0);
         brain.lastGeometryAt=now;
     } else if(!newTask&&last?.point)proposed.point=last.point;
+    const safeAnchor=last?.anchor&&last?.objectiveId===assignment?.objectiveId&&
+        assignment?.goal==='DEFEND';
     const emergency=service||unsafe||!capability.canMove||incompatible||
         (proposed.goal==='SCREEN'&&last?.goal!=='SCREEN');
     const improvement=(proposed.utility??0)-(last?.utility??0);
-    if(changed&&!emergency&&last&&now<brain.committedUntil&&improvement<.27)
+    if(changed&&!emergency&&last&&(
+        (safeAnchor&&improvement<.40)||
+        (now<brain.committedUntil&&improvement<.32)))
         return last;
     if(!changed&&last){
         // Update destinations/known threat locations without restarting a plan.
         brain.intent={...last,point:proposed.point??last.point,utility:proposed.utility};
         return brain.intent;
     }
-    const commitment=proposed.goal==='STAGE'?2.0:proposed.goal==='DEFEND'?5.0:
+    const commitment=proposed.goal==='STAGE'?1.6:
+        proposed.goal==='DEFEND'?7.0:
         proposed.goal==='CAPTURE'||proposed.goal==='CONTEST'?3.4:2.7;
     const next={...proposed,actorId:actor.id,committedUntil:now+commitment};
     brain.committedUntil=next.committedUntil;

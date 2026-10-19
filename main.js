@@ -1437,9 +1437,12 @@ function frame(now) {
                     aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,DEFAULT_WORLD,aiClock);
                     const friendlyStrategy=evaluateStrategy(strategicMemory,aiSnapshot,FRIENDLY_TEAM);
                     const hostileStrategy=evaluateStrategy(strategicMemory,aiSnapshot,HOSTILE_TEAM);
+                    const previousPlans=aiPlans;
                     aiPlans={
-                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy,assaultMemory:aiAssaultMemory.friendly}),
-                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy,assaultMemory:aiAssaultMemory.hostile}),
+                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy,
+                            assaultMemory:aiAssaultMemory.friendly,previousOrders:previousPlans.friendly?.orders}),
+                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy,
+                            assaultMemory:aiAssaultMemory.hostile,previousOrders:previousPlans.hostile?.orders}),
                     };
                     aiPlanCooldown=.85;
                 }
@@ -1504,7 +1507,8 @@ function frame(now) {
                 const nearbyTraffic=participants.filter(p=>p.team===actor.team&&
                     p.id!==actor.id&&p.active&&p.rig&&
                     Math.hypot(p.rig.x-actor.rig.x,p.rig.z-actor.rig.z)<7)
-                    .map(p=>({position:p.rig,radius:p.baseConfig?.collisionRadiusM??1.1,active:p.active}));
+                    .map(p=>({id:p.id,position:p.rig,
+                        radius:p.baseConfig?.collisionRadiusM??1.1,active:p.active}));
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);

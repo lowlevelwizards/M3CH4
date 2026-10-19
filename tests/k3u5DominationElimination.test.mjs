@@ -42,9 +42,9 @@ test('Domination score still independently resolves before last enemy dies',()=>
  assert.match(source,/if \(objectiveOutcome\) finishSortie\(objectiveOutcome.victory, objectiveOutcome.reason\)/);
 });
 
-test('k3u5 Pages entrypoint loads the new squad-elimination gameplay script',()=>{
+test('k3u6 Pages entrypoint loads the new squad-elimination gameplay script',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.ok(html.includes('main.js?v=k3u5'));
- assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.5</span>'));
- assert.match(html,/Domination Elimination Victory/);
+ assert.ok(html.includes('main.js?v=k3u6'));
+ assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.6</span>'));
+ assert.match(html,/Objective Discipline & Tactical Efficiency/);
 });

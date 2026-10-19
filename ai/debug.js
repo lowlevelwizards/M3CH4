@@ -9,7 +9,11 @@ export function recordAiDecision(trace,actor,brain,executor,time){
         role:current.role??null,strategy:current.strategy??null,
         reason:current.reason,utility:Math.round((current.utility??0)*100),
         committedFor:Math.max(0,Math.round((brain.committedUntil-time)*10)/10),
-        routeFailure:executor?.lastFailure??null,history:brain.history.slice(-5)};
+        routeFailure:executor?.lastFailure??null,
+        trafficYields:executor?.trafficYields??0,
+        scoringSettles:executor?.zoneSettles??0,
+        routeSwitches:executor?.routeSwitches??0,
+        anchor:!!current.anchor,history:brain.history.slice(-5)};
     if(previous)rows.splice(rows.indexOf(previous),1);
     rows.push(row);
     trace.rows=rows.sort((a,b)=>a.actorId.localeCompare(b.actorId));
@@ -22,5 +26,8 @@ export function formatAiTrace(trace){
         (r.strategy?' {'+r.strategy+'}':'')+
         ' · '+r.utility+'% · '+
         r.committedFor.toFixed(1)+'s'+(r.routeFailure?' · '+r.routeFailure:'')+
+        (r.anchor?' · ANCHORED':'')+
+        (r.trafficYields?' · YIELDS '+r.trafficYields:'')+
+        (r.routeSwitches?' · ROUTES '+r.routeSwitches:'')+
         ' · '+r.reason).join('\n');
 }
