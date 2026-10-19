@@ -38,7 +38,14 @@ export function prioritizeVisibleTarget(actor,candidates,snapshot,order=null,cur
     const targetBonus=candidate.id===currentId?.12:0;
     const retaliate=candidate.id===threatId?.28:0;
     const interception=role==='INTERCEPT'?relevance*.14:0;
-    return {candidate,score:relevance+service+targetBonus+retaliate+interception-Math.min(.9,d*.019)};
+    // Anchors may shoot enemies in sight, but shouldn't turn every remote
+    // skirmish into a reason to abandon their productive scoring footprint.
+    const anchorDistance=order?.anchor&&order?.point?
+      dist(candidate.rig,order.point):0;
+    const anchorBias=order?.anchor?(anchorDistance<14?.32:-.32):0;
+    const designated=order?.targetActorId===candidate.id?.42:0;
+    return {candidate,score:relevance+service+targetBonus+retaliate+
+      interception+anchorBias+designated-Math.min(.9,d*.019)};
   });
   scored.sort((a,b)=>b.score-a.score||a.candidate.id.localeCompare(b.candidate.id));
   return scored[0].candidate;
