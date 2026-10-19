@@ -1,0 +1,44 @@
+name: k3v1 Footing and Brake/Brace CI
+on:
+  pull_request:
+    paths:
+      - "locomotion.js"
+      - "combat.js"
+      - "main.js"
+      - "scene.js"
+      - "sceneAssembly.js"
+      - "audio.js"
+      - "index.html"
+      - "styles.css"
+      - "tests/k3v1Brace.test.mjs"
+      - ".github/workflows/k3v1-ci.yml"
+  push:
+    branches: ["k3v1-brake-brace-recoil"]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax
+        run: |
+          for f in locomotion.js combat.js main.js scene.js sceneAssembly.js audio.js tests/k3v1Brace.test.mjs; do node --check "$f"; done
+      - name: All existing tests plus footing/brace tests
+        run: npm test
+      - name: Baseline headless physical measurements
+        run: |
+          mkdir -p study-results
+          node research/partIdentityBaseline.mjs | tee study-results/k3v1-physics-baseline.md
+      - name: Real controller 3v3 Domination smoke
+        run: node research/headlessDominationStudy.mjs 2
+      - name: Keep measured outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k3v1-physics-and-domination
+          path: study-results/
+          if-no-files-found: warn

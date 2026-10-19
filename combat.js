@@ -56,8 +56,15 @@ export function applyRecoil(rig, config, aimX, aimZ, impulseNs, mountX = 1.17, m
     const length = Math.hypot(aimX, aimZ);
     if (length < 1e-6 || impulseNs <= 0)
         return;
-    const backwardsX = -aimX / length * impulseNs;
-    const backwardsZ = -aimZ / length * impulseNs;
+    // A planted drive passes some impulse into the ground through its actual
+    // available lateral grip. Never overwrite velocity already on the rig.
+    // Unbraced shots remain exactly the original Newtonian recoil.
+    const gripToWeight = Math.max(0, Math.min(1, config.lateralGripNsPerM / (config.massKg * 4)));
+    const stance = Math.max(0, Math.min(1, rig.brace ?? 0));
+    const absorbed = stance * (.18 + .38 * gripToWeight);
+    const transmittedImpulseNs = impulseNs * (1 - absorbed);
+    const backwardsX = -aimX / length * transmittedImpulseNs;
+    const backwardsZ = -aimZ / length * transmittedImpulseNs;
     rig.vx += backwardsX / config.massKg;
     rig.vz += backwardsZ / config.massKg;
     // Rotate the local weapon offset by -physicsYaw into world space.

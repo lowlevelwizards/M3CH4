@@ -15,7 +15,7 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
     "./assemblyPhysics.js": "./assemblyPhysics.js?v=k3c0",
-    "./combat.js": "./combat.js?v=k3o1",
+    "./combat.js": "./combat.js?v=k3v1",
     "./components.js": "./components.js?v=k3l1",
     "./contracts.js": "./contracts.js?v=k3t1",
     "./progression.js": "./progression.js?v=k3l1",
@@ -33,8 +33,8 @@
     "./squadCoordination.js": "./squadCoordination.js?v=k3p1",
     "./faultSupport.js": "./faultSupport.js?v=k3p1",
     "./hostileRig.js": "./hostileRig.js?v=k3u7",
-    "./locomotion.js": "./locomotion.js?v=k3i0",
-    "./scene.js": "./sceneAssembly.js?v=k3u4",
+    "./locomotion.js": "./locomotion.js?v=k3v1",
+    "./scene.js": "./sceneAssembly.js?v=k3v1",
     "./enemyMotion.js": "./enemyMotion.js?v=k3u7",
     "./tacticalAwareness.js": "./tacticalAwareness.js?v=k3u7",
     "./squadBattle.js": "./squadBattle.js?v=k3k0",
@@ -61,11 +61,11 @@
     "./ai/debug.js": "./ai/debug.js?v=k3u6"
   }
 }</script>
-    <link rel="stylesheet" href="./styles.css?v=k3u4" />
+    <link rel="stylesheet" href="./styles.css?v=k3v1" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./unifiedGarageStyles.css?v=k3u3" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3u.7 — Combat Awareness & Survival Intelligence</title>
+    <title>MECH ARENA — 0.0.1k.3v.1 — Footing, Brake & Brace</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -126,7 +126,7 @@
         <div class="control-caption">LOOK WITHOUT FIRING</div>
       </div>
     </div>
-    <button id="brake" class="pedal" type="button">BRAKE</button>
+    <button id="brake" class="pedal" type="button" aria-label="Hold brake to stop, then plant feet to brace while firing" aria-pressed="false">BRAKE</button>
     <button id="reload" class="range-button reload-button" type="button">RELOAD</button>
     <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire; drag to aim while firing">FIRE<span class="fire-hint" aria-hidden="true">DRAG TO AIM</span></button>
     <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
@@ -219,7 +219,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3u7"></script>
+    <script type="module" src="./main.js?v=k3v1"></script>
     <script type="module" src="./garageMountUI.js?v=k3u3"></script>
   </body>
 </html>

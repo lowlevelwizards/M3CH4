@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
+import { soundBrace, soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
@@ -312,6 +312,7 @@ const speedEl = required('#speed');
 const yawRateEl = required('#yaw-rate');
 const loadBar = required('#load-bar');
 const motionEl = required('#motion-direction');
+const bracePedal = required('#brake');
 const lookHeadingEl = required('#look-heading');
 const devToggle = required('#dev-toggle');
 const devPanel = required('#dev-panel');
@@ -1423,7 +1424,9 @@ function frame(now) {
             syncMovingObstacles();
             if (playerCombatActive) {
                 const yawBefore = rig.yaw;
+                const wasBraced = rig.braced;
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
+                if (rig.braced && !wasBraced) soundBrace();
                 shoveDisabledWrecks(rig, effectiveConfig);
                 if (Math.abs(followSteer) > .001) {
                     controls.compensateBodyTurn(rig.yaw - yawBefore);
@@ -1548,6 +1551,17 @@ function frame(now) {
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
                     maneuver = { ...maneuver, throttle: maneuver.throttle * Math.max(.66, posture.paceScale), strafe: (maneuver.strafe ?? 0) * Math.max(.56, posture.strafeScale), steer: maneuver.steer * Math.max(.62, posture.steerScale) };
+                // An AI holding a firing position plants the same feet through
+                // the same brake input. Do not add a special AI recoil buff.
+                const settledToShoot = !recovery.active && !!target &&
+                    actor.weaponState?.loaded > 0 && actor.motion?.awareness?.lineOfSight !== false &&
+                    withinFiringArc(actor.rig, target.rig) &&
+                    Math.hypot(actor.rig.vx, actor.rig.vz) < .24 &&
+                    Math.abs(actor.rig.yawRate) < .2 &&
+                    Math.abs(maneuver.throttle) < .12 &&
+                    Math.abs(maneuver.strafe ?? 0) < .12 &&
+                    Math.abs(maneuver.steer) < .12;
+                if (settledToShoot) maneuver = { ...maneuver, brake: 1 };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
                 shoveDisabledWrecks(actor.rig, actorConfig);
                 if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
@@ -1628,13 +1642,18 @@ function frame(now) {
     renderAmmo();
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);
     const lateralDominant = Math.abs(rig.lateralSpeed) > .18 && Math.abs(rig.lateralSpeed) > Math.abs(rig.forwardSpeed) * .72;
-    motionEl.textContent = lateralDominant ? (rig.lateralSpeed > 0 ? 'STEP R' : 'STEP L') :
+    motionEl.textContent = rig.braced ? 'BRACED' : lateralDominant ? (rig.lateralSpeed > 0 ? 'STEP R' : 'STEP L') :
         rig.forwardSpeed < -.15 ? 'REV' : rig.forwardSpeed > .15 ? 'FWD' : 'IDLE';
+    bracePedal.textContent = rig.braced ? 'BRACED' : rig.brace > 0 ? 'PLANT' : 'BRAKE';
+    bracePedal.classList.toggle('active', input.brake >= .85);
+    bracePedal.classList.toggle('braced', !!rig.braced);
+    bracePedal.setAttribute('aria-pressed', String(input.brake >= .85));
     yawRateEl.textContent = Math.round(THREE.MathUtils.radToDeg(rig.yawRate)).toString();
     loadBar.style.transform = `scaleX(${rig.driveLoad.toFixed(3)})`;
     arena.updateCockpitMotion?.({
         speed: Math.hypot(rig.vx, rig.vz), direction: motionEl.textContent,
         turnRate: THREE.MathUtils.radToDeg(rig.yawRate), driveLoad: rig.driveLoad,
+        brace: rig.brace,
     });
     const degrees = Math.round(-THREE.MathUtils.radToDeg(input.lookYaw));
     const following = Math.abs(bodyFollowSteer(input.lookYaw)) > .02;
@@ -1653,6 +1672,7 @@ function frame(now) {
             `YAW RATE  ${THREE.MathUtils.radToDeg(rig.yawRate).toFixed(1)}°/s`,
             `ACCEL     ${rig.longitudinalAcceleration.toFixed(2)} m/s²`,
             `LOAD      ${(rig.driveLoad * 100).toFixed(0)}%`,
+            `BRACE     ${rig.braced ? 'PLANTED' : (rig.brace * 100).toFixed(0) + '%'} · BRAKE+STILL`,
             `MASS      ${inspection.massKg.toLocaleString()} kg`,
             `POWER     ${output.powerAvailableKw.toFixed(0)}/${output.nominalDemandKw} kW effective`,
             `CREDITS   ₡${economy.credits}`,

@@ -1,3 +1,9 @@
+/** Holding brake plants the feet once nearly stationary. This is a shared,
+ * deterministic controller state: no extra button and no special AI exceptions. */
+export const BRACE = Object.freeze({
+    brakeThreshold: .85, settleSpeedMps: .26, settleYawRadS: .22,
+    transitionSeconds: .30, intentDeadzone: .12,
+});
 export const DEFAULT_RIG_CONFIG = {
     massKg: 4_250,
     driveForceN: 12_200,
@@ -72,6 +78,9 @@ export function createRigState(spawn = PLAYER_SPAWN) {
         lateralSpeed: 0,
         longitudinalAcceleration: 0,
         impact: 0,
+        brace: 0,
+        braceHoldSeconds: 0,
+        braced: false,
     };
 }
 /** Three.js camera's -Z forward requires the opposite signed Y rotation. */
@@ -85,6 +94,20 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const strafe = clamp(input.strafe ?? 0, -1, 1);
     const steer = clamp(input.steer, -1, 1);
     const brake = clamp(input.brake, 0, 1);
+    // Bracing is a deliberate hold after coming to rest. Turning, stepping,
+    // throttle, power loss or drive damage prevents/relinquishes the stance.
+    // No random state or player-only shortcut: AI uses stepRig too.
+    const canBrace = brake >= BRACE.brakeThreshold &&
+        Math.abs(throttle) < BRACE.intentDeadzone &&
+        Math.abs(strafe) < BRACE.intentDeadzone &&
+        Math.abs(steer) < BRACE.intentDeadzone &&
+        Math.hypot(state.vx, state.vz) <= BRACE.settleSpeedMps &&
+        Math.abs(state.yawRate) <= BRACE.settleYawRadS &&
+        config.driveForceN > 0 && config.lateralDriveForceN > 0 &&
+        (config.turnLeftScale ?? 1) > .42 && (config.turnRightScale ?? 1) > .42;
+    state.braceHoldSeconds = canBrace ? Math.min(BRACE.transitionSeconds, (state.braceHoldSeconds ?? 0) + dt) : 0;
+    state.brace = canBrace ? Math.min(1, state.braceHoldSeconds / BRACE.transitionSeconds) : 0;
+    state.braced = state.brace >= 1;
     const sin = Math.sin(state.yaw);
     const cos = Math.cos(state.yaw);
     const forwardX = sin;
@@ -105,6 +128,14 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
         longitudinalForce = 0;
     if (previousForwardSpeed <= -config.maxReverseSpeedMps && longitudinalForce < 0)
         longitudinalForce = 0;
+    // With hard braking, never overshoot through zero and accelerate in reverse.
+    // The old signed fixed brake impulse could oscillate indefinitely around 0.
+    if (brakingForce > 0 && Math.abs(previousForwardSpeed) <= .02)
+        longitudinalForce = -previousForwardSpeed * config.massKg / dt;
+    const predictedForward = previousForwardSpeed + longitudinalForce * dt / config.massKg;
+    if (brakingForce > 0 && Math.abs(previousForwardSpeed) > .02 &&
+        Math.sign(predictedForward) !== Math.sign(previousForwardSpeed))
+        longitudinalForce = -previousForwardSpeed * config.massKg / dt;
     // A legged rig actively steps toward a requested sideways velocity. The grip
     // coefficient damps uncontrolled slide; lateralDriveForceN is the actuator limit.
     const targetLateralSpeed = strafe * config.maxLateralSpeedMps * (1 - brake * .8);
@@ -120,7 +151,7 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const directionalTurnScale = steer >= 0 ? (config.turnRightScale ?? 1) : (config.turnLeftScale ?? 1);
     const yawTorque = steer * config.turnTorqueNm * turnAuthority * directionalTurnScale
         + throttle * (config.driveAsymmetryTorqueNm ?? 0)
-        - state.yawRate * config.yawDampingNms;
+        - state.yawRate * config.yawDampingNms * (1 + 1.7 * state.brace);
     state.yawRate += (yawTorque / config.yawInertiaKgM2) * dt;
     state.yaw += state.yawRate * dt;
     state.x += state.vx * dt;

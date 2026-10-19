@@ -641,3 +641,6 @@ body.observing-allies #fault-strip.faulted{top:max(82px,calc(env(safe-area-inset
 /* Do not leave interactive aim chrome visible to the read-only observer. */
 body.observing-allies #look-heading,
 body.observing-allies #target-panel { display:none!important; }
+
+/* k.3v.1: existing brake pedal doubles as deliberate planted-foot stance. */
+.pedal.braced { border-color: #c8cc86; color: #eaf2b6; background: rgba(47, 77, 57, .94); box-shadow: inset 0 0 0 1px rgba(198, 214, 138, .30); }

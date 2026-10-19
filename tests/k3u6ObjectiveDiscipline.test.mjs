@@ -163,7 +163,7 @@ test('developer diagnostics expose physical route and footprint measurements',()
 
 test('release entrypoint imports current tactical brain rather than stale cache identities',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.ok(html.includes('main.js?v=k3u7'));
+ assert.ok(html.includes('main.js?v=k3v1'));
  assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.7</span>'));
  for(const file of ['teamPlanner','strategicState','positioning','objectiveDiscipline','debug'])
    assert.ok(html.includes('./ai/'+file+'.js?v=k3u6'),file+' retained module identity');
