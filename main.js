@@ -545,11 +545,11 @@ function showHitConfirm(hit, text = null) {
 }
 function checkSquadOutcome() {
     const outcome = squadOutcome(playerCombatActive, aiActors);
-    // Domination is won by territory. A wiped hostile squad no longer grants
-    // instant victory; living friendlies still have to hold the majority. The
-    // loss of every friendly combatant remains an immediate mission failure.
-    if (outcome && !testEnded &&
-        (sortieObjective.type!=='domination' || !outcome.victory))
+    // Domination is won by score OR by defeating the entire opposing squad.
+    // The squad resolver already requires every hostile actor to be disabled;
+    // no capture/score mutation is needed and the existing bout outcome stays
+    // authoritative for salvage, BO3, and persistent machine damage.
+    if (outcome && !testEnded)
         finishSortie(outcome.victory, outcome.reason);
 }
 function missionKillAiActor(actor, reason, attackerId = null) {
