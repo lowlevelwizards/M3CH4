@@ -646,7 +646,8 @@ function resetAiActor(actor) {
     Object.assign(actor.condition, createTargetCondition(actor.assembly));
     if (actor.weaponState && actor.weaponSpec)
         Object.assign(actor.weaponState, createWeaponState(actor.weaponSpec));
-    Object.assign(actor.controller, createHostileController(actor.id === 'enemy-0' ? 1.8 : actor.team === FRIENDLY_TEAM ? 1.0 : 1.55, actor.behavior));
+    Object.assign(actor.controller,createHostileController(
+        actor.id==='enemy-0'?.45:actor.team===FRIENDLY_TEAM?.38:.52,actor.behavior));
     Object.assign(actor.motion, createEnemyMotion(actor.behavior));
     actor.fieldService = createFieldServiceState();
     actor.active = true;
@@ -655,6 +656,9 @@ function resetAiActor(actor) {
     actor.teamIntent=null;
     actor.lastServiceCoverCheck=-Infinity;
     actor.serviceCover=null;
+    actor.combatMemory={};
+    actor.lastSurvivalCoverCheck=-Infinity;
+    actor.survivalCover=null;
     actor.brain=createPilotBrain();
     actor.executor=createIntentExecutor();
     actor.teamSupportTargetId = null;
@@ -1990,7 +1994,7 @@ function warnNearbyAiFromShot(firingTeam,contact){
         if(!defender.active||defender.team===firingTeam||defender.id===contact.actorId)
             continue;
         const evidence=shotThreatEvidence(defender.rig,contact.muzzle,contact.point);
-        if(evidence)recordShotEvidence(defender.motion,evidence&&defender.rig,evidence);
+        if(evidence)recordShotEvidence(defender.motion,defender.rig,evidence);
     }
 }
 function attemptAiFire(actor, target, shotIndex) {
