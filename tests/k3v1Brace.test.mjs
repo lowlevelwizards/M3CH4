@@ -95,7 +95,7 @@ test('foot grip absorbs a fraction of new recoil without erasing prior momentum'
     assert.ok(braced.yaw < free.yaw && braced.yaw > 0);
     assert.equal(running.vx, .6, 'straight-backward shot does not alter sideward momentum');
     assert.equal(planted.vx, .6, 'brace never erases existing sideways velocity');
-    assert.ok(planted.vz > running.vz, 'brace transmits less of this new impulse');
+    assert.ok(planted.vz < running.vz, 'brace transmits less of this new impulse');
 });
 
 test('actual physical grip changes braced recoil absorption across legal leg families', () => {
