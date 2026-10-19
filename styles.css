@@ -587,3 +587,57 @@ body:not(.inspecting) .objective-status:has(+ #domination-hud:not(.hidden)){
 @media(max-height:430px){
  #domination-hud{top:max(100px,calc(env(safe-area-inset-top) + 90px))}
 }
+
+/* k.3u.4 cockpit compositor: one match bar, one objective bar, and at most one
+   fault alert. The embedded CRT/combiner still owns all system telemetry. */
+body.domination-active #objective-status{display:none!important}
+body:not(.inspecting) #domination-hud{
+ top:max(48px,calc(env(safe-area-inset-top) + 42px));
+ max-width:min(620px,82vw);z-index:13;
+ font:800 9px/1.25 ui-monospace,monospace;letter-spacing:.03em;
+ padding:4px 9px;border:1px solid #779a80a0;background:#111c17db;
+}
+body.domination-active:not(.inspecting) .look-heading{display:none!important}
+body:not(.inspecting) .fault-strip.faulted{
+ top:max(79px,calc(env(safe-area-inset-top) + 73px));
+ max-width:78vw;width:max-content;min-height:0;
+ padding:5px 10px;font:800 9px/1.25 ui-monospace,monospace;
+}
+body:not(.inspecting) .shot-report:not(.faded){
+ top:max(104px,calc(env(safe-area-inset-top) + 98px));
+ max-width:65vw;font-size:8px;pointer-events:none;
+}
+#allied-observation{
+ position:absolute;z-index:21;bottom:max(15px,calc(env(safe-area-inset-bottom) + 11px));
+ left:50%;transform:translateX(-50%);
+ display:grid;grid-template-columns:40px minmax(148px,1fr) 40px;gap:7px;
+ min-width:235px;max-width:min(370px,66vw);
+ padding:7px 9px;border:1px solid #a7864d;background:#111b17e8;
+ color:#e5c584;box-shadow:0 7px 24px #0009;
+ align-items:center;text-align:center;font:800 10px/1.35 ui-monospace,monospace;
+}
+#allied-observation.hidden{display:none}
+#allied-observation button{
+ width:40px;min-height:42px;border:1px solid #8d926e;background:#2a332d;
+ color:#e7c481;font:900 22px/1 ui-monospace,monospace;touch-action:manipulation;
+}
+body.observing-allies #controls,
+body.observing-allies #brake,
+body.observing-allies #fire,
+body.observing-allies #reload,
+body.observing-allies #center-crosshair,
+body.observing-allies #hit-confirm,
+body.observing-allies #player-damage-hud,
+body.observing-allies #player-hit-flash{display:none!important}
+body.observing-allies #fault-strip.faulted{top:max(82px,calc(env(safe-area-inset-top) + 77px))}
+@media(max-height:430px){
+ body:not(.inspecting) #domination-hud{top:max(39px,calc(env(safe-area-inset-top) + 34px));font-size:7px;max-width:92vw;padding:3px 5px}
+ body:not(.inspecting) .fault-strip.faulted{top:max(65px,calc(env(safe-area-inset-top) + 60px));font-size:7px;padding:4px 7px}
+ body:not(.inspecting) .shot-report:not(.faded){top:max(85px,calc(env(safe-area-inset-top) + 80px));font-size:7px}
+ #allied-observation{bottom:max(7px,env(safe-area-inset-bottom));padding:4px 6px;font-size:8px;gap:5px}
+ #allied-observation button{min-height:38px}
+}
+
+/* Do not leave interactive aim chrome visible to the read-only observer. */
+body.observing-allies #look-heading,
+body.observing-allies #target-panel { display:none!important; }
