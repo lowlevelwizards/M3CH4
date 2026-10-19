@@ -14,7 +14,7 @@ test('unified garage restores the existing 3D component picture gallery instead 
     assert.match(ui,/onSelect: \(\) => \{ selectedHardwareSerial = part\.serial; render\(\); \}/);
     assert.match(ui,/onAction: \(\) => editModule\(slot,here \? null : focused\.serial\)/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
-    assert.match(ui,/elsewhere \? 'ON ' \+ rigName\(owner\)/);
+    assert.match(ui,/elsewhere \? 'BAY '/);
     assert.match(partGrid,/const img = document\.createElement\('img'\)/);
     assert.match(partGrid,/img\.src = thumbnailUrl/);
     assert.match(scene,/export function partThumbnailDataUrl\(/);
