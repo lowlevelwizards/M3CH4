@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundFire, soundFootScrape, soundImpact, soundReload, soundShield } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundFire, soundScatter, soundFootScrape, soundImpact, soundReload, soundShield } from './audio.js';
+import { shotContacts } from './scattergun.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
@@ -2042,14 +2043,14 @@ function finishSortie(victory, reason) {
     renderAmmo();
     syncCockpitInstruments();
 }
-function applyAiHitToPlayer(actor, contact) {
+function applyAiHitToPlayer(actor, contact, damage = actor.weaponSpec.damage, audible = true) {
     const serviceInterruptedByHit = fieldService.held;
     stopFieldServiceInput();
     if (serviceInterruptedByHit) handleFieldServiceInterrupted();
     const partBefore = playerCondition.parts[contact.slot];
     const before = partSnapshot(partBefore);
     const beforeIntegrity = partBefore.integrity;
-    const hit = applyTargetHit(playerCondition, contact.slot, actor.weaponSpec.damage);
+    const hit = applyTargetHit(playerCondition, contact.slot, damage);
     if (hit.internalDamage > 0) {
         const amount = hit.internalDamage / Math.max(1, partBefore.maxIntegrity);
         if (contact.slot === 'mobility')
@@ -2078,7 +2079,7 @@ function applyAiHitToPlayer(actor, contact) {
     signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
     showVerifiedShieldReadout(contact);
     persistMachine();
-    if (shieldImpactLabel(contact)) soundShield(); else soundImpact();
+    if (audible) {if (shieldImpactLabel(contact)) soundShield(); else soundImpact();}
     rig.impact = Math.min(1, rig.impact + .65);
     updateFunctionalStatus();
     renderPartsList();
@@ -2124,7 +2125,7 @@ function attemptAiFire(actor, target, shotIndex) {
     actor.weaponState.cooldown *= 1+
         (1-actorOutput.weapon)*.65+(1-actorOutput.power)*.45;
     registerPowerShot(actor.powerSystem, actor.assembly);
-    soundFire();
+    if(actor.weaponSpec.pellets>1)soundScatter();else soundFire();
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
@@ -2135,7 +2136,20 @@ function attemptAiFire(actor, target, shotIndex) {
     const aimSlot=tacticalAimSlot(hostileAimSlot(shotIndex,actor.behavior.aimPriority),{
         targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
         contesting,visibleService:!!target.fieldService?.held});
-    const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
+    const contacts=actor.weaponSpec.pellets>1
+        ? shotContacts(shotIndex,actor.weaponSpec,
+            1+Math.max(0,1-actorOutput.weapon)*.45,
+            (x,y)=>arena.traceCombatantShot(actor.id,target.id,aimSlot,
+                spreadX+x,spreadY+y)).map(entry=>entry.contact)
+        : [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY)];
+    actor._scatterImpactAudible=false;
+    for(const contact of contacts) {
+        resolveAiShotContact(actor,target,contact,actor.weaponSpec.damage);
+        if(testEnded) break;
+    }
+    actor._scatterImpactAudible=false;
+}
+function resolveAiShotContact(actor,target,contact,damage) {
     warnNearbyAiFromShot(actor.team,contact);
     const obstruction = contact.blockedBy ? `COVER ${contact.blockedBy}` :
         contact.actorId && contact.actorId !== target.id ? `RIG ${contact.actorId}` :
@@ -2158,13 +2172,14 @@ function attemptAiFire(actor, target, shotIndex) {
         return;
     }
     if (target.id === 'player') {
-        applyAiHitToPlayer(actor, contact);
+        applyAiHitToPlayer(actor, contact, damage, !actor._scatterImpactAudible);
+        actor._scatterImpactAudible=true;
         return;
     }
     interruptAiFieldService(target);
     const beforePart = partSnapshot(target.condition.parts[contact.slot]);
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
-    const hit = applyTargetHit(target.condition, contact.slot, actor.weaponSpec.damage);
+    const hit = applyTargetHit(target.condition, contact.slot, damage);
     const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(target, beforeIntegrity, actor.rig);
     const weaponRecoverable = contact.slot === 'combat' && canFieldService(target.condition, target.fieldService);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
@@ -2200,15 +2215,34 @@ function attemptFire() {
     }
     weaponState.cooldown *= weaponCycleMultiplier(output);
     registerPowerShot(playerPower, assembly);
-    const [spreadX, spreadY] = shotSpread(shot, weaponSpec.spread * weaponSpreadMultiplier(output));
-    const contact = arena.traceShot(spreadX, spreadY, weaponSpec.muzzleZ);
-    warnNearbyAiFromShot(FRIENDLY_TEAM,contact);
-    const directionX = (contact.point.x - contact.muzzle.x) / Math.max(contact.distance, .001);
-    const directionZ = (contact.point.z - contact.muzzle.z) / Math.max(contact.distance, .001);
-    applyRecoil(rig, effectiveConfig, directionX, directionZ, weaponSpec.recoilImpulseNs);
+    // One trigger pull consumes exactly one shell; each actual pellet
+    // traverses the ordinary camera→muzzle raycaster and first real hit.
+    const degradedSpread=weaponSpreadMultiplier(output);
+    const multi=weaponSpec.pellets>1;
+    const [baseX,baseY]=shotSpread(shot,multi?.004*degradedSpread:
+        weaponSpec.spread*degradedSpread);
+    const contacts=multi
+        ? shotContacts(shot,weaponSpec,degradedSpread,
+            (x,y)=>arena.traceShot(baseX+x,baseY+y,weaponSpec.muzzleZ))
+            .map(entry=>entry.contact)
+        : [arena.traceShot(baseX,baseY,weaponSpec.muzzleZ)];
+    const center=contacts[0];
+    warnNearbyAiFromShot(FRIENDLY_TEAM,center);
+    const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
+    const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
+    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
     shotsFired++;
     sortieRoundsFired++;
-    soundFire();
+    if(multi)soundScatter();else soundFire();
+    let impactSoundPlayed=false;
+    for(const contact of contacts){
+        if(testEnded)break;
+        const affected=resolvePlayerShotContact(contact,weaponSpec.damage,!impactSoundPlayed);
+        if(affected)impactSoundPlayed=true;
+    }
+    renderAmmo();
+}
+function resolvePlayerShotContact(contact,damage,audible=true) {
     if (contact.slot !== null && contact.actorId) {
         const targetActor = actorById(contact.actorId);
         if (!targetActor) return;
@@ -2216,9 +2250,9 @@ function attemptFire() {
         // shove it or spend ammunition breaking it down into a much smaller remnant.
         if (!targetActor.active) {
             const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
-            const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
+            const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
             const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
-            targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, weaponSpec.damage);
+            targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, damage);
             const cleared = targetActor.wreckIntegrity <= .001;
             if (cleared && !targetActor.wreckCleared) {
                 targetActor.wreckCleared = true;
@@ -2235,24 +2269,22 @@ function attemptFire() {
                 mirrorTargetCondition(targetAssembly, targetCondition);
                 renderTarget();
             }
-            soundImpact();
+            if(audible)soundImpact();
             showHitConfirm(wreckHit);
             lastHit = `${targetActor.label} · ${wreckHit.justDestroyed ? 'PART DESTROYED' : `WRECK ${Math.round(targetActor.wreckIntegrity * 100)}%`}`;
-            renderAmmo();
-            return;
+            return true;
         }
         if (targetActor.team !== HOSTILE_TEAM) {
             arena.showShot(contact, null);
-            soundImpact();
+            if(audible)soundImpact();
             showHitConfirm({ friendlyBlock: true });
             lastHit = `ALLY BLOCK · ${targetActor.label}`;
-            renderAmmo();
-            return;
+            return true;
         }
         interruptAiFieldService(targetActor);
         const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
-        const hit = applyTargetHit(targetActor.condition, contact.slot, weaponSpec.damage);
+        const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
         const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(targetActor, beforeIntegrity, rig);
         const weaponRecoverable = contact.slot === 'combat' && canFieldService(targetActor.condition, targetActor.fieldService);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
@@ -2267,20 +2299,21 @@ function attemptFire() {
             mirrorTargetCondition(targetAssembly, targetCondition);
             renderTarget();
         }
-        if (shieldImpactLabel(contact)) soundShield(); else soundImpact();
+        if(audible){if(shieldImpactLabel(contact))soundShield();else soundImpact();}
         recoilFlash = .19;
         const shieldText = showVerifiedShieldReadout(contact);
         lastHit = `${targetActor.label} · ${shieldText ?? targetLabels[hit.slot]} · ${hit.serial}`;
         showHitConfirm(hit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
-        if (testEnded) return;
+        if (testEnded) return true;
+        return true;
     }
     else {
         arena.showShot(contact, null);
-        lastHit = contact.blockedBy ? `COVER · ${contact.blockedBy}` : 'RANGE SURFACE / MISS';
+        if(!lastHit||!contact.blockedBy)lastHit = contact.blockedBy ? `COVER · ${contact.blockedBy}` : 'RANGE SURFACE / MISS';
     }
-    renderAmmo();
+    return false;
 }
 fireButton.addEventListener('pointerdown', event => {
     if (inspecting || testEnded || fireButton.disabled || firePointerId !== null)
