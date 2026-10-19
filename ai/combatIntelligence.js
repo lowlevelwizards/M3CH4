@@ -65,7 +65,7 @@ export function counterFlankOrder(actor,order,allies,contacts,world,now=0){
  const point=valid?flank:target;
  return {goal:'ENGAGE',role:'INTERCEPT',point:{...point},targetActorId:threat.id,
     reason:'INTERCEPT OBSERVED ATTACKER',note:'COVER ALLY UNDER FIRE',
-    score:.90,expiresAt:now+2.4};
+    score:.95,emergency:true,expiresAt:now+2.4};
 }
 /** When nobody is seen, bias a long exposed crossing toward a real corner
  * offering a protected staging position. Never replace the final objective. */
