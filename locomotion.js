@@ -196,7 +196,7 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     state.lateralSpeed = state.vx * newRightX + state.vz * newRightZ;
     state.lateralAcceleration = (state.lateralSpeed - lateralSpeed) / dt;
     state.recoilLoad = Math.max(0, (state.recoilLoad ?? 0) - dt *
-        config.lateralGripNsPerM / Math.max(1, config.massKg) * .78);
+        config.lateralGripNsPerM / Math.max(1, config.massKg) * .32);
     state.longitudinalAcceleration = (state.forwardSpeed - previousForwardSpeed) / dt;
     const propulsionLoad = config.driveForceN > 0
         ? Math.abs(opposingThrottle ? 0 : requestedForce) / config.driveForceN : 0;
