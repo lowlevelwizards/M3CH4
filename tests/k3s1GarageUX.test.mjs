@@ -23,7 +23,7 @@ test('all three bays have the same fixed navigation geometry', () => {
 });
 test('five physical station icons return with accessible missing, damaged and destroyed colors', () => {
     for (const glyph of ['⬡','⋀','ϟ','◉','✦']) assert.ok(ui.includes(glyph));
-    assert.match(ui, /unified-station-glyph/);
+    assert.match(ui, /rig-station-icon/);
     assert.match(ui,/state-' \+ state/);
     assert.match(ui,/!item\.serial \? 'empty'/);
     assert.match(ui,/item\.destroyed \? 'destroyed'/);
