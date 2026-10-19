@@ -23,6 +23,8 @@ export const DEFAULT_RIG_CONFIG = {
     collisionRestitution: 0.08,
     collisionTangentialDamping: 0.72,
     collisionImpactScale: 1,
+    // The footprint has a finite combined longitudinal/lateral contact budget.
+    // Derive its force from fitted grip and drive, rather than invented class bonuses.
 };
 
 /** k.3i.0 beginner yard: enough distance and occlusion for a real approach phase.
@@ -81,6 +83,12 @@ export function createRigState(spawn = PLAYER_SPAWN) {
         brace: 0,
         braceHoldSeconds: 0,
         braced: false,
+        recoilLoad: 0,
+        tractionUse: 0,
+        tractionSaturated: false,
+        footSlipMps: 0,
+        footingLoad: 0,
+        lateralAcceleration: 0,
     };
 }
 /** Three.js camera's -Z forward requires the opposite signed Y rotation. */
@@ -141,6 +149,26 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const targetLateralSpeed = strafe * config.maxLateralSpeedMps * (1 - brake * .8);
     const lateralError = targetLateralSpeed - lateralSpeed;
     const lateralForce = clamp(lateralError * config.lateralGripNsPerM, -config.lateralDriveForceN, config.lateralDriveForceN);
+    // A planted foot cannot simultaneously provide unlimited propulsion,
+    // sidestepping and cornering correction. The budget uses the *existing*
+    // grip, motor and installed mass; yaw simply rotates the existing world
+    // velocity into local lateral slip on the next fixed step.
+    const groundBudgetN = Math.max(1, Math.min(
+        config.massKg * 9.81,
+        config.lateralGripNsPerM * 2.75 + config.driveForceN * .4,
+    )) * (1 - .22 * (state.recoilLoad ?? 0));
+    const demandedGroundN = Math.hypot(longitudinalForce, lateralForce);
+    const contactRatio = demandedGroundN > groundBudgetN ? groundBudgetN / demandedGroundN : 1;
+    longitudinalForce *= contactRatio;
+    lateralForce *= contactRatio;
+    state.tractionUse = clamp(demandedGroundN * contactRatio / groundBudgetN, 0, 1);
+    state.tractionSaturated = demandedGroundN > groundBudgetN;
+    // Intentional sidestepping is not a skid. Only unmet lateral correction
+    // under saturated contact is reported as an audible/visual foot scrape.
+    state.footSlipMps = state.tractionSaturated
+        ? Math.abs(lateralError) * (1 - contactRatio) : 0;
+    state.footingLoad += (clamp(state.tractionUse * .82 + (state.recoilLoad ?? 0) * .18, 0, 1) -
+        (state.footingLoad ?? 0)) * (1 - Math.exp(-9 * dt));
     const ax = (forwardX * longitudinalForce + rightX * lateralForce) / config.massKg;
     const az = (forwardZ * longitudinalForce + rightZ * lateralForce) / config.massKg;
     state.vx += ax * dt;
@@ -166,6 +194,9 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const newRightZ = newSin;
     state.forwardSpeed = state.vx * newForwardX + state.vz * newForwardZ;
     state.lateralSpeed = state.vx * newRightX + state.vz * newRightZ;
+    state.lateralAcceleration = (state.lateralSpeed - lateralSpeed) / dt;
+    state.recoilLoad = Math.max(0, (state.recoilLoad ?? 0) - dt *
+        config.lateralGripNsPerM / Math.max(1, config.massKg) * .78);
     state.longitudinalAcceleration = (state.forwardSpeed - previousForwardSpeed) / dt;
     const propulsionLoad = config.driveForceN > 0
         ? Math.abs(opposingThrottle ? 0 : requestedForce) / config.driveForceN : 0;
