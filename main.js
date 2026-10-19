@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundFire, soundFootScrape, soundImpact, soundReload } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundFire, soundFootScrape, soundImpact, soundReload, soundShield } from './audio.js';
+import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
@@ -2019,7 +2020,7 @@ function applyAiHitToPlayer(actor, contact) {
     arena.updatePilotDamage(playerCondition);
     signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
     persistMachine();
-    soundImpact();
+    if (shieldImpactLabel(contact)) soundShield(); else soundImpact();
     rig.impact = Math.min(1, rig.impact + .65);
     updateFunctionalStatus();
     renderPartsList();
@@ -2206,9 +2207,9 @@ function attemptFire() {
             mirrorTargetCondition(targetAssembly, targetCondition);
             renderTarget();
         }
-        soundImpact();
+        if (shieldImpactLabel(contact)) soundShield(); else soundImpact();
         recoilFlash = .19;
-        lastHit = `${targetActor.label} · ${targetLabels[hit.slot]} · ${hit.serial}`;
+        lastHit = `${targetActor.label} · ${shieldImpactLabel(contact) ?? targetLabels[hit.slot]} · ${hit.serial}`;
         showHitConfirm(hit, weaponRecoverable ? 'WEAPON FAULT' : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
