@@ -2069,7 +2069,8 @@ function attemptAiFire(actor, target, shotIndex) {
     const weaponRecoverable = contact.slot === 'combat' && canFieldService(target.condition, target.fieldService);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
     scoreHit(actor.id, target.id, contact.slot, beforePart, hit, afterPart);
-    noteIncomingFire(target.motion, actor.rig, actor.id, hit.internalDamage > 0 ? 1.55 : 1.08);
+    noteIncomingFire(target.motion, actor.rig, actor.id,
+        hit.internalDamage > 0 ? 1.55 : 1.08,target.rig);
     recordSubsystemHit(target.combatMemory,contact.slot,aiClock);
     const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
     arena.showCombatantShot(actor.id, contact, visualHit);
@@ -2155,7 +2156,8 @@ function attemptFire() {
         const weaponRecoverable = contact.slot === 'combat' && canFieldService(targetActor.condition, targetActor.fieldService);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
         scoreHit('player', targetActor.id, contact.slot, beforePart, hit, afterPart);
-        noteIncomingFire(targetActor.motion, rig, 'player', hit.internalDamage > 0 ? 1.65 : 1.12);
+        noteIncomingFire(targetActor.motion, rig, 'player',
+            hit.internalDamage > 0 ? 1.65 : 1.12,targetActor.rig);
         recordSubsystemHit(targetActor.combatMemory,contact.slot,aiClock);
         const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
         arena.showShot(contact, visualHit);
