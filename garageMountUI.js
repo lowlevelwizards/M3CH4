@@ -8,8 +8,8 @@ import './acquisitionUI.js?v=k3s2';
 import './contractUI.js?v=k3t1';
 import './stableUI.js?v=k3t0';
 import './sortieAssignmentUI.js?v=k3v5p1';
-import './seriesUI.js?v=k3s2';
-import './unifiedGarageUI.js?v=k3v5p1';
+import './seriesUI.js?v=k3w0';
+import './unifiedGarageUI.js?v=k3w0';
 
 const info = document.querySelector('#part-info');
 const status = document.querySelector('#field-status');
