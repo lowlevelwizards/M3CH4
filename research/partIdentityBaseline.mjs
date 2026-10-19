@@ -93,6 +93,7 @@ function measure(recipe) {
         distanceAfterOneSecondM: Math.hypot(accelerated.x, accelerated.z),
         strafeAfterOneSecondMps: sideways.lateralSpeed,
         brakeFromFiveMpsDistanceM: brakeDistance(config),
+        remainingSpeedAfterHalfSecondBrakingMps: Math.abs(advanceFor(config, .5, { ...STOP, brake: 1 }, { vz: -5 }).forwardSpeed),
         turnNinetySeconds: turnTime(config),
         recoil: recoilResponse(config, WEAPONS[recipe.combat]) };
 }
@@ -140,14 +141,15 @@ export function formatPartIdentityBaseline(r) {
         'Source main: ' + r.sourceMainSha + ' · fixed step ' + r.hz + ' Hz',
         'Measured with shipped inspectAssembly, deriveRigConfig, stepRig, applyRecoil, fireWeapon, and functionalOutput.',
         'This is an unobstructed, full-condition headless proxy; NOT a warehouse, phone, or human playtest.',
+        'A dash in full-stop distance means that brake input did NOT converge below 0.05 m/s in 10 seconds; the measured half-second speed remains reported.',
         '',
         '## Frame × mobility × weapon (Dynamo + Cyclops)',
-        '| Frame | Legs | Weapon | Deployable | kg | kW headroom | 1s speed m/s | brake 5m/s distance m | 90° turn s | 0.5s recoil drift m |',
+        '| Frame | Legs | Weapon | Deployable | kg | kW headroom | 1s speed m/s | brake 5m/s distance m | 0.5s brake speed m/s | 90° turn s | 0.5s recoil drift m |',
         '|---|---|---|---:|---:|---:|---:|---:|---:|---:|',
     ];
     for (const x of r.mechanical) lines.push('| ' + [x.frame,x.legs,x.gun,x.ready ? 'yes':'NO',
         x.massKg ?? '—',x.headroomKw ?? '—',round(x.speedAfterOneSecondMps),
-        round(x.brakeFromFiveMpsDistanceM),round(x.turnNinetySeconds),
+        round(x.brakeFromFiveMpsDistanceM),round(x.remainingSpeedAfterHalfSecondBrakingMps),round(x.turnNinetySeconds),
         round(x.recoil?.driftAfterHalfSecondM)].join(' | ') + ' |' + (x.ready ? '' : ' — ' + x.reasons.join('; ')));
     lines.push('', '## Generator × cab viability (Bruiser + Stump)',
         '| Legs | Power | Cab | Deployable | kg | kW demand / available |',
