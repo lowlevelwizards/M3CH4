@@ -105,6 +105,10 @@ export function planTeam(snapshot,team,options={}) {
         const strategy=options.strategy??null;
         const jobs=zoneJobs(snapshot,team,strategy);
         const posture=teamPosture(snapshot,team);
+        // A crippled/outnumbered squad should not allocate its remaining
+        // fighting machine to a speculative screening maneuver.
+        if(posture.disadvantaged)
+            for(const job of jobs)if(job.kind==='SCREEN')job.priority-=.40;
         const previous=options.previousOrders??{};
         // The player's physical occupation counts as team coverage but the
         // squad never issues player input or forces a player to defend a point.
@@ -156,6 +160,22 @@ export function planTeam(snapshot,team,options={}) {
                         point:{...next.point},role:'FLANKER',reason:'PLAYER HOLDS '+playerZone.id,
                         note:'FREE ALLY TO SUPPORT PLAYER',score:clamp(next.priority/1.7)};
                 }
+            }
+        }
+        // Elimination ends Domination in k3u5. Only exploit the LAST public
+        // surviving opponent when actually seen and when scoring is secure.
+        // Never invent a location or sacrifice a reserved scoring anchor.
+        if(posture.finishOpportunity){
+            const lastEnemy=view.contacts.find(c=>c.visible&&c.confidence>.7);
+            if(lastEnemy){
+                const free=actors.filter(a=>!orders[a.id]?.anchor&&a.capability?.canFight&&
+                    a.capability?.canMove&&dist(a.position,lastEnemy.position)<18)
+                    .sort((a,b)=>dist(a.position,lastEnemy.position)-dist(b.position,lastEnemy.position));
+                const hunter=free[0];
+                if(hunter)orders[hunter.id]={
+                    goal:'ENGAGE',targetActorId:lastEnemy.id,point:{...lastEnemy.position},
+                    role:'INTERCEPT',score:.85,reason:'VISIBLE LAST OPPONENT · FINISH',
+                    note:'SUPPRESS FINAL HOSTILE',strategy:'FINISH',anchor:false};
             }
         }
         // A raid must be a genuinely coordinated opportunity, not a default
