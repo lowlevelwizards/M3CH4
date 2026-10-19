@@ -20,6 +20,7 @@ import { createStrategicState, evaluateStrategy } from './ai/strategicState.js';
 import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
 import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
 import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
+import { prioritizeVisibleTarget, shouldAttemptTacticalShot, tacticalAimSlot } from './ai/adaptiveTactics.js';
 import { createFaultSupportState, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
 import { advanceSortieObjective, createSortieObjective, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
@@ -379,6 +380,7 @@ const controls = new Controls(required('#drive-zone'), required('#drive-knob'), 
 let inspecting = false;
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0, aiPlanCooldown=0;
 let strategicMemory=createStrategicState();
+let aiAssaultMemory={friendly:{},hostile:{}};
 const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
@@ -420,10 +422,10 @@ function resolveActorTarget(actor) {
     const visible=new Set(contacts.filter(c=>c.visible).map(c=>c.id));
     const candidates=liveOpponents(actor).filter(c=>visible.has(c.id));
     const threatId=recentThreatTargetId(actor.motion);
-    const threat=threatId?candidates.find(c=>c.id===threatId):null;
-    if(threat){actor.targetId=threat.id;return threat;}
-    actor.targetId=chooseSquadTarget(actor,candidates,actor.targetId);
-    return candidates.find(c=>c.id===actor.targetId)??null;
+    const candidate=prioritizeVisibleTarget(actor,candidates,aiSnapshot,
+        aiPlans[actor.team]?.orders?.[actor.id]??null,actor.targetId,threatId);
+    actor.targetId=candidate?.id??null;
+    return candidate??null;
 }
 const dominationHud=document.createElement('div');
 dominationHud.id='domination-hud';
@@ -606,6 +608,7 @@ function resetAiActor(actor) {
 function resetSquadBattle() {
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;aiPlanCooldown=0;
     strategicMemory=createStrategicState();
+    aiAssaultMemory={friendly:{},hostile:{}};
     aiTrace.rows.length=0;
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
@@ -1372,8 +1375,8 @@ function frame(now) {
                     const friendlyStrategy=evaluateStrategy(strategicMemory,aiSnapshot,FRIENDLY_TEAM);
                     const hostileStrategy=evaluateStrategy(strategicMemory,aiSnapshot,HOSTILE_TEAM);
                     aiPlans={
-                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy}),
-                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy}),
+                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy,assaultMemory:aiAssaultMemory.friendly}),
+                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy,assaultMemory:aiAssaultMemory.hostile}),
                     };
                     aiPlanCooldown=.85;
                 }
@@ -1427,14 +1430,20 @@ function frame(now) {
                         preferredRangeM:actor.behavior?.preferredRangeM,
                         collisionRadius:actorConfig.collisionRadiusM+.3,
                         threatPosition:target?.rig??null,
+                        nearbyAllies:participants.filter(p=>p.team===actor.team&&p.id!==actor.id&&p.active).map(p=>({position:p.rig})),
+                        preserveMajority:(sortieObjective.domination?.points??[]).filter(p=>p.owner===actor.team&&!p.contested).length>=2,
                         personality:actor.behavior?.id,
                         underFireSeconds:actor.motion?.awareness?.underFireSeconds??0,
                         retreatPoint:recovery.active&&actor.serviceCover?
                             actor.serviceCover:
                             {x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
                     },aiClock);
+                const nearbyTraffic=participants.filter(p=>p.team===actor.team&&
+                    p.id!==actor.id&&p.active&&p.rig&&
+                    Math.hypot(p.rig.x-actor.rig.x,p.rig.z-actor.rig.z)<7)
+                    .map(p=>({position:p.rig,radius:p.baseConfig?.collisionRadiusM??1.1,active:p.active}));
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
-                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT);
+                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
                 let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? actor.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
@@ -1885,6 +1894,10 @@ function attemptAiFire(actor, target, shotIndex) {
     // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
     // raycasts remain authoritative and can still discover low cover / intervening rigs.
     if (actor.motion?.awareness?.lineOfSight === false) return;
+    const pointUnderThreat=sortieObjective.domination?.points?.some(p=>
+        Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius &&
+        (p.contested||p.owner===actor.team));
+    if(!shouldAttemptTacticalShot(actor,target,{urgent:pointUnderThreat}))return;
     // A real trigger pull consumes ammunition BEFORE resolving the raycast.
     // Cover impacts, misses and friendly obstruction are still fired rounds.
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
@@ -1894,7 +1907,13 @@ function attemptAiFire(actor, target, shotIndex) {
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
-    const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
+    const assigned=aiPlans[actor.team]?.orders?.[actor.id]??null;
+    const contesting=!!assigned?.objectiveId&&sortieObjective.domination?.points?.some(p=>
+        p.id===assigned.objectiveId && p.contested &&
+        Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius);
+    const aimSlot=tacticalAimSlot(hostileAimSlot(shotIndex,actor.behavior.aimPriority),{
+        targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
+        contesting,visibleService:!!target.fieldService?.held});
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
     const obstruction = contact.blockedBy ? `COVER ${contact.blockedBy}` :
         contact.actorId && contact.actorId !== target.id ? `RIG ${contact.actorId}` :
