@@ -3,6 +3,8 @@
  * Viewed rig changes only a Three.js preview; battle-active rig changes at DEPLOY.
  */
 import { BY_ID } from './components.js';
+import { stationGlyph, stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
+import { createStationFace, createConditionMeter } from './uiMeters.js';
 import { loadCounter } from './usedPartsCounter.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
 import { partCreditValue } from './partEconomy.js';
@@ -43,6 +45,7 @@ try { session = window.sessionStorage; } catch { /* display a blocking action me
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
+let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
@@ -111,7 +114,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; identityExpanded = false; previewSignature = '';
+    selectedSlot = null; selectedHardwareSerial = null; rackView='ready'; identityExpanded = false; previewSignature = '';
     dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
@@ -209,9 +212,7 @@ function summary(view) {
     }
     return status;
 }
-const STATION_GLYPHS = Object.freeze({
-    structure:'⬡', mobility:'⋀', power:'ϟ', command:'◉', combat:'✦',
-});
+const STATION_GLYPHS = Object.freeze(Object.fromEntries(BAY_SLOTS.map(slot=>[slot,stationGlyph(slot)])));
 function moduleStation(view) {
     const station = el('section','unified-stations');
     for (const item of view.health) {
@@ -220,20 +221,14 @@ function moduleStation(view) {
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
             : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
-            if (selectedSlot !== item.slot) selectedHardwareSerial = null;
+            if (selectedSlot !== item.slot) {selectedHardwareSerial = null; rackView='ready';}
             selectedSlot = item.slot; // Repeated taps always open details.
             dock.scrollTop = 0;
             render();
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
-        node.append(el('span','unified-station-glyph', STATION_GLYPHS[item.slot]));
-        // Module station always reads internal integrity: the same quantity a
-        // 22% pit patch actually restores. Armor/wear remain separate in details.
-        node.append(el('strong','',SLOT_LABELS[item.slot]),
-            el('small','',item.serial ? 'CORE '+pct(item.condition) : 'EMPTY'));
-        if(item.serial) node.append(el('small','unified-armor-label','ARM '+pct(item.armorRatio)));
-        node.title=item.serial?'INTERNAL '+pct(item.condition)+' · ARMOR '+
-            pct(item.armorRatio)+' · WEAR '+pct(item.wear):'NOT INSTALLED';
-        node.setAttribute('aria-label',SLOT_LABELS[item.slot]+' '+item.label);
+        node.append(createStationFace(item.slot,item));
+        node.title=item.serial ? formatCondition(conditionFromPart(item)) : 'EMPTY STATION';
+        node.setAttribute('aria-label',stationLabel(item.slot)+' · '+node.title);
         node.setAttribute('aria-pressed',String(selectedSlot===item.slot));
         station.append(node);
     }
@@ -248,17 +243,20 @@ function moduleDetails(stable, view, machine) {
     const slot = selectedSlot;
     const box = el('section','unified-modules');
     const state = view.health.find(s => s.slot === slot);
-    box.append(el('div','unified-section-name',SLOT_LABELS[slot] + ' / OWNED HARDWARE'));
+    const heading=el('div','rig-part-identity');
+    heading.append(el('strong','unified-section-name',stationLabel(slot)+' · PART'));
+    heading.append(button('×',()=>{
+        selectedSlot=null;selectedHardwareSerial=null;dock.scrollTop=0;render();
+    },'unified-close'));
+    box.append(heading);
     const installed = state?.part;
-    box.append(el('div','unified-installed', installed
-        ? (BY_ID.get(installed.definitionId)?.name || installed.definitionId) +
-          ' · ' + installed.serial + ' · ' + state.label
-        : 'STATION EMPTY'));
-    box.append(button('CLOSE PART DETAILS', () => { selectedSlot=null;selectedHardwareSerial=null;dock.scrollTop=0;render(); }, 'unified-close'));
+    // Accessible details live on the selected part card, not repeated as a
+    // paragraph above the rack; normal garage use needs no prose to read.
+    box.dataset.station=slot;
     if (installed) {
-        box.append(el('small','unified-system-condition',
-            'INTEGRITY ' + pct(state.condition) + ' · ARMOR ' +
-            pct(state.armorRatio) + ' · WEAR ' + pct(state.wear)));
+        // Optional service action remains real and serial-authoritative.
+        box.dataset.integrity=String(Math.round(state.condition*100));
+        box.dataset.armor=String(Math.round(state.armorRatio*100));
         const quote = bayModuleQuote(stable, viewedId, slot);
         if (quote && (quote.amount > 0 || state.condition < 1)) {
             const affordable = quote.destroyed || quote.amount <= machine.economy.credits;
@@ -297,7 +295,7 @@ function moduleDetails(stable, view, machine) {
     const owned = stable.inventory.filter(part => BY_ID.get(part.definitionId)?.slot === slot);
     if (!selectedHardwareSerial || !owned.some(part => part.serial === selectedHardwareSerial))
         selectedHardwareSerial = installed?.serial ?? owned[0]?.serial ?? null;
-    if (!owned.length) choices.append(el('p','unified-muted','NO OWNED MODULES FOR THIS STATION'));
+    if (!owned.length) choices.append(el('p','unified-muted','NO PARTS · VISIT COUNTER'));
 
     const ownerFor = serial => stable.rigs.find(rig =>
         Object.values(rig.installed).includes(serial));
@@ -327,12 +325,29 @@ function moduleDetails(stable, view, machine) {
         const owner=ownerFor(part.serial);
         return !!owner && owner.id!==viewedId;
     });
-    for (const [index,part] of [...available,...elsewhereParts].entries()) {
-        if(index===0 || index===available.length) {
-            choices.append(el('div','unified-gallery-divider',
-                index===available.length ? 'FITTED TO OTHER MACHINES · INSPECTION ONLY' :
-                    'STORED / FITTED TO THIS BAY'));
-        }
+    const tabs=el('div','rig-gallery-tabs');
+    const chooseRack=value=>{
+        rackView=value;
+        selectedHardwareSerial=null;
+        dock.scrollTop=0;
+        render();
+    };
+    const addTab=(value,label,count)=>{
+        const node=button(label+' '+count,()=>chooseRack(value),
+            rackView===value?'active':'');
+        node.setAttribute('aria-pressed',String(rackView===value));
+        tabs.append(node);
+    };
+    addTab('ready','STORED / HERE',available.length);
+    addTab('other','OTHER BAYS',elsewhereParts.length);
+    box.append(tabs);
+    const visibleParts=rackView==='other'?elsewhereParts:available;
+    if(!selectedHardwareSerial||!visibleParts.some(part=>part.serial===selectedHardwareSerial))
+        selectedHardwareSerial=(rackView==='ready'?installed?.serial:null)||
+            visibleParts[0]?.serial||null;
+    if(!visibleParts.length)choices.append(el('p','unified-muted',
+        rackView==='other'?'NO PARTS FITTED IN OTHER BAYS':'NO AVAILABLE PARTS'));
+    for (const part of visibleParts) {
         const owner = ownerFor(part.serial);
         const elsewhere = owner && owner.id !== viewedId;
         const here = installed?.serial === part.serial;
@@ -351,8 +366,6 @@ function moduleDetails(stable, view, machine) {
             (elsewhere ? ' · mounted on ' + rigName(owner) : '');
         choices.append(card);
     }
-    box.append(choices);
-
     const focused = owned.find(part => part.serial === selectedHardwareSerial);
     if (focused) {
         const owner = ownerFor(focused.serial);
@@ -364,26 +377,33 @@ function moduleDetails(stable, view, machine) {
             { destroyed: focused.destroyed, wear: focused.wear });
         const detail = createPartDetail({
             entry, thumbnailUrl: thumbnailFor(focused, entry), value,
-            meta: definition.massKg + ' KG · ' +
-                (ownerCondition(focused) ? 'ARMOR ' + pct(ownerCondition(focused).armorRatio) + ' · ' : '') +
-                'WEAR ' +
-                Math.round((focused.wear ?? 0) * 100) + '% · REPAIRS ' +
-                (focused.repairs ?? 0) + (elsewhere
-                    ? '\nMOUNTED ON ' + rigName(owner).toUpperCase()
-                    : here ? '\nINSTALLED ON THIS MACHINE'
-                    : '\nAVAILABLE FOR THIS BAY'),
+            meta: definition.massKg + ' KG · WEAR '+
+                Math.round((focused.wear??0)*100)+'%'+
+                (elsewhere?' · BAY '+String(owner.bay).padStart(2,'0'):''),
+
             actionLabel: here ? 'REMOVE FROM THIS BAY' :
                 elsewhere ? 'FITTED · BAY ' + String(owner.bay).padStart(2,'0') :
                 'INSTALL · ' + focused.serial,
             actionDisabled: !!elsewhere,
             onAction: () => editModule(slot,here ? null : focused.serial),
         });
-        detail.classList.add('unified-part-detail');
+        detail.classList.add('unified-part-detail','rig-part-focus');
+        const copy=detail.querySelector('.part-detail-copy');
+        if(copy){
+            const condition=ownerCondition(focused);
+            const meter=createConditionMeter({
+                serial:focused.serial,condition:condition?.condition??focused.condition,
+                armorRatio:condition?.armorRatio??1,wear:focused.wear,
+                destroyed:!!focused.destroyed,
+            },{showNumbers:true,slot});
+            const reading=el('div','rig-selected-part');
+            reading.append(meter,el('span','rig-part-meta','◉ INTEGRITY  /  ◇ ARMOR'));
+            copy.insertBefore(reading,copy.querySelector('.part-detail-action'));
+        }
         box.append(detail);
         if(elsewhere) {
             box.append(el('p','unified-owner-note',
-                focused.serial+' BELONGS TO '+rigName(owner).toUpperCase()+
-                '. DETACH IT FROM THAT BAY BEFORE INSTALLING IT HERE.'));
+                'FITTED · '+rigName(owner).toUpperCase()+' · REMOVE THERE FIRST'));
             box.append(button('OPEN BAY '+String(owner.bay).padStart(2,'0')+' · '+rigName(owner).toUpperCase(),
                 ()=>{
                     selectBay(owner.id);
@@ -393,12 +413,13 @@ function moduleDetails(stable, view, machine) {
                 },'unified-owner-action'));
         }
     }
+    box.append(choices);
     return box;
 }
 function editModule(slot,serial) {
     if (actualMode(loadSeries(storage)) !== 'garage') { message('PIT LOCKED · NO MODULE CHANGES',true);return; }
     const result=emitEdit('m3ch4:bay-module',{rigId:viewedId,slot,serial});
-    message(result.ok ? (serial ? 'INSTALLED '+serial : 'MODULE REMOVED') : result.reason,!result.ok);
+    message(result.ok ? (serial ? 'PART INSTALLED · '+serial : 'PART REMOVED') : result.reason,!result.ok);
     if(result.ok) { previewSignature='';render(); }
 }
 function appendIdentityForm(view, stable) {
@@ -423,7 +444,7 @@ function appendIdentityForm(view, stable) {
 function renderGarage(stable,machine,view) {
     dock.append(bayHeader(view), summary(view), moduleStation(view));
     if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
-    else dock.append(el('p','unified-muted','TAP A STATION OR PART ON THE MACHINE TO INSPECT ITS HARDWARE.'));
+    else dock.append(el('p','unified-muted','SELECT STATION  ·  ⬡  ⋀  ϟ  ◉  ✦'));
     const completed = view.health.filter(item => !!item.serial).length;
     const identity = el('div','unified-identity-summary');
     if (!view.rig.commissioned) {
