@@ -10,6 +10,7 @@ import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
+import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
@@ -86,6 +87,7 @@ const primaryEnemyActor = {
     weaponSpec: hostileWeaponSpec, weaponState: hostileWeaponState,
     controller: hostileController, motion: hostileMotion,
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
+    powerSystem: createPowerSystem(targetAssembly),
     behavior: activeContract.behavior,
     spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
     fieldService: createFieldServiceState(),
@@ -108,6 +110,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null) {
         weaponSpec: actorWeaponSpec, weaponState: createWeaponState(actorWeaponSpec),
         controller: createHostileController(team === FRIENDLY_TEAM ? .38 : .52, behavior),
         motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
+        powerSystem: createPowerSystem(actorAssembly),
         behavior, spawn, active: true, targetId: null, killReason: null,
         fieldService: createFieldServiceState(),
         teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
@@ -198,7 +201,8 @@ function aiLocomotionConfig(actor) {
         const health = Math.max(0, part.integrity / Math.max(1, part.maxIntegrity));
         actor.driveDamage.drives[mobility.instance.serial] = { left: health, right: health };
     }
-    return derateRigConfig(actor.baseConfig, functionalOutput(actor.assembly, actor.driveDamage));
+    return derateRigConfig(actor.baseConfig,
+        powerConstrainedOutput(functionalOutput(actor.assembly, actor.driveDamage), actor.powerSystem));
 }
 function hostileLocomotionConfig() { return aiLocomotionConfig(primaryEnemyActor); }
 function primeAiWeaponRecovery(actor, threatRig) {
@@ -250,7 +254,8 @@ let inspection = inspectAssembly(assembly);
 let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
     throw new Error('Starting test rig must be fieldable.');
-let output = functionalOutput(assembly, damage);
+let playerPower = createPowerSystem(assembly);
+let output = powerConstrainedOutput(functionalOutput(assembly, damage), playerPower);
 let effectiveConfig = derateRigConfig(rigConfig, output);
 function syncOwnedWeaponCondition(addWear = false) {
     const installed = installedPart(assembly, 'combat');
@@ -272,7 +277,7 @@ function deploymentBlockReason() {
 }
 let playerMissionKillReason = null;
 function updateFunctionalStatus() {
-    output = functionalOutput(assembly, damage);
+    output = powerConstrainedOutput(functionalOutput(assembly, damage), playerPower);
     if (rigConfig)
         effectiveConfig = derateRigConfig(rigConfig, output);
     const faults = [];
@@ -282,6 +287,8 @@ function updateFunctionalStatus() {
         faults.push(`R DRIVE ${Math.round(output.right * 100)}%`);
     if (output.power < .99)
         faults.push(`GENERATOR ${Math.round(output.power * 100)}%`);
+    if (playerPower.brownout)
+        faults.push(`BUS ${Math.round(playerPower.busRatio * 100)}%`);
     const weaponFailure = weaponFailureState(playerCondition, fieldService);
     if (weaponFailure === 'faulted')
         faults.push('WEAPON FAULT · FIELD SERVICE AVAILABLE');
@@ -494,7 +501,7 @@ function syncCockpitInstruments() {
     }
     const counts = squadCounts(playerCombatActive, aiActors);
     const failure = weaponFailureState(playerCondition, fieldService);
-    const weaponStateLabel = !weaponSpec ? 'LOST' : failure === 'faulted' ? 'FAULT' : failure === 'destroyed' || failure === 'unrecoverable' ? 'LOST' : output.weapon < .95 ? 'DAMAGED' : weaponState?.reloadLeft > 0 ? 'RELOAD' : 'READY';
+    const weaponStateLabel = !weaponSpec ? 'LOST' : !playerPower.weaponReady ? 'PWR SAG' : failure === 'faulted' ? 'FAULT' : failure === 'destroyed' || failure === 'unrecoverable' ? 'LOST' : output.weapon < .95 ? 'DAMAGED' : weaponState?.reloadLeft > 0 ? 'RELOAD' : 'READY';
     arena.updateCockpitInstruments({
         systems, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
         drive: { left: output.left, right: output.right },
@@ -678,6 +685,7 @@ function resetAiActor(actor) {
     actor.wreckIntegrity = 1;
     actor.wreckCleared = false;
     actor.driveDamage.drives = {};
+    actor.powerSystem = createPowerSystem(actor.assembly);
     arena.setCombatantActive(actor.id, true);
     arena.updateCombatantRig(actor.id, actor.rig);
     arena.updateCombatantDamage(actor.id, actor.condition);
@@ -1031,6 +1039,7 @@ function renderChecks() {
 function refreshAssembly(save = false) {
     inspection = inspectAssembly(assembly);
     rigConfig = deriveRigConfig(assembly);
+    playerPower = createPowerSystem(assembly);
     updateFunctionalStatus();
     const nextSpec = weaponFor(assembly);
     if (nextSpec?.id !== weaponSpec?.id)
@@ -1218,6 +1227,7 @@ function toggleInspection(force) {
         arena.resetCockpitTransientFeedback();
         assemblyToggle.disabled = false;
         rig = createRigState();
+        playerPower = createPowerSystem(assembly);
         playerCombatActive = true;
         resetSquadBattle();
         sortieObjective = createSortieObjective(activeContract);
@@ -1436,6 +1446,10 @@ function frame(now) {
             if (playerCombatActive) {
                 const yawBefore = rig.yaw;
                 const wasBraced = rig.braced;
+                advancePowerSystem(playerPower, assembly, rig, FIXED_DT,
+                    playerCondition.parts.power.integrity / Math.max(1, playerCondition.parts.power.maxIntegrity));
+                output = powerConstrainedOutput(functionalOutput(assembly, damage), playerPower);
+                effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
                 if (rig.braced && !wasBraced) soundBrace();
                 // Threshold-crossing sounds rather than per-frame synth loops.
@@ -1511,6 +1525,7 @@ function frame(now) {
                 const actorOutput=hostileOutput(actor.condition,actor.behavior);
                 const canManeuver=actorOutput.structure>.05&&actorOutput.command>.05&&
                     actorOutput.power>.12&&actorOutput.mobility>.05;
+                advancePowerSystem(actor.powerSystem, actor.assembly, actor.rig, FIXED_DT, actorOutput.power);
                 const actorConfig=aiLocomotionConfig(actor);
                 const recovery=aiWeaponRecoveryDirective(actor,target);
                 const posture=aiWeaponRecoveryPosture(damagePosture(actor.condition,actor.behavior),recovery);
@@ -1604,7 +1619,7 @@ function frame(now) {
                     advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
                         startReload(actor.weaponState, actor.weaponSpec);
-                    const ready=actor.weaponState.cooldown<=0 &&
+                    const ready=actor.powerSystem.weaponReady && actor.weaponState.cooldown<=0 &&
                         actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
                         !!target&&withinFiringArc(actor.rig,target.rig)&&
                         actor.motion?.awareness?.lineOfSight!==false&&
@@ -1682,6 +1697,7 @@ function frame(now) {
         turnRate: THREE.MathUtils.radToDeg(rig.yawRate), driveLoad: rig.driveLoad,
         brace: rig.brace,
         slip: rig.footSlipMps, footing: rig.footingLoad, recoil: rig.recoilLoad,
+        power: playerPower,
     });
     const degrees = Math.round(-THREE.MathUtils.radToDeg(input.lookYaw));
     const following = Math.abs(bodyFollowSteer(input.lookYaw)) > .02;
@@ -1704,7 +1720,8 @@ function frame(now) {
             `FOOTING   ${(rig.footingLoad * 100).toFixed(0)}% · ${rig.tractionSaturated ? 'SATURATED' : 'CONTACT'}`,
             `SLIP      ${rig.footSlipMps.toFixed(2)} m/s · RECOIL LOAD ${(rig.recoilLoad * 100).toFixed(0)}%`,
             `MASS      ${inspection.massKg.toLocaleString()} kg`,
-            `POWER     ${output.powerAvailableKw.toFixed(0)}/${output.nominalDemandKw} kW effective`,
+            `POWER     ${playerPower.generationKw.toFixed(1)} kW generated / ${playerPower.demandKw.toFixed(1)} kW demanded`,
+            `BUS       ${(playerPower.busRatio * 100).toFixed(0)}% · RESERVE ${(playerPower.reserveKJ).toFixed(1)} kJ`,
             `CREDITS   ₡${economy.credits}`,
             `LEFT LEG  ${(output.left * 100).toFixed(0)}%`,
             `RIGHT LEG ${(output.right * 100).toFixed(0)}%`,
@@ -1828,12 +1845,14 @@ function renderAmmo() {
         failure === 'unrecoverable' ? ' · FAULT · BYPASS SPENT' :
         fieldService.held ? ' · FIELD SERVICE' :
         failure === 'faulted' ? ' · FAULTED' :
+        !playerPower.weaponReady ? ' · PWR SAG' :
         output.weapon < .95 ? ' · DAMAGED' : '';
     weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${suffix}` : 'NO WEAPON';
     const servicePercent = Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100);
     ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
         fieldService.held ? `SERVICE ${servicePercent}%` :
         serviceAvailable ? `FAULT ${Math.round(weaponIntegrityRatio(playerCondition) * 100)}%` :
+        !playerPower.weaponReady ? 'PWR SAG' :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
     if (serviceAvailable) {
@@ -2059,7 +2078,7 @@ function warnNearbyAiFromShot(firingTeam,contact){
 function attemptAiFire(actor, target, shotIndex) {
     if (!actor?.active || !target || target.active === false || inspecting || testEnded || !appSheet.classList.contains('hidden')) return;
     const actorOutput = hostileOutput(actor.condition, actor.behavior);
-    if (!actorOutput.operational || !withinFiringArc(actor.rig, target.rig)) return;
+    if (!actorOutput.operational || !actor.powerSystem.weaponReady || !withinFiringArc(actor.rig, target.rig)) return;
     // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
     // raycasts remain authoritative and can still discover low cover / intervening rigs.
     if (actor.motion?.awareness?.lineOfSight === false) return;
@@ -2075,6 +2094,7 @@ function attemptAiFire(actor, target, shotIndex) {
     // can still slow mechanical cycling, but no arbitrary AI trigger clamp.
     actor.weaponState.cooldown *= 1+
         (1-actorOutput.weapon)*.65+(1-actorOutput.power)*.45;
+    registerPowerShot(actor.powerSystem, actor.assembly);
     soundFire();
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
@@ -2134,7 +2154,7 @@ function attemptAiFire(actor, target, shotIndex) {
     if (kill) missionKillAiActor(target, kill, actor.id);
 }
 function attemptFire() {
-    if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !appSheet.classList.contains('hidden'))
+    if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !playerPower.weaponReady || !appSheet.classList.contains('hidden'))
         return;
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
@@ -2150,6 +2170,7 @@ function attemptFire() {
         return;
     }
     weaponState.cooldown *= weaponCycleMultiplier(output);
+    registerPowerShot(playerPower, assembly);
     const [spreadX, spreadY] = shotSpread(shot, weaponSpec.spread * weaponSpreadMultiplier(output));
     const contact = arena.traceShot(spreadX, spreadY, weaponSpec.muzzleZ);
     warnNearbyAiFromShot(FRIENDLY_TEAM,contact);
