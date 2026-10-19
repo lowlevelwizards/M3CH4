@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3v4';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
+import { installCockpitIdentities } from './cockpitIdentityScene.js';
 
 let active = null;
 export function activePlayerArena() { return active; }
@@ -76,6 +77,7 @@ function alignAssemblyMeshes(arena, assembly) {
 
 export function createArenaScene(assembly, targetAssembly) {
     const arena = createBaseArenaScene(assembly, targetAssembly);
+    const cockpitIdentity = installCockpitIdentities(arena, assembly);
     const rebuild = arena.rebuildAssembly.bind(arena);
     const focus = arena.focusPart.bind(arena);
     const hostileShot = arena.traceHostileShot.bind(arena);
@@ -98,6 +100,7 @@ export function createArenaScene(assembly, targetAssembly) {
     }
     arena.rebuildAssembly = next => {
         rebuild(next);
+        cockpitIdentity.apply(next);
         alignAssemblyMeshes(arena, next);
     };
     arena.focusPart = slot => withAccurateAimCenter(slot, () => focus(slot));
