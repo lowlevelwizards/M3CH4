@@ -596,7 +596,7 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function drawWeaponScreen(screen, data) {
         const state = String(data.weaponState ?? 'READY');
-        const tone = state === 'LOST' ? 'red' : state === 'DAMAGED' || state === 'FAULT' ? 'amber' : 'green';
+        const tone = state === 'LOST' ? 'red' : state === 'DAMAGED' || state === 'FAULT' || state === 'PWR SAG' ? 'amber' : 'green';
         const ctx = panelBase(screen, tone, .66); if (!ctx) return;
         ctx.fillStyle = tone === 'red' ? '#f08a70' : tone === 'amber' ? '#e4bd70' : '#a6d7ad';
         ctx.font = 'bold 14px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(weaponAbbrev(data.weapon), 9, 16);
@@ -615,14 +615,29 @@ export function createArenaScene(initial, targetAssembly) {
         ctx.fillText(data.slip > .35 ? 'FOOT SCRAPE' : data.recoil > .2 ? 'RECOIL LOAD' : data.footing > .8 ? 'FEET LOADED' : 'GRIP NOMINAL', 9, 65);
         screen.texture.needsUpdate = true;
     }
-    function drawDriveScreen(screen, load = 0) {
+    function drawDriveScreen(screen, load = 0, power = null) {
         const value = Math.max(0, Math.min(1, Number(load) || 0));
-        const ctx = panelBase(screen, value > .9 ? 'amber' : 'green', .48); if (!ctx) return;
+        const ctx = panelBase(screen, power?.busRatio < .95 || value > .9 ? 'amber' : 'green', .48); if (!ctx) return;
         const w = screen.canvas.width;
         ctx.fillStyle = '#789a7e'; ctx.font = 'bold 10px monospace'; ctx.textBaseline = 'middle'; ctx.fillText('DRIVE', 9, 12);
         ctx.fillStyle = 'rgba(132,163,136,.18)'; ctx.fillRect(9, 23, w - 18, 10);
         ctx.fillStyle = value > .9 ? '#e2ae59' : '#89c492'; ctx.fillRect(9, 23, (w - 18) * value, 10);
         ctx.fillStyle = '#a9c7ac'; ctx.textAlign = 'right'; ctx.fillText(`${Math.round(value * 100)}%`, w - 9, 12); ctx.textAlign = 'left';
+        if (power) {
+            const warn = power.busRatio < .95;
+            ctx.font = 'bold 12px monospace';
+            ctx.fillStyle = warn ? '#f4ad68' : '#a9c7ac';
+            ctx.fillText(warn ? 'BUS SAG' : 'POWER BUS', 9, 49);
+            ctx.textAlign = 'right';
+            ctx.fillText(`${Math.round(power.busRatio * 100)}%`, w - 9, 49);
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#87a997';
+            ctx.font = 'bold 10px monospace';
+            ctx.fillText(`${Math.round(power.generationKw)} / ${Math.round(power.demandKw)} kW`, 9, 67);
+            ctx.textAlign = 'right';
+            ctx.fillText(`RES ${Math.round(power.reserveFraction * 100)}%`, w - 9, 67);
+            ctx.textAlign = 'left';
+        }
         screen.texture.needsUpdate = true;
     }
     function updateCockpitInstruments(data = {}) {
@@ -653,12 +668,18 @@ export function createArenaScene(initial, targetAssembly) {
             slip: Math.round(Math.max(0, Number(data.slip) || 0) * 10) / 10,
             recoil: Math.round(Math.max(0, Math.min(1, Number(data.recoil) || 0)) * 10) / 10,
             footing: Math.round(Math.max(0, Math.min(1, Number(data.footing) || 0)) * 10) / 10,
+            power: data.power ? {
+                generationKw: Math.round(Number(data.power.generationKw) || 0),
+                demandKw: Math.round(Number(data.power.demandKw) || 0),
+                busRatio: Math.round(Math.max(0,Math.min(1,Number(data.power.busRatio) || 0))*100)/100,
+                reserveFraction: Math.round(Math.max(0,Math.min(1,Number(data.power.reserveFraction) || 0))*100)/100,
+            } : null,
         };
         const key = JSON.stringify(normalized);
         if (key === cockpitMotionKey) return;
         cockpitMotionKey = key;
         drawMotionScreen(cockpit.userData.instrumentScreens.motion, normalized);
-        drawDriveScreen(cockpit.userData.instrumentScreens.drive, normalized.driveLoad);
+        drawDriveScreen(cockpit.userData.instrumentScreens.drive, normalized.driveLoad, normalized.power);
     }
     function spawnCockpitPowerArc(strength = 1) {
         cockpit.updateWorldMatrix(true, true);
