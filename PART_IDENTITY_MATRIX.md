@@ -52,10 +52,14 @@ Status vocabulary: **LIVE** = mechanically supported now; **VISUAL** = model/pre
 
 Run **node research/partIdentityBaseline.mjs** (human-readable) or **node research/partIdentityBaseline.mjs --json** (machine-readable). The fixed 1/60s benchmark uses live functions on an empty AABB arena so walls/traffic cannot corrupt mechanical attribution.
 
-- **27 frame × leg × gun attempts:** Dynamo and Cyclops fitted; validate full assembly before collecting 1-second launch speed/distance, 1-second sideways response, braking distance from 5 m/s, 90-degree rotation and post-shot recoil displacement/yaw. Invalid combinations are reported with real inspection reason and **no synthetic motion number**.
+- **27 frame × leg × gun attempts:** Dynamo and Cyclops fitted; validate full assembly before collecting 1-second launch speed/distance, 1-second sideways response, full-brake distance to a 0.05 m/s stop threshold (null if no convergence after 10 seconds), remaining speed after 0.5 seconds of braking from 5 m/s, 90-degree rotation and post-shot recoil displacement/yaw. Invalid combinations are reported with real inspection reason and **no synthetic motion number**.
 - **18 leg × generator × cab attempts:** Bruiser + Stump reference; validate mass, static draw and functional power factor before comparisons. No invented generator transient score or invented cockpit range score.
 - **3 eight-second gun cycles:** calls real fireWeapon, advanceWeapon and startReload at 60 Hz, recording shots, reload starts and remaining bullets; not a line-of-sight or damage-to-kill estimator.
 - **Repeatability/identity tests:** tests/k3v0PartIdentity.test.mjs asserts first 14 serial-definition order, 27/18 scenario coverage, all original weapons/families represented by legal examples, faithful rejection of illegal combinations and deterministic outputs.
+
+### Recorded benchmark edge case
+
+Initial CI exposed a legal Skeleton + Hauler + Stump assembly whose full-brake measurement does not converge below the deliberately tight 0.05 m/s stop threshold within 10 seconds. The harness retains that outcome as a null full-stop distance and separately reports remaining speed after 0.5 seconds, rather than incorrectly saying the machine has stopped. This could arise from discrete brake-force oscillation; analyze the underlying stepRig behavior in a separately scoped physics PR, not in this audit.
 
 ### Quality gate
 
