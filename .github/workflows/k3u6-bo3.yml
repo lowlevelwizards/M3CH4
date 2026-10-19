@@ -21,8 +21,8 @@ jobs:
         run: |
           node --check research/k3u6MatchedBo3.mjs
           for f in research/baselineK3u3/*.js; do node --check "$f"; done
-      - name: Seed-matched three-versus-three best-of-three simulation
-        run: node research/k3u6MatchedBo3.mjs ${{ matrix.shard }} 55 18 12
+      - name: Tuned k3u6 objective benchmark — matched three-versus-three BO3
+        run: node research/k3u6MatchedBo3.mjs ${{ matrix.shard }} 36 12 12
       - uses: actions/upload-artifact@v4
         if: always()
         with:
