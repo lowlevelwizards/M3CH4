@@ -189,7 +189,8 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
     if (state.lineOfSight) {
         state.exposedSeconds += dt;
         state.unseenSeconds = 0;
-        state.lastSeenTarget = { x: target.x, z: target.z };
+        if(distance(enemy,target)>.2)
+            state.lastSeenTarget = { x: target.x, z: target.z };
     }
     else {
         state.unseenSeconds += dt;
