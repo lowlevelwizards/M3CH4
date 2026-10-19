@@ -78,8 +78,10 @@ test('contract fire control changes cadence, precision and subsystem preference'
     const cutterOutput = hostileOutput(condition, cutter);
     const muleOutput = hostileOutput(condition, mule);
 
-    assert.ok(cutterOutput.triggerSeconds < yardOutput.triggerSeconds);
-    assert.ok(yardOutput.triggerSeconds < muleOutput.triggerSeconds);
+    // Fitted weapon hardware now controls cyclic rate, not contract personality.
+    assert.equal(cutterOutput.triggerSeconds,undefined);
+    assert.equal(yardOutput.triggerSeconds,undefined);
+    assert.equal(muleOutput.triggerSeconds,undefined);
     assert.ok(cutterOutput.spreadRadians > yardOutput.spreadRadians);
     assert.ok(muleOutput.spreadRadians < yardOutput.spreadRadians);
     assert.equal(hostileAimSlot(1, yard.aimPriority), 'structure');
