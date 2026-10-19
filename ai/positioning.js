@@ -28,8 +28,14 @@ export function chooseFightPosition(world,self,target,desiredRange=6,style='pres
     return choice??{...self};
 }
 export function chooseDefendPosition(world,self,zone,radius=3.0,threat=null,
-    style='pressure',collisionRadius=1.4,allies=[]){
+    style='pressure',collisionRadius=1.4,allies=[],underFire=0){
     if(!zone||!world)return zone??self;
+    // Existing safe scoring ground is more valuable than another speculative
+    // firing angle. Threat movement can still dislodge a defender under fire.
+    const margin=Math.max(.85,radius*.82);
+    const crowd=allies.some(ally=>dist(self,ally.position??ally.rig??ally)<collisionRadius*1.65);
+    if(dist(self,zone)<=margin&&passable(self,world,collisionRadius)&&
+       underFire<1.1&&!crowd)return {...self};
     let best=null,score=-Infinity;
     // Every candidate is INSIDE the scoring zone. Facing a threat is useful,
     // but occupying the point is non-negotiable for an anchoring machine.
