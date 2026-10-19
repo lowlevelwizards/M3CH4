@@ -1,0 +1,43 @@
+name: k3w0 Unified Workshop Interface CI
+on:
+  push:
+    branches: ["k3w0-unified-ui-redesign"]
+  pull_request:
+    paths:
+      - "uiLanguage.js"
+      - "uiMeters.js"
+      - "uiRedesign.css"
+      - "unifiedGarageUI.js"
+      - "unifiedGarageStyles.css"
+      - "garageBay.js"
+      - "garageMountUI.js"
+      - "partGridUI.js"
+      - "cockpitDisplays.js"
+      - "cockpitIdentityScene.js"
+      - "main.js"
+      - "seriesUI.js"
+      - "sortieAssignmentUI.js"
+      - "index.html"
+      - "tests/**"
+      - ".github/workflows/k3w0-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Source syntax and full regression suite
+        run: |
+          for f in uiLanguage.js uiMeters.js unifiedGarageUI.js garageBay.js garageMountUI.js partGridUI.js cockpitDisplays.js cockpitIdentityScene.js main.js seriesUI.js sortieAssignmentUI.js tests/k3w0UnifiedUI.test.mjs; do node --check "$f"; done
+          npm test
+      - name: Verify physical cockpits, shielding, power and 3v3 combat
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0
+          node research/cockpitIdentityAudit.mjs
+          node research/frameShieldingAudit.mjs --assert
+          node research/powerResponseStudy.mjs --json > /dev/null
+          node research/headlessDominationStudy.mjs 2
