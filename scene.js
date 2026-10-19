@@ -2347,6 +2347,20 @@ export function buildExteriorRig(assembly) {
                 }
                 const crossbar = add(cyl(.23, .23, 1.74, steel), 0, -.46, .17);
                 crossbar.rotation.z = Math.PI / 2;
+                // Physical nose skirt covers some lower drive angles, but does
+                // not wrap around the legs. The same exact plates are raycast
+                // and rendered: no invisible front-facing armor.
+                const skirt = add(plate(1.17, .36, .18, m(0xac873c)), 0, -.64, -1.08);
+                skirt.rotation.x = -.24;
+                // Two narrow upper cheek shields climb toward the cab's outer
+                // lower tub. The central optic and elevated shots stay exposed.
+                // This is frame metal, NOT a second or magically armored cab.
+                for (const side of [-1, 1]) {
+                    const browCheek = add(plate(.34, .51, .20, m(0xbd9142)), side * .46, .52, -1.16);
+                    browCheek.rotation.z = side * -.13;
+                    browCheek.rotation.x = -.15;
+                    add(plate(.22, .30, .36, m(0x626859)), side * .54, .27, -.95);
+                }
                 // Low-slung front crash hoop reads as chassis, not a second cockpit.
                 add(plate(1.04, .12, .14, m(0x5b645d)), 0, -.31, -.92);
                 break;
