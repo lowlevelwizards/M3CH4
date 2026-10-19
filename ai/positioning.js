@@ -28,7 +28,7 @@ export function chooseFightPosition(world,self,target,desiredRange=6,style='pres
     return choice??{...self};
 }
 export function chooseDefendPosition(world,self,zone,radius=3.0,threat=null,
-    style='pressure',collisionRadius=1.4){
+    style='pressure',collisionRadius=1.4,allies=[]){
     if(!zone||!world)return zone??self;
     let best=null,score=-Infinity;
     // Every candidate is INSIDE the scoring zone. Facing a threat is useful,
@@ -39,8 +39,14 @@ export function chooseDefendPosition(world,self,zone,radius=3.0,threat=null,
         if(!passable(p,world,collisionRadius))continue;
         const firing=threat?tacticalLineOfSight(p,threat,world):null;
         const priority=style==='bruiser'?.09:.13;
-        const value=-dist(self,p)*.025+(firing?.20:0)+
-            (threat&&!firing&&style==='bruiser'?.10:0)+priority;
+        const crowd=allies.reduce((sum,friend)=>{
+            const q=friend.position??friend.rig??friend;
+            const d=dist(p,q),spacing=collisionRadius*2.5;
+            return sum+(d<spacing?.42*(1-d/spacing):0);
+        },0);
+        const protectedLane=threat&&!firing&&style==='bruiser'?.16:0;
+        const value=-dist(self,p)*.018+(firing?.21:0)+protectedLane+
+            Math.min(.10,(radius-dist(zone,p))*.04)+priority-crowd;
         if(value>score){best=p;score=value;}
     }
     return best??{...zone};
