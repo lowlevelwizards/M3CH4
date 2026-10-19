@@ -202,6 +202,18 @@ function appendDebriefRow(label, value, kind = '', reading = null) {
         amount.classList.add('rig-condition-alt');
         // Exact percentages remain inspectable via the accessible row and title.
         row.title=value;
+        row.tabIndex=0;
+        row.setAttribute('role','button');
+        row.setAttribute('aria-expanded','false');
+        row.setAttribute('aria-label',label+' · '+value+' · tap for readings');
+        const toggle=()=>{
+            row.classList.toggle('expanded');
+            row.setAttribute('aria-expanded',String(row.classList.contains('expanded')));
+        };
+        row.addEventListener('click',toggle);
+        row.addEventListener('keydown',event=>{
+            if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}
+        });
     } else row.append(name);
     row.append(amount);
     debriefLines.append(row);
