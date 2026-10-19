@@ -122,7 +122,7 @@ test('BO3 is visible in combat and restored on an active-round reload',()=>{
     const series=source('seriesUI.js');
     const styles=source('seriesStyles.css');
     assert.match(series,/id = 'bo3-combat-hud'/);
-    assert.match(series,/ROUND ' \+ match\.roundNumber \+ ' \/ 3/);
+    assert.match(series,/score\.textContent = 'R'\+match\.roundNumber\+'\/3/);
     assert.match(series,/phase === 'round_active'/);
     assert.match(series,/renderCombatSeries\(\);\s*scheduleActiveRoundResume\(binding\)/);
     assert.match(styles,/body\.inspecting #bo3-combat-hud/);
