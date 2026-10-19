@@ -37,6 +37,11 @@ import { derateRigConfig, functionalOutput } from '../functionalDamage.js';
 import { createFieldServiceState, arrestFirstWeaponFailure, canFieldService,
     beginFieldService, advanceFieldService, fieldServiceStationary } from '../fieldService.js';
 import { aiWeaponRecoveryDirective, aiWeaponRecoveryPosture, aiWeaponMissionKillReason } from '../aiFieldService.js';
+import { createStrategicState as baselineCreateStrategy, evaluateStrategy as baselineEvaluateStrategy } from './baselineK3u2/strategicState.js';
+import { planTeam as baselinePlanTeam } from './baselineK3u2/teamPlanner.js';
+import { createPilotBrain as baselineCreateBrain,decidePilot as baselineDecidePilot } from './baselineK3u2/pilotBrain.js';
+import { createIntentExecutor as baselineCreateExecutor, executeIntent as baselineExecuteIntent } from './baselineK3u2/intentExecutor.js';
+import { prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot } from '../ai/adaptiveTactics.js';
 
 const DT=1/60,MAX_SECONDS=210;
 const PARTS=['structure','mobility','power','command','combat'];
@@ -122,16 +127,24 @@ function damage(attacker,target,slot,metrics,t,rng){
 function runBout(seed,settings){
     const rng=random(seed),state=createSortieObjective(contractById('domination'));
     state.domination.capturePolicy=settings.policy??'strict';
-    const strategies=createStrategicState();
+    const strategies={new:createStrategicState(),baseline:baselineCreateStrategy()};
+    const assaultMemory={friendly:{},hostile:{}};
     const teams={friendly:[],hostile:[]};
     for(const team of ['friendly','hostile']){
       let recipe=team===settings.variantTeam?settings.variant:['yard','kestrel','hauler'];
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
           team===settings.wornTeam?settings.wear:settings.backgroundWear??0));
+      for(const a of actors) {
+        a.generation=settings.modernTeam==='both'||team===settings.modernTeam?'new':'baseline';
+        if(a.generation==='baseline'){
+          a.brain=baselineCreateBrain();a.executor=baselineCreateExecutor();
+        }
+        a.stats.yieldTicks=0;a.stats.stagingSeconds=0;a.stats.movementRecoveries=0;
+      }
       teams[team]=actors;
     }
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
-    const metrics={seed,scenario:settings.name,accuracy:settings.accuracy,
+    const metrics={seed,scenario:settings.name,accuracy:settings.accuracy,modernTeam:settings.modernTeam,
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
         win:null,winReason:null,time:MAX_SECONDS,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
@@ -148,10 +161,16 @@ function runBout(seed,settings){
       planLeft-=DT;
       if(planLeft<=0||!snapshot){
         snapshot=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
-        plans={friendly:planTeam(snapshot,'friendly',{
-            strategy:evaluateStrategy(strategies,snapshot,'friendly')}),
-            hostile:planTeam(snapshot,'hostile',{
-            strategy:evaluateStrategy(strategies,snapshot,'hostile')})};
+        plans={};
+        for(const team of ['friendly','hostile']){
+          const modern=teams[team][0].generation==='new';
+          const strategy=modern?
+            evaluateStrategy(strategies.new,snapshot,team):
+            baselineEvaluateStrategy(strategies.baseline,snapshot,team);
+          plans[team]=modern?
+            planTeam(snapshot,team,{strategy,assaultMemory:assaultMemory[team]}):
+            baselinePlanTeam(snapshot,team,{strategy});
+        }
         planLeft=.85;
         if(metrics.firstContactAt===null&&['friendly','hostile'].some(team=>
           snapshot.knowledge[team].contacts.some(c=>c.visible)))
@@ -159,21 +178,37 @@ function runBout(seed,settings){
       }
       for(const a of actors){
         if(!a.active)continue;
-        const target=nearestVisible(a,actors,snapshot);
+        const observed=new Set((snapshot?.knowledge?.[a.team]?.contacts??[])
+          .filter(c=>c.visible).map(c=>c.id));
+        const target=a.generation==='new'?
+          prioritizeVisibleTarget(a,actors.filter(c=>c.active&&c.team!==a.team&&observed.has(c.id)),
+            snapshot,plans[a.team]?.orders?.[a.id]??null,a.targetId??null,null):
+          nearestVisible(a,actors,snapshot);
+        a.targetId=target?.id??null;
         const recovery=aiWeaponRecoveryDirective(a,target);
         const capability=snapshot.knowledge[a.team].allies
           .find(p=>p.id===a.id)?.capability;
         const job=plans[a.team].orders[a.id]??null;
         const before=a.brain.history.length;
-        const decision=decidePilot(a.brain,{id:a.id,position:{x:a.rig.x,z:a.rig.z}},
+        const decision=(a.generation==='new'?decidePilot:baselineDecidePilot)(a.brain,{id:a.id,position:{x:a.rig.x,z:a.rig.z}},
           job,{capability,weaponRecovery:recovery,world:DEFAULT_WORLD,
             personality:a.behavior.id,preferredRangeM:a.behavior.preferredRangeM,
             underFireSeconds:a.motion.awareness?.underFireSeconds??0,
+            nearbyAllies:actors.filter(c=>c.active&&c.team===a.team&&c.id!==a.id).map(c=>({position:{x:c.rig.x,z:c.rig.z}})),
+            preserveMajority:state.domination.points.filter(p=>p.owner===a.team&&!p.contested).length>=2,
             retreatPoint:{x:a.rig.x,z:a.team==='friendly'?22:-22}},t);
         if(a.brain.history.length>before)a.stats.goalChanges++;
         const config=configFor(a);
-        const instruction=executeIntent(a.executor,decision,a.rig,DEFAULT_WORLD,
-          config.collisionRadiusM,DT);
+        const traffic=actors.filter(c=>c.active&&c.team===a.team&&c.id!==a.id&&
+          dist(c.rig,a.rig)<7).map(c=>({position:c.rig,
+            radius:configFor(c).collisionRadiusM,active:true}));
+        const instruction=a.generation==='new'?
+          executeIntent(a.executor,decision,a.rig,DEFAULT_WORLD,config.collisionRadiusM,DT,traffic):
+          baselineExecuteIntent(a.executor,decision,a.rig,DEFAULT_WORLD,config.collisionRadiusM,DT);
+        if(a.generation==='new'&&instruction.note?.includes('YIELD TRAFFIC'))a.stats.yieldTicks++;
+        if(decision.goal==='STAGE')a.stats.stagingSeconds+=DT;
+        if(a.motion.phase==='RECOVER'&&a._previousPhase!=='RECOVER')a.stats.movementRecoveries++;
+        a._previousPhase=a.motion.phase;
         if(instruction.routeFailure&&!a._lastRouteFailure){
           a.stats.routeErrors++;
         }
@@ -209,6 +244,10 @@ function runBout(seed,settings){
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
+        const assigned=plans[a.team]?.orders?.[a.id]??null;
+        const urgent=!!state.domination.points.find(p=>
+          dist(p,target.rig)<state.radius&&(p.contested||p.owner===a.team));
+        if(a.generation==='new'&&!shouldAttemptTacticalShot(a,target,{urgent}))continue;
         if(!tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)){
             noteBlockedFire(a.motion,'STATIC COVER');continue;
         }
@@ -227,7 +266,12 @@ function runBout(seed,settings){
         applyRecoil(a.rig,config,dx,dz,a.weaponSpec.recoilImpulseNs);
         if(settings.accuracy===0||rng()>chance)continue;
         a.stats.hits++;metrics.damagingShots++;
-        const slot=hostileAimSlot(fired,a.behavior.aimPriority);
+        const defaultSlot=hostileAimSlot(fired,a.behavior.aimPriority);
+        const contesting=!!assigned?.objectiveId&&state.domination.points.some(p=>
+          p.id===assigned.objectiveId&&p.contested&&dist(p,target.rig)<state.radius);
+        const slot=a.generation==='new'?tacticalAimSlot(defaultSlot,{
+          targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
+          contesting,visibleService:!!target.fieldService?.held}):defaultSlot;
         damage(a,target,slot,metrics,t,rng);
       }
       const prevScore={friendly:state.friendlyProgress,hostile:state.hostileProgress};
@@ -277,7 +321,7 @@ function runBout(seed,settings){
     }
     metrics.points={friendly:+state.friendlyProgress.toFixed(2),
       hostile:+state.hostileProgress.toFixed(2)};
-    metrics.actors=actors.map(a=>({id:a.id,team:a.team,family:a.family,
+    metrics.actors=actors.map(a=>({id:a.id,team:a.team,family:a.family,generation:a.generation,
         alive:a.active,killReason:a.killReason,
         integrity:+(PARTS.reduce((s,k)=>s+a.condition.parts[k].integrity/a.condition.parts[k].maxIntegrity,0)/5).toFixed(3),
         armor:+(PARTS.reduce((s,k)=>s+a.condition.parts[k].armor/a.condition.parts[k].maxArmor,0)/5).toFixed(3),
