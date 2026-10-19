@@ -51,7 +51,8 @@ export function evaluateStrategy(memory,snapshot,team){
             return rank(a)-rank(b)||a.id.localeCompare(b.id);
         })[0]??zones.find(z=>z.owner===team)??zones[0];
     if(phase!==state.phase && (now-state.phaseSince>=7 ||
-        phase==='BREAK_MAJORITY'||phase==='HOLD_MAJORITY'||phase==='ROTATE')){
+        phase==='BREAK_MAJORITY'||phase==='HOLD_MAJORITY'||phase==='ROTATE'||
+        (state.phase==='ROTATE'&&stalledFor<6))){
         state.phase=phase;state.phaseSince=now;state.changes++;
         state.target=best.id;
     }else if(phase==='ROTATE'&&now-state.phaseSince>=8){
