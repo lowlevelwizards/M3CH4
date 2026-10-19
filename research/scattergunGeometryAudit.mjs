@@ -56,8 +56,14 @@ export function physicalScatterAudit(){
     if(!(near.physicalHits>far.physicalHits))
         throw Error('Physically traced scatter must land more pellets close than far: '+JSON.stringify({near,far}));
     if(!(near.physicalHits>0&&far.physicalHits>0))throw Error('Bore cannot reach real target');
-    gun.root.traverse(node=>{if(node.isMesh){node.geometry?.dispose();node.material?.dispose()}});
-    target.root.traverse(node=>{if(node.isMesh){node.geometry?.dispose();node.material?.dispose()}});
+    const disposeModel=root=>root.traverse(node=>{
+        if(!node.isMesh)return;
+        node.geometry?.dispose();
+        const materials=Array.isArray(node.material)?node.material:[node.material];
+        for(const material of materials)if(typeof material?.dispose==='function')material.dispose();
+    });
+    disposeModel(gun.root);
+    disposeModel(target.root);
     return {gun:{pickableWeaponMeshes:meshes.length,widthM:+size.x.toFixed(2),lengthM:+size.z.toFixed(2)},near,far};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)
