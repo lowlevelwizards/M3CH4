@@ -7,5 +7,5 @@ test('mobile entrypoint advances emergency field work lifecycle modules', () => 
     assert.match(html, /0\.0\.1k\.3u\.3 — Adaptive Objective Warfare/);
     assert.match(html, /"\.\/fieldWork\.js": "\.\/fieldWork\.js\?v=k3r0"/);
     assert.match(html, /"\.\/boutSession\.js": "\.\/boutSession\.js\?v=k3r0"/);
-    assert.match(html, /garageMountUI\.js\?v=k3t1/);
+    assert.match(html, /garageMountUI\.js\?v=k3u3/);
 });
