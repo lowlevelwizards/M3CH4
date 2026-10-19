@@ -197,3 +197,12 @@ test('armor-strip pattern triggers defense before internal combat hardware is lo
  assert.equal(risk.remaining,1);
  assert.ok(risk.plating<.42);
 });
+
+test('a real rear hit provides only coarse bearing, not exact hidden source coordinates',()=>{
+ const owner=createTacticalAwareness(),observer=pos(0,0),hiddenShooter=pos(2,25);
+ noteIncomingFire(owner,hiddenShooter,'player',1.3,observer);
+ assert.ok(Math.hypot(owner.lastThreat.x,owner.lastThreat.z)>8);
+ assert.ok(Math.hypot(owner.lastThreat.x,owner.lastThreat.z)<10);
+ assert.notDeepEqual(owner.lastThreat,hiddenShooter);
+ assert.equal(owner.unseenThreat,true);
+});
