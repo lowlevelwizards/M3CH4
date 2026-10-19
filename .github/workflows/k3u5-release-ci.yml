@@ -1,0 +1,22 @@
+name: k3u5 Published Cache CI
+on:
+  push:
+    branches: ["k3u5-release-cache-identity"]
+    paths: [".github/workflows/k3u5-release-ci.yml"]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: All regression and version assertions
+        run: |
+          node --check main.js
+          git diff --check HEAD^ HEAD
+          npm test
