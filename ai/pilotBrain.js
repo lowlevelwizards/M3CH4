@@ -71,6 +71,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
     const safeAnchor=last?.anchor&&last?.objectiveId===assignment?.objectiveId&&
         assignment?.goal==='DEFEND';
     const emergency=service||unsafe||!capability.canMove||incompatible||
+        !!proposed.emergency||
         !!(context?.systemAtRisk&&context?.survivalPoint)||
         (proposed.goal==='SCREEN'&&last?.goal!=='SCREEN');
     const improvement=(proposed.utility??0)-(last?.utility??0);
