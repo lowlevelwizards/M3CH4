@@ -112,6 +112,7 @@ function selectBay(id) {
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
     selectedSlot = null; selectedHardwareSerial = null; identityExpanded = false; previewSignature = '';
+    dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
     render();
@@ -220,14 +221,16 @@ function moduleStation(view) {
             : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
             if (selectedSlot !== item.slot) selectedHardwareSerial = null;
-            selectedSlot = selectedSlot === item.slot ? null : item.slot;
+            selectedSlot = item.slot; // Repeated taps always open details.
+            dock.scrollTop = 0;
             render();
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(el('span','unified-station-glyph', STATION_GLYPHS[item.slot]));
         // Module station always reads internal integrity: the same quantity a
         // 22% pit patch actually restores. Armor/wear remain separate in details.
-        node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
-            item.serial ? pct(item.condition) : 'EMPTY'));
+        node.append(el('strong','',SLOT_LABELS[item.slot]),
+            el('small','',item.serial ? 'CORE '+pct(item.condition) : 'EMPTY'));
+        if(item.serial) node.append(el('small','unified-armor-label','ARM '+pct(item.armorRatio)));
         node.title=item.serial?'INTERNAL '+pct(item.condition)+' · ARMOR '+
             pct(item.armorRatio)+' · WEAR '+pct(item.wear):'NOT INSTALLED';
         node.setAttribute('aria-label',SLOT_LABELS[item.slot]+' '+item.label);
@@ -251,6 +254,7 @@ function moduleDetails(stable, view, machine) {
         ? (BY_ID.get(installed.definitionId)?.name || installed.definitionId) +
           ' · ' + installed.serial + ' · ' + state.label
         : 'STATION EMPTY'));
+    box.append(button('CLOSE PART DETAILS', () => { selectedSlot=null;selectedHardwareSerial=null;dock.scrollTop=0;render(); }, 'unified-close'));
     if (installed) {
         box.append(el('small','unified-system-condition',
             'INTEGRITY ' + pct(state.condition) + ' · ARMOR ' +
@@ -281,7 +285,11 @@ function moduleDetails(stable, view, machine) {
         }
         box.append(positions);
     }
-    if (installed) box.append(button('REMOVE INSTALLED MODULE', () => editModule(slot,null), 'unified-remove'));
+    if (installed) {
+        box.append(button('REMOVE INSTALLED MODULE · ' + installed.serial, () => editModule(slot,null), 'unified-remove'));
+        if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
+            box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
+    }
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
     // to another rig must remain inspectable but cannot be silently transferred.
@@ -679,8 +687,10 @@ document.addEventListener('m3ch4:stable-status-cleared',queueRender);
 document.addEventListener('m3ch4:bay-picked',event=>{
     if(actualMode(loadSeries(storage))!=='garage')return;
     const slot=event.detail?.slot;
-    selectedSlot = slot && selectedSlot!==slot ? slot : null;
+    if (!slot) return;
+    selectedSlot = slot;
     selectedHardwareSerial = null;
+    dock.scrollTop = 0;
     render();
 });
 const rootWatch=new MutationObserver(queueRender);
