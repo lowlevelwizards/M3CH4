@@ -327,6 +327,9 @@ const lookHeadingEl = required('#look-heading');
 const devToggle = required('#dev-toggle');
 const devPanel = required('#dev-panel');
 const devReadout = required('#dev-readout');
+// One title-derived build label: the DEV drawer must never retain an old milestone.
+const devVersion = document.querySelector('#dev-version');
+if (devVersion) devVersion.textContent = document.title.split(' — ')[1] ?? 'BUILD UNKNOWN';
 const resetRig = required('#reset-rig');
 const wipeSave = required('#wipe-save');
 const toggleColliders = required('#toggle-colliders');
@@ -1994,7 +1997,10 @@ function finishSortie(victory, reason) {
     renderSquadStatus();
     reportFade = 0;
     sortiePhase = 'outro';
-    sortieOutroRemaining = SORTIE_OUTRO_SECONDS;
+    // A complete squad wipe resolves immediately; territory/score outcomes keep
+    // their short physical aftermath. This does not bypass rewards or BO3 scoring.
+    sortieOutroRemaining = squadOutcome(playerCombatActive, aiActors)
+        ? 0 : SORTIE_OUTRO_SECONDS;
     pendingDebrief = { summary, reason };
     const match = resolvedResult?.series;
     if (match) {
