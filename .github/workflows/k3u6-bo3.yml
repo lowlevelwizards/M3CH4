@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,7 +22,7 @@ jobs:
           node --check research/k3u6MatchedBo3.mjs
           for f in research/baselineK3u3/*.js; do node --check "$f"; done
       - name: Seed-matched three-versus-three best-of-three simulation
-        run: node research/k3u6MatchedBo3.mjs ${{ matrix.shard }} 2 2 2
+        run: node research/k3u6MatchedBo3.mjs ${{ matrix.shard }} 55 18 12
       - uses: actions/upload-artifact@v4
         if: always()
         with:
