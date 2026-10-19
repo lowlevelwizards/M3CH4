@@ -23,7 +23,7 @@ jobs:
           node --check research/generationBo3Study.mjs
           node --check research/legacyEnemyMotion.js
           npm test
-      - name: Execute independent paired BO3 series (smoke)
+      - name: Execute independent paired BO3 series (smoke v2)
         run: node research/generationBo3Study.mjs ${{ matrix.shard }} 2 1
       - uses: actions/upload-artifact@v4
         if: always()
