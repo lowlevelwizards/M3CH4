@@ -5,10 +5,10 @@
  */
 const enemy=team=>team==='friendly'?'hostile':'friendly';
 export function createStrategicState(){
-    return {teams:{friendly:{lastProgress:0,lastOwnership:'',lastChange:0,lastScoreAt:0,lastScore:0,
+    return {teams:{friendly:{lastProgress:0,lastOwnership:'',lastChange:0,lastScoreAt:0,lastScore:0,lastEnemyScore:0,lastAnyScoreAt:0,
         deadlockSince:0,failedAssaults:0,
         phase:'OPENING',phaseSince:0,target:null,changes:0},
-        hostile:{lastProgress:0,lastOwnership:'',lastChange:0,lastScoreAt:0,lastScore:0,
+        hostile:{lastProgress:0,lastOwnership:'',lastChange:0,lastScoreAt:0,lastScore:0,lastEnemyScore:0,lastAnyScoreAt:0,
         deadlockSince:0,failedAssaults:0,
             phase:'OPENING',phaseSince:0,target:null,changes:0}}};
 }
@@ -22,7 +22,8 @@ export function evaluateStrategy(memory,snapshot,team){
     const state=memory.teams[team],now=snapshot.time??0,zones=snapshot.zones??[];
     if(snapshot.kind!=='domination'||zones.length===0)
         return {phase:'ENGAGEMENT',target:null,reason:'MISSION PLAN',stalledFor:0,changes:0};
-    const ownership=key(snapshot,team),score=snapshot.score?.[team]??0;
+    const ownership=key(snapshot,team),score=snapshot.score?.[team]??0,
+        enemyScore=snapshot.score?.[enemy(team)]??0;
     if(ownership!==state.lastOwnership){
         state.lastChange=now;state.lastOwnership=ownership;
     }
@@ -31,17 +32,22 @@ export function evaluateStrategy(memory,snapshot,team){
         state.lastScore=score;state.lastProgress=score;state.lastScoreAt=now;
         state.deadlockSince=0;state.failedAssaults=0;
     }
+    if(enemyScore>state.lastEnemyScore+.001){
+        state.lastEnemyScore=enemyScore;state.lastAnyScoreAt=now;
+    }
+    if(score>state.lastProgress+.001)state.lastAnyScoreAt=now;
     const stalledFor=Math.max(0,now-state.lastScoreAt);
+    const globalStall=Math.max(0,now-Math.max(state.lastAnyScoreAt,state.lastScoreAt));
     const repeatedlyContested=zones.some(z=>z.contested);
     if(stalledFor>=10&&repeatedlyContested&&!state.deadlockSince)
         state.deadlockSince=now;
     if(stalledFor<6)state.deadlockSince=0;
     const ours=owned(zones,team),theirs=owned(zones,enemy(team));
-    let phase=theirs>=2?'BREAK_MAJORITY':
-        stalledFor>=10&&repeatedlyContested?'ROTATE':
-        ours>=2?'HOLD_MAJORITY':
+    const paying=ours>=2,enemyPaying=theirs>=2;
+    const phase=paying?'HOLD_MAJORITY':
+        enemyPaying?'BREAK_MAJORITY':
+        globalStall>=12&&repeatedlyContested?'ROTATE':
         repeatedlyContested?'SPLIT_PRESSURE':'TAKE_GROUND';
-    if(phase==='HOLD_MAJORITY'&&zones.some(z=>z.contested))phase='HOLD_MAJORITY';
     const best=[...zones].filter(z=>z.owner!==team||z.contested)
         .sort((a,b)=>{
             // Exposed neutral ground is generally worth more than dogpiling a
@@ -76,7 +82,8 @@ export function evaluateStrategy(memory,snapshot,team){
         state.phase==='HOLD_MAJORITY'?'PRESERVE SCORING MAJORITY':
         state.phase==='SPLIT_PRESSURE'?'PRESS SEPARATE OBJECTIVES':
         'SECURE TWO OBJECTIVES',
-        stalledFor:+stalledFor.toFixed(2),changes:state.changes,
+        stalledFor:+stalledFor.toFixed(2),
+        globalStall:+globalStall.toFixed(2),changes:state.changes,
         failedAssaults:state.failedAssaults,deadlockSince:state.deadlockSince,
         friendlyPoints:ours,hostilePoints:theirs};
 }
