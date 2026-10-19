@@ -552,7 +552,14 @@ function signalPlayerHit(slot, hit) {
         indicator.classList.toggle('armor-impact',hit.armorAbsorbed>0&&hit.internalDamage<=0);
         indicator.classList.toggle('core-impact',hit.internalDamage>0);
     }
-    arena.triggerCockpitHit(slot, cockpitImpactProfile(slot, { internalDamage: hit.internalDamage, disabled: hit.disabled, driveSide: hit.driveSide }));
+    arena.triggerCockpitHit(slot, {
+        ...cockpitImpactProfile(slot, {
+            internalDamage:hit.internalDamage,disabled:hit.disabled,driveSide:hit.driveSide,
+        }),
+        // A part can lose protection without losing integrity. The presentation
+        // must respond to the ACTUAL damage channel, not inferred percent loss.
+        internalDamage:hit.internalDamage,armorAbsorbed:hit.armorAbsorbed,
+    });
     playerHitFlash.className = `player-hit-flash active hit-${slot}${hit.internalDamage > 0 ? ' breached' : ''}`;
     void playerHitFlash.offsetWidth;
     if (playerHitTimer !== null) window.clearTimeout(playerHitTimer);
