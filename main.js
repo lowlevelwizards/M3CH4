@@ -1564,7 +1564,10 @@ function frame(now) {
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
                         startReload(actor.weaponState, actor.weaponSpec);
                     const ready=actor.weaponState.cooldown<=0 &&
-                        actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0;
+                        actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
+                        !!target&&withinFiringArc(actor.rig,target.rig)&&
+                        actor.motion?.awareness?.lineOfSight!==false&&
+                        shouldAttemptTacticalShot(actor,target,{urgent:false});
                     const shot=advanceHostileController(actor.controller,
                         actor.condition,FIXED_DT,!target,ready);
                     if(shot!==null&&target)attemptAiFire(actor,target,shot);
