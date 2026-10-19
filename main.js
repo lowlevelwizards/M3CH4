@@ -1172,6 +1172,7 @@ function toggleInspection(force) {
     stopFireInput();
     stopFieldServiceInput();
     if (inspecting) {
+        leaveAlliedObservation();
         sortiePhase = 'garage';
         sortieOutro.classList.add('hidden');
         sortieOutro.setAttribute('aria-hidden', 'true');
