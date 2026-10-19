@@ -104,7 +104,7 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
         Math.hypot(state.vx, state.vz) <= BRACE.settleSpeedMps &&
         Math.abs(state.yawRate) <= BRACE.settleYawRadS &&
         config.driveForceN > 0 && config.lateralDriveForceN > 0 &&
-        (config.turnLeftScale ?? 1) > .16 && (config.turnRightScale ?? 1) > .16;
+        (config.turnLeftScale ?? 1) > .42 && (config.turnRightScale ?? 1) > .42;
     state.braceHoldSeconds = canBrace ? Math.min(BRACE.transitionSeconds, (state.braceHoldSeconds ?? 0) + dt) : 0;
     state.brace = canBrace ? Math.min(1, state.braceHoldSeconds / BRACE.transitionSeconds) : 0;
     state.braced = state.brace >= 1;
@@ -130,6 +130,8 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
         longitudinalForce = 0;
     // With hard braking, never overshoot through zero and accelerate in reverse.
     // The old signed fixed brake impulse could oscillate indefinitely around 0.
+    if (brakingForce > 0 && Math.abs(previousForwardSpeed) <= .02)
+        longitudinalForce = -previousForwardSpeed * config.massKg / dt;
     const predictedForward = previousForwardSpeed + longitudinalForce * dt / config.massKg;
     if (brakingForce > 0 && Math.abs(previousForwardSpeed) > .02 &&
         Math.sign(predictedForward) !== Math.sign(previousForwardSpeed))
