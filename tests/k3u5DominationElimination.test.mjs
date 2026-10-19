@@ -44,7 +44,7 @@ test('Domination score still independently resolves before last enemy dies',()=>
 
 test('k3u7 Pages entrypoint loads the new squad-elimination gameplay script',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.ok(html.includes('main.js?v=k3v5'));
+ assert.ok(html.includes('main.js?v=k3v5p1'));
  assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.7</span>'));
- assert.match(html,/Three Cockpit Identities/);
+ assert.match(html,/Garage & Bout Fixes/);
 });
