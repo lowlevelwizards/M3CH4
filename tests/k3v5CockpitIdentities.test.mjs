@@ -112,5 +112,7 @@ test('scene bridge uses real command fitting, only one active physical kit, and 
     assert.match(main,/arena\.rebuildAssembly\(assembly\)/);
     assert.match(main,/arena\.updateCockpitMotion/);
     assert.match(main,/arena\.updateCockpitInstruments/);
-    assert.doesNotMatch(kit,/setTimeout|localStorage|applyTargetHit|fireWeapon|stepRig/);
+    assert.doesNotMatch(kit,/localStorage|applyTargetHit|fireWeapon|stepRig/);
+    assert.match(kit,/triggerBase\(slot,profile\)/);
+    assert.match(kit,/const penetrating=Number\(profile\.internalDamage\)>0/);
 });
