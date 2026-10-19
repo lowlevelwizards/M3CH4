@@ -119,9 +119,9 @@ test('there are no new slots/serial IDs and mobile controls still use existing m
     const read = file => fs.readFileSync(new URL(file,import.meta.url),'utf8');
     const html = read('../index.html'), controls = read('../controls.js');
     const main = read('../main.js'), scene = read('../scene.js');
-    assert.match(html,/0\.0\.1k\.3w\.0 — Unified Workshop UI/);
-    assert.match(html,/main\.js\?v=k3w0/);
-    assert.match(html,/audio\.js\?v=k3v3/);
+    assert.match(html,/0\.0\.1k\.3v\.6 — Scrapyard Scattergun/);
+    assert.match(html,/main\.js\?v=k3v6/);
+    assert.match(html,/audio\.js\?v=k3v6/);
     assert.match(controls,/this\.keyboard\.has\('Space'\)/);
     assert.match(html,/id="drive-zone"/);
     assert.match(html,/id="brake"/);
