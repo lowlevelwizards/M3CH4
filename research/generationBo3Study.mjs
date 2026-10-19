@@ -37,7 +37,15 @@ import { createHostileController, hostileOutput, advanceHostileController,
 import { createEnemyMotion, advanceEnemyMotion, withinFiringArc } from '../enemyMotion.js';
 import { createEnemyMotion as makeLegacyMotion, advanceEnemyMotion as advanceLegacyMotion } from './legacyEnemyMotion.js';
 import { squadIntent } from '../squadCoordination.js';
-import { dominationPointForActor } from '../sortieObjectives.js';
+// Legacy fixed-ID domination lane mapping, copied from pre-k3u1 sortieObjectives.js
+function dominationPointForActor(state, actor) {
+  if(state?.type!=='domination')return null;
+  const points=state.domination?.points;
+  if(!points?.length)return null;
+  const index=actor?.id==='ally-1'?0:actor?.id==='ally-2'?2:
+    actor?.id==='enemy-1'?0:actor?.id==='enemy-2'?2:1;
+  return {x:points[index].x,z:points[index].z,id:points[index].id};
+}
 import { exploitServicingTarget } from '../faultSupport.js';
 import { tacticalLineOfSight, noteIncomingFire, noteBlockedFire } from '../tacticalAwareness.js';
 import { createWorldModel, observeBattlefield } from '../ai/worldModel.js';
