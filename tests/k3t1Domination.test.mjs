@@ -149,6 +149,6 @@ test('tactical movement treats occupation as an explicit hold order, not a gener
     assert.match(ai,/brake:\.85/);
     assert.match(main,/planTeam\(aiSnapshot/);
     assert.match(main,/executeIntent\(actor\.executor/);
-    assert.match(main,/sortieObjective.type!=='domination' \|\| !outcome.victory/);
+    assert.ok(main.includes('if (outcome && !testEnded)'));
     assert.match(main,/domination-hud/);
 });
