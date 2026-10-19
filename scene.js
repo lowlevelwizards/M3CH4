@@ -2536,6 +2536,7 @@ export function buildExteriorRig(assembly) {
                 for(const side of [-1,1]) {
                     add(plate(.13,.20,.76,m(0x83522f)),side*.40,.02,-.55);
                     add(plate(.12,.075,.64,m(teal)),side*.42,.29,-.27);
+                    add(plate(.12,.10,.63,m(steel)),side*.28,.23,-.58); // exposed barrel brace
                 }
                 add(plate(.28,.15,.57,steel),-.30,-.28,.47);
                 add(plate(.44,.13,.17,m(0x4b4e46)),0,.12,.60);
