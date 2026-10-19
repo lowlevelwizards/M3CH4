@@ -130,3 +130,6 @@ body:not(.inspecting) #shot-report.faded{opacity:0}
 #player-damage-hud>[data-system].core-impact{animation:rigCoreSignal .45s ease-out}
 @keyframes rigArmorSignal{0%{box-shadow:0 0 0 2px var(--rig-armor)}100%{box-shadow:none}}
 @keyframes rigCoreSignal{0%{box-shadow:0 0 0 3px var(--rig-fault)}100%{box-shadow:none}}
+
+.bo3-round-debrief .rig-repair-estimate{font:800 9px/1.2 ui-monospace,monospace;color:#dbb679;min-width:42px;text-align:right}
+.bo3-round-debrief .rig-condition-row .rig-condition{margin-left:auto}
