@@ -81,7 +81,11 @@ export function decidePilot(brain,actor,assignment,context,now) {
         return last;
     if(!changed&&last){
         // Update destinations/known threat locations without restarting a plan.
-        brain.intent={...last,point:proposed.point??last.point,utility:proposed.utility};
+        brain.intent={...last,point:proposed.point??last.point,
+            // Known enemy contact ends the speculative sheltered crossing;
+            // ordinary objective commitment remains, only the via-stop drops.
+            viaPoint:context?.enemySeen?null:last.viaPoint,
+            utility:proposed.utility};
         return brain.intent;
     }
     const commitment=proposed.goal==='STAGE'?1.6:
