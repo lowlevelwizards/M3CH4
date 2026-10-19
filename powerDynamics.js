@@ -5,8 +5,8 @@
 import { installedPart } from './components.js';
 const clamp = (v,a,b) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : a));
 const PROFILE = Object.freeze({
-    'power-dynamo': Object.freeze({ label: 'DYNAMO G-2', responseSeconds: .75, fallSeconds: .85,
-        reserveKJ: 16, dischargeKw: 85, rechargeKw: 26 }),
+    'power-dynamo': Object.freeze({ label: 'DYNAMO G-2', responseSeconds: .65, fallSeconds: .85,
+        reserveKJ: 36, dischargeKw: 95, rechargeKw: 24 }),
     'power-air': Object.freeze({ label: 'DRAFT A-1', responseSeconds: .20, fallSeconds: .24,
         reserveKJ: 6, dischargeKw: 65, rechargeKw: 17 }),
 });
@@ -39,7 +39,7 @@ export function registerPowerShot(state,assembly) {
     // while individual magazines still obey their own cooldown authority.
     const weaponKw = Math.max(0,-rating(assembly,'combat'));
     state.shotPulseKw = Math.min(weaponKw * 3.4,
-        (state.shotPulseKw ?? 0) + weaponKw * 2.45);
+        (state.shotPulseKw ?? 0) + weaponKw * 1.20);
 }
 export function advancePowerSystem(state,assembly,rig,dt,powerHealth=1) {
     if(!state || !Number.isFinite(dt) || dt<=0) return state;
