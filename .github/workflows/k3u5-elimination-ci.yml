@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check behavior and regression tests
+      - name: Check elimination behavior and updated Domination contract assertions
         run: |
           node --check main.js
           git diff --check HEAD^ HEAD
