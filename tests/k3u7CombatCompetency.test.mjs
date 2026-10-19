@@ -187,3 +187,13 @@ test('a loaded AI with a valid target cannot bypass physical magazine/cooldown g
  assert.ok(shots>=6&&shots<=11,'physical fire/reload profile should apply: '+shots);
  assert.ok(shots<=spec.magazine);
 });
+
+test('armor-strip pattern triggers defense before internal combat hardware is lost',()=>{
+ const mem={},c=condition();
+ c.parts.combat.maxArmor=100;c.parts.combat.armor=28;
+ recordSubsystemHit(mem,'combat',1);recordSubsystemHit(mem,'combat',1.8);
+ const risk=threatenedSubsystem(mem,c,2);
+ assert.equal(risk.slot,'combat');
+ assert.equal(risk.remaining,1);
+ assert.ok(risk.plating<.42);
+});
