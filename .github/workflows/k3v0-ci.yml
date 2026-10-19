@@ -1,0 +1,41 @@
+name: k3v0 Part Identity Audit CI
+on:
+  pull_request:
+    paths:
+      - PART_IDENTITY_MATRIX.md
+      - research/partIdentityBaseline.mjs
+      - tests/k3v0PartIdentity.test.mjs
+      - .github/workflows/k3v0-ci.yml
+  push:
+    branches: [k3v0-part-identity-baseline]
+  workflow_dispatch:
+
+jobs:
+  identity-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify syntax
+        run: |
+          node --check research/partIdentityBaseline.mjs
+          node --check tests/k3v0PartIdentity.test.mjs
+      - name: Full existing regressions and identity tests
+        run: npm test
+      - name: Reproducible physical and weapon baseline
+        run: |
+          mkdir -p study-results
+          node research/partIdentityBaseline.mjs | tee study-results/k3v0-identity-baseline.md
+          node research/partIdentityBaseline.mjs --json > study-results/k3v0-identity-baseline.json
+      - name: Existing headless 3v3 Domination smoke
+        run: node research/headlessDominationStudy.mjs 1
+      - name: Upload measured baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k3v0-identity-baseline
+          path: study-results/
+          if-no-files-found: warn
