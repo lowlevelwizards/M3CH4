@@ -72,15 +72,15 @@ test('the garage keeps mounted parts accessible and separates other-machine owne
     assert.match(ui,/selectedSlot = slot;/);
     assert.doesNotMatch(ui,/selectedSlot = selectedSlot === item\.slot \?/);
     assert.match(ui,/dock\.scrollTop = 0; \/\/ New machine/);
-    assert.match(ui,/CLOSE PART DETAILS/);
-    assert.match(ui,/REMOVE INSTALLED MODULE/);
+    assert.match(ui,/button\('×'/);
+    assert.match(ui,/REMOVE PART/);
     assert.match(ui,/REMOVE FROM THIS BAY/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
-    assert.match(ui,/FITTED TO OTHER MACHINES/);
+    assert.match(ui,/OTHER BAYS/);
     assert.match(ui,/OPEN BAY /);
     assert.match(ui,/bayHealth\(stable,owner\.id\)/);
-    assert.match(ui,/CORE '\+pct\(item\.condition\)/);
-    assert.match(ui,/ARM '\+pct\(item\.armorRatio\)/);
+    assert.match(ui,/createStationFace\(item\.slot,item\)/);
+    assert.match(ui,/createConditionMeter\(/);
     assert.match(ui,/actualMode\(loadSeries\(storage\)\) !== 'garage'/);
 });
 test('sortie selection reuses the garage serial-matched armor snapshots',()=>{
