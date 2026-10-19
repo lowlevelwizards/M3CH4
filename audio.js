@@ -31,3 +31,10 @@ export function soundFire() { tone(112, 39, .22, .21, 'sawtooth'); tone(210, 70,
 export function soundImpact() { tone(340, 80, .13, .09, 'square'); }
 export function soundReload() { tone(480, 190, .12, .045, 'triangle'); }
 export function soundEmpty() { tone(550, 370, .06, .025, 'square'); }
+
+/** Low, short hydraulic foot-lock cue; emitted only on a real brace transition.
+ * No persistent nodes, random variation, or sound needed to understand the state. */
+export function soundBrace() {
+    tone(94, 48, .16, .08, 'triangle');
+    tone(185, 88, .08, .035, 'square');
+}
