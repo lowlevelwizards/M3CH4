@@ -37,9 +37,11 @@ test('bounded baseline has legal comparisons and reports illegality rather than 
             continue;
         }
         for (const value of [x.massKg,x.speedAfterOneSecondMps,x.distanceAfterOneSecondM,
-            x.strafeAfterOneSecondMps,x.brakeFromFiveMpsDistanceM,x.turnNinetySeconds,
+            x.strafeAfterOneSecondMps,x.remainingSpeedAfterHalfSecondBrakingMps,x.turnNinetySeconds,
             x.recoil.impulseVelocityMps,x.recoil.impulseYawRateRadS,x.recoil.driftAfterHalfSecondM])
             assert.ok(Number.isFinite(value) && value >= 0, JSON.stringify(x));
+        if (x.brakeFromFiveMpsDistanceM !== null)
+            assert.ok(Number.isFinite(x.brakeFromFiveMpsDistanceM) && x.brakeFromFiveMpsDistanceM >= 0);
     }
     assert.ok(report.mechanical.some(x => !x.ready), 'known overweight / power-starved cases must remain visible');
     assert.match(formatPartIdentityBaseline(report), /NOT a warehouse/);
