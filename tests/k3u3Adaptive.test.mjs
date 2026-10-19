@@ -134,8 +134,8 @@ test('player remains uncontrolled while squad has real physical orders',()=>{
 });
 test('page labels and connected circuit map actually ship in the working tree',()=>{
  const html=content('index.html'),ui=content('unifiedGarageUI.js'),css=content('unifiedGarageStyles.css');
- assert.match(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.4<\/span>/);
- assert.match(html,/Cockpit Clarity & State Truth/);
+ assert.match(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.5<\/span>/);
+ assert.match(html,/Domination Elimination Victory/);
  assert.match(ui,/CONNECTED JOBS/);
  assert.match(css,/campaign-node-tile/);
  assert.match(html,/unifiedGarageUI\.js\?v=k3u3/);
