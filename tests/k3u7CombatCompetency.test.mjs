@@ -19,7 +19,8 @@ const actor=(id,team,x,z,yaw=0)=>({id,team,rig:rig(x,z,yaw),condition:condition(
 test('near-miss evidence requires physical proximity to the finite bullet path',()=>{
  const near=shotThreatEvidence(pos(1,7),pos(0,0),pos(0,15));
  assert.ok(near&&near.severity>0);
- assert.deepEqual(near.bearing,{x:0,z:-1});
+ assert.equal(Math.abs(near.bearing.x),0);
+ assert.equal(near.bearing.z,-1);
  assert.equal(shotThreatEvidence(pos(8,7),pos(0,0),pos(0,15)),null);
  assert.equal(shotThreatEvidence(pos(0,25),pos(0,0),pos(0,15)),null);
 });
