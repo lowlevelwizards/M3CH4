@@ -132,7 +132,7 @@ test('updated mobile URLs reference fresh result and machine-status resources',(
     const html=source('index.html');
     const mount=source('garageMountUI.js');
     const series=source('seriesUI.js');
-    assert.match(html,/main\.js\?v=k3v5/);
+    assert.match(html,/main\.js\?v=k3v5p1/);
     assert.match(html,/garageMountUI\.js\?v=k3u3/);
     assert.match(html,/garageBay\.js\?v=k3s2/);
     assert.match(mount,/seriesUI\.js\?v=k3s2/);
