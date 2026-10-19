@@ -284,7 +284,7 @@ function moduleDetails(stable, view, machine) {
         box.append(positions);
     }
     if (installed) {
-        box.append(button('REMOVE INSTALLED MODULE · ' + installed.serial, () => editModule(slot,null), 'unified-remove'));
+        box.append(button('REMOVE PART · ' + installed.serial, () => editModule(slot,null), 'unified-remove'));
         if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
             box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
     }
@@ -295,7 +295,7 @@ function moduleDetails(stable, view, machine) {
     const owned = stable.inventory.filter(part => BY_ID.get(part.definitionId)?.slot === slot);
     if (!selectedHardwareSerial || !owned.some(part => part.serial === selectedHardwareSerial))
         selectedHardwareSerial = installed?.serial ?? owned[0]?.serial ?? null;
-    if (!owned.length) choices.append(el('p','unified-muted','NO PARTS · VISIT COUNTER'));
+    if (!owned.length) choices.append(el('p','unified-muted','NO PARTS · COUNTER'));
 
     const ownerFor = serial => stable.rigs.find(rig =>
         Object.values(rig.installed).includes(serial));
@@ -436,7 +436,7 @@ function moduleDetails(stable, view, machine) {
     return box;
 }
 function editModule(slot,serial) {
-    if (actualMode(loadSeries(storage)) !== 'garage') { message('PIT LOCKED · NO MODULE CHANGES',true);return; }
+    if (actualMode(loadSeries(storage)) !== 'garage') { message('PIT LOCKED · NO PART CHANGES',true);return; }
     const result=emitEdit('m3ch4:bay-module',{rigId:viewedId,slot,serial});
     message(result.ok ? (serial ? 'PART INSTALLED · '+serial : 'PART REMOVED') : result.reason,!result.ok);
     if(result.ok) { previewSignature='';render(); }
@@ -454,7 +454,7 @@ function appendIdentityForm(view, stable) {
             commissionRig(loaded.stable,viewedId,input.value);
         if(!result.ok) {message(result.reason,true);return;}
         if(!storeStable(storage,loaded.stable)){message('STABLE SAVE FAILED',true);return;}
-        message('MACHINE '+(rig.commissioned?'SAVED':'COMMISSIONED'));previewSignature='';render();
+        message('RIG '+(rig.commissioned?'SAVED':'COMMISSIONED'));previewSignature='';render();
     },'',!view.rig.commissioned&&!view.readiness.fieldable);
     wrap.append(input,action);
     return wrap;
@@ -535,7 +535,7 @@ function renderCounter(machine) {
         onAction:()=>{
             const result=emitEdit('m3ch4:counter-buy',{serial:chosen.serial});
             message(result.ok?
-                'PURCHASED '+chosen.serial+' · STORED IN OWNED HARDWARE':result.reason,!result.ok);
+                'PURCHASED '+chosen.serial+' · STORED IN PARTS RACK':result.reason,!result.ok);
             if(result.ok) {vendorTableSignature='';render();}
         },
     });
@@ -660,7 +660,7 @@ function patchInPit(stable,view,series) {
         const owner=rigById(stable,action.rigId);
         const verified=view.health.find(part=>part.slot===action.slot &&
             part.serial===action.serial);
-        const condition=verified?'INTERNAL '+pct(verified.condition)+' · ARMOR '+
+        const condition=verified?'INTEGRITY '+pct(verified.condition)+' · ARMOR '+
             pct(verified.armorRatio)+' · WEAR '+pct(verified.wear):'SAVE VERIFICATION UNAVAILABLE';
         wrap.append(el('p','unified-patch-proof',rigName(owner).toUpperCase()+
             ' · '+SLOT_LABELS[action.slot]+' · '+action.serial+' · '+condition));
