@@ -495,12 +495,15 @@ function playerPartRemaining(part) {
 }
 function syncCockpitInstruments() {
     if (!arena?.updateCockpitInstruments) return;
-    const systems = {};
+    const systems = {}, armor = {};
     let lowest = 1; let disabled = false;
     for (const slot of SLOTS) {
         const part = playerCondition.parts[slot];
         const ratio = playerPartRemaining(part);
         systems[slot] = Math.round(ratio * 100);
+        // Armor is an independent external pool, never derived from core health.
+        armor[slot] = part?.maxArmor > 0 ?
+            Math.round(Math.max(0, Math.min(1,part.armor/part.maxArmor)) * 100) : 0;
         lowest = Math.min(lowest, ratio);
         disabled ||= !!part && part.integrity <= 0;
     }
@@ -508,7 +511,7 @@ function syncCockpitInstruments() {
     const failure = weaponFailureState(playerCondition, fieldService);
     const weaponStateLabel = !weaponSpec ? 'LOST' : !playerPower.weaponReady ? 'PWR SAG' : failure === 'faulted' ? 'FAULT' : failure === 'destroyed' || failure === 'unrecoverable' ? 'LOST' : output.weapon < .95 ? 'DAMAGED' : weaponState?.reloadLeft > 0 ? 'RELOAD' : 'READY';
     arena.updateCockpitInstruments({
-        systems, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
+        systems, armor, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
         drive: { left: output.left, right: output.right },
         weapon: weaponSpec?.label ?? 'NO WEAPON',
         ammo: weaponState ? `${weaponState.loaded}/${weaponState.reserve}` : '—',
@@ -523,7 +526,12 @@ function renderPlayerDamageHUD(flashSlot = null) {
         const ratio = playerPartRemaining(part);
         const value = element.querySelector('i');
         if (value) value.textContent = String(Math.round(ratio * 100));
-        element.classList.toggle('breached', part.armor < part.maxArmor * .04);
+        const shell=part.maxArmor>0 ? Math.max(0,Math.min(1,part.armor/part.maxArmor)) : 0;
+        element.style.setProperty('--core',Math.round(ratio*100)+'%');
+        element.style.setProperty('--armor',Math.round(shell*100)+'%');
+        element.setAttribute('aria-label',slot.toUpperCase()+' · INTEGRITY '+Math.round(ratio*100)+
+            '% · ARMOR '+Math.round(shell*100)+'%');
+        element.classList.toggle('breached', shell < .04);
         element.classList.toggle('damaged', ratio < .72);
         element.classList.toggle('severe', ratio < .38);
         element.classList.toggle('disabled', part.integrity <= 0);
@@ -538,6 +546,12 @@ function renderPlayerDamageHUD(flashSlot = null) {
 }
 function signalPlayerHit(slot, hit) {
     renderPlayerDamageHUD(slot);
+    // Armor impacts and core penetration are different physical events.
+    const indicator=playerDamageSegments.get(slot);
+    if(indicator) {
+        indicator.classList.toggle('armor-impact',hit.armorAbsorbed>0&&hit.internalDamage<=0);
+        indicator.classList.toggle('core-impact',hit.internalDamage>0);
+    }
     arena.triggerCockpitHit(slot, cockpitImpactProfile(slot, { internalDamage: hit.internalDamage, disabled: hit.disabled, driveSide: hit.driveSide }));
     playerHitFlash.className = `player-hit-flash active hit-${slot}${hit.internalDamage > 0 ? ' breached' : ''}`;
     void playerHitFlash.offsetWidth;
