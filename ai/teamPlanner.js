@@ -1,3 +1,4 @@
+import { zoneOpportunity, casualtyAssignment, assaultStagingPoint } from './adaptiveTactics.js';
 /** Small exhaustive team assignment planner. Six rigs total makes a full general
  * scheduler unnecessary. Jobs are real tactical consequences of the objective.
  * No path, transform, ammo or damage mutation happens here.
@@ -19,13 +20,15 @@ function zoneJobs(snapshot,team,strategy=null) {
         const urgency=enemyMajority&&threat?1.34:
             ourMajority&&friendlyOwned?1.11:
             z.contested?1.18:1;
-        let base=(enemyOwned?.94:friendlyOwned?.59:.83)*urgency;
+        let base=(enemyOwned?.94:friendlyOwned?.59:.83)*urgency+
+            (zoneOpportunity(z,team,ourMajority)-.95)*.55;
+        if(friendlyOwned&&!z.contested&&ourMajority)base+=.18;
         if(strategy?.target===z.id && ['ROTATE','BREAK_MAJORITY'].includes(strategy.phase))
             base+=.55;
         if(strategy?.phase==='ROTATE'&&z.contested&&strategy.target!==z.id)
             base-=.35;
         if(strategy?.phase==='HOLD_MAJORITY'&&friendlyOwned)base+=.13;
-        const primary={id:job+':'+z.id,kind:job,objectiveId:z.id,point:{...z.point},
+        const primary={id:job+':'+z.id,kind:job,objectiveId:z.id,point:{...z.point},zone:z,
             priority:base,defended:friendlyOwned,contested:z.contested,
             note:enemyMajority&&threat?'BREAK ENEMY MAJORITY':
                 ourMajority&&friendlyOwned?'PROTECT SCORING MAJORITY':
@@ -36,7 +39,7 @@ function zoneJobs(snapshot,team,strategy=null) {
         if(z.id===strategy?.target &&
            ['BREAK_MAJORITY','ROTATE'].includes(strategy.phase)&&threat)
             return [primary,{id:'SCREEN:'+z.id,kind:'SCREEN',
-                objectiveId:z.id,point:{...z.point},priority:base-.12,
+                objectiveId:z.id,point:{...z.point},zone:z,priority:base-.12,
                 defended:false,contested:z.contested,
                 note:'SCREEN CAPTURER · INTERCEPT APPROACH'}];
         return [primary];
@@ -56,7 +59,7 @@ function suitability(actor,job,team) {
     const positional=here?.26:0;
     const penalty=Math.min(.62,travel*.021);
     return job.priority+offense+toughness+maneuver+positional-penalty+
-        (cap.canFight?.04:-.09);
+        (cap.canFight?.04:-.09)+casualtyAssignment(actor,job,job.zone);
 }
 function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null) {
     const entries=actors.slice(0,4).sort((a,b)=>a.id.localeCompare(b.id));
@@ -79,7 +82,7 @@ function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null) {
             const concentrating=strategy?.target===job.objectiveId&&
                 strategy?.phase==='BREAK_MAJORITY';
             const duplication=(n===0?0:n===1?(concentrating?.19:.43):.88)+
-                (playerZoneId===job.objectiveId&&job.defended&&!job.contested?.32:0);
+                (playerZoneId===job.objectiveId&&!job.contested?.52:0);
             counts.set(job.objectiveId,n+1);
             chosen.push(job);walk(i+1,score+value-duplication,chosen,counts);
             chosen.pop();if(n)counts.set(job.objectiveId,n);else counts.delete(job.objectiveId);
@@ -101,7 +104,8 @@ export function planTeam(snapshot,team,options={}) {
         const player=view.allies.find(a=>a.id==='player');
         const playerZone=player?snapshot.zones.find(z=>
             dist(z.point,player.position)<4.7):null;
-        for(const pair of assignExhaustive(actors,jobs,team,playerZone?.id,strategy)) {
+        const assignedPairs=assignExhaustive(actors,jobs,team,playerZone?.id,strategy);
+        for(const pair of assignedPairs) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
                 role:'ANCHOR',reason:'UNABLE TO REACH OBJECTIVE',
@@ -122,6 +126,52 @@ export function planTeam(snapshot,team,options={}) {
                     strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
                         'FLANKER':'CAPTURER'};
         }
+        // Human pilot is not controllable by the planner. Nearby supporting
+        // allies cover approaches instead of crowding the player's point.
+        if(playerZone && playerZone.owner===team&&!playerZone.contested) {
+            for(const [id,order] of Object.entries(orders)){
+                if(order.objectiveId!==playerZone.id||order.goal==='SCREEN')continue;
+                const alternatives=jobs.filter(j=>j.objectiveId!==playerZone.id)
+                  .sort((a,b)=>b.priority-a.priority);
+                if(alternatives.length && order.goal==='DEFEND' &&
+                    actors.some(a=>a.id===id&&a.capability?.canMove)){
+                    const next=alternatives[0];
+                    orders[id]={...order,goal:next.kind,objectiveId:next.objectiveId,
+                        point:{...next.point},role:'FLANKER',reason:'PLAYER HOLDS '+playerZone.id,
+                        note:'FREE ALLY TO SUPPORT PLAYER',score:clamp(next.priority/1.7)};
+                }
+            }
+        }
+        // Synchronize a real two-rig assault for at most four seconds.
+        // The staging state cannot hold a squad hostage if one rig is late.
+        const memory=options.assaultMemory;
+        if(memory && ['ROTATE','BREAK_MAJORITY'].includes(strategy?.phase)) {
+            const paired=Object.entries(orders).filter(([,o])=>
+                o.objectiveId===strategy.target&&['CONTEST','CAPTURE','SCREEN'].includes(o.goal));
+            if(paired.length>=2){
+                if(memory.target!==strategy.target){
+                    memory.target=strategy.target;memory.since=snapshot.time??0;
+                }
+                const age=(snapshot.time??0)-(memory.since??0);
+                if(age<4){
+                    const attackZone=snapshot.zones.find(z=>z.id===strategy.target);
+                    const far=paired.filter(([id])=>{
+                        const me=actors.find(a=>a.id===id);
+                        return me&&dist(me.position,attackZone.point)>7;
+                    });
+                    if(far.length>0){
+                        const [leaderId]=paired[0], leader=actors.find(a=>a.id===leaderId);
+                        for(const [id,order] of paired){
+                            const me=actors.find(a=>a.id===id);
+                            if(!me||!leader)continue;
+                            orders[id]={...order,goal:'STAGE',radius:null,
+                              point:assaultStagingPoint(me,attackZone.point,leader),
+                              role:order.role,reason:'ASSEMBLE FOR ASSAULT · '+strategy.target};
+                        }
+                    }
+                }
+            }
+        }else if(memory){memory.target=null;}
         return {team,orders,reason:strategy?.reason??'TERRITORY MAJORITY',
             strategy:strategy?.phase??'TAKE_GROUND',
             target:strategy?.target??null,stalledFor:strategy?.stalledFor??0,

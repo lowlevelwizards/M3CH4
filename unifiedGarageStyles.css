@@ -253,3 +253,67 @@ body.inspecting #unified-garage{display:block}
  #unified-garage .counter-lot-detail .part-detail-preview{min-height:94px}
  #unified-garage .counter-lot-detail .part-detail-action{min-height:38px}
 }
+
+/* k.3u.0 — the original circuit identity, now inside the unified dock. The
+   connectors are drawn from campaign prereqs, never a second unlock authority. */
+#unified-garage .unified-campaign-map{
+ box-sizing:border-box;position:relative;display:grid;width:100%;
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ grid-template-rows:75px 75px 75px 75px;gap:27px 5px;
+ grid-template-areas:
+ ". yard ."
+ "recovery cutter domination"
+ ". mule ."
+ ". final .";
+ padding:3px 0 1px;
+}
+#unified-garage .unified-campaign-map svg{
+ position:absolute;z-index:0;inset:0;width:100%;height:100%;
+ pointer-events:none;overflow:visible;
+}
+#unified-garage .unified-campaign-map .campaign-link{
+ stroke:#52634f;stroke-width:1.5;opacity:.6;fill:none;stroke-dasharray:4 3;
+}
+#unified-garage .unified-campaign-map .campaign-link.unlocked{
+ stroke:#caa566;stroke-width:2.4;opacity:.95;stroke-dasharray:none;
+}
+#unified-garage .campaign-node-tile{
+ z-index:1;position:relative;box-sizing:border-box;
+ min-width:0;min-height:0;width:100%;padding:5px 4px;
+ border:1px solid #687766;color:#d2c397;background:#202923ed;
+ display:flex;flex-direction:column;justify-content:center;align-items:center;
+ gap:3px;text-align:center;white-space:normal;
+}
+#unified-garage .campaign-node-tile strong{
+ width:100%;max-width:100%;padding:0;white-space:normal;overflow-wrap:anywhere;
+ line-height:1.14;font-size:9px;letter-spacing:.02em;
+}
+#unified-garage .campaign-node-tile small{
+ width:100%;font-size:7px;line-height:1.12;overflow-wrap:anywhere;
+}
+#unified-garage .campaign-node-tile .node-stage{
+ position:absolute;top:2px;right:3px;
+ font-size:7px;font-weight:900;color:#dec286;
+}
+#unified-garage .campaign-node-tile .node-optional{color:#9da9b0;font-size:7px}
+#unified-garage .campaign-node-tile.locked{
+ background:#1c211dee;border-color:#424c44;color:#717d72;
+}
+#unified-garage .campaign-node-tile.locked strong{color:#7f8d81}
+#unified-garage .campaign-node-tile:not(.locked){border-color:#ad955e}
+#unified-garage .campaign-node-tile[data-node="yard-dog"]{grid-area:yard}
+#unified-garage .campaign-node-tile[data-node="recovery-run"]{grid-area:recovery}
+#unified-garage .campaign-node-tile[data-node="cutter"]{grid-area:cutter}
+#unified-garage .campaign-node-tile[data-node="domination"]{grid-area:domination}
+#unified-garage .campaign-node-tile[data-node="mule"]{grid-area:mule}
+#unified-garage .campaign-node-tile[data-node="circuit-final"]{grid-area:final}
+#unified-garage .unified-patch-proof{
+ padding:9px;border:1px solid #a88d52;background:#28281c;
+ color:#e1c88a;font:800 10px/1.45 ui-monospace,monospace;
+}
+@media(max-width:750px){
+ #unified-garage .unified-campaign-map{grid-template-rows:74px 75px 74px 74px;gap:23px 4px}
+ #unified-garage .campaign-node-tile{padding:5px 2px}
+ #unified-garage .campaign-node-tile strong{font-size:8px}
+ #unified-garage .campaign-node-tile small{font-size:6px}
+}
