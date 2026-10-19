@@ -245,13 +245,12 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
             base.throttle*=teamIntent.throttleScale??1;
         }else{
             const hasContact=distance(enemy,player)>.3;
+            // Route arrival requires stable braking, not idle sector scans.
+            // Scan only once a true stationary/anchored order is established.
             if(!hasContact&&motion.scanBaseYaw===null)motion.scanBaseYaw=enemy.yaw;
             if(hasContact)motion.scanBaseYaw=null;
-            const scanYaw=(motion.scanBaseYaw??enemy.yaw)+Math.sin(motion.elapsed*.48)*.85;
-            const error=Math.atan2(Math.sin(scanYaw-enemy.yaw),Math.cos(scanYaw-enemy.yaw));
             const face=hasContact?clamp(headingError(enemy,player)*
-                profile.steerGain-enemy.yawRate*profile.yawRateDamping):
-                clamp(error*profile.steerGain-enemy.yawRate*profile.yawRateDamping);
+                profile.steerGain-enemy.yawRate*profile.yawRateDamping):0;
             base={throttle:0,strafe:0,steer:face,brake:.85};
         }
         motion.phase='ORDER';
@@ -302,7 +301,14 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         const intentDistance = distance(from, teamIntent.point);
         const targetSteer = clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);
         if (teamIntent.mode === 'ANCHOR' && intentDistance < 2.2) {
-            base = { throttle: 0, strafe: 0, steer: targetSteer, brake: Math.max(.52, teamIntent.brakeBias ?? 0) };
+            const unknown=distance(enemy,player)<.3;
+            if(unknown&&motion.scanBaseYaw===null)motion.scanBaseYaw=enemy.yaw;
+            if(!unknown)motion.scanBaseYaw=null;
+            const scanYaw=(motion.scanBaseYaw??enemy.yaw)+Math.sin(motion.elapsed*.34)*.66;
+            const scanError=Math.atan2(Math.sin(scanYaw-enemy.yaw),Math.cos(scanYaw-enemy.yaw));
+            const watchSteer=unknown?clamp(scanError*profile.steerGain-
+                enemy.yawRate*profile.yawRateDamping):targetSteer;
+            base = { throttle: 0, strafe: 0, steer: watchSteer, brake: Math.max(.52, teamIntent.brakeBias ?? 0) };
         }
         else if (intentDistance > 1.15) {
             base = driveToward(enemy, teamIntent.point, intentDistance);
