@@ -142,7 +142,7 @@ function machineCard(stable, rig, assignment) {
     const metrics = document.createElement('small');
     const inspection = readiness.inspection;
     metrics.textContent = inspection
-        ? `${inspection.massKg.toLocaleString()} kg · ${inspection.powerUsedKw}/${inspection.powerAvailableKw} kW · ${Math.round(health.ratio * 100)}% LOWEST`
+        ? `${inspection.massKg.toLocaleString()} kg · ${inspection.powerUsedKw}/${inspection.powerAvailableKw} kW · ${Math.round(health.ratio * 100)}% LOWEST CORE/ARMOR`
         : 'NO COMPLETE ASSEMBLY';
     const career = document.createElement('small');
     career.textContent = `${rig.career.deployments} DEPLOYMENTS · ${rig.career.roundWins}-${rig.career.roundLosses}${selectable ? '' : ` · ${readinessText(readiness)}`}`;
