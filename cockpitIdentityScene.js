@@ -139,7 +139,8 @@ export function installCockpitIdentities(arena,assembly){
         for(const channel of ['motion','drive'])
             drawCockpitChannel(screens[channel],channel,data,current,faults);
     };
-    const triggerBase=arena.triggerCockpitHit.bind(arena);
+    const triggerBase=typeof arena.triggerCockpitHit==='function' ?
+        arena.triggerCockpitHit.bind(arena) : ()=>{}; // headless view-only audit
     arena.triggerCockpitHit=(slot,profile={})=>{
         triggerBase(slot,profile);
         const index=['structure','mobility','power','command','combat'].indexOf(slot);
