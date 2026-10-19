@@ -1,0 +1,24 @@
+name: k3u5 Domination Elimination CI
+on:
+  push:
+    branches: ["k3u5-domination-elimination-end"]
+    paths: [".github/workflows/k3u5-elimination-ci.yml"]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check behavior and regression tests
+        run: |
+          node --check main.js
+          git diff --check HEAD^ HEAD
+          npm test
+      - name: Verify unchanged scoring/physics simulation
+        run: node research/headlessDominationStudy.mjs 1
