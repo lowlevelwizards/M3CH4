@@ -106,3 +106,21 @@ export function threatFacingPoint(actor,awareness){
  if(!state?.lastThreat||state.underFireSeconds<=.2)return null;
  return {x:state.lastThreat.x,z:state.lastThreat.z};
 }
+
+/** Two or more real impacts on a weakening serialized subsystem constitute a
+ * repeat-targeting pattern; a single stray hit does not trigger panic. */
+export function recordSubsystemHit(memory,slot,now){
+ if(!memory||!slot)return;
+ if(memory.focusSlot===slot&&now-(memory.lastSystemHitAt??-100)<3)
+   memory.focusHits=(memory.focusHits??0)+1;
+ else {memory.focusSlot=slot;memory.focusHits=1;}
+ memory.lastSystemHitAt=now;
+}
+export function threatenedSubsystem(memory,condition,now){
+ if(!memory||now-(memory.lastSystemHitAt??-100)>2.8||
+    (memory.focusHits??0)<2)return null;
+ const part=condition?.parts?.[memory.focusSlot];
+ if(!part||part.destroyed)return null;
+ const fraction=part.integrity/Math.max(1,part.maxIntegrity);
+ return fraction<.72?{slot:memory.focusSlot,remaining:fraction,hits:memory.focusHits}:null;
+}
