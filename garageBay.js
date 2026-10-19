@@ -2,6 +2,7 @@
  * The viewed bay is NOT the combat-active rig. Any bay may be incomplete.
  */
 import { BY_ID, SLOTS, inspectAssembly, generatorMount, setGeneratorMount } from './components.js';
+import { stationLabel } from './uiLanguage.js';
 import { graphFromStations } from './assemblyGraph.js';
 import { createTargetCondition, restoreTargetPart } from './combat.js';
 import { createFunctionalDamage } from './functionalDamage.js';
@@ -15,9 +16,7 @@ import {
 const clone = value => JSON.parse(JSON.stringify(value));
 export const BAY_IDS = Object.freeze(['rig-01','rig-02','rig-03']);
 export const BAY_SLOTS = SLOTS;
-export const SLOT_LABELS = Object.freeze({
-    structure:'FRAME',mobility:'MOVE',power:'PWR',command:'CMD',combat:'ARMS',
-});
+export const SLOT_LABELS = Object.freeze(Object.fromEntries(SLOTS.map(slot=>[slot,stationLabel(slot)])));
 export function bayAssembly(stable, rigId) {
     const rig = rigById(stable, rigId);
     if (!rig) return null;

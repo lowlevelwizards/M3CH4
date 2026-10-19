@@ -72,15 +72,15 @@ test('the garage keeps mounted parts accessible and separates other-machine owne
     assert.match(ui,/selectedSlot = slot;/);
     assert.doesNotMatch(ui,/selectedSlot = selectedSlot === item\.slot \?/);
     assert.match(ui,/dock\.scrollTop = 0; \/\/ New machine/);
-    assert.match(ui,/CLOSE PART DETAILS/);
-    assert.match(ui,/REMOVE INSTALLED MODULE/);
+    assert.match(ui,/button\('×'/);
+    assert.match(ui,/REMOVE PART/);
     assert.match(ui,/REMOVE FROM THIS BAY/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
-    assert.match(ui,/FITTED TO OTHER MACHINES/);
+    assert.match(ui,/OTHER BAYS/);
     assert.match(ui,/OPEN BAY /);
     assert.match(ui,/bayHealth\(stable,owner\.id\)/);
-    assert.match(ui,/CORE '\+pct\(item\.condition\)/);
-    assert.match(ui,/ARM '\+pct\(item\.armorRatio\)/);
+    assert.match(ui,/createStationFace\(item\.slot,item\)/);
+    assert.match(ui,/createConditionMeter\(/);
     assert.match(ui,/actualMode\(loadSeries\(storage\)\) !== 'garage'/);
 });
 test('sortie selection reuses the garage serial-matched armor snapshots',()=>{
@@ -110,10 +110,10 @@ test('the elimination resolver ends Domination when all enemy combat rigs have b
 test('DEV version comes from the actual page build label, not a stale hardcoded string',()=>{
     const html=source('index.html'),main=source('main.js');
     assert.match(html,/<span id="dev-version"><\/span>/);
-    assert.match(html,/0\.0\.1k\.3v\.5\.1 — Garage & Bout Fixes/);
+    assert.match(html,/0\.0\.1k\.3w\.0 — Unified Workshop UI/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
     assert.match(main,/devVersion\.textContent = document\.title\.split/);
-    assert.match(html,/main\.js\?v=k3v5p1/);
-    assert.match(html,/garageMountUI\.js\?v=k3v5p1/);
-    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k3v5p1/);
+    assert.match(html,/main\.js\?v=k3w0/);
+    assert.match(html,/garageMountUI\.js\?v=k3w0/);
+    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k3w0/);
 });

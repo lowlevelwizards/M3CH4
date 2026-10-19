@@ -37,11 +37,11 @@ test('recovery status and friendly screening are legible without omniscient new 
     assert.match(main, /WEAPON RECOVERY: FIELD SERVICE/);
     assert.match(main, /serviceInterruptedByHit = fieldService\.held/);
     assert.match(main, /if \(serviceInterruptedByHit\) handleFieldServiceInterrupted\(\)/);
-    assert.match(main, /REMOTE MODULE TELEMETRY WITHHELD/);
+    assert.match(main, /ENEMY PART CONDITION UNKNOWN/);
 });
 
 test('mobile runtime cache identity still loads the recovery-readability scene source', () => {
     assert.match(index, /sceneAssembly\.js\?v=k3v5/);
-    assert.match(index, /main\.js\?v=k3v5p1/);
+    assert.match(index, /main\.js\?v=k3w0/);
     assert.match(bridge, /scene\.js\?source=k3v4/);
 });

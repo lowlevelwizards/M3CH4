@@ -7,7 +7,9 @@
 import { contractById } from './contracts.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
-import { bayHealth, SLOT_LABELS } from './garageBay.js';
+import { bayHealth, bayModuleQuote, SLOT_LABELS } from './garageBay.js';
+import { createConditionMeter } from './uiMeters.js';
+import { conditionFromPart, stationLabel } from './uiLanguage.js';
 import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
 } from './sortieAssignment.js';
@@ -54,10 +56,11 @@ function renderCombatSeries() {
     if (!visible) return;
     hud.replaceChildren();
     const contract = document.createElement('strong');
-    contract.textContent = contractById(match.contractId).name.toUpperCase() + ' · BEST OF THREE';
+    contract.textContent = contractById(match.contractId).name.toUpperCase()+' · BO3';
     const score = document.createElement('span');
-    score.textContent = 'ROUND ' + match.roundNumber + ' / 3 · YOU ' +
-        match.playerWins + ' — ' + match.enemyWins + ' HOSTILE';
+    score.textContent = 'R'+match.roundNumber+'/3  ·  '+match.playerWins+' — '+match.enemyWins;
+    hud.setAttribute('aria-label',contractById(match.contractId).name+' best of three, round '+match.roundNumber+
+        ', your score '+match.playerWins+', opponents '+match.enemyWins);
     hud.append(contract,score);
 }
 
@@ -140,7 +143,7 @@ function pitBanner(series) {
     const score = document.createElement('div'); score.className = 'bo3-score';
     score.innerHTML = `<span>YOU</span><b>${series.playerWins}</b><i>—</i><b>${series.enemyWins}</b><span>HOSTILE</span>`;
     const note = document.createElement('p');
-    note.textContent = 'PIT LOCKED · CHOOSE ANY COMMISSIONED FIELDABLE MACHINE BELOW. DAMAGE PERSISTS; SERVICE AND PART SWAPS RESUME AFTER THE CONTRACT.';
+    note.textContent = 'PIT LOCKED · ONE FIELD PATCH · NO PART SWAPS';
     banner.append(left, score, note);
     return banner;
 }
@@ -188,12 +191,40 @@ function readinessText(stable, rigId) {
     return 'OUT · NOT FIELDABLE';
 }
 
-function appendDebriefRow(label, value, kind = '') {
+function appendDebriefRow(label, value, kind = '', reading = null, serviceQuote = null) {
     const row = document.createElement('div');
     row.className = `debrief-row ${kind}`.trim();
     const name = document.createElement('span'); name.textContent = label;
     const amount = document.createElement('strong'); amount.textContent = value;
-    row.append(name, amount); debriefLines.append(row);
+    if (reading?.serial) {
+        row.classList.add('rig-condition-row');
+        row.append(name,createConditionMeter(conditionFromPart(reading),{compact:true,slot:reading.slot}));
+        if(serviceQuote?.amount>0){
+            const cost=document.createElement('small');
+            cost.className='rig-repair-estimate';
+            cost.textContent='₡'+serviceQuote.amount;
+            cost.title='SHOP REPAIR ESTIMATE · NOT AVAILABLE DURING BO3 PIT';
+            row.append(cost);
+        }
+        amount.setAttribute('aria-label',value);
+        amount.classList.add('rig-condition-alt');
+        // Exact percentages remain inspectable via the accessible row and title.
+        row.title=value;
+        row.tabIndex=0;
+        row.setAttribute('role','button');
+        row.setAttribute('aria-expanded','false');
+        row.setAttribute('aria-label',label+' · '+value+' · tap for readings');
+        const toggle=()=>{
+            row.classList.toggle('expanded');
+            row.setAttribute('aria-expanded',String(row.classList.contains('expanded')));
+        };
+        row.addEventListener('click',toggle);
+        row.addEventListener('keydown',event=>{
+            if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}
+        });
+    } else row.append(name);
+    row.append(amount);
+    debriefLines.append(row);
 }
 
 function renderRoundIntermission(series, round) {
@@ -213,9 +244,10 @@ function renderRoundIntermission(series, round) {
             ? 'INT ' + percent(part.condition) + ' · ARM ' + percent(part.armorRatio) +
                 ' · WEAR ' + percent(part.wear)
             : 'NOT INSTALLED';
-        appendDebriefRow(SLOT_LABELS[part.slot] + ' · ' + part.label,
+        appendDebriefRow(stationLabel(part.slot)+(part.label==='READY'?'':' · '+part.label),
             reading, part.destroyed || part.condition <= .001 ? 'repair'
-                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '');
+                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '',part,
+            bayModuleQuote(stable,round.rigId,part.slot));
     }
     appendDebriefRow('CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS');
     debriefGarage.textContent = 'CONTINUE TO INTERMISSION · ROUND ' + series.roundNumber;

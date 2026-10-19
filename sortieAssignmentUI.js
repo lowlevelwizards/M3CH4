@@ -84,7 +84,7 @@ function definingHardware(stable, rig) {
         const def = part ? BY_ID.get(part.definitionId) : null;
         if (def) names.push(def.name);
     }
-    return names.length ? names.join(' · ') : 'NO FIELD HARDWARE';
+    return names.length ? names.join(' · ') : 'NO FITTED PARTS';
 }
 
 function readinessText(readiness) {

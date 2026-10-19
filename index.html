@@ -13,12 +13,14 @@
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <script type="importmap">{
   "imports": {
+    "./uiLanguage.js": "./uiLanguage.js?v=k3w0",
+    "./uiMeters.js": "./uiMeters.js?v=k3w0",
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
     "./assemblyPhysics.js": "./assemblyPhysics.js?v=k3c0",
     "./frameShielding.js": "./frameShielding.js?v=k3v3",
     "./cockpitProfiles.js": "./cockpitProfiles.js?v=k3v5",
-    "./cockpitDisplays.js": "./cockpitDisplays.js?v=k3v5",
-    "./cockpitIdentityScene.js": "./cockpitIdentityScene.js?v=k3v5",
+    "./cockpitDisplays.js": "./cockpitDisplays.js?v=k3w0",
+    "./cockpitIdentityScene.js": "./cockpitIdentityScene.js?v=k3w0",
     "./audio.js": "./audio.js?v=k3v3",
     "./combat.js": "./combat.js?v=k3v2",
     "./components.js": "./components.js?v=k3l1",
@@ -52,9 +54,9 @@
     "./boutScoring.js": "./boutScoring.js?v=k3l0",
     "./salvageDraft.js": "./salvageDraft.js?v=k3l1",
     "./boutSession.js": "./boutSession.js?v=k3r0",
-    "./garageBay.js": "./garageBay.js?v=k3s2",
+    "./garageBay.js": "./garageBay.js?v=k3w0",
     "./usedPartsCounter.js": "./usedPartsCounter.js?v=k3t0",
-    "./unifiedGarageUI.js": "./unifiedGarageUI.js?v=k3u3",
+    "./unifiedGarageUI.js": "./unifiedGarageUI.js?v=k3w0",
     "./ai/worldModel.js": "./ai/worldModel.js?v=k3u7",
     "./ai/teamPlanner.js": "./ai/teamPlanner.js?v=k3u6",
     "./ai/strategicState.js": "./ai/strategicState.js?v=k3u6",
@@ -70,8 +72,9 @@
     <link rel="stylesheet" href="./styles.css?v=k3v1" />
     <link rel="stylesheet" href="./mountStyles.css?v=k2" />
     <link rel="stylesheet" href="./unifiedGarageStyles.css?v=k3v5p1" />
+    <link rel="stylesheet" href="./uiRedesign.css?v=k3w0" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3v.5.1 — Garage & Bout Fixes</title>
+    <title>MECH ARENA — 0.0.1k.3w.0 — Unified Workshop UI</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -93,16 +96,16 @@
     <div id="objective-status" class="objective-status" aria-live="polite">OBJ · BREAK HOSTILE TEAM</div>
     <div id="player-damage-hud" class="player-damage-hud" aria-label="player component condition">
       <span data-system="structure"><b>FRAME</b><i>100</i></span>
-      <span data-system="mobility"><b>MOVE</b><i>100</i></span>
-      <span data-system="power"><b>PWR</b><i>100</i></span>
-      <span data-system="command"><b>CMD</b><i>100</i></span>
-      <span data-system="combat"><b>ARMS</b><i>100</i></span>
+      <span data-system="mobility"><b>DRIVE</b><i>100</i></span>
+      <span data-system="power"><b>POWER</b><i>100</i></span>
+      <span data-system="command"><b>CAB</b><i>100</i></span>
+      <span data-system="combat"><b>WEAPON</b><i>100</i></span>
     </div>
     <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
     <div id="hit-confirm" class="hit-confirm" aria-hidden="true"></div>
     <div id="player-hit-flash" class="player-hit-flash" aria-hidden="true"></div>
     <div id="shot-report" class="shot-report faded" aria-live="polite">COMBAT FEED</div>
-    <div id="fault-strip" class="fault-strip nominal" aria-live="polite">SYSTEMS NOMINAL</div>
+    <div id="fault-strip" class="fault-strip nominal" aria-live="polite">RIG NOMINAL</div>
     <div id="weapon-hud" class="weapon-hud" aria-live="polite">
       <span id="weapon-label">TRAINING CANNON</span><strong id="ammo-count">12 / 60</strong>
     </div>
@@ -124,8 +127,8 @@
 
     <div id="controls">
       <div id="drive-zone" class="stick-zone" aria-label="floating movement joystick: up forward, down reverse, left and right step">
-        <div class="stick-ring"><div class="stick-axis up">FWD</div><div class="stick-axis down">REV</div><div class="stick-axis left">STEP L</div><div class="stick-axis right">STEP R</div><div id="drive-knob" class="stick-knob"></div></div>
-        <div class="control-caption">FWD / REV · L/R STEP</div>
+        <div class="stick-ring"><div class="stick-axis up">↑</div><div class="stick-axis down">↓</div><div class="stick-axis left">←</div><div class="stick-axis right">→</div><div id="drive-knob" class="stick-knob"></div></div>
+        <div class="control-caption">DRIVE</div>
       </div>
       <div id="look-zone" class="look-zone" aria-label="drag to aim; the chassis follows when aim reaches the traverse edge">
         <div class="look-reticle">⌁</div>
@@ -225,7 +228,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3v5p1"></script>
-    <script type="module" src="./garageMountUI.js?v=k3v5p1"></script>
+    <script type="module" src="./main.js?v=k3w0"></script>
+    <script type="module" src="./garageMountUI.js?v=k3w0"></script>
   </body>
 </html>

@@ -305,7 +305,7 @@ function updateFunctionalStatus() {
         faultStrip.classList.add('faulted');
         faultStrip.classList.remove('nominal');
     } else {
-        faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
+        faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'RIG NOMINAL';
         faultStrip.classList.toggle('faulted', faults.length > 0);
         faultStrip.classList.toggle('nominal', faults.length === 0);
     }
@@ -461,7 +461,7 @@ dominationHud.id='domination-hud';
 dominationHud.setAttribute('aria-label','Three point Domination score and control');
 objectiveStatus.insertAdjacentElement('afterend',dominationHud);
 function renderObjectiveStatus() {
-    const text = objectiveStatusText(sortieObjective);
+    const text = objectiveStatusText(sortieObjective).replace(/^OBJ\\s*·\\s*/,'◆ ').replace('BREAK HOSTILE TEAM','BREAK FOES');
     if (objectiveStatus.textContent !== text) objectiveStatus.textContent = text;
     objectiveStatus.classList.toggle('contested', !!sortieObjective?.contested);
     const dom=sortieObjective?.domination;
@@ -469,9 +469,9 @@ function renderObjectiveStatus() {
     dominationHud.classList.toggle('hidden',!domActive);
     document.body.classList.toggle('domination-active',!!domActive);
     if (domActive && dom) {
-        const points=dom.points.map(p=>p.id+' '+(p.contested?'!':p.owner==='friendly'?'▲':
-            p.owner==='hostile'?'▼':'·')+' '+Math.round(Math.abs(p.influence)*100)+'%').join('  |  ');
-        const score='DOMINATION  '+Math.floor(sortieObjective.friendlyProgress)+' — '+
+        const points=dom.points.map(p=>p.id+(p.contested?'!':p.owner==='friendly'?'▲':
+            p.owner==='hostile'?'▼':'·')+Math.round(Math.abs(p.influence)*100)+'%').join('  ');
+        const score='DOM  '+Math.floor(sortieObjective.friendlyProgress)+' — '+
             Math.floor(sortieObjective.hostileProgress)+' / '+dom.scoreToWin+'  ·  '+points;
         if(dominationHud.textContent!==score)dominationHud.textContent=score;
     }
@@ -495,12 +495,15 @@ function playerPartRemaining(part) {
 }
 function syncCockpitInstruments() {
     if (!arena?.updateCockpitInstruments) return;
-    const systems = {};
+    const systems = {}, armor = {};
     let lowest = 1; let disabled = false;
     for (const slot of SLOTS) {
         const part = playerCondition.parts[slot];
         const ratio = playerPartRemaining(part);
         systems[slot] = Math.round(ratio * 100);
+        // Armor is an independent external pool, never derived from core health.
+        armor[slot] = part?.maxArmor > 0 ?
+            Math.round(Math.max(0, Math.min(1,part.armor/part.maxArmor)) * 100) : 0;
         lowest = Math.min(lowest, ratio);
         disabled ||= !!part && part.integrity <= 0;
     }
@@ -508,7 +511,7 @@ function syncCockpitInstruments() {
     const failure = weaponFailureState(playerCondition, fieldService);
     const weaponStateLabel = !weaponSpec ? 'LOST' : !playerPower.weaponReady ? 'PWR SAG' : failure === 'faulted' ? 'FAULT' : failure === 'destroyed' || failure === 'unrecoverable' ? 'LOST' : output.weapon < .95 ? 'DAMAGED' : weaponState?.reloadLeft > 0 ? 'RELOAD' : 'READY';
     arena.updateCockpitInstruments({
-        systems, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
+        systems, armor, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
         drive: { left: output.left, right: output.right },
         weapon: weaponSpec?.label ?? 'NO WEAPON',
         ammo: weaponState ? `${weaponState.loaded}/${weaponState.reserve}` : '—',
@@ -523,7 +526,12 @@ function renderPlayerDamageHUD(flashSlot = null) {
         const ratio = playerPartRemaining(part);
         const value = element.querySelector('i');
         if (value) value.textContent = String(Math.round(ratio * 100));
-        element.classList.toggle('breached', part.armor < part.maxArmor * .04);
+        const shell=part.maxArmor>0 ? Math.max(0,Math.min(1,part.armor/part.maxArmor)) : 0;
+        element.style.setProperty('--core',Math.round(ratio*100)+'%');
+        element.style.setProperty('--armor',Math.round(shell*100)+'%');
+        element.setAttribute('aria-label',slot.toUpperCase()+' · INTEGRITY '+Math.round(ratio*100)+
+            '% · ARMOR '+Math.round(shell*100)+'%');
+        element.classList.toggle('breached', shell < .04);
         element.classList.toggle('damaged', ratio < .72);
         element.classList.toggle('severe', ratio < .38);
         element.classList.toggle('disabled', part.integrity <= 0);
@@ -538,7 +546,20 @@ function renderPlayerDamageHUD(flashSlot = null) {
 }
 function signalPlayerHit(slot, hit) {
     renderPlayerDamageHUD(slot);
-    arena.triggerCockpitHit(slot, cockpitImpactProfile(slot, { internalDamage: hit.internalDamage, disabled: hit.disabled, driveSide: hit.driveSide }));
+    // Armor impacts and core penetration are different physical events.
+    const indicator=playerDamageSegments.get(slot);
+    if(indicator) {
+        indicator.classList.toggle('armor-impact',hit.armorAbsorbed>0&&hit.internalDamage<=0);
+        indicator.classList.toggle('core-impact',hit.internalDamage>0);
+    }
+    arena.triggerCockpitHit(slot, {
+        ...cockpitImpactProfile(slot, {
+            internalDamage:hit.internalDamage,disabled:hit.disabled,driveSide:hit.driveSide,
+        }),
+        // A part can lose protection without losing integrity. The presentation
+        // must respond to the ACTUAL damage channel, not inferred percent loss.
+        internalDamage:hit.internalDamage,armorAbsorbed:hit.armorAbsorbed,
+    });
     playerHitFlash.className = `player-hit-flash active hit-${slot}${hit.internalDamage > 0 ? ' breached' : ''}`;
     void playerHitFlash.offsetWidth;
     if (playerHitTimer !== null) window.clearTimeout(playerHitTimer);
@@ -823,7 +844,7 @@ function renderPartInfo() {
         symptom.className = 'garage-symptom';
         const condition = fitted.instance.condition;
         if (fitted.instance.destroyed) {
-            symptom.textContent = 'DESTROYED HARDWARE · HOUSE RECOVERY RETURNED THE CARCASS · REBUILD OR REPLACE BEFORE DEPLOYMENT';
+            symptom.textContent = 'PART DESTROYED · REBUILD OR REPLACE';
         }
         else if (selectedPart === 'mobility') {
             const sections = driveCondition(assembly, damage);
@@ -887,7 +908,7 @@ function renderPartInfo() {
     else {
         const missing = document.createElement('div');
         missing.className = 'part-purpose missing-part';
-        missing.textContent = 'NO MODULE INSTALLED. Choose an owned part below.';
+        missing.textContent = 'EMPTY STATION · SELECT PART';
         partInfo.append(missing);
     }
     const ownedInstances = assembly.owned.filter(instance => BY_ID.get(instance.definitionId)?.slot === selectedPart);
@@ -941,7 +962,7 @@ ${specLine(def)}`,
                     refreshAssembly(true);
                     selectPart(def.slot);
                 } catch (error) {
-                    showStatus(error?.message || 'THIS PHYSICAL COMPONENT CANNOT BE INSTALLED HERE');
+                    showStatus(error?.message || 'PART CANNOT FIT THIS STATION');
                 }
             },
         });
@@ -951,7 +972,7 @@ ${specLine(def)}`,
         const takeOff = document.createElement('button');
         takeOff.type = 'button';
         takeOff.className = 'remove-option';
-        takeOff.textContent = 'REMOVE INSTALLED MODULE';
+        takeOff.textContent = 'REMOVE PART';
         takeOff.addEventListener('click', () => {
             remove(assembly, selectedPart);
             refreshAssembly(true);
@@ -1088,7 +1109,7 @@ document.addEventListener('m3ch4:bay-module', event => {
         } else {
             request.result = changeInactiveBay(saveStorage, request.rigId, request.slot, request.serial);
         }
-    } catch (error) { request.result = { ok:false, reason:error?.message || 'MODULE CHANGE FAILED' }; }
+    } catch (error) { request.result = { ok:false, reason:error?.message || 'PART CHANGE FAILED' }; }
 });
 // An inter-round patch writes both persistent saves before reloading. Reconcile the
 // same serial into the running in-memory authority first: the normal pagehide save
@@ -1157,7 +1178,7 @@ document.addEventListener('m3ch4:bay-service', event => {
         if (request.rigId === stable.activeRigId) {
             const slot = request.slot;
             const fitted = installedPart(assembly, slot);
-            if (!fitted) throw new Error('NO INSTALLED MODULE');
+            if (!fitted) throw new Error('NO FITTED PART');
             const state = playerCondition.parts[slot];
             const destroyed = !!state?.destroyed || !!fitted.instance.destroyed;
             const cost = destroyed ? rebuildQuote(state) : repairQuote(state);
@@ -1899,7 +1920,7 @@ function renderTarget() {
     if (devPanel.classList.contains('hidden')) {
         const withheld = document.createElement('div');
         withheld.className = 'target-row';
-        withheld.textContent = 'REMOTE MODULE TELEMETRY WITHHELD · USE VISUAL DAMAGE / HIT CONFIRMATION';
+        withheld.textContent = 'ENEMY PART CONDITION UNKNOWN · OBSERVE HIT REACTIONS';
         targetReadout.appendChild(withheld);
         return;
     }
