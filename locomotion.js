@@ -148,7 +148,7 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     // coefficient damps uncontrolled slide; lateralDriveForceN is the actuator limit.
     const targetLateralSpeed = strafe * config.maxLateralSpeedMps * (1 - brake * .8);
     const lateralError = targetLateralSpeed - lateralSpeed;
-    const lateralForce = clamp(lateralError * config.lateralGripNsPerM, -config.lateralDriveForceN, config.lateralDriveForceN);
+    let lateralForce = clamp(lateralError * config.lateralGripNsPerM, -config.lateralDriveForceN, config.lateralDriveForceN);
     // A planted foot cannot simultaneously provide unlimited propulsion,
     // sidestepping and cornering correction. The budget uses the *existing*
     // grip, motor and installed mass; yaw simply rotates the existing world
