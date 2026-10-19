@@ -24,7 +24,7 @@ jobs:
           for f in research/baselineK3u2/*.js; do node --check "$f"; done
       - name: Full production tests
         run: npm test
-      - name: Paired 3v3 BO3 headless 840-series study
+      - name: Paired 3v3 BO3 headless 840-series symmetric-wear study
         run: node research/k3u4MatchedBo3.mjs ${{ matrix.shard }} 75 15 15
       - uses: actions/upload-artifact@v4
         if: always()
