@@ -15,7 +15,8 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     // Physical presence already inside an objective is an accomplished
     // approach; stop steering instead of continually seeking a sample point.
     const arrived=(intent?.goal==='CAPTURE'||intent?.goal==='CONTEST')&&
-        Number.isFinite(intent?.radius)&&d(rig,goal)<Math.max(.65,intent.radius-collisionRadius-.5);
+        !intent.contested&&Number.isFinite(intent?.radius)&&
+        d(rig,goal)<Math.max(.65,intent.radius-collisionRadius-.5);
     const guarding=intent?.goal==='DEFEND'&&d(rig,goal)<1.15;
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE'||arrived||guarding;
     if(stationary) {
