@@ -22,7 +22,8 @@ export const DIRECTIONS = Object.freeze({
     'rear-high': [0, 6, 12],
 });
 export const TARGET_SLOTS = Object.freeze(['power','command','combat','mobility']);
-const sampleOffsets = [-.22, 0, .22];
+// Include visible outer edges, rather than sampling only an unrepresentative centerline.
+const sampleOffsets = [-.40, 0, .40];
 
 function measure(assembly, frameId) {
     const inspection = inspectAssembly(assembly);
