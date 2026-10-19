@@ -30,6 +30,8 @@ export function createSortieObjective(contract) {
         domination: spec.type===OBJECTIVE_TYPES.DOMINATION ? {
             points: (spec.points??[]).map(p=>({id:p.id,x:p.x,z:p.z,influence:0,owner:null,contested:false,friendly:0,hostile:0})),
             captureSeconds: Number(spec.captureSeconds)||4.2,
+            capturePolicy: ['superiority','pressure'].includes(spec.capturePolicy)?
+                spec.capturePolicy:'strict',
             scoreToWin: Number(spec.scoreToWin)||60,
             scoreRate: Number(spec.scoreRate)||1.0,
         } : null,
@@ -55,18 +57,37 @@ function updateDomination(state,participants,dt) {
         if(!point.contested) {
             const direction=point.friendly>0?1:point.hostile>0?-1:0;
             if(direction)point.influence=clamp(point.influence+direction*tick/spec.captureSeconds,-1,1);
+        } else if(['superiority','pressure'].includes(spec.capturePolicy)) {
+            // Experimental A/B rule only: 2v1 can slowly push influence,
+            // but a physically contested zone NEVER contributes team score.
+            const net=point.friendly-point.hostile;
+            if(net)point.influence=clamp(point.influence+
+                Math.sign(net)*Math.min(Math.abs(net),2)*tick/(spec.captureSeconds*3),-1,1);
         }
         point.owner=point.influence>=.995?'friendly':
             point.influence<=-.995?'hostile':null;
     }
-    const count=team=>points.filter(p=>p.owner===team&&!p.contested).length;
-    const f=count('friendly'),h=count('hostile');
-    // Territory, not kills or body count, awards score. One point or three
-    // contested points awards nothing; the third held node is a mild bonus.
-    if(f>=2 && h<2)state.friendlyProgress=Math.min(spec.scoreToWin,
-        state.friendlyProgress+tick*spec.scoreRate*(f===3?1.5:1));
-    else if(h>=2 && f<2)state.hostileProgress=Math.min(spec.scoreToWin,
-        state.hostileProgress+tick*spec.scoreRate*(h===3?1.5:1));
+    const weight=(point,team)=>{
+        if(point.owner!==team)return 0;
+        if(!point.contested)return 1;
+        // Experimental pressure policy: even a single lone defender slows
+        // scoring drastically, but local 2v1 superiority is not a permanent
+        // zero-progress veto. This is NEVER enabled by the authored contract.
+        const opponent=team==='friendly'?'hostile':'friendly';
+        return spec.capturePolicy==='pressure'&&point[team]>point[opponent] ? .30 : 0;
+    };
+    const held=team=>points.filter(p=>weight(p,team)>0);
+    const ours=held('friendly'),theirs=held('hostile');
+    const scoreRate=heldPoints=>heldPoints.reduce((sum,p)=>sum+
+        weight(p,p.owner),0)/heldPoints.length;
+    if(ours.length>=2 && theirs.length<2)
+        state.friendlyProgress=Math.min(spec.scoreToWin,
+            state.friendlyProgress+tick*spec.scoreRate*
+            (ours.length===3?1.5:1)*scoreRate(ours));
+    else if(theirs.length>=2 && ours.length<2)
+        state.hostileProgress=Math.min(spec.scoreToWin,
+            state.hostileProgress+tick*spec.scoreRate*
+            (theirs.length===3?1.5:1)*scoreRate(theirs));
     state.contested=points.some(point=>point.contested);
     if(state.friendlyProgress>=spec.scoreToWin)
         return win(state,'friendly','DOMINATION · FRIENDLY TERRITORY SECURED');

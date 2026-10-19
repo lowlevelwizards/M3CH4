@@ -30,6 +30,29 @@ export function planRoute(world,from,goal,radius=.95) {
     if(!world||!from||!goal)return {ok:false,reason:'NO ROUTE DATA',waypoints:[]};
     const pad=radius+.34;
     if(!valid(goal,world,pad))return {ok:false,reason:'GOAL BLOCKED',waypoints:[]};
+    if(!valid(from,world,pad)){
+        // A real chassis may be physically legal but inside our *inflated*
+        // safety envelope beside a concrete screen. Searching from that
+        // start as though it were an obstacle makes every A* edge impossible.
+        // Guide it to the nearest clearance point using PHYSICAL steering.
+        // Never teleport, alter collision geometry, or invent a route through
+        // the actual obstacle.
+        let escape=null,best=Infinity;
+        for(const reach of [.65,1.2,1.8,2.6,3.5,4.5]){
+            for(let i=0;i<16;i++){
+                const angle=i*Math.PI/8;
+                const p={x:from.x+Math.cos(angle)*reach,z:from.z+Math.sin(angle)*reach};
+                const d=length(from,p);
+                if(d<best&&valid(p,world,pad)){escape=p;best=d;}
+            }
+            if(escape)break;
+        }
+        if(!escape)return {ok:false,reason:'NO CLEARANCE FROM START',waypoints:[]};
+        const continuation=planRoute(world,escape,goal,radius);
+        if(!continuation.ok)return continuation;
+        return {...continuation,waypoints:[escape,...continuation.waypoints],
+            cost:best+continuation.cost,recoveredStart:true};
+    }
     if(clearSegment(from,goal,world,pad))return {ok:true,waypoints:[{...goal}],cost:length(from,goal)};
     const step=4.0,nodes=buildNodes(world,step,pad);
     const all=[{x:from.x,z:from.z},...nodes,{x:goal.x,z:goal.z}],n=all.length;
@@ -72,4 +95,36 @@ export function nextWaypoint(routeState,position,radius=1.6){
     while(routeState.index<points.length-1 &&
         length(position,points[routeState.index])<radius)routeState.index++;
     return points[routeState.index]??null;
+}
+
+/** Capture/defense needs ANY safe position inside the scoring circle, not a
+ * single exact center coordinate. Distinct entry bearings allow recovery from
+ * a blocked segment without changing the physical collision envelope. */
+export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.95,attempt=0,avoid=null){
+    const maxEntry=Math.max(.2,zoneRadius-collisionRadius-.4);
+    const candidates=[{x:center.x,z:center.z}];
+    for(let i=0;i<12;i++){
+        const angle=(i+attempt*3)*Math.PI/6;
+        candidates.push({x:center.x+Math.cos(angle)*maxEntry*.72,
+            z:center.z+Math.sin(angle)*maxEntry*.72});
+    }
+    // Prefer physically direct entries first. The grid-search fallback
+    // evaluates only nearby alternatives, keeping 60Hz phone pacing bounded.
+    const sorted=candidates.filter(point=>valid(point,world,collisionRadius+.34))
+        .sort((a,b)=> {
+            const penalty=p=>avoid&&length(p,avoid)<3.0?12:0;
+            return length(from,a)+penalty(a)-length(from,b)-penalty(b);
+        });
+    for(const point of sorted)
+        if(clearSegment(from,point,world,collisionRadius+.34))
+            return {ok:true,waypoints:[point],cost:length(from,point),approach:point};
+    let best=null,score=Infinity;
+    for(const point of sorted.slice(0,4)){
+        const path=planRoute(world,from,point,collisionRadius);
+        if(!path.ok)continue;
+        const weight=path.cost+Math.max(0,zoneRadius/2-
+            Math.hypot(center.x-point.x,center.z-point.z))*.05;
+        if(weight<score-1e-6){score=weight;best={...path,approach:point};}
+    }
+    return best??{ok:false,reason:'NO SAFE OBJECTIVE APPROACH',waypoints:[]};
 }

@@ -16,6 +16,7 @@ import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTarget
 import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from './aiFieldService.js';
 import { createWorldModel, observeBattlefield } from './ai/worldModel.js';
 import { planTeam } from './ai/teamPlanner.js';
+import { createStrategicState, evaluateStrategy } from './ai/strategicState.js';
 import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
 import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
 import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
@@ -377,6 +378,7 @@ let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0, aiPlanCooldown=0;
+let strategicMemory=createStrategicState();
 const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
@@ -588,6 +590,8 @@ function resetAiActor(actor) {
     actor.targetId = null;
     actor.killReason = null;
     actor.teamIntent=null;
+    actor.lastServiceCoverCheck=-Infinity;
+    actor.serviceCover=null;
     actor.brain=createPilotBrain();
     actor.executor=createIntentExecutor();
     actor.teamSupportTargetId = null;
@@ -601,6 +605,7 @@ function resetAiActor(actor) {
 }
 function resetSquadBattle() {
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;aiPlanCooldown=0;
+    strategicMemory=createStrategicState();
     aiTrace.rows.length=0;
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
@@ -1364,8 +1369,12 @@ function frame(now) {
                 aiPlanCooldown-=FIXED_DT;
                 if(aiPlanCooldown<=0||!aiSnapshot){
                     aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,DEFAULT_WORLD,aiClock);
-                    aiPlans={friendly:planTeam(aiSnapshot,FRIENDLY_TEAM),
-                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM)};
+                    const friendlyStrategy=evaluateStrategy(strategicMemory,aiSnapshot,FRIENDLY_TEAM);
+                    const hostileStrategy=evaluateStrategy(strategicMemory,aiSnapshot,HOSTILE_TEAM);
+                    aiPlans={
+                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy}),
+                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy}),
+                    };
                     aiPlanCooldown=.85;
                 }
                 updateFaultSupportAssignments(faultSupportState, participants, FIXED_DT);
@@ -1402,14 +1411,27 @@ function frame(now) {
                 if(screenTarget?.active&&screenTarget.rig)order={
                     goal:'SCREEN',point:{x:screenTarget.rig.x,z:screenTarget.rig.z},
                     score:.91,reason:'PROTECT FIELD SERVICE',targetActorId:screenTarget.id};
+                // A recoverable weapon needs actual defensible ground, not a
+                // hardcoded world-edge coordinate. Cache cover searches to
+                // avoid doing expensive obstacle evaluation every physics tick.
+                if(recovery.active&&recovery.mode==='WITHDRAW'&&target&&
+                    (aiClock-(actor.lastServiceCoverCheck??-Infinity)>1.4)){
+                    actor.lastServiceCoverCheck=aiClock;
+                    actor.serviceCover=chooseCoverPoint(actor.rig,target.rig,DEFAULT_WORLD,
+                        actorConfig.collisionRadiusM,actor.behavior)?.point??null;
+                }
                 const selected=decidePilot(actor.brain,
                     {id:actor.id,position:{x:actor.rig.x,z:actor.rig.z}},order,{
                         capability,weaponRecovery:recovery,
                         world:DEFAULT_WORLD,
                         preferredRangeM:actor.behavior?.preferredRangeM,
+                        collisionRadius:actorConfig.collisionRadiusM+.3,
+                        threatPosition:target?.rig??null,
                         personality:actor.behavior?.id,
                         underFireSeconds:actor.motion?.awareness?.underFireSeconds??0,
-                        retreatPoint:{x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
+                        retreatPoint:recovery.active&&actor.serviceCover?
+                            actor.serviceCover:
+                            {x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
                     },aiClock);
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT);
@@ -1532,6 +1554,7 @@ function frame(now) {
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
             `LOS AUDIT ${lastCoverAudit}`,
+            `AI TEAMS  F:${aiPlans.friendly?.strategy??'-'} → ${aiPlans.friendly?.target??'-'} / H:${aiPlans.hostile?.strategy??'-'} → ${aiPlans.hostile?.target??'-'}`,
             `AI PLANS\n${formatAiTrace(aiTrace)}`,
             `RIG VIS   ${arena.combatantVisualAudit().ok ? `OK · ${arena.combatantVisualAudit().actors} ACTORS` : `MISPLACED ${arena.combatantVisualAudit().misplaced.join(',')}`}`,
             `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
@@ -1862,6 +1885,14 @@ function attemptAiFire(actor, target, shotIndex) {
     // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
     // raycasts remain authoritative and can still discover low cover / intervening rigs.
     if (actor.motion?.awareness?.lineOfSight === false) return;
+    // A real trigger pull consumes ammunition BEFORE resolving the raycast.
+    // Cover impacts, misses and friendly obstruction are still fired rounds.
+    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
+    if (consumed === null) return;
+    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
+    soundFire();
+    const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
+    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
@@ -1879,11 +1910,12 @@ function attemptAiFire(actor, target, shotIndex) {
         noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48);
     if (obstruction)
         noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
-    if (contact.slot === null || contact.actorId !== target.id) return;
-    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
-    if (consumed === null) return;
-    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
-    soundFire();
+    if (contact.slot === null || contact.actorId !== target.id) {
+        // Every fired round gets a real tracer even if it only hits cover,
+        // another machine, or open air. Damage still requires a valid hit.
+        arena.showCombatantShot(actor.id,contact,null);
+        return;
+    }
     if (target.id === 'player') {
         applyAiHitToPlayer(actor, contact);
         return;
