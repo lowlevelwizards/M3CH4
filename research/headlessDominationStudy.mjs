@@ -207,7 +207,8 @@ function runBout(seed,settings){
         // reload and physical cooldown state are authoritative. No separate
         // contract personality trigger interval or fake 60Hz attempts.
         const ready=a.weaponState.cooldown<=0&&a.weaponState.loaded>0&&
-            a.weaponState.reloadLeft<=0;
+            a.weaponState.reloadLeft<=0&&withinFiringArc(a.rig,target.rig)&&
+            tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD);
         const fired=advanceHostileController(a.controller,a.condition,DT,false,ready);
         if(fired===null)continue;
         a.stats.shotTriggers++;
