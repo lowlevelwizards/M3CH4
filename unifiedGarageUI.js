@@ -112,6 +112,7 @@ function selectBay(id) {
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
     selectedSlot = null; selectedHardwareSerial = null; identityExpanded = false; previewSignature = '';
+    dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
     render();
@@ -220,14 +221,16 @@ function moduleStation(view) {
             : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
             if (selectedSlot !== item.slot) selectedHardwareSerial = null;
-            selectedSlot = selectedSlot === item.slot ? null : item.slot;
+            selectedSlot = item.slot; // Repeated taps always open details.
+            dock.scrollTop = 0;
             render();
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(el('span','unified-station-glyph', STATION_GLYPHS[item.slot]));
         // Module station always reads internal integrity: the same quantity a
         // 22% pit patch actually restores. Armor/wear remain separate in details.
-        node.append(el('strong','',SLOT_LABELS[item.slot]), el('small','',
-            item.serial ? pct(item.condition) : 'EMPTY'));
+        node.append(el('strong','',SLOT_LABELS[item.slot]),
+            el('small','',item.serial ? 'CORE '+pct(item.condition) : 'EMPTY'));
+        if(item.serial) node.append(el('small','unified-armor-label','ARM '+pct(item.armorRatio)));
         node.title=item.serial?'INTERNAL '+pct(item.condition)+' · ARMOR '+
             pct(item.armorRatio)+' · WEAR '+pct(item.wear):'NOT INSTALLED';
         node.setAttribute('aria-label',SLOT_LABELS[item.slot]+' '+item.label);
@@ -251,6 +254,7 @@ function moduleDetails(stable, view, machine) {
         ? (BY_ID.get(installed.definitionId)?.name || installed.definitionId) +
           ' · ' + installed.serial + ' · ' + state.label
         : 'STATION EMPTY'));
+    box.append(button('CLOSE PART DETAILS', () => { selectedSlot=null;selectedHardwareSerial=null;dock.scrollTop=0;render(); }, 'unified-close'));
     if (installed) {
         box.append(el('small','unified-system-condition',
             'INTEGRITY ' + pct(state.condition) + ' · ARMOR ' +
@@ -281,7 +285,11 @@ function moduleDetails(stable, view, machine) {
         }
         box.append(positions);
     }
-    if (installed) box.append(button('REMOVE INSTALLED MODULE', () => editModule(slot,null), 'unified-remove'));
+    if (installed) {
+        box.append(button('REMOVE INSTALLED MODULE · ' + installed.serial, () => editModule(slot,null), 'unified-remove'));
+        if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
+            box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
+    }
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
     // to another rig must remain inspectable but cannot be silently transferred.
@@ -291,20 +299,40 @@ function moduleDetails(stable, view, machine) {
         selectedHardwareSerial = installed?.serial ?? owned[0]?.serial ?? null;
     if (!owned.length) choices.append(el('p','unified-muted','NO OWNED MODULES FOR THIS STATION'));
 
-    const entryFor = part => {
-        const definition = BY_ID.get(part.definitionId);
-        return {
-            id: 'garage:' + part.serial, serial: part.serial, sourceSerial: part.serial,
-            slot: definition.slot, definitionId: definition.id, name: definition.name,
-            condition: part.condition, destroyed: !!part.destroyed,
-        };
-    };
     const ownerFor = serial => stable.rigs.find(rig =>
         Object.values(rig.installed).includes(serial));
+    const ownerCondition = part => {
+        const owner=ownerFor(part.serial);
+        return owner ? bayHealth(stable,owner.id).find(item=>item.slot===slot&&item.serial===part.serial) : null;
+    };
+    const entryFor = part => {
+        const definition=BY_ID.get(part.definitionId), actual=ownerCondition(part);
+        return {
+            id:'garage:'+part.serial, serial:part.serial, sourceSerial:part.serial,
+            slot:definition.slot, definitionId:definition.id, name:definition.name,
+            condition:actual?.condition ?? part.condition,
+            destroyed:!!part.destroyed || !!actual?.destroyed,
+        };
+    };
     const thumbnailFor = (part, entry) =>
         activePlayerArena()?.arena.partThumbnailDataUrl?.(part.definitionId, entry) ?? null;
 
-    for (const part of owned) {
+    // Available hardware is visually separated from another machine's fitted
+    // components. Ownership is physical and exclusive; no one-tap stealing.
+    const available=owned.filter(part=>{
+        const owner=ownerFor(part.serial);
+        return !owner || owner.id===viewedId;
+    });
+    const elsewhereParts=owned.filter(part=>{
+        const owner=ownerFor(part.serial);
+        return !!owner && owner.id!==viewedId;
+    });
+    for (const [index,part] of [...available,...elsewhereParts].entries()) {
+        if(index===0 || index===available.length) {
+            choices.append(el('div','unified-gallery-divider',
+                index===available.length ? 'FITTED TO OTHER MACHINES · INSPECTION ONLY' :
+                    'STORED / FITTED TO THIS BAY'));
+        }
         const owner = ownerFor(part.serial);
         const elsewhere = owner && owner.id !== viewedId;
         const here = installed?.serial === part.serial;
@@ -315,7 +343,7 @@ function moduleDetails(stable, view, machine) {
         const card = createPartCard({
             entry, thumbnailUrl: thumbnailFor(part, entry), value,
             selected: selectedHardwareSerial === part.serial,
-            source: here ? 'INSTALLED' : elsewhere ? 'ON ' + rigName(owner) : 'AVAILABLE',
+            source: here ? 'FITTED HERE' : elsewhere ? 'BAY '+String(owner.bay).padStart(2,'0')+' · FITTED' : 'IN STORAGE',
             onSelect: () => { selectedHardwareSerial = part.serial; render(); },
         });
         card.classList.add('unified-part-card');
@@ -336,20 +364,34 @@ function moduleDetails(stable, view, machine) {
             { destroyed: focused.destroyed, wear: focused.wear });
         const detail = createPartDetail({
             entry, thumbnailUrl: thumbnailFor(focused, entry), value,
-            meta: definition.massKg + ' KG · WEAR ' +
+            meta: definition.massKg + ' KG · ' +
+                (ownerCondition(focused) ? 'ARMOR ' + pct(ownerCondition(focused).armorRatio) + ' · ' : '') +
+                'WEAR ' +
                 Math.round((focused.wear ?? 0) * 100) + '% · REPAIRS ' +
                 (focused.repairs ?? 0) + (elsewhere
                     ? '\nMOUNTED ON ' + rigName(owner).toUpperCase()
                     : here ? '\nINSTALLED ON THIS MACHINE'
                     : '\nAVAILABLE FOR THIS BAY'),
-            actionLabel: here ? 'INSTALLED HERE' :
-                elsewhere ? 'ON ' + rigName(owner).toUpperCase() :
+            actionLabel: here ? 'REMOVE FROM THIS BAY' :
+                elsewhere ? 'FITTED · BAY ' + String(owner.bay).padStart(2,'0') :
                 'INSTALL · ' + focused.serial,
-            actionDisabled: !!here || !!elsewhere,
-            onAction: () => editModule(slot, focused.serial),
+            actionDisabled: !!elsewhere,
+            onAction: () => editModule(slot,here ? null : focused.serial),
         });
         detail.classList.add('unified-part-detail');
         box.append(detail);
+        if(elsewhere) {
+            box.append(el('p','unified-owner-note',
+                focused.serial+' BELONGS TO '+rigName(owner).toUpperCase()+
+                '. DETACH IT FROM THAT BAY BEFORE INSTALLING IT HERE.'));
+            box.append(button('OPEN BAY '+String(owner.bay).padStart(2,'0')+' · '+rigName(owner).toUpperCase(),
+                ()=>{
+                    selectBay(owner.id);
+                    if(viewedId===owner.id) {
+                        selectedSlot=slot;selectedHardwareSerial=focused.serial;dock.scrollTop=0;render();
+                    }
+                },'unified-owner-action'));
+        }
     }
     return box;
 }
@@ -679,8 +721,10 @@ document.addEventListener('m3ch4:stable-status-cleared',queueRender);
 document.addEventListener('m3ch4:bay-picked',event=>{
     if(actualMode(loadSeries(storage))!=='garage')return;
     const slot=event.detail?.slot;
-    selectedSlot = slot && selectedSlot!==slot ? slot : null;
+    if (!slot) return;
+    selectedSlot = slot;
     selectedHardwareSerial = null;
+    dock.scrollTop = 0;
     render();
 });
 const rootWatch=new MutationObserver(queueRender);

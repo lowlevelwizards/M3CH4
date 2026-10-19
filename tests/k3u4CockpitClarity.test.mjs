@@ -62,7 +62,7 @@ test('combat status percentage represents integrity, not armored and unarmored c
 });
 test('the pit module tile shows internal integrity, while detail verifies the exact patched serial and armor',()=>{
     const ui=code('unifiedGarageUI.js');
-    assert.match(ui,/item\.serial \? pct\(item\.condition\) : 'EMPTY'/);
+    assert.match(ui,/item\.serial \? 'CORE '\+pct\(item\.condition\) : 'EMPTY'/);
     assert.match(ui,/INTERNAL '\+pct\(current\.condition\)/);
     assert.match(ui,/ARMOR '\+pct\(current\.armorRatio\)/);
     assert.match(ui,/const verified=view\.health\.find/);
@@ -114,11 +114,11 @@ test('branching contract map uses campaign prerequisites, optional nodes and rea
 });
 test('new mobile assets load instead of cached pre-clarity cockpit and garage scripts',()=>{
     const html=code('index.html'),bridge=code('sceneAssembly.js'),mount=code('garageMountUI.js');
-    assert.match(html,/main\.js\?v=k3v5/);
+    assert.match(html,/main\.js\?v=k3v5p1/);
     assert.match(html,/sceneAssembly\.js\?v=k3v5/);
     assert.match(html,/styles\.css\?v=k3v1/);
-    assert.match(html,/unifiedGarageStyles\.css\?v=k3u3/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k3u3/);
+    assert.match(html,/unifiedGarageStyles\.css\?v=k3v5p1/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k3v5p1/);
     assert.match(bridge,/scene\.js\?source=k3v4/);
 });
 

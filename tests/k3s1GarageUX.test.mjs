@@ -70,7 +70,7 @@ test('the physical part picture gallery and serialized ownership remain unchange
     assert.match(ui, /partThumbnailDataUrl/);
     assert.match(ui, /createPartCard\(/);
     assert.match(ui, /createPartDetail\(/);
-    assert.match(ui, /actionDisabled: !!here \|\| !!elsewhere/);
+    assert.match(ui, /actionDisabled: !!elsewhere/);
     assert.match(ui, /oldDeploy\.click\(\)/);
     assert.match(html, /unifiedGarageStyles\.css/);
 });
