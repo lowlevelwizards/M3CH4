@@ -108,7 +108,7 @@ function damage(attacker,target,slot,metrics,t,rng){
     attacker.stats.damageDealt+=hit.armorAbsorbed+hit.internalDamage;
     attacker.stats.attackBySlot[slot]++;
     noteIncomingFire(target.motion,attacker.rig,attacker.id,
-        hit.internalDamage?1.55:1.1);
+        hit.internalDamage?1.55:1.1,target.rig);
     if(service.held){service.held=false;service.progress=0;}
     const cause=aiWeaponMissionKillReason(target.condition,target.behavior,service);
     if(cause){
@@ -203,8 +203,13 @@ function runBout(seed,settings){
         if(a.weaponState.loaded<=0 && a.weaponState.reloadLeft===0&&a.weaponState.reserve>0)
             startReload(a.weaponState,a.weaponSpec);
         if(!target)continue;
-        // Production AI trigger timing & forward firing arc.
-        const fired=advanceHostileController(a.controller,a.condition,DT,false);
+        // Production k3u7 fire rate: the actual fitted weapon's loaded,
+        // reload and physical cooldown state are authoritative. No separate
+        // contract personality trigger interval or fake 60Hz attempts.
+        const ready=a.weaponState.cooldown<=0&&a.weaponState.loaded>0&&
+            a.weaponState.reloadLeft<=0&&withinFiringArc(a.rig,target.rig)&&
+            tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD);
+        const fired=advanceHostileController(a.controller,a.condition,DT,false,ready);
         if(fired===null)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
@@ -333,6 +338,7 @@ function groupReport(rows){
 }
 function main(){
     const n=Number(process.argv[2]??60);
+    const seedOffset=Number(process.argv[3]??0);
     const config=[
  {name:'no-damage-strict',accuracy:0,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler']},
  {name:'no-damage-superiority',accuracy:0,policy:'superiority',variantTeam:'none',variant:['yard','kestrel','hauler']},
@@ -364,7 +370,7 @@ function main(){
             configItem.name.startsWith('armed-')?'armed':configItem.name;
         const cohorts=['territory','armed','worn-05','worn-15','worn-25',
             'worn-40','light-vs-balanced','heavy-vs-balanced'];
-        rows.push(runBout(0x13579bdf+index*37621+
+        rows.push(runBout(0x13579bdf+(index+seedOffset)*37621+
             Math.max(0,cohorts.indexOf(bucket))*100001,opt));
       }
       const subset=rows.filter(r=>r.scenario===configItem.name);

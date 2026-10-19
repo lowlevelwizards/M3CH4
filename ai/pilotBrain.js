@@ -1,4 +1,5 @@
 import { chooseFightPosition, chooseDefendPosition } from './positioning.js';
+import { cautiousApproach } from './combatIntelligence.js';
 /** One coherent decision authority per pilot. Plans are sticky; invalidation,
  * critical damage, weapon-service safety, and sharply better team jobs interrupt.
  * Pure and deterministic: no clock, browser, storage or physics dependencies.
@@ -29,6 +30,11 @@ export function decidePilot(brain,actor,assignment,context,now) {
     else if(!capability.canMove)
         proposed={goal:'HOLD',point:actor.position,utility:.83,
             reason:'MOBILITY UNAVAILABLE · DEFEND POSITION'};
+    else if(context?.systemAtRisk&&context?.survivalPoint&&
+        context?.underFireSeconds>.25)
+        proposed={goal:'WITHDRAW',point:{...context.survivalPoint},
+            utility:1.0,reason:'PROTECT '+context.systemAtRisk.slot.toUpperCase()+
+                ' · REPEATED IMPACTS'};
     else if(capability.endurance<.30 && context?.underFireSeconds>1.4 && !(assignment?.goal==='DEFEND'&&context?.preserveMajority&&capability.endurance>.19))
         proposed={goal:'WITHDRAW',point:context.retreatPoint??actor.position,
             utility:.93,reason:'WOUNDED UNDER SUSTAINED FIRE'};
@@ -42,6 +48,13 @@ export function decidePilot(brain,actor,assignment,context,now) {
     // Geometry updates are slow intentional positioning choices, not 60Hz
     // steering noise. Objective capture still goes to the physical zone.
     const newTask=changed||!last;
+    if(newTask&&context?.world&&context?.uncertain===true&&!context?.enemySeen&&
+        !context?.underFireSeconds&&['CAPTURE','CONTEST','SEARCH'].includes(proposed.goal)&&
+        proposed.point){
+        const via=cautiousApproach(context.world,actor.position,proposed.point,
+            context.collisionRadius??1.4,context.personality??'pressure');
+        if(via)proposed.viaPoint=via;
+    }
     if(proposed.point&&context?.world &&
         now-brain.lastGeometryAt>=(newTask?.75:1.2)) {
         if(proposed.goal==='ENGAGE')proposed.point=chooseFightPosition(
@@ -58,6 +71,8 @@ export function decidePilot(brain,actor,assignment,context,now) {
     const safeAnchor=last?.anchor&&last?.objectiveId===assignment?.objectiveId&&
         assignment?.goal==='DEFEND';
     const emergency=service||unsafe||!capability.canMove||incompatible||
+        !!proposed.emergency||
+        !!(context?.systemAtRisk&&context?.survivalPoint)||
         (proposed.goal==='SCREEN'&&last?.goal!=='SCREEN');
     const improvement=(proposed.utility??0)-(last?.utility??0);
     if(changed&&!emergency&&last&&(
@@ -66,7 +81,11 @@ export function decidePilot(brain,actor,assignment,context,now) {
         return last;
     if(!changed&&last){
         // Update destinations/known threat locations without restarting a plan.
-        brain.intent={...last,point:proposed.point??last.point,utility:proposed.utility};
+        brain.intent={...last,point:proposed.point??last.point,
+            // Known enemy contact ends the speculative sheltered crossing;
+            // ordinary objective commitment remains, only the via-stop drops.
+            viaPoint:context?.enemySeen?null:last.viaPoint,
+            utility:proposed.utility};
         return brain.intent;
     }
     const commitment=proposed.goal==='STAGE'?1.6:

@@ -35,8 +35,10 @@ export function prioritizeVisibleTarget(actor,candidates,snapshot,order=null,cur
     const d=dist(actor.rig,candidate.rig);
     const relevance=observedZoneThreat(candidate,snapshot,actor.team,order?.objectiveId);
     const service= candidate.fieldService?.held?.12:0; // visible servicing, no component health
-    const targetBonus=candidate.id===currentId?.12:0;
-    const retaliate=candidate.id===threatId?.28:0;
+    const targetBonus=candidate.id===currentId?.18:0;
+    // A legitimate observed assailant outranks a distant routine target.
+    // Threat identity alone never makes an unseen contact eligible.
+    const retaliate=candidate.id===threatId?(d<16?.65:.38):0;
     const interception=role==='INTERCEPT'?relevance*.14:0;
     // Anchors may shoot enemies in sight, but shouldn't turn every remote
     // skirmish into a reason to abandon their productive scoring footprint.

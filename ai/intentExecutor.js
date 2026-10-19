@@ -8,16 +8,25 @@ const d=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createIntentExecutor(){return {route:null,key:null,
     lastPosition:null,stalledFor:0,lastFailure:null,failures:0,retryLeft:0,
     replanAttempts:0,lastWaypoint:null,abortReason:null,
-    trafficLock:null,trafficYields:0,zoneSettles:0,routeSwitches:0};}
+    trafficLock:null,trafficYields:0,zoneSettles:0,routeSwitches:0,
+    viaIdentity:null,viaReached:false};}
 export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=[]) {
     state.retryLeft=Math.max(0,(state.retryLeft??0)-dt);
-    const goal=intent?.point??{x:rig.x,z:rig.z};
+    const finalGoal=intent?.point??{x:rig.x,z:rig.z};
+    const viaIdentity=[intent?.goal,intent?.objectiveId??'',
+        Math.round(finalGoal.x),Math.round(finalGoal.z)].join(':');
+    if(state.viaIdentity!==viaIdentity){
+        state.viaIdentity=viaIdentity;state.viaReached=false;
+    }
+    if(intent?.viaPoint&&d(rig,intent.viaPoint)<1.7)state.viaReached=true;
+    const via=!state.viaReached?intent?.viaPoint??null:null;
+    const goal=via??finalGoal;
     // Physical presence already inside an objective is an accomplished
     // approach; stop steering instead of continually seeking a sample point.
     const arrived=(intent?.goal==='CAPTURE'||intent?.goal==='CONTEST')&&
         !intent.contested&&Number.isFinite(intent?.radius)&&
-        d(rig,goal)<Math.max(.65,intent.radius-collisionRadius-.5);
-    const guarding=intent?.goal==='DEFEND'&&d(rig,goal)<1.15;
+        d(rig,finalGoal)<Math.max(.65,intent.radius-collisionRadius-.5);
+    const guarding=intent?.goal==='DEFEND'&&d(rig,finalGoal)<1.15;
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE'||arrived||guarding;
     if(stationary) {
         state.route=null;state.key=null;state.trafficLock=null;
@@ -43,10 +52,19 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         if(state.key!==key)state.trafficLock=null;
         const territory=['CAPTURE','CONTEST','DEFEND'].includes(intent?.goal)&&
             Number.isFinite(intent?.radius);
-        const route=territory?
+        let route=territory?
             planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
                 failedWaypoint):
             planRoute(world,rig,goal,collisionRadius);
+        // A speculative sheltered via-point must never strand an otherwise
+        // valid capture route. Fall back to real destination on route failure.
+        if(!route.ok&&via){
+            state.viaReached=true;
+            route=territory?
+              planApproachRoute(world,rig,finalGoal,intent.radius,
+                collisionRadius,state.replanAttempts,failedWaypoint):
+              planRoute(world,rig,finalGoal,collisionRadius);
+        }
         state.route=route.ok?{waypoints:route.waypoints,index:0}:null;
         state.key=key;
         if(!route.ok){state.lastFailure=route.reason;state.failures++;

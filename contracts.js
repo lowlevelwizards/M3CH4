@@ -13,7 +13,7 @@ const YARD_DOG_BEHAVIOR = Object.freeze({
     id: 'pressure', label: 'PRESSURE FIGHTER', preferredRangeM: 6.2, rangeBandM: 1.0,
     approachThrottle: .72, approachStrafe: .10, retreatThrottle: .62, strafeThrottle: .68,
     strafeSeconds: 2.2, braceSeconds: .75, closeAction: 'retreat', closeRetreatM: 0,
-    steerGain: 1.75, yawRateDamping: 1.15, fireCadenceScale: 1.0, spreadScale: 1.0,
+    steerGain: 1.75, yawRateDamping: 1.15, spreadScale: 1.0,
     aimPriority: Object.freeze(['structure', 'mobility', 'combat', 'structure', 'power', 'command']),
 });
 
@@ -22,7 +22,6 @@ const RECOVERY_BEHAVIOR = Object.freeze({
     label: 'YARD CLEANUP CREW',
     approachThrottle: .58,
     strafeThrottle: .48,
-    fireCadenceScale: 1.18,
     spreadScale: 1.18,
 });
 
@@ -30,7 +29,7 @@ const CUTTER_BEHAVIOR = Object.freeze({
     id: 'skirmisher', label: 'MOBILE SKIRMISHER', preferredRangeM: 8.4, rangeBandM: 1.0,
     approachThrottle: .82, approachStrafe: .34, retreatThrottle: .86, strafeThrottle: .96,
     strafeSeconds: 3.4, braceSeconds: .18, closeAction: 'retreat', closeRetreatM: 0,
-    steerGain: 2.05, yawRateDamping: 1.0, fireCadenceScale: .78, spreadScale: 1.10,
+    steerGain: 2.05, yawRateDamping: 1.0, spreadScale: 1.10,
     aimPriority: Object.freeze(['mobility', 'combat', 'power', 'mobility', 'command', 'combat']),
 });
 
@@ -38,7 +37,7 @@ const MULE_BEHAVIOR = Object.freeze({
     id: 'bruiser', label: 'ADVANCING BRUISER', preferredRangeM: 4.8, rangeBandM: .8,
     approachThrottle: .88, approachStrafe: 0, retreatThrottle: .38, strafeThrottle: .28,
     strafeSeconds: .55, braceSeconds: 2.35, closeAction: 'brace', closeRetreatM: 1.55,
-    steerGain: 1.45, yawRateDamping: 1.35, fireCadenceScale: 1.22, spreadScale: .82,
+    steerGain: 1.45, yawRateDamping: 1.35, spreadScale: .82,
     aimPriority: Object.freeze(['structure', 'structure', 'mobility', 'command', 'structure', 'power']),
 });
 

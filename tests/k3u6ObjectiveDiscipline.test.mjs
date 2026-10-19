@@ -163,11 +163,12 @@ test('developer diagnostics expose physical route and footprint measurements',()
 
 test('release entrypoint imports current tactical brain rather than stale cache identities',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.ok(html.includes('main.js?v=k3u6'));
- assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.6</span>'));
- for(const file of ['teamPlanner','strategicState','worldModel','pilotBrain','positioning',
-   'intentExecutor','adaptiveTactics','objectiveDiscipline','debug'])
-   assert.ok(html.includes('./ai/'+file+'.js?v=k3u6'),file+' cache is current');
+ assert.ok(html.includes('main.js?v=k3u7'));
+ assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.7</span>'));
+ for(const file of ['teamPlanner','strategicState','positioning','objectiveDiscipline','debug'])
+   assert.ok(html.includes('./ai/'+file+'.js?v=k3u6'),file+' retained module identity');
+ for(const file of ['worldModel','pilotBrain','intentExecutor','adaptiveTactics','combatIntelligence'])
+   assert.ok(html.includes('./ai/'+file+'.js?v=k3u7'),file+' refreshed combat module identity');
 });
 
 test('a single owned point remains tactically flexible until a real scoring majority exists',()=>{
