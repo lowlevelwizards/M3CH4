@@ -56,10 +56,11 @@ function renderCombatSeries() {
     if (!visible) return;
     hud.replaceChildren();
     const contract = document.createElement('strong');
-    contract.textContent = contractById(match.contractId).name.toUpperCase() + ' · BEST OF THREE';
+    contract.textContent = contractById(match.contractId).name.toUpperCase()+' · BO3';
     const score = document.createElement('span');
-    score.textContent = 'ROUND ' + match.roundNumber + ' / 3 · YOU ' +
-        match.playerWins + ' — ' + match.enemyWins + ' HOSTILE';
+    score.textContent = 'R'+match.roundNumber+'/3  ·  '+match.playerWins+' — '+match.enemyWins;
+    hud.setAttribute('aria-label',contractById(match.contractId).name+' best of three, round '+match.roundNumber+
+        ', your score '+match.playerWins+', opponents '+match.enemyWins);
     hud.append(contract,score);
 }
 
