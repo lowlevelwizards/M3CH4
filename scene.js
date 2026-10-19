@@ -2531,7 +2531,7 @@ export function buildExteriorRig(assembly) {
                 choke.rotation.x=Math.PI/2;
                 const collar=add(cyl(.38,.38,.19,steel,8),0,-.06,-1.02);
                 collar.rotation.x=Math.PI/2;
-                const throat=add(cyl(.20,.20,.025,m(0x151c1b),8),0,-.06,-1.124);
+                const throat=add(cyl(.20,.20,.025,0x151c1b,8),0,-.06,-1.124);
                 throat.rotation.x=Math.PI/2;
                 for(const side of [-1,1]) {
                     add(plate(.13,.20,.76,m(0x83522f)),side*.40,.02,-.55);
