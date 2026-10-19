@@ -41,3 +41,10 @@ test('Domination score still independently resolves before last enemy dies',()=>
  assert.match(source,/const objectiveOutcome = advanceSortieObjective\(sortieObjective, battleParticipants\(\), FIXED_DT\)/);
  assert.match(source,/if \(objectiveOutcome\) finishSortie\(objectiveOutcome.victory, objectiveOutcome.reason\)/);
 });
+
+test('k3u5 Pages entrypoint loads the new squad-elimination gameplay script',()=>{
+ const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.match(html,/main\\.js\\?v=k3u5/);
+ assert.match(html,/RIG DIAGNOSTICS <span>0\\.0\\.1k\\.3u\\.5<\\/span>/);
+ assert.match(html,/Domination Elimination Victory/);
+});
