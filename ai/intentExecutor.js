@@ -52,10 +52,19 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         if(state.key!==key)state.trafficLock=null;
         const territory=['CAPTURE','CONTEST','DEFEND'].includes(intent?.goal)&&
             Number.isFinite(intent?.radius);
-        const route=territory?
+        let route=territory?
             planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
                 failedWaypoint):
             planRoute(world,rig,goal,collisionRadius);
+        // A speculative sheltered via-point must never strand an otherwise
+        // valid capture route. Fall back to real destination on route failure.
+        if(!route.ok&&via){
+            state.viaReached=true;
+            route=territory?
+              planApproachRoute(world,rig,finalGoal,intent.radius,
+                collisionRadius,state.replanAttempts,failedWaypoint):
+              planRoute(world,rig,finalGoal,collisionRadius);
+        }
         state.route=route.ok?{waypoints:route.waypoints,index:0}:null;
         state.key=key;
         if(!route.ok){state.lastFailure=route.reason;state.failures++;
