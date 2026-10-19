@@ -1,6 +1,6 @@
 /** RESEARCH ONLY — side-swapped k3u6 AI vs exact k3u2 baseline.
  * 60Hz physical rigs, live strict Domination, approximate mesh shots.
- * BO3 proxy: fresh hardware each round; historical no-elimination-end rule
+ * BO3 proxy: fresh hardware each round; identical k3u5 elimination-end rule
  * deliberately retained to isolate AI changes. Neither iPhone performance
  * nor between-round repair/serialized damage is represented here.
  */
@@ -461,8 +461,8 @@ function main(){
    }
  }
  const result={shard,roundModel:'BO3 independent fresh-rig rounds',
-   versions:{new:'k3u3 tactical + k3u6 cockpit, main 4db04214',
-     baseline:'k3u3 tactical from pre-k3u6 main 82f42bb'},
+   versions:{new:'k3u6 objective discipline branch',
+     baseline:'k3u3 tactical frozen from 82f42bb'},
    policy:'strict + production k3u5 eliminate-all ending',dt:DT,maxSeconds:MAX_SECONDS,
    approximateHits:true,
    armed:aggregate(all.filter(s=>s.mode==='armed')),
@@ -471,6 +471,6 @@ function main(){
  fs.mkdirSync('study-results',{recursive:true});
  fs.writeFileSync('study-results/k3u6-series-shard-'+shard+'.json',JSON.stringify(all));
  fs.writeFileSync('study-results/k3u6-summary-shard-'+shard+'.json',JSON.stringify(result,null,2));
- console.log('K3U4_BO3_SUMMARY '+JSON.stringify(result));
+ console.log('K3U6_BO3_SUMMARY '+JSON.stringify(result));
 }
 main();
