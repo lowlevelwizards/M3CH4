@@ -80,7 +80,7 @@ test('the cockpit has exactly one Domination objective readout plus one BO3 head
 test('a single latched mission-kill notification replaces lower priority permanent shot reports',()=>{
     const main=code('main.js');
     assert.match(main,/playerMissionKillReason\s*=\s*reason/);
-    assert.match(main,/if\(!playerCombatActive && playerMissionKillReason\)/);
+    assert.match(main,/if\s*\(!playerCombatActive && playerMissionKillReason\)/);
     assert.match(main,/shotReport\.textContent = ''/);
     assert.match(main,/shotReport\.classList\.add\('faded'\)/);
     assert.doesNotMatch(main,/reportFade = 9999/);
@@ -91,7 +91,7 @@ test('player mission kill opens touch-switchable allied follow view, not a secon
     assert.match(main,/function leaveAlliedObservation\(\)/);
     assert.match(main,/observePrev\.addEventListener\('click'/);
     assert.match(main,/observeNext\.addEventListener\('click'/);
-    assert.match(main,/if\(!watched\?\.active\)setObservedAlly\(1\)/);
+    assert.match(main,/if\s*\(!watched\?\.active\)\s*setObservedAlly\(1\)/);
     assert.match(scene,/function setSpectatorRig\(rig=null\)/);
     assert.match(scene,/camera\.lookAt\(spectatorLook\)/);
     assert.match(scene,/combinerHud\.visible = !enabled && !spectatorRig/);
