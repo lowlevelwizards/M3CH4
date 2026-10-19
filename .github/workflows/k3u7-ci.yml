@@ -24,7 +24,7 @@ jobs:
           for f in ai/*.js; do node --check "$f"; done
           node --check tests/k3u7CombatCompetency.test.mjs
           git diff --check HEAD^ HEAD
-      - name: Final k3u7 combat tests: physical cadence, 60 Hz rear turn, no invisible coordinates and objectives
+      - name: "Final k3u7 combat tests — physical cadence, rear turn, visible coordinates and objectives"
         run: npm test
       - name: Headless physically simulated Domination smoke
         run: node research/headlessDominationStudy.mjs 4
