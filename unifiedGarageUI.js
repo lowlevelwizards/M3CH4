@@ -6,7 +6,7 @@ import { BY_ID } from './components.js';
 import { stationGlyph, stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
 import { createStationFace, createConditionMeter } from './uiMeters.js';
 import { loadCounter } from './usedPartsCounter.js';
-import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
+import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js?v=k3w0';
 import { partCreditValue } from './partEconomy.js';
 import { activePlayerArena } from './scene.js';
 import { loadMachine } from './persistence.js';
