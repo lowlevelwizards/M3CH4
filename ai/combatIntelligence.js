@@ -93,6 +93,7 @@ export function cautiousApproach(world,from,to,radius=1.4,style='pressure'){
       p.z>q.minZ-radius&&p.z<q.maxZ+radius))continue;
    // Cover must actually interrupt exposure to the destination sector.
    if(!tacticalCoverBlocker(p,to,world,1.6))continue;
+   if(!tacticalLineOfSight(from,p,world))continue;
    const additional=dist(from,p)+dist(p,to)-d;
    if(additional>tolerance)continue;
    const utility=additional+.10*dist(from,p)+(tacticalLineOfSight(from,p,world)?0:1);
