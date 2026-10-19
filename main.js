@@ -14,10 +14,15 @@ import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
 import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
 import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from './aiFieldService.js';
-import { squadIntent } from './squadCoordination.js';
-import { createFaultSupportState, exploitServicingTarget, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
+import { createWorldModel, observeBattlefield } from './ai/worldModel.js';
+import { planTeam } from './ai/teamPlanner.js';
+import { createStrategicState, evaluateStrategy } from './ai/strategicState.js';
+import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
+import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
+import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
+import { createFaultSupportState, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
-import { advanceSortieObjective, createSortieObjective, dominationPointForActor, objectivePointForTeam, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
+import { advanceSortieObjective, createSortieObjective, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 import { contractById } from './contracts.js';
@@ -80,7 +85,7 @@ const primaryEnemyActor = {
     behavior: activeContract.behavior,
     spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
     fieldService: createFieldServiceState(),
-    teamIntent: null, teamPlanLeft: 0, teamPlanTargetId: null,
+    teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
 };
 function makeSupportActor(id, team, contractId, spawn, label = null) {
@@ -100,7 +105,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null) {
         motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
         behavior, spawn, active: true, targetId: null, killReason: null,
         fieldService: createFieldServiceState(),
-        teamIntent: null, teamPlanLeft: 0, teamPlanTargetId: null,
+        teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
         wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
     };
 }
@@ -372,6 +377,9 @@ arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState();
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
+let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0, aiPlanCooldown=0;
+let strategicMemory=createStrategicState();
+const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
 let fireHeld = false;
@@ -406,15 +414,16 @@ function liveOpponents(actor) {
     return candidates;
 }
 function resolveActorTarget(actor) {
-    const candidates = liveOpponents(actor);
-    const threatId = recentThreatTargetId(actor.motion);
-    const threat = threatId ? candidates.find(candidate => candidate.id === threatId) : null;
-    if (threat) {
-        actor.targetId = threat.id;
-        return threat;
-    }
-    actor.targetId = chooseSquadTarget(actor, candidates, actor.targetId);
-    return actor.targetId ? candidates.find(candidate => candidate.id === actor.targetId) ?? null : null;
+    // Only currently observed contacts can be fired on. Last-seen reports
+    // remain search waypoints, not omniscient enemy coordinates.
+    const contacts=aiSnapshot?.knowledge?.[actor.team]?.contacts??[];
+    const visible=new Set(contacts.filter(c=>c.visible).map(c=>c.id));
+    const candidates=liveOpponents(actor).filter(c=>visible.has(c.id));
+    const threatId=recentThreatTargetId(actor.motion);
+    const threat=threatId?candidates.find(c=>c.id===threatId):null;
+    if(threat){actor.targetId=threat.id;return threat;}
+    actor.targetId=chooseSquadTarget(actor,candidates,actor.targetId);
+    return candidates.find(c=>c.id===actor.targetId)??null;
 }
 const dominationHud=document.createElement('div');
 dominationHud.id='domination-hud';
@@ -580,9 +589,11 @@ function resetAiActor(actor) {
     actor.active = true;
     actor.targetId = null;
     actor.killReason = null;
-    actor.teamIntent = null;
-    actor.teamPlanLeft = 0;
-    actor.teamPlanTargetId = null;
+    actor.teamIntent=null;
+    actor.lastServiceCoverCheck=-Infinity;
+    actor.serviceCover=null;
+    actor.brain=createPilotBrain();
+    actor.executor=createIntentExecutor();
     actor.teamSupportTargetId = null;
     actor.wreckAge = 0;
     actor.wreckIntegrity = 1;
@@ -593,6 +604,9 @@ function resetAiActor(actor) {
     arena.updateCombatantDamage(actor.id, actor.condition);
 }
 function resetSquadBattle() {
+    aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;aiPlanCooldown=0;
+    strategicMemory=createStrategicState();
+    aiTrace.rows.length=0;
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
     for (const actor of aiActors) resetAiActor(actor);
@@ -1351,6 +1365,18 @@ function frame(now) {
             // sortie resolves. Only the surviving player's physical rig keeps coasting/walking.
             if (!aftermathDriving) {
                 const participants = battleParticipants();
+                aiClock+=FIXED_DT;
+                aiPlanCooldown-=FIXED_DT;
+                if(aiPlanCooldown<=0||!aiSnapshot){
+                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,DEFAULT_WORLD,aiClock);
+                    const friendlyStrategy=evaluateStrategy(strategicMemory,aiSnapshot,FRIENDLY_TEAM);
+                    const hostileStrategy=evaluateStrategy(strategicMemory,aiSnapshot,HOSTILE_TEAM);
+                    aiPlans={
+                        friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy}),
+                        hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy}),
+                    };
+                    aiPlanCooldown=.85;
+                }
                 updateFaultSupportAssignments(faultSupportState, participants, FIXED_DT);
                 const playerScreener = friendlySupportActors.find(actor => faultSupportForActor(faultSupportState, actor.id)?.casualtyId === 'player');
                 const playerScreenId = playerScreener?.id ?? null;
@@ -1369,38 +1395,49 @@ function frame(now) {
                     actor.wreckAge += FIXED_DT;
                     continue;
                 }
-                const target = resolveActorTarget(actor);
-                if (!target) continue;
-                const actorOutput = hostileOutput(actor.condition, actor.behavior);
-                const canManeuver = actorOutput.structure > .05 && actorOutput.command > .05 && actorOutput.power > .12 && actorOutput.mobility > .05;
-                const actorConfig = aiLocomotionConfig(actor);
-                const recovery = aiWeaponRecoveryDirective(actor, target);
-                const posture = aiWeaponRecoveryPosture(damagePosture(actor.condition, actor.behavior), recovery);
-                const screenAssignment = faultSupportForActor(faultSupportState, actor.id);
-                const supportTargetId = screenAssignment?.casualtyId ?? null;
-                if (actor.teamSupportTargetId !== supportTargetId) {
-                    actor.teamSupportTargetId = supportTargetId;
-                    actor.teamPlanLeft = 0;
+                const target=resolveActorTarget(actor);
+                const actorOutput=hostileOutput(actor.condition,actor.behavior);
+                const canManeuver=actorOutput.structure>.05&&actorOutput.command>.05&&
+                    actorOutput.power>.12&&actorOutput.mobility>.05;
+                const actorConfig=aiLocomotionConfig(actor);
+                const recovery=aiWeaponRecoveryDirective(actor,target);
+                const posture=aiWeaponRecoveryPosture(damagePosture(actor.condition,actor.behavior),recovery);
+                const screening=faultSupportForActor(faultSupportState,actor.id);
+                const screenTarget=screening?.casualtyId?
+                    participants.find(p=>p.id===screening.casualtyId):null;
+                const capability=aiSnapshot?.knowledge?.[actor.team]?.allies
+                    .find(p=>p.id===actor.id)?.capability;
+                let order=aiPlans[actor.team]?.orders?.[actor.id]??null;
+                if(screenTarget?.active&&screenTarget.rig)order={
+                    goal:'SCREEN',point:{x:screenTarget.rig.x,z:screenTarget.rig.z},
+                    score:.91,reason:'PROTECT FIELD SERVICE',targetActorId:screenTarget.id};
+                // A recoverable weapon needs actual defensible ground, not a
+                // hardcoded world-edge coordinate. Cache cover searches to
+                // avoid doing expensive obstacle evaluation every physics tick.
+                if(recovery.active&&recovery.mode==='WITHDRAW'&&target&&
+                    (aiClock-(actor.lastServiceCoverCheck??-Infinity)>1.4)){
+                    actor.lastServiceCoverCheck=aiClock;
+                    actor.serviceCover=chooseCoverPoint(actor.rig,target.rig,DEFAULT_WORLD,
+                        actorConfig.collisionRadiusM,actor.behavior)?.point??null;
                 }
-                const screenTarget = supportTargetId ? participants.find(candidate => candidate.id === supportTargetId) ?? null : null;
-                const screenThreat = screenAssignment?.threatId ? participants.find(candidate => candidate.id === screenAssignment.threatId) ?? null : null;
-                actor.teamPlanLeft = Math.max(0, (actor.teamPlanLeft ?? 0) - FIXED_DT);
-                if (actor.teamPlanLeft === 0 || actor.teamPlanTargetId !== target.id) {
-                    const dominationTarget=dominationPointForActor(sortieObjective,actor);
-                    actor.teamIntent = squadIntent(actor, participants, target,
-                        dominationTarget??objectivePointForTeam(sortieObjective, actor.team), posture,
-                        { screenTarget, screenThreat });
-                    if(dominationTarget && posture?.preferredMode!=='WITHDRAW' &&
-                        posture?.preferredMode!=='HOLD' && !screenTarget) {
-                        actor.teamIntent={mode:'DOMINATE',role:actor.teamIntent.role,point:dominationTarget,
-                            note:'SECURE POINT '+dominationTarget.id,throttleScale:.94};
-                    }
-                    actor.teamIntent = exploitServicingTarget(actor.teamIntent, target, posture);
-                    actor.teamPlanTargetId = target.id;
-                    actor.teamPlanLeft = .24 + ((actor.id.charCodeAt(actor.id.length - 1) || 0) % 3) * .04;
-                }
+                const selected=decidePilot(actor.brain,
+                    {id:actor.id,position:{x:actor.rig.x,z:actor.rig.z}},order,{
+                        capability,weaponRecovery:recovery,
+                        world:DEFAULT_WORLD,
+                        preferredRangeM:actor.behavior?.preferredRangeM,
+                        collisionRadius:actorConfig.collisionRadiusM+.3,
+                        threatPosition:target?.rig??null,
+                        personality:actor.behavior?.id,
+                        underFireSeconds:actor.motion?.awareness?.underFireSeconds??0,
+                        retreatPoint:recovery.active&&actor.serviceCover?
+                            actor.serviceCover:
+                            {x:actor.rig.x,z:actor.team===FRIENDLY_TEAM?22:-22},
+                    },aiClock);
+                actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
+                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT);
+                recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
-                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? actor.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
                 if (actor.fieldService.held || recovery.mode === 'SETTLE')
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
@@ -1412,7 +1449,7 @@ function frame(now) {
                 const serviceStep = advanceFieldService(actor.condition, actor.fieldService, actor.rig, FIXED_DT);
                 if (serviceStep.event === 'completed') handleAiFieldServiceCompleted(actor);
                 arena.updateCombatantRig(actor.id, actor.rig, {
-                    target: target.rig, posture, dt: FIXED_DT,
+                    target: target?.rig ?? null, posture, dt: FIXED_DT,
                     weaponFault: recovery.active, weaponServicing: actor.fieldService.held,
                 });
                 if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
@@ -1420,8 +1457,8 @@ function frame(now) {
                     advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
                         startReload(actor.weaponState, actor.weaponSpec);
-                    const shot = advanceHostileController(actor.controller, actor.condition, FIXED_DT, target.active === false);
-                    if (shot !== null) attemptAiFire(actor, target, shot);
+                    const shot = advanceHostileController(actor.controller, actor.condition, FIXED_DT, !target);
+                    if (shot !== null && target) attemptAiFire(actor, target, shot);
                 }
             }
             }
@@ -1517,6 +1554,8 @@ function frame(now) {
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
             `NAV       ${hostileMotion.navigation} · STUCK ${hostileMotion.stuckSeconds.toFixed(1)}s`,
             `LOS AUDIT ${lastCoverAudit}`,
+            `AI TEAMS  F:${aiPlans.friendly?.strategy??'-'} → ${aiPlans.friendly?.target??'-'} / H:${aiPlans.hostile?.strategy??'-'} → ${aiPlans.hostile?.target??'-'}`,
+            `AI PLANS\n${formatAiTrace(aiTrace)}`,
             `RIG VIS   ${arena.combatantVisualAudit().ok ? `OK · ${arena.combatantVisualAudit().actors} ACTORS` : `MISPLACED ${arena.combatantVisualAudit().misplaced.join(',')}`}`,
             `WAYPOINT  ${hostileMotion.waypoint ? `${hostileMotion.waypoint.x.toFixed(1)} / ${hostileMotion.waypoint.z.toFixed(1)}` : 'NONE'}`,
             `LAST HIT  ${lastHit}`,
@@ -1846,6 +1885,14 @@ function attemptAiFire(actor, target, shotIndex) {
     // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
     // raycasts remain authoritative and can still discover low cover / intervening rigs.
     if (actor.motion?.awareness?.lineOfSight === false) return;
+    // A real trigger pull consumes ammunition BEFORE resolving the raycast.
+    // Cover impacts, misses and friendly obstruction are still fired rounds.
+    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
+    if (consumed === null) return;
+    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
+    soundFire();
+    const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
+    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
     const aimSlot = hostileAimSlot(shotIndex, actor.behavior.aimPriority);
     const contact = arena.traceCombatantShot(actor.id, target.id, aimSlot, spreadX, spreadY);
@@ -1863,11 +1910,12 @@ function attemptAiFire(actor, target, shotIndex) {
         noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48);
     if (obstruction)
         noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
-    if (contact.slot === null || contact.actorId !== target.id) return;
-    const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
-    if (consumed === null) return;
-    actor.weaponState.cooldown = Math.max(actor.weaponState.cooldown, actorOutput.triggerSeconds * .55);
-    soundFire();
+    if (contact.slot === null || contact.actorId !== target.id) {
+        // Every fired round gets a real tracer even if it only hits cover,
+        // another machine, or open air. Damage still requires a valid hit.
+        arena.showCombatantShot(actor.id,contact,null);
+        return;
+    }
     if (target.id === 'player') {
         applyAiHitToPlayer(actor, contact);
         return;

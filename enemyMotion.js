@@ -223,23 +223,24 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     const tactical = advanceTacticalAwareness(motion, enemy, player, dt, world, radius, profile, motion.lastSide);
     const trackingPoint = tactical.mode === 'SEARCH' && tactical.point ? tactical.point : player;
     let base;
-    // Territorial orders take priority over circling/skirmish posture until the
-    // point is actually occupied. Once inside, brace and face the enemy rather
-    // than tactically wandering outside the scoring circle.
-    if (teamIntent?.mode === 'DOMINATE' && teamIntent.point &&
-        tactical.mode !== 'SEEK_COVER' && tactical.mode !== 'TAKE_COVER') {
+    // Only the pilot brain owns strategic intent. Movement tracks a reachable
+    // route waypoint and turns the *chassis* toward it. Weapon facing is a
+    // separate fire-control constraint, not a steering override.
+    if (teamIntent?.mode==='ORDER' && teamIntent.point) {
         const point=teamIntent.point;
         const d=distance(from,point);
-        const face=clamp(headingError(enemy,player)*profile.steerGain -
-            enemy.yawRate*profile.yawRateDamping);
-        if(d>1.9){
+        if(d>1.6){
             base=driveToward(enemy,point,d);
+            base.steer=clamp(headingError(enemy,point)*profile.steerGain-
+                enemy.yawRate*profile.yawRateDamping);
             base.throttle*=teamIntent.throttleScale??1;
         }else{
-            base={throttle:0,strafe:0,steer:face,brake:.82};
+            const face=player===enemy?0:clamp(headingError(enemy,player)*
+                profile.steerGain-enemy.yawRate*profile.yawRateDamping);
+            base={throttle:0,strafe:0,steer:face,brake:.85};
         }
-        motion.phase='DOMINATION';
-        motion.navigation='SECURE '+(point.id??'ZONE')+' · '+d.toFixed(1)+'m';
+        motion.phase='ORDER';
+        motion.navigation=teamIntent.note??'EXECUTE TEAM ORDER';
         motion.waypoint=point;
     }
     else if (tactical.mode === 'SEEK_COVER' && tactical.point) {
@@ -302,7 +303,11 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     };
     const magnitude = Math.hypot(dir.x, dir.z);
 
-    if (magnitude > .15 && !motion.route && motion.recoveryCooldown <= 0) {
+    // The tactical A* route owns static-obstacle navigation. Don't run a
+    // second independent local detour planner against the same wall; it can
+    // continually override the selected route and trap the machine.
+    if(teamIntent?.mode==='ORDER')motion.route=null;
+    if (teamIntent?.mode!=='ORDER'&&magnitude>.15&&!motion.route&&motion.recoveryCooldown<=0) {
         const direction = { x: dir.x / magnitude, z: dir.z / magnitude };
         const endpoint = { x: from.x + direction.x * 5, z: from.z + direction.z * 5 };
         const blocker = firstBlock(from, endpoint, world, radius + .52);
@@ -335,7 +340,9 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         }
         if (motion.route && waypoint) {
             const dist = distance(from, waypoint);
-            command = { ...driveToward(enemy, waypoint, dist), steer: base.steer };
+            command = { ...driveToward(enemy, waypoint, dist),
+                steer:clamp(headingError(enemy,waypoint)*profile.steerGain-
+                    enemy.yawRate*profile.yawRateDamping) };
             motion.phase = 'BYPASS';
             motion.navigation = `BYPASS ${route.id} ${route.side < 0 ? 'A' : 'B'} ${route.index + 1}/2`;
             motion.waypoint = waypoint;
@@ -343,7 +350,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     }
 
     if (!motion.route) {
-        if (tactical.mode !== 'SEEK_COVER' && tactical.mode !== 'TAKE_COVER') motion.waypoint = null;
+        if (teamIntent?.mode!=='ORDER' && tactical.mode !== 'SEEK_COVER' && tactical.mode !== 'TAKE_COVER') motion.waypoint = null;
         motion.elapsed += dt;
     }
 

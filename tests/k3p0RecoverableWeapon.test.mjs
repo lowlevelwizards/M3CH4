@@ -98,7 +98,7 @@ test('live integration gives every AI actor service state and visibly sags a fau
   const main = await import('node:fs/promises').then(fs => fs.readFile(new URL('../main.js', import.meta.url), 'utf8'));
   const scene = await import('node:fs/promises').then(fs => fs.readFile(new URL('../scene.js', import.meta.url), 'utf8'));
   assert.match(main, /fieldService: createFieldServiceState\(\)/);
-  assert.match(main, /aiWeaponRecoveryDirective\(actor, target\)/);
+  assert.match(main, /aiWeaponRecoveryDirective\(actor,\s*target\)/);
   assert.match(main, /advanceFieldService\(actor\.condition, actor\.fieldService, actor\.rig, FIXED_DT\)/);
   assert.match(main, /weaponFault: recovery\.active/);
   assert.match(scene, /const weaponFault = !!visual\?\.weaponFault/);
