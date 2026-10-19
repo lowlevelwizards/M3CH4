@@ -62,11 +62,14 @@ export function teamPosture(snapshot,team){
   const opponents=snapshot.knowledge?.[team]?.contacts??[];
   const friendlies=allies.filter(a=>a.active);
   const knownThreats=opponents.filter(c=>c.visible&&c.confidence>.4).length;
+  const enemyRemaining=snapshot.remaining?.[enemy(team)]??null;
   const held=snapshot.zones?.filter(z=>z.owner===team&&!z.contested).length??0;
   const opponentHeld=snapshot.zones?.filter(z=>z.owner===enemy(team)&&!z.contested).length??0;
   const fightable=friendlies.filter(a=>a.capability?.canFight&&a.capability?.canMove).length;
   // No omniscience: enemy roster counts are never inferred from hidden contacts.
   return {held,opponentHeld,fightable,knownThreats,
     preserve:held>=2,disadvantaged:fightable<=1&&opponentHeld>=2,
-    canPress:fightable>=2&&held>=1&&!opponentHeld};
+    canPress:fightable>=2&&held>=1&&!opponentHeld,
+    enemyRemaining,finishOpportunity:enemyRemaining===1&&fightable>=2&&
+      held>=2&&knownThreats>0};
 }
