@@ -73,6 +73,11 @@ export function applyRecoil(rig, config, aimX, aimZ, impulseNs, mountX = 1.17, m
     const rz = mountX * s + mountZ * c;
     const yTorqueImpulse = rz * backwardsX - rx * backwardsZ;
     rig.yawRate -= yTorqueImpulse / config.yawInertiaKgM2;
+    // This transmitted recoil must be caught by the feet on subsequent
+    // physics ticks. Small-grip legs stay loaded longer than planted loaders.
+    // It consumes temporary contact capacity; it never removes linear momentum.
+    rig.recoilLoad = Math.min(1, (rig.recoilLoad ?? 0) +
+        transmittedImpulseNs / Math.max(1, config.lateralGripNsPerM * .75));
     rig.impact = Math.min(1, rig.impact + impulseNs / (config.massKg * 4));
 }
 /** Build one authored opponent from the selected contract. The target still uses

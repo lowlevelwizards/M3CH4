@@ -1,0 +1,46 @@
+name: k3v2 Mobility Temperaments CI
+on:
+  push:
+    branches: ["k3v2-mobility-temperaments"]
+  pull_request:
+    paths:
+      - "locomotion.js"
+      - "combat.js"
+      - "audio.js"
+      - "main.js"
+      - "scene.js"
+      - "sceneAssembly.js"
+      - "index.html"
+      - "research/mobilityTemperamentStudy.mjs"
+      - "tests/**"
+      - ".github/workflows/k3v2-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax of all touched JavaScript
+        run: |
+          for f in locomotion.js combat.js audio.js main.js scene.js sceneAssembly.js research/mobilityTemperamentStudy.mjs tests/k3v2Mobility.test.mjs; do node --check "$f"; done
+      - name: Full regression suite and mobility physics tests
+        run: npm test
+      - name: Deterministic handling and legacy part baselines
+        run: |
+          mkdir -p study-results
+          node research/mobilityTemperamentStudy.mjs | tee study-results/mobility-temperaments.md
+          node research/mobilityTemperamentStudy.mjs --json > study-results/mobility-temperaments.json
+          node research/partIdentityBaseline.mjs > study-results/part-identity-baseline.md
+      - name: Headless 3v3 Domination compatibility
+        run: node research/headlessDominationStudy.mjs 2
+      - name: Preserve measurements for review
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k3v2-mobility-simulation
+          path: study-results/
+          if-no-files-found: warn

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundEmpty, soundFire, soundImpact, soundReload } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundFire, soundFootScrape, soundImpact, soundReload } from './audio.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
@@ -390,6 +390,7 @@ for (const actor of supportActors)
     arena.updateCombatantDamage(actor.id, actor.condition);
 arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState();
+let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
@@ -1427,6 +1428,22 @@ function frame(now) {
                 const wasBraced = rig.braced;
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
                 if (rig.braced && !wasBraced) soundBrace();
+                // Threshold-crossing sounds rather than per-frame synth loops.
+                // Disabled/inspection/garage rigs never emit footing feedback.
+                footingSoundCooldown = Math.max(0, footingSoundCooldown - FIXED_DT);
+                const scrapingNow = rig.footSlipMps > .38 &&
+                    Math.hypot(rig.vx, rig.vz) > 1.5;
+                const loadedNow = rig.footingLoad > .68 &&
+                    Math.hypot(rig.vx, rig.vz) > .9 && !rig.braced;
+                if (footingSoundCooldown <= 0 && scrapingNow && !footScraping) {
+                    soundFootScrape();
+                    footingSoundCooldown = .55;
+                } else if (footingSoundCooldown <= 0 && loadedNow && !drivetrainLoaded) {
+                    soundDriveStrain();
+                    footingSoundCooldown = .9;
+                }
+                footScraping = scrapingNow || (footScraping && rig.footSlipMps > .15);
+                drivetrainLoaded = loadedNow || (drivetrainLoaded && rig.footingLoad > .44);
                 shoveDisabledWrecks(rig, effectiveConfig);
                 if (Math.abs(followSteer) > .001) {
                     controls.compensateBodyTurn(rig.yaw - yawBefore);
@@ -1654,6 +1671,7 @@ function frame(now) {
         speed: Math.hypot(rig.vx, rig.vz), direction: motionEl.textContent,
         turnRate: THREE.MathUtils.radToDeg(rig.yawRate), driveLoad: rig.driveLoad,
         brace: rig.brace,
+        slip: rig.footSlipMps, footing: rig.footingLoad, recoil: rig.recoilLoad,
     });
     const degrees = Math.round(-THREE.MathUtils.radToDeg(input.lookYaw));
     const following = Math.abs(bodyFollowSteer(input.lookYaw)) > .02;
@@ -1673,6 +1691,8 @@ function frame(now) {
             `ACCEL     ${rig.longitudinalAcceleration.toFixed(2)} m/s²`,
             `LOAD      ${(rig.driveLoad * 100).toFixed(0)}%`,
             `BRACE     ${rig.braced ? 'PLANTED' : (rig.brace * 100).toFixed(0) + '%'} · BRAKE+STILL`,
+            `FOOTING   ${(rig.footingLoad * 100).toFixed(0)}% · ${rig.tractionSaturated ? 'SATURATED' : 'CONTACT'}`,
+            `SLIP      ${rig.footSlipMps.toFixed(2)} m/s · RECOIL LOAD ${(rig.recoilLoad * 100).toFixed(0)}%`,
             `MASS      ${inspection.massKg.toLocaleString()} kg`,
             `POWER     ${output.powerAvailableKw.toFixed(0)}/${output.nominalDemandKw} kW effective`,
             `CREDITS   ₡${economy.credits}`,

@@ -609,6 +609,9 @@ export function createArenaScene(initial, targetAssembly) {
         ctx.font = 'bold 18px monospace'; ctx.fillText(`${data.speed ?? '0.0'} m/s`, 9, 18);
         ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#d5b66d'; ctx.fillText(data.brace >= 1 ? 'BRACED' : data.brace > 0 ? 'PLANT' : String(data.direction ?? 'IDLE'), 132, 18);
         ctx.fillStyle = '#83a68a'; ctx.fillText(`TURN ${data.turnRate ?? 0}°/s`, 9, 43);
+        ctx.font = 'bold 11px monospace';
+        ctx.fillStyle = data.slip > .35 ? '#efb06f' : data.recoil > .2 ? '#e5be77' : '#8ca994';
+        ctx.fillText(data.slip > .35 ? 'FOOT SCRAPE' : data.recoil > .2 ? 'RECOIL LOAD' : data.footing > .8 ? 'FEET LOADED' : 'GRIP NOMINAL', 9, 65);
         screen.texture.needsUpdate = true;
     }
     function drawDriveScreen(screen, load = 0) {
@@ -646,6 +649,9 @@ export function createArenaScene(initial, targetAssembly) {
             turnRate: Math.round(Number(data.turnRate) || 0),
             driveLoad: Math.round(Math.max(0, Math.min(1, Number(data.driveLoad) || 0)) * 100) / 100,
             brace: Math.round(Math.max(0, Math.min(1, Number(data.brace) || 0)) * 10) / 10,
+            slip: Math.round(Math.max(0, Number(data.slip) || 0) * 10) / 10,
+            recoil: Math.round(Math.max(0, Math.min(1, Number(data.recoil) || 0)) * 10) / 10,
+            footing: Math.round(Math.max(0, Math.min(1, Number(data.footing) || 0)) * 10) / 10,
         };
         const key = JSON.stringify(normalized);
         if (key === cockpitMotionKey) return;
@@ -1117,13 +1123,18 @@ export function createArenaScene(initial, targetAssembly) {
         visualZ += (state.z - visualZ) * smoothing;
         const yawDelta = Math.atan2(Math.sin(state.yaw - visualYaw), Math.cos(state.yaw - visualYaw));
         visualYaw += yawDelta * smoothing;
-        const targetPitch = THREE.MathUtils.clamp(-state.longitudinalAcceleration * 0.012, -0.035, 0.035);
-        const targetRoll = THREE.MathUtils.clamp(-state.yawRate * Math.abs(state.forwardSpeed) * 0.008, -0.035, 0.035);
+        const targetPitch = THREE.MathUtils.clamp(
+            -state.longitudinalAcceleration * .012 - (state.footingLoad ?? 0) * .008, -.045, .045);
+        const targetRoll = THREE.MathUtils.clamp(
+            -state.yawRate * Math.abs(state.forwardSpeed) * .008 -
+            (state.lateralAcceleration ?? 0) * .004, -.055, .055);
         const footfall = Math.sin(performance.now() * 0.009 + state.forwardSpeed) * Math.min(Math.abs(state.forwardSpeed) / 7.4, 1) * 0.012;
         const impactKick = state.impact * 0.045;
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
-        cockpitHeave += ((footfall - impactKick - (state.brace ?? 0) * .032) - cockpitHeave) * (1 - Math.exp(-12 * dt));
+        cockpitHeave += ((footfall - impactKick - (state.brace ?? 0) * .032 -
+            (state.footingLoad ?? 0) * .015 - (state.recoilLoad ?? 0) * .012) -
+            cockpitHeave) * (1 - Math.exp(-12 * dt));
         const renderYaw = physicsYawToViewYaw(visualYaw);
         const nowMs = performance.now();
         const damageWave = Math.sin(nowMs * .043);
@@ -1215,8 +1226,12 @@ export function createArenaScene(initial, targetAssembly) {
                     const sidePhase = joint.side > 0 ? Math.PI : 0;
                     const wave = Math.sin(articulation.phase + sidePhase);
                     const magnitude = joint.joint === 'hip' ? .42 : joint.joint === 'knee' ? -.62 : joint.joint === 'ankle' ? .32 : -.16;
-                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude + (joint.joint === 'knee' ? -.075 : joint.joint === 'ankle' ? .025 : 0) * (state.brace ?? 0);
-                    joint.object.rotation.z = joint.base.z + (1 - health) * joint.side * Math.sin(articulation.phase * .53) * .035;
+                    const compression = Math.min(1, (state.footingLoad ?? 0) * .7 + (state.recoilLoad ?? 0) * .3);
+                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude +
+                        (joint.joint === 'knee' ? -.075 : joint.joint === 'ankle' ? .025 : 0) * (state.brace ?? 0) +
+                        (joint.joint === 'knee' ? -.07 : joint.joint === 'ankle' ? .025 : 0) * compression;
+                    joint.object.rotation.z = joint.base.z + (1 - health) * joint.side * Math.sin(articulation.phase * .53) * .035 +
+                        (joint.joint === 'hip' ? -.012 : .006) * joint.side * Math.min(2, state.footSlipMps ?? 0);
                 }
             }
             const target = visual?.target;
@@ -1242,9 +1257,14 @@ export function createArenaScene(initial, targetAssembly) {
                 }
             }
             const damage = 1 - health;
-            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) * damage * movement * .035 - (state.brace ?? 0) * .045;
+            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) *
+                damage * movement * .035 - (state.brace ?? 0) * .045 -
+                (state.footingLoad ?? 0) * .035 - (state.recoilLoad ?? 0) * .020;
             record.exterior.root.rotation.x = THREE.MathUtils.clamp(-(state.longitudinalAcceleration ?? 0) * .007 + Math.sin((record.articulation?.phase ?? 0) * .47) * damage * .018, -.065, .065);
-            record.exterior.root.rotation.z = THREE.MathUtils.clamp(-(state.lateralSpeed ?? 0) * .012 - (state.yawRate ?? 0) * speed * .008 + Math.sin((record.articulation?.phase ?? 0) * .61) * damage * .022, -.075, .075);
+            record.exterior.root.rotation.z = THREE.MathUtils.clamp(-(state.lateralSpeed ?? 0) * .012 -
+                (state.yawRate ?? 0) * speed * .008 -
+                (state.lateralAcceleration ?? 0) * .006 +
+                Math.sin((record.articulation?.phase ?? 0) * .61) * damage * .022, -.09, .09);
         }
         record.exterior.root.updateWorldMatrix(true, true);
     }
