@@ -10,6 +10,7 @@ import { contractById, selectContract, selectedContract } from './contracts.js';
 import { loadCampaign } from './campaign.js';
 import { subscribeBoutResult } from './boutSession.js';
 import { activateRig, loadStable, rigById, rigFieldability } from './stable.js';
+import { bayHealth } from './garageBay.js';
 import {
     assignmentReady, assignRigToSortie, beginSortieAssignment, cancelSortieAssignment,
     clearSortieAssignment, loadSortieAssignment, markSortieDeployed, markSortieLaunching,
@@ -59,31 +60,21 @@ function inventoryPart(stable, serial) {
     return stable.inventory.find(part => part.serial === serial) ?? null;
 }
 
+/** Use the same SERIAL-MATCHED live integrity and armor snapshots as the pit.
+ * The former setup status called fully stripped armor "OPERATIONAL" because
+ * it checked only the owned part's internal health. */
 function rigHealth(stable, rig) {
-    if (!rig) return { ratio: 0, label: 'UNKNOWN' };
-    let lowest = 1;
-    let present = 0;
-    let destroyed = false;
-    let disabled = false;
-    for (const slot of SLOTS) {
-        const serial = rig.installed[slot];
-        const owned = inventoryPart(stable, serial);
-        if (!owned) { lowest = 0; continue; }
-        present++;
-        let ratio = Math.max(0, Math.min(1, Number(owned.condition) || 0));
-        const condition = rig.playerCondition?.parts?.[slot];
-        if (condition?.maxIntegrity > 0)
-            ratio = Math.min(ratio, Math.max(0, condition.integrity / condition.maxIntegrity));
-        lowest = Math.min(lowest, ratio);
-        destroyed ||= !!owned.destroyed || !!condition?.destroyed;
-        disabled ||= ratio <= .001;
-    }
-    if (present === 0) return { ratio: 0, label: 'EMPTY' };
-    if (destroyed) return { ratio: lowest, label: 'WRECKED' };
-    if (disabled) return { ratio: lowest, label: 'DISABLED' };
-    if (lowest < .38) return { ratio: lowest, label: 'CRITICAL' };
-    if (lowest < .78) return { ratio: lowest, label: 'DAMAGED' };
-    return { ratio: lowest, label: 'OPERATIONAL' };
+    if(!rig)return { ratio:0, label:'UNKNOWN' };
+    const states=bayHealth(stable,rig.id);
+    const present=states.filter(x=>x.serial);
+    if(!present.length)return { ratio:0, label:'EMPTY' };
+    const lowest=Math.min(...states.map(x=>x.serial?Math.min(x.condition,x.armorRatio):0));
+    if(present.some(x=>x.destroyed))return { ratio:lowest, label:'WRECKED' };
+    if(present.some(x=>x.condition<=.001))return { ratio:lowest, label:'DISABLED' };
+    if(lowest<.38)return { ratio:lowest, label:'CRITICAL' };
+    if(lowest<.78)return { ratio:lowest, label:'DAMAGED' };
+    if(lowest<.995)return { ratio:lowest, label:'ARMOR / CORE WORN' };
+    return { ratio:lowest, label:'OPERATIONAL' };
 }
 
 function definingHardware(stable, rig) {
