@@ -34,12 +34,14 @@ jobs:
         run: npm test
       - name: Quantitative firing / ammunition / effective range study
         run: |
+          set -o pipefail
           mkdir -p study-results
           node research/scattergunStudy.mjs | tee study-results/scatter-pattern.md
           node research/scattergunStudy.mjs --json > study-results/scatter-pattern.json
           node research/partIdentityBaseline.mjs > study-results/part-identity.md
       - name: Exact Three.js authored model and 96-ray near/far first-hit test
         run: |
+          set -o pipefail
           npm install --no-save --no-package-lock three@0.186.0
           node research/scattergunGeometryAudit.mjs | tee study-results/real-pellet-rays.json
           node research/frameShieldingAudit.mjs --assert > study-results/real-shielding.md
