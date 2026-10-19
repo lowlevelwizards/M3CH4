@@ -34,7 +34,7 @@ function severity(p,v){return v<=.001?p.bad:v<38?p.warn:p.ok;}
 function systems(ctx,w,h,data,p,theme){
     const x=data.systems??{};
     if(theme==='workhorse'){
-        label(ctx,'CYCLOPS / STATUS',8,12,10,p.muted);
+        label(ctx,'CYCLOPS',8,12,10,p.muted);
         slots.forEach((slot,i)=>{
             const y=38+i*35,v=clamp(x[slot],0,100);
             label(ctx,names[slot],9,y,13,p.text);
@@ -153,9 +153,21 @@ export function drawCockpitChannel(screen,channel,data,profile,damage=null){
     // Harmless, deterministic screenwear: overlay does NOT modify any data
     // or touch reliable DOM warnings outside the cockpit glass.
     if(damage?.staticStrength>.30 && channel==='systems'){
-        ctx.fillStyle=p.muted;
-        ctx.globalAlpha=Math.min(.15,damage.staticStrength*.12);
-        for(let i=0;i<4;i++)ctx.fillRect(4,25+i*48,w-8,1);
+        const strength=Math.min(.17,damage.staticStrength*.14);
+        ctx.globalAlpha=strength;
+        if(profile.theme==='workhorse'){
+            // Old CRT scanning artifacts; the information remains legible.
+            ctx.fillStyle=p.muted;
+            for(let i=0;i<4;i++)ctx.fillRect(4,25+i*48,w-8,1);
+        } else if(profile.theme==='observation'){
+            // Survey LCD: thin interrupted vertical line at the lower bezel.
+            ctx.fillStyle=p.edge;
+            ctx.fillRect(5,82,2,34);ctx.fillRect(w-7,147,2,27);
+        } else {
+            // Hearth: rust-amber condition edge, not an invented fault label.
+            ctx.fillStyle=p.warn;
+            ctx.fillRect(4,27,2,h-45);ctx.fillRect(w-6,27,2,h-45);
+        }
         ctx.globalAlpha=1;
     }
     screen.texture.needsUpdate=true;
