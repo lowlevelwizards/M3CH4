@@ -29,6 +29,10 @@ export function assignmentSwitchCost(actor,job,previous,zone,team){
 export function reserveAnchors(actors,zones,team,player=null,radius=4.7){
   const remaining=new Set(actors.map(a=>a.id)),orders=[];
   const paying=zones.filter(z=>z.owner===team&&!z.contested);
+  // Hard reservations only protect an ACTUAL paying majority. Before that,
+  // holding one point must remain a flexible choice or three rigs lose the
+  // ability to create the second uncontested scoring position.
+  if(paying.length<2)return [];
   paying.sort((a,b)=>{
     const rank=z=>z[enemy(team)]??0;
     return rank(b)-rank(a)||a.id.localeCompare(b.id);
