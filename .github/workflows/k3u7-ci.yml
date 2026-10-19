@@ -24,7 +24,7 @@ jobs:
           for f in ai/*.js; do node --check "$f"; done
           node --check tests/k3u7CombatCompetency.test.mjs
           git diff --check HEAD^ HEAD
-      - name: All mechanical, cockpit, garage and combat regression tests (scanner route fix)
+      - name: All mechanical, cockpit, garage, k3u7 cache and fast-combat regression tests
         run: npm test
       - name: Headless physically simulated Domination smoke
         run: node research/headlessDominationStudy.mjs 1
