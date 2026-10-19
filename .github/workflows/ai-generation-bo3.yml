@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,8 +23,8 @@ jobs:
           node --check research/generationBo3Study.mjs
           node --check research/legacyEnemyMotion.js
           npm test
-      - name: Execute independent paired BO3 series (smoke v2)
-        run: node research/generationBo3Study.mjs ${{ matrix.shard }} 2 1
+      - name: Execute 180 paired BO3 series per shard
+        run: node research/generationBo3Study.mjs ${{ matrix.shard }} 75 15
       - uses: actions/upload-artifact@v4
         if: always()
         with:
