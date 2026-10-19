@@ -1,0 +1,28 @@
+name: k3u4 Cockpit Clarity CI
+on:
+  push:
+    branches: ["k3u4-cockpit-clarity-remaining"]
+    paths: [".github/workflows/k3u4-ci.yml"]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and consistency
+        run: |
+          node --check main.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check unifiedGarageUI.js
+          git diff --check HEAD^ HEAD
+      - name: Complete regression tests including fixed observer interface assertion
+        run: npm test
+      - name: Headless 3v3 combat smoke
+        run: node research/headlessDominationStudy.mjs 1
