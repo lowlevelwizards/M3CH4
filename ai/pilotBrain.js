@@ -9,6 +9,7 @@ export function createPilotBrain(){return {intent:null,committedUntil:0,
 function record(brain,next,now) {
     brain.intent=next;brain.lastReason=next.reason;brain.lastDecision=now;
     brain.history.push({time:now,goal:next.goal,objectiveId:next.objectiveId??null,
+        role:next.role??null,strategy:next.strategy??null,
         reason:next.reason,utility:next.utility});
     if(brain.history.length>18)brain.history.shift();
 }
@@ -22,13 +23,13 @@ export function decidePilot(brain,actor,assignment,context,now) {
         point:context.weaponRecovery.mode==='WITHDRAW'
             ? context.retreatPoint??actor.position : actor.position,utility:.98,
         reason:'WEAPON SERVICE / SAFE RECOVERY'};
-    else if(unsafe && capability.canMove)
+    else if(unsafe && capability.canMove && !(assignment?.goal==='DEFEND' && capability.endurance>.09 && context?.underFireSeconds<.5))
         proposed={goal:'WITHDRAW',point:context.retreatPoint??actor.position,
             utility:.95,reason:'CRITICAL MACHINE CONDITION'};
     else if(!capability.canMove)
         proposed={goal:'HOLD',point:actor.position,utility:.83,
             reason:'MOBILITY UNAVAILABLE · DEFEND POSITION'};
-    else if(capability.endurance<.30 && context?.underFireSeconds>1.4)
+    else if(capability.endurance<.30 && context?.underFireSeconds>1.4 && !(assignment?.goal==='DEFEND'&&context?.preserveMajority&&capability.endurance>.19))
         proposed={goal:'WITHDRAW',point:context.retreatPoint??actor.position,
             utility:.93,reason:'WOUNDED UNDER SUSTAINED FIRE'};
     else if(assignment)
@@ -50,7 +51,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
             context.world,actor.position,proposed.point,
             Math.min(3,Math.max(1.8,(proposed.radius??4.7)-1.3)),
             context.threatPosition??null,context.personality??'pressure',
-            context.collisionRadius??1.4);
+            context.collisionRadius??1.4,context.nearbyAllies??[]);
         brain.lastGeometryAt=now;
     } else if(!newTask&&last?.point)proposed.point=last.point;
     const emergency=service||unsafe||!capability.canMove||incompatible||
@@ -63,7 +64,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
         brain.intent={...last,point:proposed.point??last.point,utility:proposed.utility};
         return brain.intent;
     }
-    const commitment=proposed.goal==='DEFEND'?5.0:
+    const commitment=proposed.goal==='STAGE'?2.0:proposed.goal==='DEFEND'?5.0:
         proposed.goal==='CAPTURE'||proposed.goal==='CONTEST'?3.4:2.7;
     const next={...proposed,actorId:actor.id,committedUntil:now+commitment};
     brain.committedUntil=next.committedUntil;
