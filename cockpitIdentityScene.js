@@ -101,6 +101,7 @@ export function installCockpitIdentities(arena,assembly){
     const updateBaseMotion=arena.updateCockpitMotion.bind(arena);
     let current=resolveCockpitProfile(installedPart(assembly,'command')?.definition.id);
     let lastInstrumentKey='',lastMotionKey='',commandHealth=1,powerHealth=1,busRatio=1;
+    let lastInstrumentData=null,hitFlashTimer=null;
     function apply(assembly){
         current=resolveCockpitProfile(installedPart(assembly,'command')?.definition.id);
         for(const [id,kit] of Object.entries(kits))kit.visible=id===current.id;
@@ -118,6 +119,7 @@ export function installCockpitIdentities(arena,assembly){
     apply(assembly);
     arena.updateCockpitInstruments=data=>{
         updateBaseInstruments(data); // authoritative warnings, crack damage
+        lastInstrumentData=data;
         const key=current.id+'|'+JSON.stringify(data);
         if(key===lastInstrumentKey)return;
         lastInstrumentKey=key;
@@ -136,6 +138,29 @@ export function installCockpitIdentities(arena,assembly){
         const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio);
         for(const channel of ['motion','drive'])
             drawCockpitChannel(screens[channel],channel,data,current,faults);
+    };
+    const triggerBase=arena.triggerCockpitHit.bind(arena);
+    arena.triggerCockpitHit=(slot,profile={})=>{
+        triggerBase(slot,profile);
+        const index=['structure','mobility','power','command','combat'].indexOf(slot);
+        if(index<0||!lastInstrumentData)return;
+        const screen=screens.systems,ctx=screen.ctx;
+        // Physical armor impact = amber; actual core penetration = red.
+        // The flash overlays the correct row of the genuine cab monitor.
+        const penetrating=Number(profile.internalDamage)>0;
+        if(hitFlashTimer!==null)clearTimeout(hitFlashTimer);
+        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio);
+        drawCockpitChannel(screen,'systems',lastInstrumentData,current,faults);
+        ctx.fillStyle=penetrating?'#da795d':'#e6b966';
+        ctx.globalAlpha=.88;
+        ctx.fillRect(2,27+index*35,4,29);
+        ctx.globalAlpha=1;
+        screen.texture.needsUpdate=true;
+        hitFlashTimer=setTimeout(()=>{
+            hitFlashTimer=null;
+            drawCockpitChannel(screen,'systems',lastInstrumentData,current,
+                cockpitFailurePresentation(commandHealth,powerHealth,busRatio));
+        },380);
     };
     return { apply, getProfile:()=>current, kits, screens, displayGroup };
 }
