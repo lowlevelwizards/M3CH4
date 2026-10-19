@@ -48,7 +48,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
     // Geometry updates are slow intentional positioning choices, not 60Hz
     // steering noise. Objective capture still goes to the physical zone.
     const newTask=changed||!last;
-    if(newTask&&context?.world&&!context?.enemySeen&&
+    if(newTask&&context?.world&&context?.uncertain===true&&!context?.enemySeen&&
         !context?.underFireSeconds&&['CAPTURE','CONTEST','SEARCH'].includes(proposed.goal)&&
         proposed.point){
         const via=cautiousApproach(context.world,actor.position,proposed.point,
