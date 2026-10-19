@@ -22,7 +22,7 @@ jobs:
           node --check sceneAssembly.js
           node --check unifiedGarageUI.js
           git diff --check HEAD^ HEAD
-      - name: Complete regression tests
+      - name: Complete regression tests after release identifier reconciliation
         run: npm test
       - name: Headless 3v3 combat smoke
         run: node research/headlessDominationStudy.mjs 1
