@@ -12,8 +12,8 @@ test('unified garage restores the existing 3D component picture gallery instead 
     assert.match(ui,/partThumbnailDataUrl/);
     assert.match(ui,/classList\.add\('unified-part-card'\)/);
     assert.match(ui,/onSelect: \(\) => \{ selectedHardwareSerial = part\.serial; render\(\); \}/);
-    assert.match(ui,/onAction: \(\) => editModule\(slot, focused\.serial\)/);
-    assert.match(ui,/actionDisabled: !!here \|\| !!elsewhere/);
+    assert.match(ui,/onAction: \(\) => editModule\(slot,here \? null : focused\.serial\)/);
+    assert.match(ui,/actionDisabled: !!elsewhere/);
     assert.match(ui,/elsewhere \? 'ON ' \+ rigName\(owner\)/);
     assert.match(partGrid,/const img = document\.createElement\('img'\)/);
     assert.match(partGrid,/img\.src = thumbnailUrl/);
@@ -35,7 +35,7 @@ test('picture gallery and detail previews are sized for landscape phones',()=>{
     assert.match(css,/@media\(max-width:690px\)/);
     const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
     const mount=fs.readFileSync(new URL('../garageMountUI.js',import.meta.url),'utf8');
-    assert.match(html,/unifiedGarageStyles\.css\?v=k3u3/);
-    assert.match(html,/garageMountUI\.js\?v=k3u3/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k3u3/);
+    assert.match(html,/unifiedGarageStyles\.css\?v=k3v5p1/);
+    assert.match(html,/garageMountUI\.js\?v=k3v5p1/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k3v5p1/);
 });
