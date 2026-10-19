@@ -169,3 +169,16 @@ test('release entrypoint imports current tactical brain rather than stale cache 
    'intentExecutor','adaptiveTactics','objectiveDiscipline','debug'])
    assert.ok(html.includes('./ai/'+file+'.js?v=k3u6'),file+' cache is current');
 });
+
+test('a single owned point remains tactically flexible until a real scoring majority exists',()=>{
+ const s=world();s.zones[1].owner=null;
+ const anchors=reserveAnchors(s.knowledge.friendly.allies,s.zones,'friendly');
+ assert.equal(anchors.length,0);
+});
+test('an enemy contesting the capture footprint keeps the attacker maneuvering',()=>{
+ const state=createIntentExecutor(),rig=here(-17,-1.5);
+ const intent={goal:'CONTEST',point:here(-17,-1.5),objectiveId:'A',
+   radius:4.7,contested:true};
+ const action=executeIntent(state,intent,rig,DEFAULT_WORLD,1.1,1/60);
+ assert.notEqual(action.note,'SCORING FOOTPRINT');
+});
