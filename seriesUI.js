@@ -8,6 +8,8 @@ import { contractById } from './contracts.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
 import { bayHealth, SLOT_LABELS } from './garageBay.js';
+import { createConditionMeter } from './uiMeters.js';
+import { conditionFromPart, stationLabel } from './uiLanguage.js';
 import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
 } from './sortieAssignment.js';
@@ -140,7 +142,7 @@ function pitBanner(series) {
     const score = document.createElement('div'); score.className = 'bo3-score';
     score.innerHTML = `<span>YOU</span><b>${series.playerWins}</b><i>—</i><b>${series.enemyWins}</b><span>HOSTILE</span>`;
     const note = document.createElement('p');
-    note.textContent = 'PIT LOCKED · CHOOSE ANY COMMISSIONED FIELDABLE MACHINE BELOW. DAMAGE PERSISTS; SERVICE AND PART SWAPS RESUME AFTER THE CONTRACT.';
+    note.textContent = 'PIT LOCKED · ONE FIELD PATCH · NO PART SWAPS';
     banner.append(left, score, note);
     return banner;
 }
@@ -188,12 +190,21 @@ function readinessText(stable, rigId) {
     return 'OUT · NOT FIELDABLE';
 }
 
-function appendDebriefRow(label, value, kind = '') {
+function appendDebriefRow(label, value, kind = '', reading = null) {
     const row = document.createElement('div');
     row.className = `debrief-row ${kind}`.trim();
     const name = document.createElement('span'); name.textContent = label;
     const amount = document.createElement('strong'); amount.textContent = value;
-    row.append(name, amount); debriefLines.append(row);
+    if (reading?.serial) {
+        row.classList.add('rig-condition-row');
+        row.append(name,createConditionMeter(conditionFromPart(reading),{compact:true,slot:reading.slot}));
+        amount.setAttribute('aria-label',value);
+        amount.classList.add('rig-condition-alt');
+        // Exact percentages remain inspectable via the accessible row and title.
+        row.title=value;
+    } else row.append(name);
+    row.append(amount);
+    debriefLines.append(row);
 }
 
 function renderRoundIntermission(series, round) {
@@ -213,9 +224,9 @@ function renderRoundIntermission(series, round) {
             ? 'INT ' + percent(part.condition) + ' · ARM ' + percent(part.armorRatio) +
                 ' · WEAR ' + percent(part.wear)
             : 'NOT INSTALLED';
-        appendDebriefRow(SLOT_LABELS[part.slot] + ' · ' + part.label,
+        appendDebriefRow(stationLabel(part.slot)+(part.label==='READY'?'':' · '+part.label),
             reading, part.destroyed || part.condition <= .001 ? 'repair'
-                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '');
+                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '',part);
     }
     appendDebriefRow('CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS');
     debriefGarage.textContent = 'CONTINUE TO INTERMISSION · ROUND ' + series.roundNumber;
