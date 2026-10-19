@@ -22,11 +22,18 @@ function fresh(){
 }
 test('inactive bay 2 and 3 installed serialized parts can be removed and returned to inventory',()=>{
     const storage=fresh();
+    // No assumption that starter inventory provides two spare frames:
+    // two physical duplicate serials are deliberately acquired for this test.
+    const machine=decodeMachine(null);
+    const frame=machine.assembly.owned.find(p=>p.definitionId.startsWith('frame-'));
+    assert.ok(frame);
+    machine.assembly.owned.push({...frame,serial:'TEST-FRAME-R2'},
+        {...frame,serial:'TEST-FRAME-R3'});
+    assert.equal(storeMachine(storage,machine),true);
     const stable=loadStable(storage).stable;
     assert.equal(BAY_IDS.length,3);
-    const spare=stable.inventory.filter(p=>p.definitionId.startsWith('frame-') &&
-        !serialOwner(stable,p.serial));
-    assert.ok(spare.length>=2,'starting inventory has two alternate frames');
+    const spare=stable.inventory.filter(p=>p.serial==='TEST-FRAME-R2'||p.serial==='TEST-FRAME-R3');
+    assert.equal(spare.length,2);
     for(const [i,rigId] of ['rig-02','rig-03'].entries()){
         const part=spare[i];
         let result=changeInactiveBay(storage,rigId,'structure',part.serial);
