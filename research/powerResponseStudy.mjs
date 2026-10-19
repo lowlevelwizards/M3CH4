@@ -25,7 +25,7 @@ export function simulatePowerProfile(id,phase='idle',condition=1) {
     const weapon=WEAPONS['gun-light'],ammo=createWeaponState(weapon);
     const power=createPowerSystem(assembly);
     let minBus=1,shotCount=0,underVoltageTicks=0,peakDemand=0,lowestReserve=1,avgBus=0,maxSaturation=0;
-    const duration=phase==='idle'?4:phase==='launch'?3:phase==='recovery'?8:12;
+    const duration=phase==='idle'?4:phase==='launch'||phase==='burst'?3:phase==='recovery'?8:12;
     const stoppedAt=phase==='recovery'?4:duration+1;
     const steps=Math.round(duration/DT);
     for(let i=0;i<steps;i++){
