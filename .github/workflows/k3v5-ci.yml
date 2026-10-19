@@ -1,0 +1,49 @@
+name: k3v5 Cockpit Identities CI
+on:
+  push:
+    branches: ["k3v5-cockpit-identities"]
+  pull_request:
+    paths:
+      - "cockpitProfiles.js"
+      - "cockpitDisplays.js"
+      - "cockpitIdentityScene.js"
+      - "sceneAssembly.js"
+      - "index.html"
+      - "tests/**"
+      - "research/cockpitIdentityAudit.mjs"
+      - ".github/workflows/k3v5-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check changed module syntax
+        run: |
+          for f in cockpitProfiles.js cockpitDisplays.js cockpitIdentityScene.js sceneAssembly.js research/cockpitIdentityAudit.mjs tests/k3v5CockpitIdentities.test.mjs; do node --check "$f"; done
+      - name: Full original regression suite plus three cockpit identity tests
+        run: npm test
+      - name: Install exact Three.js 0.186.0 for headless physical geometry audit only
+        run: npm install --no-save --no-package-lock three@0.186.0
+      - name: Physical three-cab meshes, player sightline, active kit and actual screen sizes
+        run: |
+          mkdir -p study-results
+          node research/cockpitIdentityAudit.mjs | tee study-results/cockpit-geometry.json
+      - name: Prior physical tests, power behavior and three-on-three combat
+        run: |
+          node research/partIdentityBaseline.mjs > study-results/part-identity.md
+          node research/mobilityTemperamentStudy.mjs > study-results/mobility.md
+          node research/powerResponseStudy.mjs > study-results/power.md
+          node research/frameShieldingAudit.mjs --assert > study-results/frame-shield.md
+          node research/headlessDominationStudy.mjs 2 > study-results/domination.md
+      - name: Preserve reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k3v5-cockpit-identity-audit
+          path: study-results/
+          if-no-files-found: warn
