@@ -3,11 +3,12 @@
  * geometry A* plus the legacy local avoidance/stuck recovery.
  */
 import { planRoute, planApproachRoute, nextWaypoint } from './navigation.js';
+import { trafficWaypoint } from './adaptiveTactics.js';
 const d=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createIntentExecutor(){return {route:null,key:null,
     lastPosition:null,stalledFor:0,lastFailure:null,failures:0,retryLeft:0,
     replanAttempts:0,lastWaypoint:null,abortReason:null};}
-export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
+export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=[]) {
     state.retryLeft=Math.max(0,(state.retryLeft??0)-dt);
     const goal=intent?.point??{x:rig.x,z:rig.z};
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE';
@@ -45,10 +46,12 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt) {
         role:'TACTICAL',brakeBias:1,
         note:'ROUTE FAILURE · '+state.lastFailure,routeFailure:state.lastFailure};
     const waypoint=nextWaypoint(state.route,rig)??goal;
-    return {mode:'ORDER',point:waypoint,role:'TACTICAL',
+    const adjusted=trafficWaypoint(rig,waypoint,traffic,world,collisionRadius);
+    return {mode:'ORDER',point:adjusted,role:'TACTICAL',
         objectiveId:intent?.objectiveId,throttleScale:intent?.goal==='WITHDRAW'?.92:1,
         brakeBias:intent?.goal==='DEFEND'&&d(rig,goal)<3.2?.65:0,
-        note:(intent?.goal??'MOVE')+' · '+(intent?.objectiveId??'FIELD'),
+        note:(intent?.goal??'MOVE')+' · '+(intent?.objectiveId??'FIELD')+
+          (adjusted!==waypoint?' · YIELD TRAFFIC':''),
         approach:state.route?.waypoints.at(-1),
         routeFailure:state.lastFailure};
 }
