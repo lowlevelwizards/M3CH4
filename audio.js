@@ -38,3 +38,14 @@ export function soundBrace() {
     tone(94, 48, .16, .08, 'triangle');
     tone(185, 88, .08, .035, 'square');
 }
+
+/** Event sounds, not loops: audible warning at the moment traction slips and
+ * on a hard drive load-up. The simulation owns all thresholds/cooldowns. */
+export function soundFootScrape() {
+    tone(215, 95, .10, .028, 'sawtooth');
+    tone(94, 62, .15, .020, 'triangle');
+}
+export function soundDriveStrain() {
+    tone(83, 120, .17, .035, 'sawtooth');
+    tone(143, 87, .12, .018, 'triangle');
+}
