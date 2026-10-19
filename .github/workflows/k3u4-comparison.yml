@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,8 +24,8 @@ jobs:
           for f in research/baselineK3u2/*.js; do node --check "$f"; done
       - name: Full production tests
         run: npm test
-      - name: Paired 3v3 BO3 headless smoke
-        run: node research/k3u4MatchedBo3.mjs ${{ matrix.shard }} 2 1 1
+      - name: Paired 3v3 BO3 headless 840-series study
+        run: node research/k3u4MatchedBo3.mjs ${{ matrix.shard }} 75 15 15
       - uses: actions/upload-artifact@v4
         if: always()
         with:
