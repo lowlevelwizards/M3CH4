@@ -1,0 +1,30 @@
+name: k3u3 Adaptive Tactical CI
+on:
+  push:
+    branches: ["k3u3-adaptive-objective-warfare"]
+    paths: [".github/workflows/k3u3-ci.yml"]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax and whitespace
+        run: |
+          node --check main.js
+          for f in ai/*.js unifiedGarageUI.js garageMountUI.js; do node --check "$f"; done
+          git diff --check HEAD^ HEAD
+      - name: Complete regression suite
+        run: npm test
+      - name: Existing physical 3v3 Domination smoke
+        run: node research/headlessDominationStudy.mjs 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k3u3-headless-smoke
+          path: study-results/
+          if-no-files-found: warn
