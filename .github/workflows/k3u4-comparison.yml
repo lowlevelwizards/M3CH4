@@ -1,0 +1,34 @@
+name: Research - k3u4 Tactical BO3 Comparison
+on:
+  push:
+    branches: ["research-k3u4-headless-bo3"]
+    paths: [".github/workflows/k3u4-comparison.yml"]
+  workflow_dispatch:
+jobs:
+  comparison:
+    name: "Tactical generation pair - shard ${{ matrix.shard }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Comparison harness and baseline syntax
+        run: |
+          node --check research/k3u4MatchedBo3.mjs
+          for f in research/baselineK3u2/*.js; do node --check "$f"; done
+      - name: Full production tests
+        run: npm test
+      - name: Paired 3v3 BO3 headless smoke
+        run: node research/k3u4MatchedBo3.mjs ${{ matrix.shard }} 2 1 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k3u4-bo3-${{ matrix.shard }}
+          path: study-results/k3u4-*
+          if-no-files-found: warn
