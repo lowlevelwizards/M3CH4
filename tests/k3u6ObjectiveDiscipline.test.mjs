@@ -160,3 +160,12 @@ test('developer diagnostics expose physical route and footprint measurements',()
  assert.match(src,/trafficYields/);assert.match(src,/routeSwitches/);
  assert.match(src,/scoringSettles/);assert.match(src,/anchor/);
 });
+
+test('release entrypoint imports current tactical brain rather than stale cache identities',()=>{
+ const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.ok(html.includes('main.js?v=k3u6'));
+ assert.ok(html.includes('RIG DIAGNOSTICS <span>0.0.1k.3u.6</span>'));
+ for(const file of ['teamPlanner','strategicState','worldModel','pilotBrain','positioning',
+   'intentExecutor','adaptiveTactics','objectiveDiscipline','debug'])
+   assert.ok(html.includes('./ai/'+file+'.js?v=k3u6'),file+' cache is current');
+});
