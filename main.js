@@ -1567,7 +1567,11 @@ function frame(now) {
                         actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
                         !!target&&withinFiringArc(actor.rig,target.rig)&&
                         actor.motion?.awareness?.lineOfSight!==false&&
-                        shouldAttemptTacticalShot(actor,target,{urgent:false});
+                        shouldAttemptTacticalShot(actor,target,{urgent:
+                            !!sortieObjective.domination?.points?.some(p=>
+                                Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<
+                                  sortieObjective.radius &&
+                                (p.contested||p.owner===actor.team))});
                     const shot=advanceHostileController(actor.controller,
                         actor.condition,FIXED_DT,!target,ready);
                     if(shot!==null&&target)attemptAiFire(actor,target,shot);
