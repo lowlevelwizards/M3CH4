@@ -1,4 +1,4 @@
-/** RESEARCH ONLY — side-swapped k3u4 AI vs exact k3u2 baseline.
+/** RESEARCH ONLY — side-swapped k3u6 AI vs exact k3u2 baseline.
  * 60Hz physical rigs, live strict Domination, approximate mesh shots.
  * BO3 proxy: fresh hardware each round; historical no-elimination-end rule
  * deliberately retained to isolate AI changes. Neither iPhone performance
@@ -43,11 +43,13 @@ import { derateRigConfig, functionalOutput } from '../functionalDamage.js';
 import { createFieldServiceState, arrestFirstWeaponFailure, canFieldService,
     beginFieldService, advanceFieldService, fieldServiceStationary } from '../fieldService.js';
 import { aiWeaponRecoveryDirective, aiWeaponRecoveryPosture, aiWeaponMissionKillReason } from '../aiFieldService.js';
-import { createStrategicState as baselineCreateStrategy, evaluateStrategy as baselineEvaluateStrategy } from './baselineK3u2/strategicState.js';
-import { planTeam as baselinePlanTeam } from './baselineK3u2/teamPlanner.js';
-import { createPilotBrain as baselineCreateBrain,decidePilot as baselineDecidePilot } from './baselineK3u2/pilotBrain.js';
-import { createIntentExecutor as baselineCreateExecutor, executeIntent as baselineExecuteIntent } from './baselineK3u2/intentExecutor.js';
+import { createStrategicState as baselineCreateStrategy, evaluateStrategy as baselineEvaluateStrategy } from './baselineK3u3/strategicState.js';
+import { planTeam as baselinePlanTeam } from './baselineK3u3/teamPlanner.js';
+import { createPilotBrain as baselineCreateBrain,decidePilot as baselineDecidePilot } from './baselineK3u3/pilotBrain.js';
+import { createIntentExecutor as baselineCreateExecutor, executeIntent as baselineExecuteIntent } from './baselineK3u3/intentExecutor.js';
 import { prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot } from '../ai/adaptiveTactics.js';
+import { prioritizeVisibleTarget as baselineTarget,shouldAttemptTacticalShot as baselineShot,
+    tacticalAimSlot as baselineAim } from './baselineK3u3/adaptiveTactics.js';
 
 const DT=1/60,MAX_SECONDS=210;
 const PARTS=['structure','mobility','power','command','combat'];
@@ -146,6 +148,7 @@ function runBout(seed,settings){
           a.brain=baselineCreateBrain();a.executor=baselineCreateExecutor();
         }
         a.stats.yieldTicks=0;a.stats.stagingSeconds=0;a.stats.movementRecoveries=0;
+        a.stats.anchorSeconds=0;
       }
       teams[team]=actors;
     }
@@ -167,6 +170,7 @@ function runBout(seed,settings){
       planLeft-=DT;
       if(planLeft<=0||!snapshot){
         snapshot=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
+        const previousPlans=plans;
         plans={};
         for(const team of ['friendly','hostile']){
           const modern=teams[team][0].generation==='new';
@@ -174,8 +178,9 @@ function runBout(seed,settings){
             evaluateStrategy(strategies.new,snapshot,team):
             baselineEvaluateStrategy(strategies.baseline,snapshot,team);
           plans[team]=modern?
-            planTeam(snapshot,team,{strategy,assaultMemory:assaultMemory[team]}):
-            baselinePlanTeam(snapshot,team,{strategy});
+            planTeam(snapshot,team,{strategy,assaultMemory:assaultMemory[team],
+              previousOrders:previousPlans[team]?.orders}):
+            baselinePlanTeam(snapshot,team,{strategy,assaultMemory:assaultMemory[team]});
         }
         planLeft=.85;
         if(metrics.firstContactAt===null&&['friendly','hostile'].some(team=>
@@ -186,10 +191,9 @@ function runBout(seed,settings){
         if(!a.active)continue;
         const observed=new Set((snapshot?.knowledge?.[a.team]?.contacts??[])
           .filter(c=>c.visible).map(c=>c.id));
-        const target=a.generation==='new'?
-          prioritizeVisibleTarget(a,actors.filter(c=>c.active&&c.team!==a.team&&observed.has(c.id)),
-            snapshot,plans[a.team]?.orders?.[a.id]??null,a.targetId??null,null):
-          nearestVisible(a,actors,snapshot);
+        const visible=actors.filter(c=>c.active&&c.team!==a.team&&observed.has(c.id));
+        const target=(a.generation==='new'?prioritizeVisibleTarget:baselineTarget)(
+          a,visible,snapshot,plans[a.team]?.orders?.[a.id]??null,a.targetId??null,null);
         a.targetId=target?.id??null;
         const recovery=aiWeaponRecoveryDirective(a,target);
         const capability=snapshot.knowledge[a.team].allies
@@ -210,8 +214,9 @@ function runBout(seed,settings){
             radius:configFor(c).collisionRadiusM,active:true}));
         const instruction=a.generation==='new'?
           executeIntent(a.executor,decision,a.rig,DEFAULT_WORLD,config.collisionRadiusM,DT,traffic):
-          baselineExecuteIntent(a.executor,decision,a.rig,DEFAULT_WORLD,config.collisionRadiusM,DT);
-        if(a.generation==='new'&&instruction.note?.includes('YIELD TRAFFIC'))a.stats.yieldTicks++;
+          baselineExecuteIntent(a.executor,decision,a.rig,DEFAULT_WORLD,config.collisionRadiusM,DT,traffic);
+        if(instruction.note?.includes('YIELD TRAFFIC'))a.stats.yieldTicks++;
+        if(job?.anchor)a.stats.anchorSeconds+=DT;
         if(decision.goal==='STAGE')a.stats.stagingSeconds+=DT;
         if(a.motion.phase==='RECOVER'&&a._previousPhase!=='RECOVER')a.stats.movementRecoveries++;
         a._previousPhase=a.motion.phase;
@@ -253,7 +258,7 @@ function runBout(seed,settings){
         const assigned=plans[a.team]?.orders?.[a.id]??null;
         const urgent=!!state.domination.points.find(p=>
           dist(p,target.rig)<state.radius&&(p.contested||p.owner===a.team));
-        if(a.generation==='new'&&!shouldAttemptTacticalShot(a,target,{urgent}))continue;
+        if(!(a.generation==='new'?shouldAttemptTacticalShot:baselineShot)(a,target,{urgent}))continue;
         if(!tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)){
             noteBlockedFire(a.motion,'STATIC COVER');continue;
         }
@@ -275,10 +280,16 @@ function runBout(seed,settings){
         const defaultSlot=hostileAimSlot(fired,a.behavior.aimPriority);
         const contesting=!!assigned?.objectiveId&&state.domination.points.some(p=>
           p.id===assigned.objectiveId&&p.contested&&dist(p,target.rig)<state.radius);
-        const slot=a.generation==='new'?tacticalAimSlot(defaultSlot,{
+        const slot=(a.generation==='new'?tacticalAimSlot:baselineAim)(defaultSlot,{
           targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
-          contesting,visibleService:!!target.fieldService?.held}):defaultSlot;
+          contesting,visibleService:!!target.fieldService?.held});
         damage(a,target,slot,metrics,t,rng);
+      }
+      // Current production k3u5: a fully disabled squad loses the round even
+      // before 60 territory points accrue. Same rule applies to BOTH AIs.
+      if(count('friendly')===0||count('hostile')===0){
+        metrics.win=count('hostile')===0?'friendly':'hostile';
+        metrics.winReason='ELIMINATION';metrics.time=t+DT;break;
       }
       const prevScore={friendly:state.friendlyProgress,hostile:state.hostileProgress};
       const outcome=advanceSortieObjective(state,actors,DT);
@@ -411,7 +422,7 @@ function aggregate(seriesRows){
    byGen[name]={rigs:these.length,survivors:these.filter(a=>a.alive).length,
      ...Object.fromEntries(['captures','zoneSeconds','travel','damageDealt',
        'hits','actualShots','shotTriggers','kills','goalChanges','routeErrors',
-       'serviceCount','yieldTicks','stagingSeconds','movementRecoveries']
+       'serviceCount','yieldTicks','stagingSeconds','movementRecoveries','anchorSeconds']
        .map(k=>[k,+sum(these,a=>a[k]).toFixed(2)]))};
  }
  const lethal=rounds.filter(r=>r.firstKillAt!==null);
@@ -422,7 +433,8 @@ function aggregate(seriesRows){
    meanRounds:sum(seriesRows,s=>s.rounds.length)/Math.max(1,seriesRows.length),
    roundsByOutcome:{score:rounds.filter(r=>r.winReason==='SCORE').length,
      timeout:rounds.filter(r=>r.winReason==='TIME LIMIT').length,
-     bothDisabled:rounds.filter(r=>r.winReason==='BOTH TEAMS DISABLED').length},
+     bothDisabled:rounds.filter(r=>r.winReason==='BOTH TEAMS DISABLED').length,
+     elimination:rounds.filter(r=>r.winReason==='ELIMINATION').length},
    metricsPerRound:{duration:+(sum(rounds,r=>r.time)/Math.max(1,N)).toFixed(2),
      contested:+(sum(rounds,r=>r.contestedSeconds)/Math.max(1,N)).toFixed(2),
      noScoring:+(sum(rounds,r=>r.noMajoritySeconds)/Math.max(1,N)).toFixed(2),
@@ -449,16 +461,16 @@ function main(){
    }
  }
  const result={shard,roundModel:'BO3 independent fresh-rig rounds',
-   versions:{new:'k3u3 tactical + k3u4 cockpit, main 4db04214',
-     baseline:'k3u2 tactical, main 93286524'},
-   policy:'strict, pre-elimination termination rule',dt:DT,maxSeconds:MAX_SECONDS,
+   versions:{new:'k3u3 tactical + k3u6 cockpit, main 4db04214',
+     baseline:'k3u3 tactical from pre-k3u6 main 82f42bb'},
+   policy:'strict + production k3u5 eliminate-all ending',dt:DT,maxSeconds:MAX_SECONDS,
    approximateHits:true,
    armed:aggregate(all.filter(s=>s.mode==='armed')),
    noDamage:aggregate(all.filter(s=>s.mode==='no-damage')),
    worn:aggregate(all.filter(s=>s.mode==='worn-25'))};
  fs.mkdirSync('study-results',{recursive:true});
- fs.writeFileSync('study-results/k3u4-series-shard-'+shard+'.json',JSON.stringify(all));
- fs.writeFileSync('study-results/k3u4-summary-shard-'+shard+'.json',JSON.stringify(result,null,2));
+ fs.writeFileSync('study-results/k3u6-series-shard-'+shard+'.json',JSON.stringify(all));
+ fs.writeFileSync('study-results/k3u6-summary-shard-'+shard+'.json',JSON.stringify(result,null,2));
  console.log('K3U4_BO3_SUMMARY '+JSON.stringify(result));
 }
 main();
