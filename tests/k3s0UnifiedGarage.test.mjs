@@ -113,8 +113,8 @@ test('mobile UX has a single physical bay navigator and explicit contract/setup/
     const garage=fs.readFileSync(new URL('../garageMountUI.js',import.meta.url),'utf8');
     const ui=fs.readFileSync(new URL('../unifiedGarageUI.js',import.meta.url),'utf8');
     const css=fs.readFileSync(new URL('../unifiedGarageStyles.css',import.meta.url),'utf8');
-    assert.match(html,/0\.0\.1k\.3v\.5\.1/);
-    assert.match(garage,/unifiedGarageUI\.js\?v=k3v5p1/);
+    assert.match(html,/0\.0\.1k\.3w\.0/);
+    assert.match(garage,/unifiedGarageUI\.js\?v=k3w0/);
     assert.doesNotMatch(garage,/import '\.\/fieldWorkUI\.js/);
     assert.match(ui,/mode = 'garage'/);
     assert.match(ui,/mode\s*=\s*'contracts'/);
