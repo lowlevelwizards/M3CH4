@@ -203,8 +203,12 @@ function runBout(seed,settings){
         if(a.weaponState.loaded<=0 && a.weaponState.reloadLeft===0&&a.weaponState.reserve>0)
             startReload(a.weaponState,a.weaponSpec);
         if(!target)continue;
-        // Production AI trigger timing & forward firing arc.
-        const fired=advanceHostileController(a.controller,a.condition,DT,false);
+        // Production k3u7 fire rate: the actual fitted weapon's loaded,
+        // reload and physical cooldown state are authoritative. No separate
+        // contract personality trigger interval or fake 60Hz attempts.
+        const ready=a.weaponState.cooldown<=0&&a.weaponState.loaded>0&&
+            a.weaponState.reloadLeft<=0;
+        const fired=advanceHostileController(a.controller,a.condition,DT,false,ready);
         if(fired===null)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
