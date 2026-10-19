@@ -21,7 +21,7 @@ jobs:
           for f in ai/*.js; do node --check "$f"; done
           node --check tests/k3u6ObjectiveDiscipline.test.mjs
           git diff --check HEAD^ HEAD
-      - name: Full 3v3, garage, cockpit and mechanical regression suite
+      - name: Full 3v3, garage, cockpit, and k3u6 Pages cache regression suite
         run: npm test
       - name: 60 Hz Domination physics smoke
         run: node research/headlessDominationStudy.mjs 2
