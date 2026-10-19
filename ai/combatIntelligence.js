@@ -123,5 +123,10 @@ export function threatenedSubsystem(memory,condition,now){
  const part=condition?.parts?.[memory.focusSlot];
  if(!part||part.destroyed)return null;
  const fraction=part.integrity/Math.max(1,part.maxIntegrity);
- return fraction<.72?{slot:memory.focusSlot,remaining:fraction,hits:memory.focusHits}:null;
+ const plating=Number.isFinite(part.maxArmor)&&part.maxArmor>0?
+   (part.armor??part.maxArmor)/part.maxArmor:1;
+ // React while armor is stripped, BEFORE a player can repeatedly penetrate
+ // the same exposed internal system. No access to opponent part condition.
+ return fraction<.78||plating<.42?
+   {slot:memory.focusSlot,remaining:fraction,plating,hits:memory.focusHits}:null;
 }
