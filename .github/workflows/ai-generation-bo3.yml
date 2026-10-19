@@ -1,0 +1,33 @@
+name: Research - Old vs New Tactical AI BO3
+on:
+  push:
+    branches: ["research-k3u3-ai-generation-study"]
+    paths: [".github/workflows/ai-generation-bo3.yml"]
+  workflow_dispatch:
+jobs:
+  study:
+    name: "Generations comparison - shard ${{ matrix.shard }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and regression tests
+        run: |
+          node --check research/generationBo3Study.mjs
+          node --check research/legacyEnemyMotion.js
+          npm test
+      - name: Execute independent paired BO3 series (smoke)
+        run: node research/generationBo3Study.mjs ${{ matrix.shard }} 2 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-generation-bo3-${{ matrix.shard }}
+          path: study-results/
+          if-no-files-found: warn
