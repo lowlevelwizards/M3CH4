@@ -135,6 +135,7 @@ export function planTeam(snapshot,team,options={}) {
                 !job.contested&&job.kind==='DEFEND';
             orders[actor.id]={goal:job.kind,objectiveId:job.objectiveId,
                 point:{...job.point},radius:snapshot.zoneRadius??4.7,
+                contested:job.contested,
                 score:clamp(suitabilityScore/1.7),
                 note:playerCoverage?'SUPPORT PLAYER POSITION':job.note,
                 reason:strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
