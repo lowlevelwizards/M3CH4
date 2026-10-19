@@ -362,6 +362,11 @@ function moduleDetails(stable, view, machine) {
             onSelect: () => { selectedHardwareSerial = part.serial; render(); },
         });
         card.classList.add('unified-part-card');
+        const actual=ownerCondition(part);
+        card.append(createConditionMeter({
+            serial:part.serial, condition:actual?.condition??part.condition,
+            armorRatio:actual?.armorRatio??1,wear:part.wear,destroyed:!!part.destroyed,
+        },{compact:true,slot}));
         card.title = definition.name + ' · ' + part.serial +
             (elsewhere ? ' · mounted on ' + rigName(owner) : '');
         choices.append(card);
@@ -388,6 +393,20 @@ function moduleDetails(stable, view, machine) {
             onAction: () => editModule(slot,here ? null : focused.serial),
         });
         detail.classList.add('unified-part-detail','rig-part-focus');
+        const info=detail.querySelector('.part-detail-meta');
+        if(info)info.textContent=focused.serial+' · '+definition.massKg+' KG · WEAR '+
+            Math.round((focused.wear??0)*100)+'%';
+        const installedDef=installed?BY_ID.get(installed.definitionId):null;
+        if(installedDef && installed?.serial!==focused.serial){
+            const diffKg=definition.massKg-installedDef.massKg;
+            const diffKw=definition.powerKw-installedDef.powerKw;
+            const compare=el('div','rig-part-delta',
+                'Δ '+(diffKg>0?'+':'')+diffKg+' KG  ·  '+
+                (diffKw>0?'+':'')+diffKw+' KW');
+            compare.setAttribute('aria-label','Compared to current part: mass difference '+
+                diffKg+' kilograms, rated power difference '+diffKw+' kilowatts');
+            detail.querySelector('.part-detail-copy')?.append(compare);
+        }
         const copy=detail.querySelector('.part-detail-copy');
         if(copy){
             const condition=ownerCondition(focused);
