@@ -18,32 +18,28 @@ export function hostileOutput(condition, behavior = null) {
     const command = ratio(condition, 'command');
     const weapon = ratio(condition, 'combat');
     const operational = structure > .05 && command > .05 && power > .12 && weapon > .12;
-    const baseTrigger = 1.28 + (1 - weapon) * 1.25 + (1 - power) * .85;
     const baseSpread = .010 + (1 - weapon) * .045 + (1 - power) * .020;
     return {
         structure, mobility, power, command, weapon, operational,
-        // Contract personality changes intent, never the fitted weapon's raw cyclic
-        // rate. Damage still slows the trigger cycle before the profile multiplier.
-        triggerSeconds: baseTrigger * profile.fireCadenceScale,
+        // Only the physical fitted weapon controls cyclic rate. Pilot personality
+        // may still change target selection and actual shot opportunity.
         spreadRadians: baseSpread * profile.spreadScale,
     };
 }
 
-export function createHostileController(initialDelay = 1.8, behavior = selectedContract().behavior) {
+export function createHostileController(initialDelay = .45, behavior = selectedContract().behavior) {
     return { triggerLeft: Math.max(0, initialDelay), shots: 0, behavior };
 }
 
 /** Returns a 1-based shot number only when the automated rig actually pulls the trigger. */
-export function advanceHostileController(controller, condition, dt, playerDisabled = false) {
-    if (!Number.isFinite(dt) || dt <= 0)
+export function advanceHostileController(controller, condition, dt, playerDisabled = false, weaponReady=true) {
+    if (!Number.isFinite(dt) || dt <= 0)return null;
+    // Initial acquisition delay only. After that, real ammunition, reload and
+    // weapon cooldown are the ONLY cyclic rate authorities.
+    controller.triggerLeft=Math.max(0,controller.triggerLeft-dt);
+    const output=hostileOutput(condition,controller.behavior);
+    if(!output.operational||playerDisabled||!weaponReady||controller.triggerLeft>0)
         return null;
-    const output = hostileOutput(condition, controller.behavior);
-    if (!output.operational || playerDisabled)
-        return null;
-    controller.triggerLeft = Math.max(0, controller.triggerLeft - dt);
-    if (controller.triggerLeft > 0)
-        return null;
-    controller.triggerLeft = output.triggerSeconds;
     return ++controller.shots;
 }
 
