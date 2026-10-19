@@ -44,7 +44,7 @@ export function createTacticalAwareness() {
 /** A shot does not have to destroy something to matter tactically. Severity is a
  * small perception hint, not damage math: 0.5 = incoming fire, 1 = armor hit,
  * ~1.5 = internal hit. */
-export function noteIncomingFire(owner, sourceRig, sourceId, severity = 1) {
+export function noteIncomingFire(owner, sourceRig, sourceId, severity = 1, observerRig=null) {
     const state = stateOf(owner);
     if (!state) return;
     const strength = clamp(Number(severity) || 0, .25, 2.5);
@@ -55,9 +55,17 @@ export function noteIncomingFire(owner, sourceRig, sourceId, severity = 1) {
     if (!continuingPressure) state.underFireElapsed = 0;
     state.urgency = Math.max(state.urgency || 0, strength);
     state.recentAttackerId = sourceId ?? state.recentAttackerId;
-    if (sourceRig){
-        state.lastThreat = { x: Number(sourceRig.x) || 0, z: Number(sourceRig.z) || 0 };
-        state.unseenThreat=false;
+    if(sourceRig){
+        // An impact can reveal APPROXIMATE approach bearing, not hidden
+        // attacker coordinates. Observer position is supplied by the live
+        // physics event; old test helpers without it retain old semantics.
+        const dx=sourceRig.x-(observerRig?.x??sourceRig.x);
+        const dz=sourceRig.z-(observerRig?.z??sourceRig.z);
+        const length=Math.hypot(dx,dz);
+        state.lastThreat=observerRig&&length>.1?
+            {x:observerRig.x+dx/length*9,z:observerRig.z+dz/length*9}:
+            {x:sourceRig.x,z:sourceRig.z};
+        state.unseenThreat=!!observerRig;
     }
 }
 
