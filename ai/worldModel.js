@@ -22,6 +22,8 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
     const participants=(roster??[]).filter(a=>a?.rig).map(a=>({
         id:a.id,team:a.team,active:a.active!==false,label:a.label??a.id,
         position:{x:a.rig.x,z:a.rig.z},
+        yaw:a.rig.yaw??0,
+        underFireSeconds:a.motion?.awareness?.underFireSeconds??0,
         behavior:a.behavior?.id??'pressure',capability:actorCapabilities(a),
     }));
     const teams=['friendly','hostile'],knowledge={};
@@ -31,9 +33,17 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
         const previous=memory.contacts.get(team)??new Map();
         const known=new Map();
         for(const enemy of enemies) {
-            const spotted=allies.some(friend=>
-                distance(friend.position,enemy.position)<38 &&
-                tacticalLineOfSight(friend.position,enemy.position,world));
+            const spotted=allies.some(friend=>{
+                const d=distance(friend.position,enemy.position);
+                if(d>=38||d<.01)return false;
+                const dx=(enemy.position.x-friend.position.x)/d;
+                const dz=(enemy.position.z-friend.position.z)/d;
+                const fwd=dx*Math.sin(friend.yaw)+dz*(-Math.cos(friend.yaw));
+                // Wide optics still have a rear blind sector. Proximity does
+                // not grant exact coordinates through the chassis.
+                return fwd>Math.cos(112*Math.PI/180)&&
+                    tacticalLineOfSight(friend.position,enemy.position,world);
+            });
             if(spotted)known.set(enemy.id,{id:enemy.id,team:enemy.team,
                 position:{...enemy.position},lastSeen:time,confidence:1,visible:true});
             else {
