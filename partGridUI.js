@@ -3,7 +3,8 @@
  * the focused detail panel so the grid reads like a rack of actual hardware.
  */
 const SLOT_ORDER = Object.freeze(['structure', 'mobility', 'power', 'command', 'combat']);
-const GLYPHS = Object.freeze({ structure: '⬡', mobility: '⋀', power: 'ϟ', command: '◉', combat: '✦' });
+import { stationGlyph } from './uiLanguage.js';
+const GLYPHS = Object.freeze(Object.fromEntries(SLOT_ORDER.map(slot=>[slot,stationGlyph(slot)])));
 const clamp01 = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 
 export function normalizedPartStatus(entry) {
