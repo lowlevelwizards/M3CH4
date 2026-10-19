@@ -608,13 +608,17 @@ function renderContracts(stable) {
 function renderStationReadout(view) {
     if (!selectedSlot) return null;
     const current=view.health.find(item=>item.slot===selectedSlot);
+    if(!current) return null;
     const group=el('div','unified-station-readout');
-    const name=current.part ? BY_ID.get(current.part.definitionId)?.name ?? current.part.definitionId : 'NO MODULE INSTALLED';
-    group.append(el('strong','',SLOT_LABELS[selectedSlot]+' · '+name));
-    group.append(el('small','',current.serial
-        ? current.serial+' · '+current.label+' · INTERNAL '+pct(current.condition)+
-            ' · ARMOR '+pct(current.armorRatio)+' · WEAR '+pct(current.wear)
-        : 'EMPTY · RETURN TO GARAGE TO INSTALL'));
+    const partName=current.part ? BY_ID.get(current.part.definitionId)?.name ??
+        current.part.definitionId : 'EMPTY STATION';
+    group.append(el('strong','',stationLabel(selectedSlot)+' · '+partName));
+    if(current.serial) {
+        const line=el('div','rig-recovery-line');
+        line.append(createConditionMeter(conditionFromPart(current),{compact:true,slot:selectedSlot}));
+        line.append(el('small','',current.serial+' · '+current.label));
+        group.append(line);
+    }
     return group;
 }
 function renderSetup(stable, view) {
@@ -624,7 +628,7 @@ function renderSetup(stable, view) {
         c.risk.toUpperCase()+' · ₡'+c.payout),bayHeader(view),summary(view),moduleStation(view));
     const readout=renderStationReadout(view);
     if (readout) dock.append(readout);
-    dock.append(el('p','unified-muted','CHOOSE A BAY BELOW. INSPECT HARDWARE HERE; RETURN TO GARAGE TO CHANGE LOADOUTS.'));
+    // Bay navigation is always visible; the inspection is contextual.
     if (!view.canDeploy) dock.append(el('p','unified-warning',view.reason || 'MACHINE NOT COMMISSIONED'));
     setPrimary('DEPLOY '+view.name.toUpperCase(),()=>launch(stable,c.id),!view.canDeploy);
 }
@@ -665,12 +669,11 @@ function renderPit(stable,view,series) {
     const patch=currentIntermissionFieldAction(storage,series);
     if(patch?.rigId===viewedId && !selectedSlot)selectedSlot=patch.slot;
     const contract=contractById(series.contractId);
-    dock.append(el('div','unified-job-compact','BEST OF THREE · '+contract.name.toUpperCase()+
-        ' · ROUND '+series.roundNumber+' · YOU '+series.playerWins+' — '+series.enemyWins+' HOSTILE'));
+    // The contract and score are already shown in the fixed top bar.
     dock.append(bayHeader(view),summary(view),moduleStation(view));
     const readout=renderStationReadout(view);
     if (readout) dock.append(readout);
-    dock.append(el('p','unified-muted','PIT LOCKED · DAMAGE PERSISTS · NO LOADOUT CHANGES OR FULL REPAIRS.'));
+    dock.append(el('small','unified-pit-lock','🔒 PIT · ONE FIELD PATCH · NO PART SWAPS'));
     dock.append(patchInPit(stable,view,series));
     const committed=fieldWorkCommitment(storage);
     const canGo=view.canDeploy && (!committed || committed.rigId===viewedId);
