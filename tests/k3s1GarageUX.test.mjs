@@ -22,8 +22,11 @@ test('all three bays have the same fixed navigation geometry', () => {
     assert.match(css, /width:var\(--garage-dock-width\)/);
 });
 test('five physical station icons return with accessible missing, damaged and destroyed colors', () => {
-    for (const glyph of ['⬡','⋀','ϟ','◉','✦']) assert.ok(ui.includes(glyph));
-    assert.match(ui, /rig-station-icon/);
+    const language=fs.readFileSync(new URL('../uiLanguage.js',import.meta.url),'utf8');
+    const meters=fs.readFileSync(new URL('../uiMeters.js',import.meta.url),'utf8');
+    for (const glyph of ['⬡','⋀','ϟ','◉','✦']) assert.ok(language.includes(glyph));
+    assert.match(meters,/rig-station-icon/);
+    assert.match(ui,/createStationFace\(item\.slot,item\)/);
     assert.match(ui,/state-' \+ state/);
     assert.match(ui,/!item\.serial \? 'empty'/);
     assert.match(ui,/item\.destroyed \? 'destroyed'/);
