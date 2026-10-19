@@ -105,6 +105,26 @@ export function verifyShieldAudit(results = runFrameShieldAudit()) {
     }
     assert.notDeepEqual(results[0].directions,results[1].directions,'Bruiser and Skeleton cannot have indistinguishable physical hit shapes');
     assert.notDeepEqual(results[1].directions,results[2].directions,'Skeleton and Wedge cannot have indistinguishable physical hit shapes');
+    const rows = Object.fromEntries(results.map(r => [r.frameId, r.directions]));
+    const bruiser = rows['frame-sr'];
+    const skeleton = rows['frame-utility'];
+    const wedge = rows['frame-wedge'];
+    // These are consequences of ACTUAL visible mesh placement at matched
+    // shooter height and identical installed target modules, not invented
+    // percentage reductions or universal facing flags.
+    assert.ok(wedge.front.command.verifiedShield >= 3,
+        'Wedge forward armor must physically intercept the lower outer cab');
+    assert.ok(wedge.front.command.frameFirst > bruiser.front.command.frameFirst);
+    assert.ok(wedge.front.command.frameFirst > skeleton.front.command.frameFirst);
+    assert.ok(wedge.front.command.reached < bruiser.front.command.reached);
+    assert.ok(wedge['front-high'].command.reached > wedge.front.command.reached,
+        'raised attacker must recover legitimate cab sightlines');
+    assert.ok(wedge.rear.power.reached > wedge.front.power.reached,
+        'exposed generator must reward a rear flank');
+    assert.ok(skeleton.front.mobility.reached > bruiser.front.mobility.reached,
+        'open Skeleton rails must expose more front drive hits');
+    assert.ok(wedge.front.power.frameFirst > skeleton.front.power.frameFirst,
+        'Wedge armored deck must physically intercept more low frontal lines');
     // A nontrivial portion of command/drive/generator shots must remain direct:
     // there are no universal invulnerability plates or special synthetic armor.
     assert.ok(results.some(r => r.samples.some(s=>s.struck===s.targetSlot)));
