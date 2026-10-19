@@ -94,3 +94,39 @@ body:not(.inspecting) #shot-report.faded{opacity:0}
  #unified-garage .unified-part-card{min-height:74px;height:74px;min-width:76px;width:76px}
 }
 @media(max-width:690px){#unified-garage[data-mode="garage"],#unified-garage[data-mode="pit"],#unified-garage[data-mode="setup"]{--garage-dock-width:clamp(280px,48vw,345px)}}
+
+/* Compact action order: part first, ownership rack second, work/service third. */
+#unified-garage .rig-part-identity{order:0}
+#unified-garage .rig-part-focus{order:1}
+#unified-garage .rig-gallery-tabs{order:2}
+#unified-garage .unified-part-gallery{order:3}
+#unified-garage .unified-service{order:4}
+#unified-garage .unified-mount-options{order:5}
+#unified-garage .unified-owner-note{order:6}
+#unified-garage .unified-owner-action{order:7}
+#unified-garage .rig-part-delta{font:800 9px/1.3 ui-monospace,monospace;color:#edca85;margin:2px 0}
+#unified-garage .part-detail-copy .rig-selected-part{min-height:31px}
+#unified-garage .part-detail-copy .rig-selected-part .rig-meter-numbers{font-size:7px}
+#unified-garage .rig-part-focus .part-detail-copy{display:flex;flex-direction:column;gap:3px}
+#unified-garage .rig-part-focus .part-detail-copy h3{margin:0;font-size:12px}
+#unified-garage .rig-part-focus .part-detail-meta{max-height:24px;overflow:hidden;white-space:normal}
+#unified-garage .rig-part-focus .rig-selected-part .rig-part-meta{font-size:7px}
+#unified-garage .unified-part-card .part-card-value,
+#unified-garage .unified-part-card .part-card-condition{display:none}
+#unified-garage .unified-part-card>.rig-condition{position:absolute;bottom:2px;right:2px;z-index:3;width:22px;height:22px}
+#unified-garage .unified-part-card>.rig-condition .rig-meter-core{width:10px;height:10px}
+#unified-garage .unified-part-card .part-card-source{max-width:72%;font-size:7px}
+#unified-garage .unified-pit-lock{color:#c5a36e;font:800 9px/1.3 ui-monospace,monospace}
+.bo3-round-debrief .rig-condition-row{display:flex;align-items:center;gap:10px;cursor:pointer;min-height:29px;touch-action:manipulation}
+.bo3-round-debrief .rig-condition-row .rig-condition{margin-left:auto}
+.bo3-round-debrief .rig-condition-row .rig-condition-alt{display:none}
+.bo3-round-debrief .rig-condition-row.expanded{flex-wrap:wrap}
+.bo3-round-debrief .rig-condition-row.expanded .rig-condition-alt{display:block;flex-basis:100%;font-size:10px;text-align:right;color:#d6c399}
+.bo3-round-debrief .rig-condition-row:focus-visible{outline:2px solid var(--rig-armor);outline-offset:2px}
+#player-damage-hud>[data-system]{--core:100%;--armor:100%;position:relative}
+#player-damage-hud>[data-system]::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--rig-armor) 0 var(--armor),#58462a var(--armor));}
+#player-damage-hud>[data-system]::after{content:'';position:absolute;bottom:3px;left:0;right:0;height:3px;background:linear-gradient(to right,var(--rig-core) 0 var(--core),#234436 var(--core));}
+#player-damage-hud>[data-system].armor-impact{animation:rigArmorSignal .38s ease-out}
+#player-damage-hud>[data-system].core-impact{animation:rigCoreSignal .45s ease-out}
+@keyframes rigArmorSignal{0%{box-shadow:0 0 0 2px var(--rig-armor)}100%{box-shadow:none}}
+@keyframes rigCoreSignal{0%{box-shadow:0 0 0 3px var(--rig-fault)}100%{box-shadow:none}}
