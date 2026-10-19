@@ -4,9 +4,9 @@ const distance = (a, b) => Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.z ?? 0) - (
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
 const RESPONSE = Object.freeze({
-    skirmisher: Object.freeze({ reactionSeconds: .14, urgencyThreshold: .92, holdSeconds: .65, maxCoverDistance: 14, rangePenalty: .16, reposition: .92 }),
-    pressure: Object.freeze({ reactionSeconds: .52, urgencyThreshold: 1.28, holdSeconds: .95, maxCoverDistance: 12, rangePenalty: .20, reposition: .72 }),
-    bruiser: Object.freeze({ reactionSeconds: 1.20, urgencyThreshold: 1.82, holdSeconds: 1.28, maxCoverDistance: 8.5, rangePenalty: .27, reposition: .44 }),
+    skirmisher: Object.freeze({ reactionSeconds: .16, urgencyThreshold: .92, holdSeconds: .65, maxCoverDistance: 14, rangePenalty: .16, reposition: .92 }),
+    pressure: Object.freeze({ reactionSeconds: .38, urgencyThreshold: 1.28, holdSeconds: .95, maxCoverDistance: 12, rangePenalty: .20, reposition: .72 }),
+    bruiser: Object.freeze({ reactionSeconds: .78, urgencyThreshold: 1.82, holdSeconds: 1.28, maxCoverDistance: 8.5, rangePenalty: .27, reposition: .44 }),
 });
 
 function responseFor(behavior) {
@@ -37,6 +37,7 @@ export function createTacticalAwareness() {
         coverId: null,
         coverHold: 0,
         decisionCooldown: 0,
+        unseenThreat:false,shotWarnings:0,
     };
 }
 
@@ -54,8 +55,10 @@ export function noteIncomingFire(owner, sourceRig, sourceId, severity = 1) {
     if (!continuingPressure) state.underFireElapsed = 0;
     state.urgency = Math.max(state.urgency || 0, strength);
     state.recentAttackerId = sourceId ?? state.recentAttackerId;
-    if (sourceRig)
+    if (sourceRig){
         state.lastThreat = { x: Number(sourceRig.x) || 0, z: Number(sourceRig.z) || 0 };
+        state.unseenThreat=false;
+    }
 }
 
 /** Repeatedly wasting fire into cover or another rig is itself tactical evidence:
@@ -211,10 +214,14 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
         state.blockedFireSeconds = Math.max(state.blockedFireSeconds, .7);
     }
 
-    const pressureEnough = state.underFireSeconds > 0 && state.lineOfSight &&
-        (state.underFireElapsed >= response.reactionSeconds || state.urgency >= response.urgencyThreshold);
+    // Cover response is driven by credible fire pressure, even when the
+    // current tracked target is elsewhere or the attacker remains unseen.
+    const pressureEnough=state.underFireSeconds>0&&state.lastThreat&&
+        (state.underFireElapsed>=response.reactionSeconds||
+         state.urgency>=response.urgencyThreshold);
     if (pressureEnough && state.decisionCooldown <= 0) {
-        const cover = chooseCoverPoint(enemy, target, world, radius, behavior, preferredSide, state.lastThreat ?? target);
+        const danger=state.lastThreat??target;
+        const cover = chooseCoverPoint(enemy, danger, world, radius, behavior, preferredSide, danger);
         state.decisionCooldown = .34;
         if (cover) {
             state.coverTarget = cover.point;
@@ -240,8 +247,9 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
         return { mode: 'SEARCH', point: state.lastSeenTarget, blockedBy: state.blockerId, lineOfSight: false };
     }
 
-    return {
-        mode: state.underFireSeconds > 0 ? 'UNDER_FIRE' : 'ENGAGE',
-        point: { x: target.x, z: target.z }, lineOfSight: state.lineOfSight,
-    };
+    if(state.underFireSeconds>.2&&state.lastThreat)
+        return {mode:'UNDER_FIRE',point:{...state.lastThreat},
+            lineOfSight:state.lineOfSight,unseen:!!state.unseenThreat};
+    return {mode:'ENGAGE',point:{x:target.x,z:target.z},
+        lineOfSight:state.lineOfSight};
 }
