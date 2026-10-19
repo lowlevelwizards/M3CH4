@@ -255,7 +255,8 @@ let rigConfig = deriveRigConfig(assembly);
 if (!rigConfig)
     throw new Error('Starting test rig must be fieldable.');
 let playerPower = createPowerSystem(assembly);
-let output = powerConstrainedOutput(functionalOutput(assembly, damage), playerPower);
+let staticOutput = functionalOutput(assembly, damage);
+let output = powerConstrainedOutput(staticOutput, playerPower);
 let effectiveConfig = derateRigConfig(rigConfig, output);
 function syncOwnedWeaponCondition(addWear = false) {
     const installed = installedPart(assembly, 'combat');
@@ -277,7 +278,8 @@ function deploymentBlockReason() {
 }
 let playerMissionKillReason = null;
 function updateFunctionalStatus() {
-    output = powerConstrainedOutput(functionalOutput(assembly, damage), playerPower);
+    staticOutput = functionalOutput(assembly, damage);
+    output = powerConstrainedOutput(staticOutput, playerPower);
     if (rigConfig)
         effectiveConfig = derateRigConfig(rigConfig, output);
     const faults = [];
@@ -1448,7 +1450,7 @@ function frame(now) {
                 const wasBraced = rig.braced;
                 advancePowerSystem(playerPower, assembly, rig, FIXED_DT,
                     playerCondition.parts.power.integrity / Math.max(1, playerCondition.parts.power.maxIntegrity));
-                output = powerConstrainedOutput(functionalOutput(assembly, damage), playerPower);
+                output = powerConstrainedOutput(staticOutput, playerPower);
                 effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
                 if (rig.braced && !wasBraced) soundBrace();
