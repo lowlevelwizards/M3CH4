@@ -108,7 +108,7 @@ function damage(attacker,target,slot,metrics,t,rng){
     attacker.stats.damageDealt+=hit.armorAbsorbed+hit.internalDamage;
     attacker.stats.attackBySlot[slot]++;
     noteIncomingFire(target.motion,attacker.rig,attacker.id,
-        hit.internalDamage?1.55:1.1);
+        hit.internalDamage?1.55:1.1,target.rig);
     if(service.held){service.held=false;service.progress=0;}
     const cause=aiWeaponMissionKillReason(target.condition,target.behavior,service);
     if(cause){
