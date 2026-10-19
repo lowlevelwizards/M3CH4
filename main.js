@@ -535,6 +535,15 @@ function signalPlayerHit(slot, hit) {
         playerHitTimer = null;
     }, 240);
 }
+function showVerifiedShieldReadout(contact) {
+    const label = shieldImpactLabel(contact);
+    if (!label) return null;
+    shotReport.classList.remove('faded', 'disabled-part');
+    shotReport.classList.add('penetrated');
+    shotReport.textContent = label;
+    reportFade = Math.max(reportFade, 1.55);
+    return label;
+}
 function showHitConfirm(hit, text = null) {
     const destroyed = !!hit?.justDestroyed;
     const kind = hit?.friendlyBlock ? 'friendly' : destroyed ? 'disabled' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
@@ -2019,6 +2028,7 @@ function applyAiHitToPlayer(actor, contact) {
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updatePilotDamage(playerCondition);
     signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
+    showVerifiedShieldReadout(contact);
     persistMachine();
     if (shieldImpactLabel(contact)) soundShield(); else soundImpact();
     rig.impact = Math.min(1, rig.impact + .65);
@@ -2209,8 +2219,9 @@ function attemptFire() {
         }
         if (shieldImpactLabel(contact)) soundShield(); else soundImpact();
         recoilFlash = .19;
-        lastHit = `${targetActor.label} · ${shieldImpactLabel(contact) ?? targetLabels[hit.slot]} · ${hit.serial}`;
-        showHitConfirm(hit, weaponRecoverable ? 'WEAPON FAULT' : null);
+        const shieldText = showVerifiedShieldReadout(contact);
+        lastHit = `${targetActor.label} · ${shieldText ?? targetLabels[hit.slot]} · ${hit.serial}`;
+        showHitConfirm(hit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return;
