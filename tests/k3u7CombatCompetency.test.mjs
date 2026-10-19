@@ -10,6 +10,7 @@ import { WEAPONS,createWeaponState,advanceWeapon,fireWeapon } from '../combat.js
 import { createEnemyMotion,advanceEnemyMotion,withinFiringArc } from '../enemyMotion.js';
 import { createPilotBrain,decidePilot } from '../ai/pilotBrain.js';
 import { createIntentExecutor,executeIntent } from '../ai/intentExecutor.js';
+import { DEFAULT_RIG_CONFIG,createRigState,stepRig } from '../locomotion.js';
 const arena={minX:-40,maxX:40,minZ:-40,maxZ:40,obstacles:[]};
 const rig=(x,z,yaw=0)=>({x,z,yaw,vx:0,vz:0,yawRate:0,forwardSpeed:0,lateralSpeed:0});
 const pos=(x,z)=>({x,z});
@@ -155,4 +156,34 @@ test('production source uses fast local perception and near-miss warnings',()=>{
  assert.match(main,/counterFlankOrder\(/);
  assert.match(main,/recordSubsystemHit\(/);
  assert.doesNotMatch(main,/actorOutput\.triggerSeconds\s*\*\s*\.55/);
+});
+
+test('real 60Hz chassis starts physically turning toward rear fire in under one second',()=>{
+ const body=createRigState({x:0,z:0,yaw:0});
+ const motion=createEnemyMotion(),dt=1/60;
+ noteIncomingFire(motion,{x:4,z:10},'player',1.6);
+ const initial=body.yaw;
+ for(let i=0;i<60;i++){
+  const move=advanceEnemyMotion(motion,body,body,dt,true,arena,.95,
+   motion.behavior,{mode:'ORDER',point:pos(0,-22),role:'CAPTURE'});
+  stepRig(body,move,dt,DEFAULT_RIG_CONFIG,arena);
+ }
+ const turned=Math.abs(Math.atan2(Math.sin(body.yaw-initial),Math.cos(body.yaw-initial)));
+ assert.ok(turned>.17,'actual body yaw should respond to rear fire: '+turned);
+});
+test('a loaded AI with a valid target cannot bypass physical magazine/cooldown gate',()=>{
+ const controller=createHostileController(0),m=condition(),spec=WEAPONS['gun-light'];
+ const state=createWeaponState(spec);
+ let shots=0;
+ for(let tick=0;tick<60*3;tick++){
+   const ready=state.cooldown<=0&&state.reloadLeft<=0&&state.loaded>0;
+   const candidate=advanceHostileController(controller,m,1/60,false,ready);
+   if(candidate!==null){
+     assert.notEqual(fireWeapon(state,spec),null);
+     shots++;
+   }
+   advanceWeapon(state,spec,1/60);
+ }
+ assert.ok(shots>=6&&shots<=11,'physical fire/reload profile should apply: '+shots);
+ assert.ok(shots<=spec.magazine);
 });
