@@ -7,7 +7,7 @@
 import { contractById } from './contracts.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
-import { bayHealth, SLOT_LABELS } from './garageBay.js';
+import { bayHealth, bayModuleQuote, SLOT_LABELS } from './garageBay.js';
 import { createConditionMeter } from './uiMeters.js';
 import { conditionFromPart, stationLabel } from './uiLanguage.js';
 import {
@@ -191,7 +191,7 @@ function readinessText(stable, rigId) {
     return 'OUT · NOT FIELDABLE';
 }
 
-function appendDebriefRow(label, value, kind = '', reading = null) {
+function appendDebriefRow(label, value, kind = '', reading = null, serviceQuote = null) {
     const row = document.createElement('div');
     row.className = `debrief-row ${kind}`.trim();
     const name = document.createElement('span'); name.textContent = label;
@@ -199,6 +199,13 @@ function appendDebriefRow(label, value, kind = '', reading = null) {
     if (reading?.serial) {
         row.classList.add('rig-condition-row');
         row.append(name,createConditionMeter(conditionFromPart(reading),{compact:true,slot:reading.slot}));
+        if(serviceQuote?.amount>0){
+            const cost=document.createElement('small');
+            cost.className='rig-repair-estimate';
+            cost.textContent='₡'+serviceQuote.amount;
+            cost.title='SHOP REPAIR ESTIMATE · NOT AVAILABLE DURING BO3 PIT';
+            row.append(cost);
+        }
         amount.setAttribute('aria-label',value);
         amount.classList.add('rig-condition-alt');
         // Exact percentages remain inspectable via the accessible row and title.
@@ -239,7 +246,8 @@ function renderRoundIntermission(series, round) {
             : 'NOT INSTALLED';
         appendDebriefRow(stationLabel(part.slot)+(part.label==='READY'?'':' · '+part.label),
             reading, part.destroyed || part.condition <= .001 ? 'repair'
-                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '',part);
+                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '',part,
+            bayModuleQuote(stable,round.rigId,part.slot));
     }
     appendDebriefRow('CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS');
     debriefGarage.textContent = 'CONTINUE TO INTERMISSION · ROUND ' + series.roundNumber;
