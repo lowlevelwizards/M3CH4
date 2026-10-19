@@ -305,7 +305,7 @@ function updateFunctionalStatus() {
         faultStrip.classList.add('faulted');
         faultStrip.classList.remove('nominal');
     } else {
-        faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'SYSTEMS NOMINAL';
+        faultStrip.textContent = faults.length ? `⚠ ${faults.join(' · ')}` : 'RIG NOMINAL';
         faultStrip.classList.toggle('faulted', faults.length > 0);
         faultStrip.classList.toggle('nominal', faults.length === 0);
     }
@@ -837,7 +837,7 @@ function renderPartInfo() {
         symptom.className = 'garage-symptom';
         const condition = fitted.instance.condition;
         if (fitted.instance.destroyed) {
-            symptom.textContent = 'DESTROYED HARDWARE · HOUSE RECOVERY RETURNED THE CARCASS · REBUILD OR REPLACE BEFORE DEPLOYMENT';
+            symptom.textContent = 'PART DESTROYED · REBUILD OR REPLACE';
         }
         else if (selectedPart === 'mobility') {
             const sections = driveCondition(assembly, damage);
@@ -901,7 +901,7 @@ function renderPartInfo() {
     else {
         const missing = document.createElement('div');
         missing.className = 'part-purpose missing-part';
-        missing.textContent = 'NO MODULE INSTALLED. Choose an owned part below.';
+        missing.textContent = 'EMPTY STATION · SELECT PART';
         partInfo.append(missing);
     }
     const ownedInstances = assembly.owned.filter(instance => BY_ID.get(instance.definitionId)?.slot === selectedPart);
@@ -955,7 +955,7 @@ ${specLine(def)}`,
                     refreshAssembly(true);
                     selectPart(def.slot);
                 } catch (error) {
-                    showStatus(error?.message || 'THIS PHYSICAL COMPONENT CANNOT BE INSTALLED HERE');
+                    showStatus(error?.message || 'PART CANNOT FIT THIS STATION');
                 }
             },
         });
@@ -965,7 +965,7 @@ ${specLine(def)}`,
         const takeOff = document.createElement('button');
         takeOff.type = 'button';
         takeOff.className = 'remove-option';
-        takeOff.textContent = 'REMOVE INSTALLED MODULE';
+        takeOff.textContent = 'REMOVE PART';
         takeOff.addEventListener('click', () => {
             remove(assembly, selectedPart);
             refreshAssembly(true);
@@ -1102,7 +1102,7 @@ document.addEventListener('m3ch4:bay-module', event => {
         } else {
             request.result = changeInactiveBay(saveStorage, request.rigId, request.slot, request.serial);
         }
-    } catch (error) { request.result = { ok:false, reason:error?.message || 'MODULE CHANGE FAILED' }; }
+    } catch (error) { request.result = { ok:false, reason:error?.message || 'PART CHANGE FAILED' }; }
 });
 // An inter-round patch writes both persistent saves before reloading. Reconcile the
 // same serial into the running in-memory authority first: the normal pagehide save
@@ -1171,7 +1171,7 @@ document.addEventListener('m3ch4:bay-service', event => {
         if (request.rigId === stable.activeRigId) {
             const slot = request.slot;
             const fitted = installedPart(assembly, slot);
-            if (!fitted) throw new Error('NO INSTALLED MODULE');
+            if (!fitted) throw new Error('NO FITTED PART');
             const state = playerCondition.parts[slot];
             const destroyed = !!state?.destroyed || !!fitted.instance.destroyed;
             const cost = destroyed ? rebuildQuote(state) : repairQuote(state);
@@ -1913,7 +1913,7 @@ function renderTarget() {
     if (devPanel.classList.contains('hidden')) {
         const withheld = document.createElement('div');
         withheld.className = 'target-row';
-        withheld.textContent = 'REMOTE MODULE TELEMETRY WITHHELD · USE VISUAL DAMAGE / HIT CONFIRMATION';
+        withheld.textContent = 'ENEMY PART CONDITION UNKNOWN · OBSERVE HIT REACTIONS';
         targetReadout.appendChild(withheld);
         return;
     }
