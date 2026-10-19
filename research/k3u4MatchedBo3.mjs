@@ -387,7 +387,7 @@ function series(seed,mode,swap,shard){
  const rows=[],wins={new:0,baseline:0},roundWins={friendly:0,hostile:0};
  const settings={name:mode,accuracy:mode==='no-damage'?0:.70,
    policy:'strict',modernTeam,variantTeam:'none',variant:['yard','kestrel','hauler'],
-   wornTeam:mode==='worn-25'?modernTeam:null,wear:.25};
+   wornTeam:null,wear:.25,backgroundWear:mode==='worn-25'?.25:0};
  for(let round=0;round<3;round++){
    if(wins.new>=2||wins.baseline>=2)break;
    const row=runBout((seed+round*10687)>>>0,settings);
