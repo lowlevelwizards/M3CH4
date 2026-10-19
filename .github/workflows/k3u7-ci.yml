@@ -24,10 +24,10 @@ jobs:
           for f in ai/*.js; do node --check "$f"; done
           node --check tests/k3u7CombatCompetency.test.mjs
           git diff --check HEAD^ HEAD
-      - name: All mechanical, cockpit, garage, k3u7 cache and fast-combat regression tests
+      - name: Full k3u7 behavioral, 60Hz rear-turn, magazine and mobile-cache regression tests
         run: npm test
       - name: Headless physically simulated Domination smoke
-        run: node research/headlessDominationStudy.mjs 1
+        run: node research/headlessDominationStudy.mjs 4
       - uses: actions/upload-artifact@v4
         if: always()
         with:
