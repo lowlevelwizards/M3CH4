@@ -154,7 +154,8 @@ test('live loop no longer skips strategic movement when no enemy is targetable',
     assert.match(main,/executeIntent\(actor\.executor/);
     assert.doesNotMatch(main,/if \(!target\) continue;/);
     assert.doesNotMatch(main,/dominationPointForActor\(sortieObjective,actor\)/);
-    assert.match(main,/!target\);\s*if \(shot !== null && target\)/);
+    assert.match(main,/advanceHostileController\(actor\.controller/);
+    assert.match(main,/if\(shot!==null&&target\)attemptAiFire/);
     assert.match(motion,/teamIntent\?\.mode==='ORDER'/);
     assert.doesNotMatch(motion,/teamIntent\?\.mode === 'DOMINATE'/);
 });
