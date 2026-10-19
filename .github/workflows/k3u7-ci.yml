@@ -1,0 +1,36 @@
+name: k3u7 Combat Competency CI
+on:
+  push:
+    branches: ["k3u7-combat-awareness-survival"]
+    paths: [".github/workflows/k3u7-ci.yml"]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JS syntax, cache and changed sources
+        run: |
+          node --check main.js
+          node --check enemyMotion.js
+          node --check tacticalAwareness.js
+          node --check hostileRig.js
+          for f in ai/*.js; do node --check "$f"; done
+          node --check tests/k3u7CombatCompetency.test.mjs
+          git diff --check HEAD^ HEAD
+      - name: All mechanical, cockpit, garage and AI tests
+        run: npm test
+      - name: Headless physically simulated Domination smoke
+        run: node research/headlessDominationStudy.mjs 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k3u7-smoke
+          path: study-results/
+          if-no-files-found: warn
