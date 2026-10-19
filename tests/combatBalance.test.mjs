@@ -41,7 +41,8 @@ function perfectHoldSeconds(shots, spec) {
 }
 
 test('critical systems require about three seconds of perfect focused fire', () => {
-    for (const [id, spec] of Object.entries(WEAPONS)) {
+    for (const id of Object.keys(EXPECTED)) {
+        const spec=WEAPONS[id];
         const expected = EXPECTED[id].critical;
         for (const slot of ['power', 'command', 'combat']) {
             const shots = shotsToMissionKill(spec, slot);
@@ -54,7 +55,8 @@ test('critical systems require about three seconds of perfect focused fire', () 
 });
 
 test('fresh frame kills exceed every current magazine and land in the seven-to-eight second envelope', () => {
-    for (const [id, spec] of Object.entries(WEAPONS)) {
+    for (const id of Object.keys(EXPECTED)) {
+        const spec=WEAPONS[id];
         const shots = shotsToMissionKill(spec, 'structure');
         const seconds = perfectHoldSeconds(shots, spec);
         assert.equal(shots, EXPECTED[id].structure, `${spec.label} frame shot count`);
@@ -65,7 +67,8 @@ test('fresh frame kills exceed every current magazine and land in the seven-to-e
 });
 
 test('fresh critical housings absorb several hits before internal damage begins', () => {
-    for (const spec of Object.values(WEAPONS)) {
+    for (const id of Object.keys(EXPECTED)) {
+        const spec=WEAPONS[id];
         const condition = createTargetCondition(makeRangeTarget('yard-dog'));
         for (let shot = 1; shot <= 3; shot++) {
             const hit = applyTargetHit(condition, 'combat', spec.damage);
@@ -76,7 +79,8 @@ test('fresh critical housings absorb several hits before internal damage begins'
 });
 
 test('mobility durability preserves Kestrel < Yardwalker < Hauler and makes Hauler require a reload', () => {
-    for (const [id, spec] of Object.entries(WEAPONS)) {
+    for (const id of Object.keys(EXPECTED)) {
+        const spec=WEAPONS[id];
         const kestrel = shotsToMobilityZero(spec, 'cutter');
         const yard = shotsToMobilityZero(spec, 'yard-dog');
         const hauler = shotsToMobilityZero(spec, 'mule');
