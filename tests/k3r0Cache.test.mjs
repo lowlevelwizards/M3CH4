@@ -7,5 +7,5 @@ test('mobile entrypoint advances emergency field work lifecycle modules', () => 
     assert.match(html, /0\.0\.1k\.3v\.5\.1 — Garage & Bout Fixes/);
     assert.match(html, /"\.\/fieldWork\.js": "\.\/fieldWork\.js\?v=k3r0"/);
     assert.match(html, /"\.\/boutSession\.js": "\.\/boutSession\.js\?v=k3r0"/);
-    assert.match(html, /garageMountUI\.js\?v=k3u3/);
+    assert.match(html, /garageMountUI\.js\?v=k3v5p1/);
 });
