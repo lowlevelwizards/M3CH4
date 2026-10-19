@@ -338,6 +338,7 @@ function groupReport(rows){
 }
 function main(){
     const n=Number(process.argv[2]??60);
+    const seedOffset=Number(process.argv[3]??0);
     const config=[
  {name:'no-damage-strict',accuracy:0,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler']},
  {name:'no-damage-superiority',accuracy:0,policy:'superiority',variantTeam:'none',variant:['yard','kestrel','hauler']},
@@ -369,7 +370,7 @@ function main(){
             configItem.name.startsWith('armed-')?'armed':configItem.name;
         const cohorts=['territory','armed','worn-05','worn-15','worn-25',
             'worn-40','light-vs-balanced','heavy-vs-balanced'];
-        rows.push(runBout(0x13579bdf+index*37621+
+        rows.push(runBout(0x13579bdf+(index+seedOffset)*37621+
             Math.max(0,cohorts.indexOf(bucket))*100001,opt));
       }
       const subset=rows.filter(r=>r.scenario===configItem.name);
