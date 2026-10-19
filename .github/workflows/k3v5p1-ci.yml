@@ -1,0 +1,35 @@
+name: k3v5p1 Garage and Bout Regression CI
+on:
+  push:
+    branches: ["k3v5p1-garage-and-bout-clarity"]
+  pull_request:
+    paths:
+      - "index.html"
+      - "main.js"
+      - "unifiedGarageUI.js"
+      - "unifiedGarageStyles.css"
+      - "garageMountUI.js"
+      - "sortieAssignmentUI.js"
+      - "tests/**"
+      - ".github/workflows/k3v5p1-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and all regression tests
+        run: |
+          for f in main.js unifiedGarageUI.js garageMountUI.js sortieAssignmentUI.js tests/k3v5p1GarageBoutRegressions.test.mjs; do node --check "$f"; done
+          npm test
+      - name: Cross-regression studies
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0
+          node research/cockpitIdentityAudit.mjs
+          node research/frameShieldingAudit.mjs --assert
+          node research/powerResponseStudy.mjs --json > /dev/null
+          node research/headlessDominationStudy.mjs 2
