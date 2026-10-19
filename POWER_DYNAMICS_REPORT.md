@@ -28,8 +28,8 @@ The shared `powerDynamics.js` module uses fixed 60Hz simulation:
   **no ammunition is consumed** until power returns.
 - Generator damage scales its physical continuous capacity and available
   surge-store size, not the machine's nominal garage legality.
-- Dynamo: heavier, 145 kW, 16 kJ store, slower output response, more sustained
-  supply headroom, 26 kW bounded recharge.
+- Dynamo: heavier, 145 kW, 36 kJ store, slower output response, more sustained
+  supply headroom, 24 kW bounded recharge.
 - Draft: lighter, 112 kW, 6 kJ store, faster response, less spare output,
   17 kW bounded recharge.
 - These extra dynamics are coarse engineering abstractions, **not** a detailed
