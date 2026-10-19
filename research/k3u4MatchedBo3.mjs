@@ -1,3 +1,9 @@
+/** RESEARCH ONLY — side-swapped k3u4 AI vs exact k3u2 baseline.
+ * 60Hz physical rigs, live strict Domination, approximate mesh shots.
+ * BO3 proxy: fresh hardware each round; historical no-elimination-end rule
+ * deliberately retained to isolate AI changes. Neither iPhone performance
+ * nor between-round repair/serialized damage is represented here.
+ */
 /**
  * RESEARCH ONLY: PR #42 3v3 Domination battle runner (Node, no canvas).
  *
@@ -375,61 +381,84 @@ function groupReport(rows){
         acc[k]=(acc[k]??0)+v;return acc;},{}),
     byFamily};
 }
+
+function series(seed,mode,swap,shard){
+ const modernTeam=swap?'hostile':'friendly';
+ const rows=[],wins={new:0,baseline:0},roundWins={friendly:0,hostile:0};
+ const settings={name:mode,accuracy:mode==='no-damage'?0:.70,
+   policy:'strict',modernTeam,variantTeam:'none',variant:['yard','kestrel','hauler'],
+   wornTeam:mode==='worn-25'?modernTeam:null,wear:.25};
+ for(let round=0;round<3;round++){
+   if(wins.new>=2||wins.baseline>=2)break;
+   const row=runBout((seed+round*10687)>>>0,settings);
+   rows.push(row);
+   if(row.win!=='draw'){
+     roundWins[row.win]++;
+     wins[row.win===modernTeam?'new':'baseline']++;
+   }
+ }
+ return {seed,shard,mode,modernTeam,wins,roundWins,rounds:rows,
+   victor:wins.new>=2?'new':wins.baseline>=2?'baseline':'unresolved'};
+}
+function aggregate(seriesRows){
+ const rounds=seriesRows.flatMap(x=>x.rounds),N=rounds.length;
+ const sum=(items,fn)=>items.reduce((a,x)=>a+(Number(fn(x))||0),0);
+ const winCount=name=>seriesRows.filter(x=>x.victor===name).length;
+ const actors=rounds.flatMap(r=>r.actors),actorsFor=name=>actors.filter(a=>a.generation===name);
+ const byGen={};
+ for(const name of ['new','baseline']){
+   const these=actorsFor(name);
+   byGen[name]={rigs:these.length,survivors:these.filter(a=>a.alive).length,
+     ...Object.fromEntries(['captures','zoneSeconds','travel','damageDealt',
+       'hits','actualShots','shotTriggers','kills','goalChanges','routeErrors',
+       'serviceCount','yieldTicks','stagingSeconds','movementRecoveries']
+       .map(k=>[k,+sum(these,a=>a[k]).toFixed(2)]))};
+ }
+ const lethal=rounds.filter(r=>r.firstKillAt!==null);
+ return {series:seriesRows.length,rounds:N,seriesWins:{
+   new:winCount('new'),baseline:winCount('baseline'),unresolved:winCount('unresolved')},
+   decisiveRate:(winCount('new')+winCount('baseline'))?winCount('new')/
+     (winCount('new')+winCount('baseline')):null,
+   meanRounds:sum(seriesRows,s=>s.rounds.length)/Math.max(1,seriesRows.length),
+   roundsByOutcome:{score:rounds.filter(r=>r.winReason==='SCORE').length,
+     timeout:rounds.filter(r=>r.winReason==='TIME LIMIT').length,
+     bothDisabled:rounds.filter(r=>r.winReason==='BOTH TEAMS DISABLED').length},
+   metricsPerRound:{duration:+(sum(rounds,r=>r.time)/Math.max(1,N)).toFixed(2),
+     contested:+(sum(rounds,r=>r.contestedSeconds)/Math.max(1,N)).toFixed(2),
+     noScoring:+(sum(rounds,r=>r.noMajoritySeconds)/Math.max(1,N)).toFixed(2),
+     scoring:+(sum(rounds,r=>r.totalScoringSeconds)/Math.max(1,N)).toFixed(2),
+     captures:+(sum(rounds,r=>r.captureEvents)/Math.max(1,N)).toFixed(2),
+     recaptures:+(sum(rounds,r=>r.recaptureEvents)/Math.max(1,N)).toFixed(2),
+     kills:+(sum(rounds,r=>r.kills)/Math.max(1,N)).toFixed(2),
+     firstContact:+(sum(rounds,r=>r.firstContactAt??0)/Math.max(1,N)).toFixed(2),
+     firstKillAmongLethal:+(sum(lethal,r=>r.firstKillAt)/Math.max(1,lethal.length)).toFixed(2)},
+   byGeneration:byGen
+ };
+}
 function main(){
-    const n=Number(process.argv[2]??60);
-    const config=[
- {name:'no-damage-strict',accuracy:0,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler']},
- {name:'no-damage-superiority',accuracy:0,policy:'superiority',variantTeam:'none',variant:['yard','kestrel','hauler']},
- {name:'no-damage-pressure',accuracy:0,policy:'pressure',variantTeam:'none',variant:['yard','kestrel','hauler']},
- {name:'armed-strict',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler']},
- {name:'armed-superiority',accuracy:.70,policy:'superiority',variantTeam:'none',variant:['yard','kestrel','hauler']},
- {name:'armed-pressure',accuracy:.70,policy:'pressure',variantTeam:'none',variant:['yard','kestrel','hauler']},
- {name:'worn-05',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.05},
- {name:'worn-15',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.15},
- {name:'worn-25',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.25},
- {name:'worn-40',accuracy:.70,policy:'strict',variantTeam:'none',variant:['yard','kestrel','hauler'],wornTeam:'hostile',wear:.40},
- {name:'light-vs-balanced',accuracy:.70,policy:'strict',variantTeam:'hostile',variant:['kestrel','kestrel','kestrel']},
- {name:'heavy-vs-balanced',accuracy:.70,policy:'strict',variantTeam:'hostile',variant:['hauler','hauler','hauler']},
-];
-        const rows=[];
-    for(const configItem of config){
-      // Each seed is paired with a side swap to measure location advantage.
-      for(let i=0;i<n;i++){
-        const swapped=i%2!==0;
-        const opt={...configItem,variantTeam:configItem.variantTeam==='none'?'none':
-          swapped?'friendly':'hostile',
-          wornTeam:configItem.wornTeam?(swapped?'friendly':'hostile'):null};
-        const pairedAsymmetric=configItem.variantTeam!=='none'||!!configItem.wornTeam;
-        const index=pairedAsymmetric?Math.floor(i/2):i;
-        // Identical seeds and initial rigs across competing capture policies.
-        // Otherwise A/B comparisons confound rule changes with different
-        // spawn offsets, targeted subsystem RNG and initial movement.
-        const bucket=configItem.name.startsWith('no-damage-')?'territory':
-            configItem.name.startsWith('armed-')?'armed':configItem.name;
-        const cohorts=['territory','armed','worn-05','worn-15','worn-25',
-            'worn-40','light-vs-balanced','heavy-vs-balanced'];
-        rows.push(runBout(0x13579bdf+index*37621+
-            Math.max(0,cohorts.indexOf(bucket))*100001,opt));
-      }
-      const subset=rows.filter(r=>r.scenario===configItem.name);
-      console.log('GROUP '+configItem.name+' '+JSON.stringify(groupReport(subset)));
-    }
-    const report={meta:{baseline:'PR42 + k3u2 strategic planner and truthful AI ammo',games:rows.length,perGroup:n,
-        maxSeconds:MAX_SECONDS,fixedDt:DT,hitApproximation:true,matchedPolicySeeds:true,
-        estimator:'2D physical cover+forward arc+probabilistic direct-target mesh contact',
-        otherGameRules:'production decision, physics, capture, weapon cycles, localized damage, field servicing'},
-        overall:groupReport(rows),groups:Object.fromEntries(config.map(x=>[
-            x.name,groupReport(rows.filter(r=>r.scenario===x.name))])),
-        notable:{nonScoring:rows.filter(x=>x.winReason!=='SCORE').slice(0,8),
-            worstRoutes:[...rows].sort((a,b)=>sum(b.actors,x=>x.routeErrors)-sum(a.actors,x=>x.routeErrors)).slice(0,3).map(x=>({seed:x.seed,scenario:x.scenario,routes:sum(x.actors,a=>a.routeErrors),winner:x.win,points:x.points,time:x.time}))}};
-    fs.mkdirSync('study-results',{recursive:true});
-    fs.writeFileSync('study-results/domination-summary.json',JSON.stringify(report,null,2));
-    fs.writeFileSync('study-results/domination-bouts.json',JSON.stringify(rows));
-    fs.writeFileSync('study-results/domination-bouts.csv',[
-      'seed,scenario,winner,reason,time,score_friendly,score_hostile,captures,recaptures,contested_seconds,no_majority_seconds,first_contact,first_kill,kills,damage_shots,lead_changes',
-      ...rows.map(r=>[r.seed,r.scenario,r.win,r.winReason,r.time,r.points.friendly,r.points.hostile,r.captureEvents,r.recaptureEvents,r.contestedSeconds.toFixed(2),r.noMajoritySeconds.toFixed(2),r.firstContactAt??'',r.firstKillAt??'',r.kills,r.damagingShots,r.scoreLeadChanges].join(','))
-    ].join('\n'));
-    console.log('FINAL_SUMMARY '+JSON.stringify({meta:report.meta,overall:report.overall,
-      groups:Object.fromEntries(Object.entries(report.groups).map(([k,v])=>[k,{wins:v.winner,meanTime:v.meanTime,scoring:v.territoryDecisions,meanCaptureEvents:v.meanCaptureEvents,meanContestedSeconds:v.meanContestedSeconds,meanKills:v.meanKills}]))}));
+ const shard=Number(process.argv[2]??0);
+ const armedPairs=Number(process.argv[3]??2),
+   noDamagePairs=Number(process.argv[4]??1),wornPairs=Number(process.argv[5]??1);
+ const all=[];
+ for(const [mode,amount,bucket] of [['armed',armedPairs,0],
+   ['no-damage',noDamagePairs,10000],['worn-25',wornPairs,20000]]){
+   for(let i=0;i<amount;i++){
+     // Repeat every seed with the two AI generations on opposite sides.
+     const id=shard*amount+i+bucket,seed=(0x24689abc+id*47017)>>>0;
+     all.push(series(seed,mode,false,shard),series(seed,mode,true,shard));
+   }
+ }
+ const result={shard,roundModel:'BO3 independent fresh-rig rounds',
+   versions:{new:'k3u3 tactical + k3u4 cockpit, main 4db04214',
+     baseline:'k3u2 tactical, main 93286524'},
+   policy:'strict, pre-elimination termination rule',dt:DT,maxSeconds:MAX_SECONDS,
+   approximateHits:true,
+   armed:aggregate(all.filter(s=>s.mode==='armed')),
+   noDamage:aggregate(all.filter(s=>s.mode==='no-damage')),
+   worn:aggregate(all.filter(s=>s.mode==='worn-25'))};
+ fs.mkdirSync('study-results',{recursive:true});
+ fs.writeFileSync('study-results/k3u4-series-shard-'+shard+'.json',JSON.stringify(all));
+ fs.writeFileSync('study-results/k3u4-summary-shard-'+shard+'.json',JSON.stringify(result,null,2));
+ console.log('K3U4_BO3_SUMMARY '+JSON.stringify(result));
 }
 main();
