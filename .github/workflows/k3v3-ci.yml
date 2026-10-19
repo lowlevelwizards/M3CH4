@@ -1,0 +1,50 @@
+name: k3v3 Physical Shielding CI
+on:
+  push:
+    branches: ["k3v3-directional-physical-shielding"]
+  pull_request:
+    paths:
+      - "scene.js"
+      - "sceneAssembly.js"
+      - "frameShielding.js"
+      - "main.js"
+      - "audio.js"
+      - "index.html"
+      - "tests/**"
+      - "research/frameShieldingAudit.mjs"
+      - ".github/workflows/k3v3-ci.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check touched JavaScript syntax
+        run: |
+          for f in scene.js sceneAssembly.js main.js audio.js frameShielding.js research/frameShieldingAudit.mjs; do node --check "$f"; done
+      - name: All current tests and directional shielding tests
+        run: npm test
+      - name: Install same Three.js version as browser for geometry audit only
+        run: npm install --no-save --no-package-lock three@0.186.0
+      - name: Real Three.js mesh raycast from six attack directions
+        run: |
+          mkdir -p study-results
+          node research/frameShieldingAudit.mjs --assert | tee study-results/frame-shielding-mesh-audit.md
+          node research/frameShieldingAudit.mjs --json > study-results/frame-shielding-mesh-audit.json
+      - name: Recheck part identity and mobility
+        run: |
+          node research/partIdentityBaseline.mjs > study-results/parts.md
+          node research/mobilityTemperamentStudy.mjs > study-results/mobility.md
+      - name: 3v3 Domination combat and destruction smoke
+        run: node research/headlessDominationStudy.mjs 2
+      - name: Preserve geometry audit and baselines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k3v3-shielding-and-combat
+          path: study-results/
+          if-no-files-found: warn

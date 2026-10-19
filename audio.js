@@ -49,3 +49,10 @@ export function soundDriveStrain() {
     tone(83, 120, .17, .035, 'sawtooth');
     tone(143, 87, .12, .018, 'triangle');
 }
+
+/** Slightly hollow welded-plate ring, only when a real structure mesh
+ * intercepted a downstream fitted module on the same actual shot ray. */
+export function soundShield() {
+    tone(385, 145, .11, .065, 'triangle');
+    tone(167, 92, .17, .044, 'square');
+}

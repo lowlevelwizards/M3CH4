@@ -6,6 +6,7 @@ import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
 import { firstCoverHit } from './coverTruth.js';
+import { shieldedModuleOnRay } from './frameShielding.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
     yellow: 0xa9822f, teal: 0x2f7473, metal: 0x343a39,
@@ -1417,7 +1418,9 @@ export function createArenaScene(initial, targetAssembly) {
         const bore = aimPoint.clone().sub(muzzle).normalize();
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
-        const actual = raycaster.intersectObjects([...combatPickMeshes(), ...worldSolids], false)[0];
+        const intersections = raycaster.intersectObjects([...combatPickMeshes(), ...worldSolids], false);
+        const actual = intersections[0];
+        const shieldedSlot = shieldedModuleOnRay(intersections, actual);
         const cover = certifiedCoverHit(muzzle, bore, 100, actual);
         const point = cover ? cover.point : actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = cover ? cover.normal : actual?.face
@@ -1426,7 +1429,9 @@ export function createArenaScene(initial, targetAssembly) {
         const slot = cover ? null : actual?.object.userData.slot;
         const actorId = cover ? null : actual?.object.userData.actorId ?? null;
         const blockedBy = cover?.id ?? actual?.object.userData.arenaObstacleId ?? null;
-        return { actorId: slot ? actorId : null, slot: slot ?? null, blockedBy, point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+        return { actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
+            shieldedSlot: cover ? null : shieldedSlot,
+            point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
         const shooter = squadCombatants.get(shooterId);
@@ -1456,7 +1461,9 @@ export function createArenaScene(initial, targetAssembly) {
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
         const blockers = [...combatPickMeshes(shooterId), ...exterior.pickMeshes, ...worldSolids];
-        const actual = raycaster.intersectObjects(blockers, false)[0];
+        const intersections = raycaster.intersectObjects(blockers, false);
+        const actual = intersections[0];
+        const shieldedSlot = shieldedModuleOnRay(intersections, actual);
         const cover = certifiedCoverHit(muzzle, bore, 100, actual);
         const point = cover ? cover.point : actual ? actual.point.clone() : muzzle.clone().addScaledVector(bore, 100);
         const surfaceNormal = cover ? cover.normal : actual?.face
@@ -1475,12 +1482,25 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return {
             actorId: slot ? actorId : null,
-            slot: slot ?? null, blockedBy, point, normal: surfaceNormal, muzzle,
+            slot: slot ?? null, blockedBy, shieldedSlot: cover ? null : shieldedSlot,
+            point, normal: surfaceNormal, muzzle,
             distance: muzzle.distanceTo(point), driveSide,
         };
     }
     function traceHostileShot(state, aimSlot, spreadX, spreadY) {
         return traceCombatantShot('enemy-0', 'player', aimSlot, spreadX, spreadY);
+    }
+    // Same actual plate hit and same damage. Extra local sparks make the
+    // cause legible when a FRAME mesh genuinely intercepts a module behind it.
+    function showShieldStrike(contact) {
+        if (contact?.slot !== 'structure' || !contact.shieldedSlot) return;
+        const point = contact.point.clone().addScaledVector(contact.normal, .045);
+        flashDamageLight(point, 0xe8bc72, 2.8, .07, 2.2);
+        for (let i = 0; i < 4; i++) {
+            activateParticle(sparkPool, 'spark', point,
+                randomBurstDirection(contact.normal, .5).multiplyScalar(1.1 + i * .35),
+                .55 + i * .13, .13 + i * .04, -3.5, 0, 0xf2da91);
+        }
     }
     function showShot(contact, outcome) {
         muzzleKick = Math.min(1.6, muzzleKick + (pilotWeaponPresentation.visualRecoil ?? 1));
@@ -1494,6 +1514,7 @@ export function createArenaScene(initial, targetAssembly) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
+        showShieldStrike(contact);
         if (outcome?.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
         if (outcome?.justDestroyed) {
             spawnCatastrophicBurst(impactPoint, contact.normal, outcome);
@@ -1532,6 +1553,7 @@ export function createArenaScene(initial, targetAssembly) {
         activateParticle(sparkPool, 'spark', contact.muzzle, new THREE.Vector3(0, .08, 0), 1.15, .09, 0, 0, 0xffd79a);
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         spawnImpactParticles(impactPoint, contact.normal, outcome);
+        showShieldStrike(contact);
     }
     function updateCombatantDamage(id, condition) {
         const record = squadCombatants.get(id);
@@ -1583,6 +1605,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (outcome) {
             const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
             spawnImpactParticles(impactPoint, contact.normal, outcome);
+            showShieldStrike(contact);
             if (outcome.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
             if (outcome.justDestroyed) {
                 spawnCatastrophicBurst(impactPoint, contact.normal, outcome);
@@ -2198,7 +2221,7 @@ function buildDebugColliders(scene) {
 /** The exterior is rebuilt entirely from the five fitted assembly definitions.
  * Each model is intentionally an uncomplicated, complete serviceable assembly.
  * Nested meshes have ownership tags for inspection; there are no arbitrary visual limbs. */
-function buildExteriorRig(assembly) {
+export function buildExteriorRig(assembly) {
     const root = new THREE.Group();
     const partGroups = new Map();
     const partMeshes = new Map();
@@ -2324,6 +2347,20 @@ function buildExteriorRig(assembly) {
                 }
                 const crossbar = add(cyl(.23, .23, 1.74, steel), 0, -.46, .17);
                 crossbar.rotation.z = Math.PI / 2;
+                // Physical nose skirt covers some lower drive angles, but does
+                // not wrap around the legs. The same exact plates are raycast
+                // and rendered: no invisible front-facing armor.
+                const skirt = add(plate(1.17, .36, .18, m(0xac873c)), 0, -.64, -1.08);
+                skirt.rotation.x = -.24;
+                // Two narrow upper cheek shields climb toward the cab's outer
+                // lower tub. The central optic and elevated shots stay exposed.
+                // This is frame metal, NOT a second or magically armored cab.
+                for (const side of [-1, 1]) {
+                    const browCheek = add(plate(.34, .51, .20, m(0xbd9142)), side * .46, .52, -1.16);
+                    browCheek.rotation.z = side * -.13;
+                    browCheek.rotation.x = -.15;
+                    add(plate(.22, .30, .36, m(0x626859)), side * .54, .27, -.95);
+                }
                 // Low-slung front crash hoop reads as chassis, not a second cockpit.
                 add(plate(1.04, .12, .14, m(0x5b645d)), 0, -.31, -.92);
                 break;
