@@ -1081,6 +1081,19 @@ export function createArenaScene(initial, targetAssembly) {
     let panelRightPx = 0;
     let viewportWidth = 1;
     let viewportHeight = 1;
+    // Presentation-only observer of a surviving allied chassis. Its camera
+    // state is persistent across frames; never turn it into an actor controller.
+    let spectatorRig = null;
+    let spectatorCameraReady = false;
+    const spectatorCameraPosition = new THREE.Vector3();
+    const spectatorDesired = new THREE.Vector3();
+    const spectatorLook = new THREE.Vector3();
+    function setSpectatorRig(rig = null) {
+        if (spectatorRig !== rig) spectatorCameraReady = false;
+        spectatorRig = rig;
+        cockpit.visible = !inspecting && !spectatorRig;
+        combinerHud.visible = !inspecting && !spectatorRig;
+    }
     let visualYaw = 0;
     let visualX = 0;
     let visualZ = 8;
@@ -1153,6 +1166,21 @@ export function createArenaScene(initial, targetAssembly) {
                 .applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
             const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov) * .78;
             camera.lookAt(center.addScaledVector(right, shift));
+        }
+        else if (spectatorRig) {
+            const yaw = physicsYawToViewYaw(spectatorRig.yaw ?? 0);
+            spectatorDesired.set(spectatorRig.x + Math.sin(yaw) * 5.2,
+                4.1, spectatorRig.z + Math.cos(yaw) * 5.2);
+            spectatorLook.set(spectatorRig.x, 1.65, spectatorRig.z);
+            if (!spectatorCameraReady) {
+                spectatorCameraPosition.copy(spectatorDesired);
+                spectatorCameraReady = true;
+            } else {
+                spectatorCameraPosition.lerp(spectatorDesired,
+                    1 - Math.exp(-5 * Math.max(0, dt)));
+            }
+            camera.position.copy(spectatorCameraPosition);
+            camera.lookAt(spectatorLook);
         }
         else {
             camera.position.set(visualX + impactJitter * .62, 2.42 + cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
@@ -1227,8 +1255,8 @@ export function createArenaScene(initial, targetAssembly) {
         inspecting = enabled;
         exterior.root.visible = enabled && !vendorEnabled;
         vendorRoot.visible = enabled && vendorEnabled;
-        cockpit.visible = !enabled;
-        combinerHud.visible = !enabled;
+        cockpit.visible = !enabled && !spectatorRig;
+        combinerHud.visible = !enabled && !spectatorRig;
         blackout.visible = !enabled;
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
@@ -1748,7 +1776,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, rebuildAssembly, selectPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
