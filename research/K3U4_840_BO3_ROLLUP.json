@@ -1,0 +1,278 @@
+{
+  "runId": 39188264953,
+  "runUrl": "https://github.com/lowlevelwizards/M3CH4/actions/runs/39188264953",
+  "tacticalGenerations": {
+    "new": "k3u3 tactical in k3u4 release at main 4db04214",
+    "baseline": "k3u2 prior main 93286524"
+  },
+  "matchRules": "pre-k3u5 strict Domination 60-point, 210 second headless proxy",
+  "roundsFreshHardware": true,
+  "pairedSeedsWithSideSwap": true,
+  "raycastApproximation": true,
+  "fixedTimeStep": 0.016666666666666666,
+  "summary": {
+    "armed": {
+      "series": 600,
+      "rounds": 1432,
+      "seriesWins": {
+        "new": 481,
+        "baseline": 109,
+        "unresolved": 10
+      },
+      "roundsByOutcome": {
+        "score": 1412,
+        "timeout": 20,
+        "bothDisabled": 0
+      },
+      "metricsPerRound": {
+        "duration": 121.13,
+        "contested": 54.53,
+        "noScoring": 66.25,
+        "scoring": 54.88,
+        "captures": 7.45,
+        "recaptures": 3.86,
+        "kills": 3.1,
+        "firstContact": 3.55,
+        "firstKillAmongLethal": 51.14
+      },
+      "byGeneration": {
+        "new": {
+          "rigs": 4296,
+          "survivors": 3222,
+          "captures": 5824,
+          "zoneSeconds": 278345.96,
+          "travel": 400061.66,
+          "damageDealt": 3449142.34,
+          "hits": 94313,
+          "actualShots": 140167,
+          "shotTriggers": 280430,
+          "kills": 3371,
+          "goalChanges": 65916,
+          "routeErrors": 3705,
+          "serviceCount": 145,
+          "yieldTicks": 847020,
+          "stagingSeconds": 73726.08,
+          "movementRecoveries": 976
+        },
+        "baseline": {
+          "rigs": 4296,
+          "survivors": 925,
+          "captures": 4847,
+          "zoneSeconds": 247316.92,
+          "travel": 220598.84,
+          "damageDealt": 3567323.86,
+          "hits": 92420,
+          "actualShots": 137028,
+          "shotTriggers": 203509,
+          "kills": 1074,
+          "goalChanges": 25626,
+          "routeErrors": 1569,
+          "serviceCount": 1601,
+          "yieldTicks": 0,
+          "stagingSeconds": 0,
+          "movementRecoveries": 2164
+        }
+      }
+    },
+    "noDamage": {
+      "series": 120,
+      "rounds": 243,
+      "seriesWins": {
+        "new": 0,
+        "baseline": 120,
+        "unresolved": 0
+      },
+      "roundsByOutcome": {
+        "score": 240,
+        "timeout": 3,
+        "bothDisabled": 0
+      },
+      "metricsPerRound": {
+        "duration": 124.21,
+        "contested": 108.55,
+        "noScoring": 74.86,
+        "scoring": 49.36,
+        "captures": 4.02,
+        "recaptures": 0.96,
+        "kills": 0,
+        "firstContact": 3.92,
+        "firstKillAmongLethal": 0
+      },
+      "byGeneration": {
+        "new": {
+          "rigs": 729,
+          "survivors": 729,
+          "captures": 214,
+          "zoneSeconds": 51395.62,
+          "travel": 80908.54,
+          "damageDealt": 0,
+          "hits": 0,
+          "actualShots": 40043,
+          "shotTriggers": 69318,
+          "kills": 0,
+          "goalChanges": 10868,
+          "routeErrors": 620,
+          "serviceCount": 0,
+          "yieldTicks": 427983,
+          "stagingSeconds": 21267.02,
+          "movementRecoveries": 64
+        },
+        "baseline": {
+          "rigs": 729,
+          "survivors": 729,
+          "captures": 763,
+          "zoneSeconds": 80792.38,
+          "travel": 27125.13,
+          "damageDealt": 0,
+          "hits": 0,
+          "actualShots": 46883,
+          "shotTriggers": 69318,
+          "kills": 0,
+          "goalChanges": 2362,
+          "routeErrors": 0,
+          "serviceCount": 0,
+          "yieldTicks": 0,
+          "stagingSeconds": 0,
+          "movementRecoveries": 21
+        }
+      }
+    },
+    "wornBothSides25Percent": {
+      "series": 120,
+      "rounds": 283,
+      "seriesWins": {
+        "new": 106,
+        "baseline": 13,
+        "unresolved": 1
+      },
+      "roundsByOutcome": {
+        "score": 280,
+        "timeout": 3,
+        "bothDisabled": 0
+      },
+      "metricsPerRound": {
+        "duration": 118.39,
+        "contested": 54.5,
+        "noScoring": 68.03,
+        "scoring": 50.37,
+        "captures": 7.36,
+        "recaptures": 3.74,
+        "kills": 3.03,
+        "firstContact": 3.65,
+        "firstKillAmongLethal": 52.41
+      },
+      "byGeneration": {
+        "new": {
+          "rigs": 849,
+          "survivors": 690,
+          "captures": 1192,
+          "zoneSeconds": 57699.65,
+          "travel": 63694.94,
+          "damageDealt": 528372.77,
+          "hits": 14345,
+          "actualShots": 21651,
+          "shotTriggers": 44650,
+          "kills": 699,
+          "goalChanges": 11844,
+          "routeErrors": 617,
+          "serviceCount": 33,
+          "yieldTicks": 134565,
+          "stagingSeconds": 12128.2,
+          "movementRecoveries": 262
+        },
+        "baseline": {
+          "rigs": 849,
+          "survivors": 150,
+          "captures": 891,
+          "zoneSeconds": 44547.19,
+          "travel": 42181.87,
+          "damageDealt": 512931.13,
+          "hits": 13338,
+          "actualShots": 20275,
+          "shotTriggers": 30918,
+          "kills": 159,
+          "goalChanges": 5220,
+          "routeErrors": 298,
+          "serviceCount": 360,
+          "yieldTicks": 0,
+          "stagingSeconds": 0,
+          "movementRecoveries": 574
+        }
+      }
+    }
+  },
+  "shardWins": [
+    {
+      "shard": 0,
+      "armed": {
+        "new": 120,
+        "baseline": 28,
+        "unresolved": 2
+      },
+      "noDamage": {
+        "new": 0,
+        "baseline": 30,
+        "unresolved": 0
+      },
+      "worn": {
+        "new": 27,
+        "baseline": 2,
+        "unresolved": 1
+      }
+    },
+    {
+      "shard": 1,
+      "armed": {
+        "new": 130,
+        "baseline": 19,
+        "unresolved": 1
+      },
+      "noDamage": {
+        "new": 0,
+        "baseline": 30,
+        "unresolved": 0
+      },
+      "worn": {
+        "new": 25,
+        "baseline": 5,
+        "unresolved": 0
+      }
+    },
+    {
+      "shard": 2,
+      "armed": {
+        "new": 116,
+        "baseline": 30,
+        "unresolved": 4
+      },
+      "noDamage": {
+        "new": 0,
+        "baseline": 30,
+        "unresolved": 0
+      },
+      "worn": {
+        "new": 26,
+        "baseline": 4,
+        "unresolved": 0
+      }
+    },
+    {
+      "shard": 3,
+      "armed": {
+        "new": 115,
+        "baseline": 32,
+        "unresolved": 3
+      },
+      "noDamage": {
+        "new": 0,
+        "baseline": 30,
+        "unresolved": 0
+      },
+      "worn": {
+        "new": 28,
+        "baseline": 2,
+        "unresolved": 0
+      }
+    }
+  ]
+}
