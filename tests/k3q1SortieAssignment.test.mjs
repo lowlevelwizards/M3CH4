@@ -116,5 +116,5 @@ test('resolved sortie identity remains visible through debrief and stable accoun
 });
 
 test('q.3q.1 assignment adapter remains loaded under later garage shells', () => {
-    assert.match(garage, /sortieAssignmentUI\.js\?v=k3s2/);
+    assert.match(garage, /sortieAssignmentUI\.js\?v=k3v5p1/);
 });
