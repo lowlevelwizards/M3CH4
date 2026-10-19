@@ -20,14 +20,14 @@ export const UI_COLORS=Object.freeze({
 export function stationLabel(slot){return STATIONS[slot]?.label??'PART'}
 export function stationGlyph(slot){return STATIONS[slot]?.glyph??'·'}
 export const limit01=v=>Math.max(0,Math.min(1,Number.isFinite(Number(v))?Number(v):0));
-export function conditionReading({condition=0,integrity=null,armorRatio=1,armor=null,wear=0,destroyed=false,serial=null}={}){
-    const core=limit01(integrity??condition),shell=limit01(armor??armorRatio);
+export function conditionReading({condition=0,integrity=null,core=null,armorRatio=1,armor=null,wear=0,destroyed=false,serial=null}={}){
+    const coreValue=limit01(integrity??core??condition),shell=limit01(armor??armorRatio);
     const wearRatio=limit01(wear);
     return Object.freeze({
-        core,armor:shell,wear:wearRatio,destroyed:!!destroyed,
+        core:coreValue,armor:shell,wear:wearRatio,destroyed:!!destroyed,
         missing:serial===null,
-        fault:!!destroyed?'DESTROYED':core<=.001?'DISABLED':core<.38?'CORE CRITICAL':
-            shell<.38?'ARMOR BREACHED':core<.995?'CORE DAMAGED':shell<.995?'ARMOR WORN':null,
+        fault:!!destroyed?'DESTROYED':coreValue<=.001?'DISABLED':coreValue<.38?'CORE CRITICAL':
+            shell<.38?'ARMOR BREACHED':coreValue<.995?'CORE DAMAGED':shell<.995?'ARMOR WORN':null,
     });
 }
 /** Encodes one authoritative machine condition, never derives armor from CORE. */
