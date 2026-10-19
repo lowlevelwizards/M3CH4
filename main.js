@@ -1521,6 +1521,7 @@ function frame(now) {
                         capability,weaponRecovery:recovery,
                         systemAtRisk,survivalPoint:systemAtRisk?actor.survivalCover:null,
                         enemySeen:!!alliedView?.contacts?.some(c=>c.visible),
+                        uncertain:!alliedView?.contacts?.some(c=>c.visible),
                         world:DEFAULT_WORLD,
                         preferredRangeM:actor.behavior?.preferredRangeM,
                         collisionRadius:actorConfig.collisionRadiusM+.3,
