@@ -607,7 +607,7 @@ export function createArenaScene(initial, targetAssembly) {
         const ctx = panelBase(screen, 'green', .54); if (!ctx) return;
         ctx.fillStyle = '#a8d5ad'; ctx.textBaseline = 'middle';
         ctx.font = 'bold 18px monospace'; ctx.fillText(`${data.speed ?? '0.0'} m/s`, 9, 18);
-        ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#d5b66d'; ctx.fillText(String(data.direction ?? 'IDLE'), 132, 18);
+        ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#d5b66d'; ctx.fillText(data.brace >= 1 ? 'BRACED' : data.brace > 0 ? 'PLANT' : String(data.direction ?? 'IDLE'), 132, 18);
         ctx.fillStyle = '#83a68a'; ctx.fillText(`TURN ${data.turnRate ?? 0}°/s`, 9, 43);
         screen.texture.needsUpdate = true;
     }
@@ -645,6 +645,7 @@ export function createArenaScene(initial, targetAssembly) {
             direction: String(data.direction ?? 'IDLE'),
             turnRate: Math.round(Number(data.turnRate) || 0),
             driveLoad: Math.round(Math.max(0, Math.min(1, Number(data.driveLoad) || 0)) * 100) / 100,
+            brace: Math.round(Math.max(0, Math.min(1, Number(data.brace) || 0)) * 10) / 10,
         };
         const key = JSON.stringify(normalized);
         if (key === cockpitMotionKey) return;
@@ -1122,7 +1123,7 @@ export function createArenaScene(initial, targetAssembly) {
         const impactKick = state.impact * 0.045;
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
-        cockpitHeave += ((footfall - impactKick) - cockpitHeave) * (1 - Math.exp(-12 * dt));
+        cockpitHeave += ((footfall - impactKick - (state.brace ?? 0) * .032) - cockpitHeave) * (1 - Math.exp(-12 * dt));
         const renderYaw = physicsYawToViewYaw(visualYaw);
         const nowMs = performance.now();
         const damageWave = Math.sin(nowMs * .043);
@@ -1214,7 +1215,7 @@ export function createArenaScene(initial, targetAssembly) {
                     const sidePhase = joint.side > 0 ? Math.PI : 0;
                     const wave = Math.sin(articulation.phase + sidePhase);
                     const magnitude = joint.joint === 'hip' ? .42 : joint.joint === 'knee' ? -.62 : joint.joint === 'ankle' ? .32 : -.16;
-                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude;
+                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude + (joint.joint === 'knee' ? -.075 : joint.joint === 'ankle' ? .025 : 0) * (state.brace ?? 0);
                     joint.object.rotation.z = joint.base.z + (1 - health) * joint.side * Math.sin(articulation.phase * .53) * .035;
                 }
             }
@@ -1241,7 +1242,7 @@ export function createArenaScene(initial, targetAssembly) {
                 }
             }
             const damage = 1 - health;
-            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) * damage * movement * .035;
+            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) * damage * movement * .035 - (state.brace ?? 0) * .045;
             record.exterior.root.rotation.x = THREE.MathUtils.clamp(-(state.longitudinalAcceleration ?? 0) * .007 + Math.sin((record.articulation?.phase ?? 0) * .47) * damage * .018, -.065, .065);
             record.exterior.root.rotation.z = THREE.MathUtils.clamp(-(state.lateralSpeed ?? 0) * .012 - (state.yawRate ?? 0) * speed * .008 + Math.sin((record.articulation?.phase ?? 0) * .61) * damage * .022, -.075, .075);
         }
