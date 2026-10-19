@@ -65,6 +65,10 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
     };
     memory.lastTime=time;
     return {missions,time,kind:objective?.type??'elimination',teams,zones,
+        // Number of still-fieldable roster entries is already on the squad HUD;
+        // reveal no hidden enemy positions, capabilities, ammunition or parts.
+        remaining:{friendly:participants.filter(p=>p.team==='friendly'&&p.active).length,
+            hostile:participants.filter(p=>p.team==='hostile'&&p.active).length},
         zoneRadius:objective?.radius??4.7,
         score:{friendly:objective?.friendlyProgress??0,hostile:objective?.hostileProgress??0,
             max:objective?.domination?.scoreToWin??0},
