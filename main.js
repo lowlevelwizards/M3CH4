@@ -461,7 +461,7 @@ dominationHud.id='domination-hud';
 dominationHud.setAttribute('aria-label','Three point Domination score and control');
 objectiveStatus.insertAdjacentElement('afterend',dominationHud);
 function renderObjectiveStatus() {
-    const text = objectiveStatusText(sortieObjective);
+    const text = objectiveStatusText(sortieObjective).replace(/^OBJ\\s*·\\s*/,'◆ ').replace('BREAK HOSTILE TEAM','BREAK FOES');
     if (objectiveStatus.textContent !== text) objectiveStatus.textContent = text;
     objectiveStatus.classList.toggle('contested', !!sortieObjective?.contested);
     const dom=sortieObjective?.domination;
@@ -469,9 +469,9 @@ function renderObjectiveStatus() {
     dominationHud.classList.toggle('hidden',!domActive);
     document.body.classList.toggle('domination-active',!!domActive);
     if (domActive && dom) {
-        const points=dom.points.map(p=>p.id+' '+(p.contested?'!':p.owner==='friendly'?'▲':
-            p.owner==='hostile'?'▼':'·')+' '+Math.round(Math.abs(p.influence)*100)+'%').join('  |  ');
-        const score='DOMINATION  '+Math.floor(sortieObjective.friendlyProgress)+' — '+
+        const points=dom.points.map(p=>p.id+(p.contested?'!':p.owner==='friendly'?'▲':
+            p.owner==='hostile'?'▼':'·')+Math.round(Math.abs(p.influence)*100)+'%').join('  ');
+        const score='DOM  '+Math.floor(sortieObjective.friendlyProgress)+' — '+
             Math.floor(sortieObjective.hostileProgress)+' / '+dom.scoreToWin+'  ·  '+points;
         if(dominationHud.textContent!==score)dominationHud.textContent=score;
     }
