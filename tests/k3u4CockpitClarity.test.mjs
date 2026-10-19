@@ -92,7 +92,7 @@ test('player mission kill opens touch-switchable allied follow view, not a secon
     assert.match(main,/observePrev\.addEventListener\('click'/);
     assert.match(main,/observeNext\.addEventListener\('click'/);
     assert.match(main,/if\s*\(!watched\?\.active\)\s*setObservedAlly\(1\)/);
-    assert.match(scene,/function setSpectatorRig\(rig=null\)/);
+    assert.match(scene,/function setSpectatorRig\(rig\s*=\s*null\)/);
     assert.match(scene,/camera\.lookAt\(spectatorLook\)/);
     assert.match(scene,/combinerHud\.visible = !enabled && !spectatorRig/);
     assert.match(css,/#allied-observation button/);
