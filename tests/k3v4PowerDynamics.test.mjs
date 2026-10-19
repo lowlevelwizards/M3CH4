@@ -17,7 +17,7 @@ function equipped(generator='power-dynamo'){
     return a;
 }
 test('generator profiles preserve catalogue power and mass and all fourteen legacy serials',()=>{
-    assert.equal(CATALOG.length,14);
+    assert.equal(CATALOG.length,15);
     const dynamo=equipped(),draft=equipped('power-air');
     assert.equal(installedPart(dynamo,'power').definition.powerKw,145);
     assert.equal(installedPart(draft,'power').definition.powerKw,112);
