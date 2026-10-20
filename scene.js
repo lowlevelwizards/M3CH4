@@ -1232,73 +1232,126 @@ export function createArenaScene(initial, targetAssembly) {
         }
         updateSquadMarkers();
     }
-    function updateCombatantRig(id, state, visual = null) {
-        const record = squadCombatants.get(id);
-        if (!record) return;
-        record.exterior.root.position.set(state.x, record.cleared ? -.14 : record.wrecked ? -.06 : 0, state.z);
-        record.exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
-        if (record.active && !record.wrecked && !record.cleared) {
-            const dt = Math.max(0, visual?.dt ?? 1 / 60);
-            const wasServicing = record.weaponServicing;
-            record.weaponFault = !!visual?.weaponFault;
-            record.weaponServicing = !!visual?.weaponServicing;
-            if (wasServicing && !record.weaponServicing && !record.weaponFault) {
-                record.weaponRecoveryKick = 1;
-                record.recoveryBurstPending = true;
+    function poseCombatantExterior(record,state,visual=null){
+        const root=record.exterior.root;
+        root.position.set(state.x??0,record.cleared?-.14:record.wrecked?-.06:0,state.z??0);
+        root.rotation.y=physicsYawToViewYaw(state.yaw??0);
+        if(record.active&&!record.wrecked&&!record.cleared){
+            const dt=Math.max(0,Math.min(.10,visual?.dt??1/60));
+            const wasServicing=record.weaponServicing;
+            record.weaponFault=!!visual?.weaponFault;
+            record.weaponServicing=!!visual?.weaponServicing;
+            if(wasServicing&&!record.weaponServicing&&!record.weaponFault){
+                record.weaponRecoveryKick=1;
+                record.recoveryBurstPending=true;
             }
-            record.weaponRecoveryKick = Math.max(0, (record.weaponRecoveryKick ?? 0) - dt * 2.0);
-            const health = THREE.MathUtils.clamp(visual?.posture?.animationHealth ?? 1, .08, 1);
-            const speed = Math.hypot(state.vx ?? 0, state.vz ?? 0);
-            const movement = Math.min(1, speed / 2.8);
-            const articulation = record.articulation;
-            if (articulation) {
-                articulation.phase += dt * (1.5 + speed * 1.45) * (.52 + health * .48);
-                const amplitude = movement * (.075 + health * .11);
-                for (const joint of articulation.joints) {
-                    const sidePhase = joint.side > 0 ? Math.PI : 0;
-                    const wave = Math.sin(articulation.phase + sidePhase);
-                    const magnitude = joint.joint === 'hip' ? .42 : joint.joint === 'knee' ? -.62 : joint.joint === 'ankle' ? .32 : -.16;
-                    const compression = Math.min(1, (state.footingLoad ?? 0) * .7 + (state.recoilLoad ?? 0) * .3);
-                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude +
-                        (joint.joint === 'knee' ? -.075 : joint.joint === 'ankle' ? .025 : 0) * (state.brace ?? 0) +
-                        (joint.joint === 'knee' ? -.07 : joint.joint === 'ankle' ? .025 : 0) * compression;
-                    joint.object.rotation.z = joint.base.z + (1 - health) * joint.side * Math.sin(articulation.phase * .53) * .035 +
-                        (joint.joint === 'hip' ? -.012 : .006) * joint.side * Math.min(2, state.footSlipMps ?? 0);
+            record.weaponRecoveryKick=Math.max(0,(record.weaponRecoveryKick??0)-dt*2);
+            const health=THREE.MathUtils.clamp(visual?.posture?.animationHealth??1,.08,1);
+            const speed=Math.hypot(state.vx??0,state.vz??0);
+            const motion=record.articulation;
+            const mobilityId=installedPart(record.assembly,'mobility')?.definition.id??'legs-yard';
+            const spec=familyAnimation(mobilityId);
+            const visualGait=visual?.gait;
+            if(motion){
+                if(visualGait){
+                    motion.phase=visualGait.phase??motion.phase;
+                    motion.weight=visualGait.gaitWeight??0;
+                }else{
+                    // Fallback only for inspection or legacy external callers.
+                    if(speed>.65)motion.phase+=Math.PI*dt*speed/spec.stride;
+                    const target=speed>.65?1:0;
+                    motion.weight=(motion.weight??0)+(target-(motion.weight??0))*(1-Math.exp(-dt*7));
+                }
+                const moving=(motion.weight??0);
+                const backward=(state.forwardSpeed??0)<-.3;
+                const strafe=(state.lateralSpeed??0)/2.4;
+                const blocked=record.disabledSlots.has('mobility')||
+                    record.destroyedSlots.has('mobility');
+                for(const [side,leg] of motion.legs){
+                    if(!leg.hip||!leg.knee||!leg.ankle||!leg.foot)continue;
+                    const pose=legPose(leg.upper,leg.lower,{
+                        phase:motion.phase,side,weight:moving,family:mobilityId,
+                        backward,strafe,brace:state.brace??0,health,disabled:blocked,
+                    });
+                    leg.hip.rotation.x=pose.hip;
+                    leg.hip.rotation.z=pose.spread+(1-health)*side*.03;
+                    leg.knee.rotation.x=pose.knee;
+                    leg.ankle.rotation.x=pose.ankle;
+                    leg.foot.rotation.x=pose.foot;
                 }
             }
-            const target = visual?.target;
-            if (target) {
-                const desired = Math.atan2(target.x - state.x, -(target.z - state.z));
-                const error = Math.atan2(Math.sin(desired - state.yaw), Math.cos(desired - state.yaw));
-                const command = record.exterior.partGroups.get('command');
-                const combat = record.exterior.partGroups.get('combat');
-                const commandBase = record.baseParts.get('command');
-                const combatBase = record.baseParts.get('combat');
-                const smoothing = 1 - Math.exp(-dt * (5.2 * (.45 + health * .55)));
-                if (command && commandBase) command.rotation.y = THREE.MathUtils.lerp(command.rotation.y, commandBase.rotation.y - THREE.MathUtils.clamp(error, -.48, .48) * .42, smoothing);
-                if (combat && combatBase) {
-                    const weaponFault = !!visual?.weaponFault;
-                    const serviceSag = visual?.weaponServicing ? .28 : .16;
-                    const recoveryLift = (record.weaponRecoveryKick ?? 0) * .11;
-                    const traverseScale = weaponFault ? .18 : .72;
-                    const weaponSmoothing = record.weaponRecoveryKick > 0 ? Math.max(smoothing, 1 - Math.exp(-dt * 12.5)) : smoothing;
-                    combat.rotation.y = THREE.MathUtils.lerp(combat.rotation.y, combatBase.rotation.y - THREE.MathUtils.clamp(error, -.72, .72) * traverseScale, weaponSmoothing);
-                    combat.rotation.x = THREE.MathUtils.lerp(combat.rotation.x, combatBase.rotation.x + (weaponFault ? serviceSag : 0) - recoveryLift, weaponSmoothing);
-                    combat.position.y = THREE.MathUtils.lerp(combat.position.y, combatBase.position.y - (weaponFault ? .055 : 0) + recoveryLift * .14, weaponSmoothing);
-                    combat.position.z = combatBase.position.z + (record.recoilKick ?? 0);
+            const desired=visual?.target
+                ?Math.atan2(visual.target.x-state.x,-(visual.target.z-state.z))
+                :state.yaw??0;
+            const error=Math.atan2(Math.sin(desired-(state.yaw??0)),
+                Math.cos(desired-(state.yaw??0)));
+            const range=visual?.target
+                ?Math.hypot(visual.target.x-state.x,visual.target.z-state.z):20;
+            const elevation=visual?.aimPitch??Math.atan2(
+                (visual?.target?.height??2.05)-2.0,Math.max(1,range));
+            const fault=record.weaponFault||record.disabledSlots.has('combat');
+            const previous=motion?.aim??{waist:0,gun:0,elevation:0};
+            const aim=aimArticulation(-error,elevation,dt,previous,{health,fault});
+            if(motion)motion.aim=aim;
+            const frame=record.exterior.partGroups.get('structure');
+            const combat=record.exterior.partGroups.get('combat');
+            const command=record.exterior.partGroups.get('command');
+            const frameBase=record.baseParts.get('structure');
+            const combatBase=record.baseParts.get('combat');
+            const commandBase=record.baseParts.get('command');
+            if(frame&&frameBase){
+                // Structure is upper-waist visual; mobility is root sibling.
+                frame.rotation.y=frameBase.rotation.y+aim.waist;
+            }
+            if(command&&commandBase&&!record.destroyedSlots.has('command')){
+                const commandBroken=record.disabledSlots.has('command');
+                command.rotation.y=commandBase.rotation.y+aim.gun*.18;
+                command.rotation.x=commandBase.rotation.x+(commandBroken?.19:0);
+                command.position.y=commandBase.position.y-(commandBroken?.09:0);
+            }
+            if(combat&&combatBase&&!record.destroyedSlots.has('combat')){
+                const recovery=record.weaponRecoveryKick??0;
+                const reload=reloadArticulation(visual?.reloadLeft??0,
+                    visual?.reloadSeconds??0,
+                    installedPart(record.assembly,'combat')?.definition.id);
+                combat.rotation.y=combatBase.rotation.y+aim.gun;
+                combat.rotation.x=combatBase.rotation.x+aim.elevation+
+                    (fault?.20:0)-(recovery*.12);
+                combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
+                combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
+                combat.position.z=combatBase.position.z+(record.recoilKick??0);
+                const mechanism=combat.userData.weaponMechanism;
+                if(mechanism){
+                    mechanism.carriage.position.z=mechanism.baseZ+reload.slide+
+                        (record.recoilKick??0)*.35;
+                    mechanism.carriage.position.y=mechanism.baseY+reload.bolt*.14;
+                    mechanism.bolt.position.z=.40+reload.bolt;
+                    if(mechanism.cassette)
+                        mechanism.cassette.position.y=-.31-reload.cassette;
                 }
             }
-            const damage = 1 - health;
-            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) *
-                damage * movement * .035 - (state.brace ?? 0) * .045 -
-                (state.footingLoad ?? 0) * .035 - (state.recoilLoad ?? 0) * .020;
-            record.exterior.root.rotation.x = THREE.MathUtils.clamp(-(state.longitudinalAcceleration ?? 0) * .007 + Math.sin((record.articulation?.phase ?? 0) * .47) * damage * .018, -.065, .065);
-            record.exterior.root.rotation.z = THREE.MathUtils.clamp(-(state.lateralSpeed ?? 0) * .012 -
-                (state.yawRate ?? 0) * speed * .008 -
-                (state.lateralAcceleration ?? 0) * .006 +
-                Math.sin((record.articulation?.phase ?? 0) * .61) * damage * .022, -.09, .09);
+            const load=Math.min(1,(state.footingLoad??0)*.7+
+                (state.recoilLoad??0)*.3);
+            const grounded=motion?.weight??0;
+            // A supporting step has a visible compressed chassis (not a
+            // floating perfectly sinusoidal machine on rigid legs).
+            root.position.y-=load*spec.compression+(state.brace??0)*.032;
+            root.position.y+=Math.abs(Math.sin(motion?.phase??0))*
+                grounded*(spec.compression*.43);
+            const damage=1-health;
+            root.rotation.x=THREE.MathUtils.clamp(
+                -(state.longitudinalAcceleration??0)*.008+
+                damage*Math.sin((motion?.phase??0)*.51)*.022,-.09,.09);
+            root.rotation.z=THREE.MathUtils.clamp(
+                -(state.lateralSpeed??0)*.014-
+                (state.yawRate??0)*speed*.009+
+                damage*Math.sin((motion?.phase??0)*.64)*.032,-.12,.12);
         }
-        record.exterior.root.updateWorldMatrix(true, true);
+        root.updateWorldMatrix(true,true);
+    }
+    function updateCombatantRig(id,state,visual=null){
+        const record=squadCombatants.get(id);
+        if(record)poseCombatantExterior(record,state,visual);
     }
     function updateTargetRigVisual(state) {
         // Backwards-compatible wrapper for the selected contract leader.
