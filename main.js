@@ -421,7 +421,7 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     const events=advanceMotionSound(acoustic,family,speed,dt);
     for(const id of events) {
         const idle=id==='engine'&&speed<.65;
-        if(!local&&id==='engine'&&distance>9)return;
+        if(!local&&id==='engine'&&distance>9)continue;
         // Reduce simultaneous machinery. Local footfalls still communicate
         // mass; other mechs are an acoustic background, not five co-pilots.
         const strength=id==='engine'?(local?(idle?.13:.20):.12)
