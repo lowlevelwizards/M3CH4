@@ -1143,6 +1143,7 @@ export function createArenaScene(initial, targetAssembly) {
     let cockpitPitch = 0;
     const gunPivot = cockpit.userData.gunPivot;
     const flashMesh = cockpit.userData.flashMesh;
+    let previewAssembly=initial;
     let animationPreviewMode='off',animationPreviewSpeed=3,previewTime=0,
         previewRecord=null;
     function restoreInspectionPose(){
@@ -1178,7 +1179,7 @@ export function createArenaScene(initial, targetAssembly) {
         if(!previewRecord||previewRecord.exterior!==exterior){
             previewRecord={
                 id:'inspection-preview',active:true,wrecked:false,cleared:false,
-                assembly:inspectionAssembly??initial,exterior,
+                assembly:previewAssembly,exterior,
                 disabledSlots:new Set(),destroyedSlots:new Set(),
                 articulation:captureArticulation(exterior),
                 baseParts:capturePartTransforms(exterior),
@@ -1472,6 +1473,7 @@ export function createArenaScene(initial, targetAssembly) {
     function rebuildAssembly(assembly) {
         restoreInspectionPose();
         previewRecord=null;
+        previewAssembly=assembly;
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
         updateGarageFixtures(assembly);
