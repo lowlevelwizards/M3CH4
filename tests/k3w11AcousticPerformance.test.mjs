@@ -101,7 +101,10 @@ test('startup gesture prepares sound, worker boot does not corrupt machine save 
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   assert.match(audio,/beginAudioWarmup\(\)/);
   assert.match(audio,/addEventListener\('pointerdown'/);
-  assert.match(audio,/resumePending/);
+  assert.match(audio,/userActivated/);
+  assert.match(audio,/function unlockAudio\(\)/);
+  assert.match(audio,/if \(!userActivated\) return null/);
+  assert.doesNotMatch(audio,/resumePending/,'no resume promise should be pending before a user gesture');
   assert.match(worker,/renderSystemSound/);
   assert.match(worker,/renderPressureForgePCM/);
   assert.match(worker,/pcm\.buffer/);
