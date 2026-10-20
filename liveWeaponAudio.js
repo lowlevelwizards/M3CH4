@@ -107,7 +107,7 @@ export function makeLiveWeaponAudio(getContext){
         // Only a single send node is needed per shot, rather than a pair
         // of expensive per-trigger delay/filter chains.
         const send=c.createGain();
-        send.gain.value=gain*(cockpit?.82:.37);
+        send.gain.value=gain*(cockpit?.82:.37)*bus.gain.value;
         lowpass.connect(send);send.connect(room.send);
         release.push(send);
       }
