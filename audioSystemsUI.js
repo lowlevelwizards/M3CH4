@@ -49,7 +49,7 @@ if(openButton){
     tabs.append(b);
   }
   const intro=el('div','systems-lab-instructions',
-    'TAP A / B / C TO HEAR AND SAVE · Play one event at a time · Your old weapon sounds stay intact');
+    'k.3w.9 MATERIAL PASS · Re-audition your saved picks · Tap A/B/C to hear and save · Weapons unchanged');
   const list=el('div','systems-lab-list');
   const cards=new Map();
   for(const item of SYSTEM_SOUNDS){

@@ -1,4 +1,4 @@
-/** k.3w.8 / Audition-only industrial systems and damage sound library.
+/** k.3w.9 / Audition-only industrial systems and damage sound library.
  * No remote samples and no runtime combat changes. Each category has its own
  * physically motivated envelope/event arrangement, NOT one pitched formula.
  */
@@ -9,7 +9,7 @@ export const SYSTEM_SOUND_GROUPS=Object.freeze([
 ]);
 export const SYSTEM_SOUNDS=Object.freeze([
   {id:'glance',group:'damage',label:'ARMOR GLANCE',subtitle:'Surface contact, no penetration',
-    variants:['Dull ricochet','Bright metal clink','Skidding scrape']},
+    variants:['Dull ricochet','Bright metal clink','Quiet skidding scrape']},
   {id:'armor',group:'damage',label:'ARMOR BREAK',subtitle:'Plate cracking or shearing',
     variants:['Plate shear','Brittle split','Crushed sheet']},
   {id:'part',group:'damage',label:'INTERNAL PART HIT',subtitle:'Mechanism behind the armor',
@@ -79,7 +79,7 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
       x=.22*weight*pulse(t,0,133,.040)
         +.22*edge*metal(t,.003,variant===1?950:variant===2?515:730,variant===1?.082:.044)
         +.20*sharp*exp(t,0,.012)
-        +(variant===2?.21*middle*exp(t,.026,.124):.035*rasp*exp(t,.035,.023));
+        +(variant===2?.086*middle*exp(t,.026,.11):.035*rasp*exp(t,.035,.023));
       break;
     case 'armor':
       x=.38*weight*pulse(t,0,96,.090)+.23*sharp*exp(t,0,.017)
@@ -87,13 +87,19 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
         +.21*middle*exp(t,variant===2?.085:.060,.095)
         +.15*low*exp(t,.110,.100);
       break;
-    case 'part':
-      x=.36*weight*pulse(t,0,79,.125)+.32*middle*exp(t,0,.055)
-        +.20*metal(t,.009,variant===0?420:245,.045)
-        +.28*rasp*exp(t,.150,variant===1?.22:.085)
-        +.18*low*exp(t,.205,.110)
-        +.18*sharp*exp(t,.23,.022);
+    case 'part': {
+      // Broad, low-mid resonant machinery, without the pitched handpan.
+      const housing=.40*weight*pulse(t,0,116,.050)+
+        .43*low*exp(t,0,.15)+.29*middle*exp(t,.007,.10)+
+        .28*rasp*exp(t,0,.033);
+      const secondary=(variant===1?.32:.24)*low*exp(t,.155,.105)+
+        .23*middle*exp(t,variant===2?.182:.152,.062)+
+        .24*rasp*exp(t,.19,variant===1?.13:.042);
+      const fragments=.16*sharp*exp(t,variant===2?.235:.220,.018)+
+        .12*middle*exp(t,.275,variant===2?.14:.055);
+      x=housing+secondary+fragments;
       break;
+    }
     case 'destruction':
       // A broken part, not a cartoon grenade: dirty pressure and collapsing iron.
       x=.58*weight*pulse(t,0,64,.16)+.40*low*exp(t,0,.30)
@@ -121,63 +127,94 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
     case 'recharge':{
       const rise=Math.min(1,t/.8),hz=(variant===1?140:variant===2?85:110);
       const hum=Math.sin(TAU*(hz*t+(variant===1?170:variant===2?80:110)*t*t*.5));
+      // Preserve the good recovery sweep. A short electrical relay SNAP
+      // replaces the offending tuned metal-drum strike.
       x=.14*hum*rise*(1-Math.max(0,(t-.86)/.17))
         +.15*middle*rise*exp(t,0,1.6)
         +.20*low*exp(t,.72,.13)
-        +.15*metal(t,.89,variant===1?760:460,.035)
-        +.18*sharp*exp(t,.895,.012);
+        +.16*rasp*exp(t,.91,.014)
+        +.12*middle*exp(t,.902,.020)
+        +.07*low*exp(t,.91,.044);
       break;
     }
     case 'engine':{
-      // Coherent low rotating masses and uneven combustion: long enough to
-      // preview a running mechanism, never one-shot sci-fi swept beeps.
+      // Weighted upper-bass hum and lumpy combustion, not TV-static fizz.
       const rpm=[10,7.8,17][variant],spin=Math.sin(TAU*(rpm*t+.17*t*t));
-      const modulation=(.67+.33*spin*spin);
-      x=(.20*weight*Math.sin(TAU*[64,51,108][variant]*t)
-        +.11*Math.sin(TAU*[123,97,207][variant]*t))
-        *modulation
-        +(.15+.16*(variant===1))*low*modulation
-        +.12*middle*(.6+.4*Math.sin(TAU*rpm*t)**8)
-        +.08*rasp*(variant===2?1.3:.65);
+      const loading=.74+.26*spin*spin;
+      const base=[68,57,96][variant];
+      const rotor=.285*weight*Math.sin(TAU*base*t)+
+        .145*Math.sin(TAU*(base*1.92)*t)+
+        .072*Math.sin(TAU*(base*.5)*t);
+      const combustion=(.20+.085*(variant===1))*low*(.50+.50*Math.max(0,spin));
+      const chassis=.055*middle*(.55+.45*spin*spin)+
+        .014*rasp*(variant===2?1.2:1);
+      x=rotor*loading+combustion+chassis;
       const ramp=Math.min(1,t/.085,Math.max(0,(length-t)/.095));
       x*=Math.max(0,ramp);
       break;
     }
-    case 'hydraulics':
-      x=.20*pulse(t,0,84,.075)
-        +.26*middle*exp(t,.050,variant===1?.43:.24)
-        +.14*sharp*exp(t,.055,.18)
-        +.24*low*exp(t,variant===2?.35:.49,.08)
-        +.16*rasp*exp(t,.55,.025)
-        +.19*metal(t,.56,variant===2?240:360,.035);
+    case 'hydraulics':{
+      // Hiss, piston pressure, and a NON-TONAL valve closure.
+      const stroke=.22*pulse(t,0,110,.049)+.26*low*exp(t,0,.085);
+      const hiss=.25*middle*exp(t,.050,variant===1?.41:.23)+
+        .095*sharp*exp(t,.055,.17);
+      const stopAt=variant===2?.35:.49;
+      const valve=.31*low*exp(t,stopAt,.062)+
+        .23*rasp*exp(t,stopAt,.020)+
+        .14*middle*exp(t,stopAt+.006,.043);
+      x=stroke+hiss+valve+.12*middle*exp(t,.57,.07);
       break;
+    }
     case 'yardwalker':
-      x=.34*weight*pulse(t,0,91,.082)+.24*low*exp(t,0,.072)
-        +.15*sharp*exp(t,.011,.011)
-        +.19*pulse(t,.100,139,.06)+.16*rasp*exp(t,.112,.042)
-        +(variant===2?.14*middle*exp(t,.183,.075):0);
+      // Bigger work-boot heel / toe, with phone-audible low-mid mass.
+      x=.44*weight*pulse(t,0,118,.062)+.42*low*exp(t,0,.11)
+        +.22*middle*exp(t,.009,.038)
+        +.31*pulse(t,.104,135,.054)+.27*low*exp(t,.106,.076)
+        +.19*rasp*exp(t,.116,.043)
+        +(variant===2?.13*middle*exp(t,.183,.060):0);
       break;
     case 'kestrel':
-      x=.18*pulse(t,0,139,.046)+.28*sharp*exp(t,0,.010)
-        +.20*metal(t,.024,variant===2?490:730,.035)
-        +.19*middle*exp(t,.125,.043)
-        +.14*pulse(t,.155,177,.032)
-        +(variant===1?.14*sharp*exp(t,.210,.016):0);
+      // Split runner toes and flex; no struck-steel handpan note.
+      x=.18*pulse(t,0,145,.034)+.28*sharp*exp(t,0,.010)
+        +.16*middle*exp(t,.025,.027)
+        +.21*low*exp(t,.110,.035)+.21*rasp*exp(t,.125,.023)
+        +.14*pulse(t,.155,155,.027)
+        +(variant===1?.12*sharp*exp(t,.210,.013):0);
       break;
     case 'hauler':
-      x=.53*weight*pulse(t,0,68,.155)+.32*low*exp(t,0,.15)
-        +.26*rasp*exp(t,.027,.045)
-        +.30*pulse(t,.155,81,.11)
-        +.22*middle*exp(t,.18,.10)
-        +.20*low*exp(t,.32,.12);
+      // Retain the satisfying low loaded-pad body. Remove the secondary
+      // pitched sine decay so compression sounds broad instead of tuned.
+      x=.49*weight*pulse(t,0,98,.070)+.41*low*exp(t,0,.19)
+        +.25*rasp*exp(t,.027,.047)
+        +.36*low*exp(t,.155,.13)
+        +.26*middle*exp(t,.18,.095)
+        +.23*low*exp(t,.32,.13)
+        +.15*rasp*exp(t,.33,.040);
       break;
-    case 'reload':
-      x=.18*middle*exp(t,0,.06)+.17*rasp*exp(t,.032,.11)
-        +.23*low*exp(t,variant===2?.39:.275,.075)
-        +.20*pulse(t,variant===2?.41:.29,92,.045)
-        +.20*sharp*exp(t,variant===1?.54:.58,.022)
-        +.24*metal(t,variant===1?.55:.59,320,.025);
+    case 'reload': {
+      // Three physical actions, not a generic clink:
+      // pull friction / housing collision / short catch. No modal steel drum.
+      const slide=(from,to,amount)=>t<from||t>to?0:
+        amount*(.42*middle+.30*rasp+.23*low)*
+        (1-Math.exp(-(t-from)/.008))*
+        Math.min(1,Math.max(0,(to-t)/.032));
+      const thunk=(at,mass)=>mass*(.58*low+.26*middle+.23*rasp)*exp(t,at,.037);
+      const latch=(at,strength)=>strength*(.52*sharp+.28*middle)*exp(t,at,.013);
+      if(variant===0) {
+        // A / Slide & lock: draw back, weighty forward return, hard lock.
+        x=thunk(0,.35)+slide(.075,.365,.48)+thunk(.40,.86)+latch(.545,.60);
+      }else if(variant===1) {
+        // B / Magazine slap: removal, seating, short rack and latch.
+        x=slide(.02,.16,.26)+latch(.165,.38)+
+          thunk(.335,1.00)+slide(.415,.59,.31)+latch(.625,.75);
+      }else {
+        // C / Heavy breech: unlatch, drag massive block, slam, final catch.
+        x=thunk(.015,.67)+slide(.112,.48,.51)+
+          .33*low*exp(t,.535,.083)+thunk(.548,1.36)+
+          latch(.714,.62)+.15*low*exp(t,.72,.048);
+      }
       break;
+    }
     }
     // Limit peaks; the sound engine provides a second output limiter.
     out[i]=Math.tanh(x*2.1)*.72*fade(t,length);
