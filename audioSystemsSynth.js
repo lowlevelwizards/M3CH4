@@ -87,13 +87,19 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
         +.21*middle*exp(t,variant===2?.085:.060,.095)
         +.15*low*exp(t,.110,.100);
       break;
-    case 'part':
-      x=.36*weight*pulse(t,0,79,.125)+.32*middle*exp(t,0,.055)
-        +.20*metal(t,.009,variant===0?420:245,.045)
-        +.28*rasp*exp(t,.150,variant===1?.22:.085)
-        +.18*low*exp(t,.205,.110)
-        +.18*sharp*exp(t,.23,.022);
+    case 'part': {
+      // Broad, low-mid resonant machinery, without the pitched handpan.
+      const housing=.40*weight*pulse(t,0,116,.050)+
+        .43*low*exp(t,0,.15)+.29*middle*exp(t,.007,.10)+
+        .28*rasp*exp(t,0,.033);
+      const secondary=(variant===1?.32:.24)*low*exp(t,.155,.105)+
+        .23*middle*exp(t,variant===2?.182:.152,.062)+
+        .24*rasp*exp(t,.19,variant===1?.13:.042);
+      const fragments=.16*sharp*exp(t,variant===2?.235:.220,.018)+
+        .12*middle*exp(t,.275,variant===2?.14:.055);
+      x=housing+secondary+fragments;
       break;
+    }
     case 'destruction':
       // A broken part, not a cartoon grenade: dirty pressure and collapsing iron.
       x=.58*weight*pulse(t,0,64,.16)+.40*low*exp(t,0,.30)
@@ -121,11 +127,14 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
     case 'recharge':{
       const rise=Math.min(1,t/.8),hz=(variant===1?140:variant===2?85:110);
       const hum=Math.sin(TAU*(hz*t+(variant===1?170:variant===2?80:110)*t*t*.5));
+      // Preserve the good recovery sweep. A short electrical relay SNAP
+      // replaces the offending tuned metal-drum strike.
       x=.14*hum*rise*(1-Math.max(0,(t-.86)/.17))
         +.15*middle*rise*exp(t,0,1.6)
         +.20*low*exp(t,.72,.13)
-        +.15*metal(t,.89,variant===1?760:460,.035)
-        +.18*sharp*exp(t,.895,.012);
+        +.16*rasp*exp(t,.91,.014)
+        +.12*middle*exp(t,.902,.020)
+        +.07*low*exp(t,.91,.044);
       break;
     }
     case 'engine':{
@@ -143,14 +152,18 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
       x*=Math.max(0,ramp);
       break;
     }
-    case 'hydraulics':
-      x=.20*pulse(t,0,84,.075)
-        +.26*middle*exp(t,.050,variant===1?.43:.24)
-        +.14*sharp*exp(t,.055,.18)
-        +.24*low*exp(t,variant===2?.35:.49,.08)
-        +.16*rasp*exp(t,.55,.025)
-        +.19*metal(t,.56,variant===2?240:360,.035);
+    case 'hydraulics':{
+      // Hiss, piston pressure, and a NON-TONAL valve closure.
+      const stroke=.22*pulse(t,0,110,.049)+.26*low*exp(t,0,.085);
+      const hiss=.25*middle*exp(t,.050,variant===1?.41:.23)+
+        .095*sharp*exp(t,.055,.17);
+      const stopAt=variant===2?.35:.49;
+      const valve=.31*low*exp(t,stopAt,.062)+
+        .23*rasp*exp(t,stopAt,.020)+
+        .14*middle*exp(t,stopAt+.006,.043);
+      x=stroke+hiss+valve+.12*middle*exp(t,.57,.07);
       break;
+    }
     case 'yardwalker':
       x=.34*weight*pulse(t,0,91,.082)+.24*low*exp(t,0,.072)
         +.15*sharp*exp(t,.011,.011)
@@ -158,11 +171,12 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
         +(variant===2?.14*middle*exp(t,.183,.075):0);
       break;
     case 'kestrel':
-      x=.18*pulse(t,0,139,.046)+.28*sharp*exp(t,0,.010)
-        +.20*metal(t,.024,variant===2?490:730,.035)
-        +.19*middle*exp(t,.125,.043)
-        +.14*pulse(t,.155,177,.032)
-        +(variant===1?.14*sharp*exp(t,.210,.016):0);
+      // Split runner toes and flex; no struck-steel handpan note.
+      x=.18*pulse(t,0,145,.034)+.28*sharp*exp(t,0,.010)
+        +.16*middle*exp(t,.025,.027)
+        +.21*low*exp(t,.110,.035)+.21*rasp*exp(t,.125,.023)
+        +.14*pulse(t,.155,155,.027)
+        +(variant===1?.12*sharp*exp(t,.210,.013):0);
       break;
     case 'hauler':
       x=.53*weight*pulse(t,0,68,.155)+.32*low*exp(t,0,.15)
