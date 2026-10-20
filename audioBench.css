@@ -44,3 +44,6 @@
  .audio-lab-sliders{gap:8px}
 }
 @media (prefers-reduced-motion:reduce){.audio-lab-layer *{scroll-behavior:auto!important;transition:none!important}}
+
+/* k.3w.4: expandable text fallback when iOS denies clipboard access. */
+.audio-lab-export{display:block;box-sizing:border-box;width:100%;min-height:105px;max-height:32dvh;resize:vertical;overflow:auto;border:1px solid #8b7756;border-radius:3px;background:#0a100d;color:#f1d6a3;padding:9px;font:10px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;touch-action:pan-y;-webkit-user-select:text;user-select:text}
