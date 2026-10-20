@@ -23,7 +23,8 @@ test('opposing feet alternate planted stance and toe-clear swing arc',()=>{
  const at=(phase,side)=>footTrajectory(phase,side,1,'legs-yard',false);
  assert.equal(at(0,-1).planted,true);
  assert.equal(at(0,1).planted,false);
- assert.equal(at(Math.PI,-1).planted,false);
+ assert.equal(at(Math.PI,-1).planted,true,'short two-foot weight-transfer overlap');
+ assert.equal(at(1.2*Math.PI,-1).planted,false);
  assert.equal(at(Math.PI,1).planted,true);
  assert.ok(at(1.6*Math.PI,-1).y>0);
  assert.ok(at(.6*Math.PI,1).y>0);
