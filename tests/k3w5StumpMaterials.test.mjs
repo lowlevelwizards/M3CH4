@@ -75,7 +75,7 @@ test('experiment is clearly separate from saved weapon settings, garage and comb
   const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
   assert.match(html,/audioBenchStumpMaterials\.js\?v=k3w5/);
   assert.match(html,/audioBenchUI\.js\?v=k3w5/);
-  assert.match(ui,/data\.experiment=item\.id/);
+  assert.match(ui,/control\.dataset\.experiment=item\.id/);
   assert.match(ui,/engine\.playStumpExperiment\(item\.id\)/);
   assert.match(ui,/presets\.weapons\['gun-short'\]/);
   assert.doesNotMatch(synth,/localStorage|sessionStorage|setItem\(|AudioContext/);
