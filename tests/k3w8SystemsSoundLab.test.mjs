@@ -124,7 +124,7 @@ test('sound UI remains DEV-only, landscape grouped and disconnected from gamepla
   const css=readFileSync(new URL('../audioSystems.css',import.meta.url),'utf8');
   const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
   assert.match(index,/id="systems-sound-open"/);
-  assert.match(index,/audioSystemsUI\.js\?v=k3w8/);
+  assert.match(index,/audioSystemsUI\.js\?v=k3w9/);
   assert.match(index,/audioSystemsSynth\.js\?v=k3w9/);
   assert.match(index,/audioSystemsPresets\.js\?v=k3w8/);
   assert.match(index,/audioSystems\.css\?v=k3w8/);
