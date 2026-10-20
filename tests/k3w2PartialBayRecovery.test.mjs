@@ -74,3 +74,25 @@ test('a stale slot snapshot cannot quote repair costs against the wrong serial',
     assert.equal(quote.amount,repairQuote(createTargetPartCondition(bayAssembly(stable,'rig-02'),'structure',true)));
     assert.ok(quote.amount>0);
 });
+
+test('frame-less staged cab in Rig 02 can show its honest repair quote',()=>{
+    const storage=new Storage(), machine=decodeMachine(null);
+    const cab=machine.assembly.owned.find(p=>BY_ID.get(p.definitionId)?.slot==='command');
+    assert.ok(cab);
+    machine.assembly.owned.push({...cab,serial:'SPARE-STAGED-CAB',condition:.45,wear:0,repairs:0,destroyed:false});
+    assert.equal(storeMachine(storage,machine),true);
+    const stable=loadStable(storage).stable;
+    const result=mountPartOnRig(stable,'rig-02','command','SPARE-STAGED-CAB');
+    assert.equal(result.ok,true,result.reason);
+    assert.equal(bayHealth(stable,'rig-02').find(x=>x.slot==='structure').serial,null);
+    assert.throws(()=>createTargetCondition(bayAssembly(stable,'rig-02'),true),/Target requires structure/);
+    const quote=bayModuleQuote(stable,'rig-02','command');
+    assert.equal(quote.serial,'SPARE-STAGED-CAB');
+    assert.ok(quote.amount>0);
+    assert.equal(serviceInactiveBay(storage,'rig-02','command',10000).ok,false,
+        'unsaved staged equipment is not serviceable until its physical ownership is persisted');
+    assert.equal(storeStable(storage,stable),true);
+    const service=serviceInactiveBay(storage,'rig-02','command',10000);
+    assert.equal(service.ok,true,service.reason);
+    assert.equal(service.part.condition,1);
+});
