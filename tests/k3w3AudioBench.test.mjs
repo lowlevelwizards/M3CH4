@@ -88,9 +88,9 @@ test('bench remains DEV-only, user initiated, and does not write gameplay storag
   const synth=readFileSync(new URL('../audioBenchSynth.js',import.meta.url),'utf8');
   assert.match(html,/<section id="dev-panel"/);
   assert.match(html,/id="audio-bench-open"/);
-  assert.match(html,/audioBenchUI\.js\?v=k3w4/);
-  assert.match(html,/audioBenchSynth\.js\?v=k3w4/);
-  assert.match(html,/audioBench\.css\?v=k3w4/);
+  assert.match(html,/audioBenchUI\.js\?v=k3w5/);
+  assert.match(html,/audioBenchSynth\.js\?v=k3w5/);
+  assert.match(html,/audioBench\.css\?v=k3w5/);
   assert.match(ui,/opener\.addEventListener\('click',open\)/);
   assert.match(ui,/engine\.play\(weaponId,variationId,mix\)/);
   assert.match(ui,/engine\.stop\(\)/);
@@ -98,5 +98,5 @@ test('bench remains DEV-only, user initiated, and does not write gameplay storag
   assert.match(ui,/formatAllBenchRecipes\(presets\)/);
   assert.doesNotMatch(synth,/localStorage|sessionStorage|storeMachine|setItem\(/);
   assert.doesNotMatch(ui,/storeMachine|clearMachineSave|mech-arena-machine-v8/);
-  assert.match(html,/0\.0\.1k\.3w\.4 — Weapon Audio Personalization/);
+  assert.match(html,/0\.0\.1k\.3w\.5 — Stump Material Study/);
 });
