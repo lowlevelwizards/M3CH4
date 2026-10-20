@@ -100,11 +100,12 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/distance:Math\.hypot\(actor\.rig\.x-rig\.x,actor\.rig\.z-rig\.z\)/);
   assert.match(main,/soundWeaponShot\(weaponSpec\.id,\{shotIndex:shot,cockpit:true\}\)/);
   assert.doesNotMatch(main,/soundScatter\(|soundFire\(/);
-  assert.match(main,/soundImpact\(/);
+  assert.match(main,/soundCombatImpact\(/);
+  assert.match(main,/soundSystemEvent\(/);
   assert.match(main,/soundReload\(/);
-  assert.match(html,/\.\/audio\.js\?v=k3w7/);
+  assert.match(html,/\.\/audio\.js\?v=k3w10/);
   assert.match(html,/\.\/liveWeaponAudio\.js\?v=k3w7/);
-  assert.match(html,/main\.js\?v=k3w7/);
-  assert.match(html,/0\.0\.1k\.3w\.9 — Material Sound Refinement/);
+  assert.match(html,/main\.js\?v=k3w10/);
+  assert.match(html,/0\.0\.1k\.3w\.10 — Live Systems Soundscape/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });
