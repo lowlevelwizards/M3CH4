@@ -81,5 +81,5 @@ export function advanceMotionSound(state,family,speed,dt){
 }
 export function systemDistanceGain(meters=0){
   const d=Math.max(0,Number.isFinite(meters)?meters:0);
-  return 1/(1+Math.pow(d/11,1.4));
+  return 1/(1+Math.pow(d/6.5,1.95));
 }
