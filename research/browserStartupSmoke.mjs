@@ -229,6 +229,26 @@ try {
   if((await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2')))!==oldBench)
     throw Error('Forge overwrote old bench preferences during reload');
   console.log('PRESSURE FORGE: PASS · sound, fit, independent settings, copy-all, reload');
+  // Smoke the exact production modules in Chromium after WebAudio has been
+  // unlocked by the user's earlier interactions. Real integration is also
+  // asserted statically in the Node suite against successful fireWeapon calls.
+  const liveShot=await page.evaluate(async()=>{
+    const {soundWeaponShot}=await import('./audio.js');
+    return {
+      own:soundWeaponShot('gun-short',{shotIndex:1,cockpit:true}),
+      remote:soundWeaponShot('gun-scatter',{shotIndex:3,cockpit:false,distance:38}),
+      training:soundWeaponShot('gun-cannon',{shotIndex:2,cockpit:true}),
+      needle:soundWeaponShot('gun-light',{shotIndex:2,cockpit:true}),
+    };
+  });
+  if(Object.values(liveShot).some(s=>!s.ok) ||
+     !(liveShot.own.gain>liveShot.remote.gain) ||
+     liveShot.own.reflectionCount!==2 || liveShot.remote.reflectionCount!==0)
+    throw Error('Production weapon audio did not initialize correctly: '+JSON.stringify(liveShot));
+  if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==forgeRaw)
+    throw Error('Live weapon audio modified the audition presets');
+  console.log('LIVE WEAPON SOUNDS: PASS · all four, cockpit reflections and remote attenuation');
+
 
 
 
