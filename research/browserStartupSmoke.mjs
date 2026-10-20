@@ -162,6 +162,74 @@ try {
   if((await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2')))!==priorPresets)
     throw Error('Presets changed after page reload');
   console.log('STUMP MATERIAL STUDY: PASS · 3 PCM styles and saved reference, untouched presets');
+  // Pressure Forge is a separate, compact landscape panel; the legacy
+  // decisions must survive all editing, auditioning, and the page reload.
+  await page.locator('#audio-bench .audio-lab-dismiss').click({timeout:12000});
+  const oldBench=await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2'));
+  await page.locator('#pressure-forge-open').click({timeout:12000});
+  await page.locator('#pressure-forge').waitFor({state:'visible'});
+  const fit=await page.evaluate(()=>{
+    const work=document.querySelector('.forge-work').getBoundingClientRect();
+    const header=document.querySelector('.forge-header').getBoundingClientRect();
+    const guns=document.querySelector('.forge-guns').getBoundingClientRect();
+    const footer=document.querySelector('.forge-footer').getBoundingClientRect();
+    const viewport={width:innerWidth,height:innerHeight};
+    return {work:{x:work.left,y:work.top,right:work.right,bottom:work.bottom},
+      header:{top:header.top,bottom:header.bottom},
+      guns:{top:guns.top,bottom:guns.bottom},footer:{top:footer.top,bottom:footer.bottom},
+      viewport,scroll:document.querySelector('.forge-work').scrollHeight,
+      height:document.querySelector('.forge-work').clientHeight};
+  });
+  console.log('PRESSURE FORGE FIT:',JSON.stringify(fit));
+  if(fit.work.x<0||fit.work.y<0||fit.work.right>fit.viewport.width||
+     fit.work.bottom>fit.viewport.height||fit.footer.bottom>fit.work.bottom||
+     fit.guns.bottom>fit.footer.top||fit.scroll>fit.height+2)
+    throw Error('Forge panel does not fit iPhone landscape viewport');
+  await page.locator('#pressure-forge [data-weapon="gun-short"]').click();
+  await page.locator('#pressure-forge [data-template="heavy"]').click();
+  await page.locator('#pressure-forge [name="forge-bass"]').fill('95');
+  await page.locator('#pressure-forge [data-tab="action"]').click();
+  await page.locator('#pressure-forge [data-action="breech"]').click();
+  await page.locator('#pressure-forge [name="forge-delay"]').fill('85');
+  await page.locator('#forge-play').click();
+  let status=await page.locator('#forge-status').textContent();
+  if(!status.includes('FULL PLAYED'))throw Error('Forge full shot did not play: '+status);
+  await page.locator('#pressure-forge [data-weapon="gun-light"]').click();
+  await page.locator('#pressure-forge [data-template="dry"]').click();
+  await page.locator('#pressure-forge [data-tab="blast"]').click();
+  await page.locator('#pressure-forge [name="forge-treble"]').fill('90');
+  await page.locator('#pressure-forge [data-weapon="gun-short"]').click();
+  if((await page.locator('#pressure-forge [name="forge-bass"]').inputValue())!=='95')
+    throw Error('Per-gun bass mix was lost when switching weapons');
+  await page.locator('#forge-copy').click();
+  const exportText=await page.locator('#forge-export').inputValue();
+  if(!exportText.includes('STUMP CANNON [gun-short]')||
+     !exportText.includes('NEEDLE CANNON [gun-light]')||
+     !exportText.includes('BASS 95')||!exportText.includes('TREBLE 90'))
+    throw Error('Forge four-weapon export is missing saved choices');
+  const forgeRaw=await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1'));
+  if(!forgeRaw||JSON.parse(forgeRaw).weapons['gun-short'].settings.delay!==85)
+    throw Error('Forge recipe did not save to dedicated key');
+  await page.locator('.forge-close-export').click();
+  await page.locator('#pressure-forge [data-tab="blast"]').click();
+  await page.screenshot({path:output+'/pressure-forge-iphone-landscape.png'});
+  await page.locator('#pressure-forge .forge-close').click();
+  if((await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2')))!==oldBench)
+    throw Error('Forge unexpectedly modified legacy A/B/C recipes');
+  await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  await page.locator('#dev-toggle').click({timeout:12000});
+  await page.locator('#pressure-forge-open').click({timeout:12000});
+  await page.locator('#pressure-forge [data-weapon="gun-short"]').click();
+  if((await page.locator('#pressure-forge [name="forge-bass"]').inputValue())!=='95')
+    throw Error('Saved Stump Forge bass lost on reload');
+  await page.locator('#pressure-forge [data-weapon="gun-light"]').click();
+  if((await page.locator('#pressure-forge [name="forge-treble"]').inputValue())!=='90')
+    throw Error('Saved Needle Forge treble lost on reload');
+  if((await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2')))!==oldBench)
+    throw Error('Forge overwrote old bench preferences during reload');
+  console.log('PRESSURE FORGE: PASS · sound, fit, independent settings, copy-all, reload');
+
 
 
 } finally {
