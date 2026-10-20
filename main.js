@@ -1785,6 +1785,7 @@ function frame(now) {
         arena.camera.layers.set(0);
         arena.scene.background = worldBackground;
     }
+    window.__m3ch4BootOK = true; // first actual 3D + cockpit render completed
     requestAnimationFrame(frame);
 }
 devToggle.addEventListener('click', () => {
