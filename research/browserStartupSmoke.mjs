@@ -106,7 +106,9 @@ try {
     throw Error('Garage animation preview does not articulate the actual hip/knee transforms: '+
       JSON.stringify(inspectionMotion));
   await page.locator('#animation-preview-mode').selectOption('reload');
-  await page.waitForTimeout(480);
+  // Wait until the bolt has actually been drawn back, not the initial
+  // opening-latch stage where motion is deliberately only a few millimetres.
+  await page.waitForTimeout(810);
   const actionMotion=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');
     let found=[];
