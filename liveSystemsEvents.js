@@ -57,10 +57,9 @@ export function advanceMotionSound(state,family,speed,dt){
   const locomoting=metersPerSecond>=.65;
   const blend=1-Math.exp(-dt*(locomoting?6:9));
   state.gaitWeight=(state.gaitWeight??0)+((locomoting?1:0)-(state.gaitWeight??0))*blend;
-  // One visual half-cycle per sound-generating displacement interval.
-  // No independent per-frame clock: the planted foot and thud share cadence.
-  if(locomoting)state.phase=(state.phase??0)+
-    Math.PI*metersPerSecond*dt/Math.max(.2,family.strideM);
+  // Shared step count and bounded contact-distance accumulator govern phase
+  // as well as the sound. At sprint speeds the cadence safety cap must also
+  // cap the pose; a free-running sine would outrun audible impacts.
   if(metersPerSecond<.65){
     state.travelM=0;state.active=false;
     state.stepLeft=Math.max(0,(state.stepLeft??0)-dt);
@@ -87,6 +86,8 @@ export function advanceMotionSound(state,family,speed,dt){
     state.lastFoot=state.stepCount%2?'right':'left';
     if(state.hydraulicStep%3===0)events.push('hydraulics');
   }
+  state.phase=Math.PI*((state.stepCount??0)+
+    Math.min(1,state.travelM/Math.max(.2,family.strideM)));
   return events;
 }
 export function systemDistanceGain(meters=0){
