@@ -83,7 +83,7 @@ test('production system player caches selected PCM, limits polyphony and provide
   assert.equal(player.bufferCount(),0,'no precalculation before audio unlock');
   const own=player.play('destruction',{cockpit:true,variant:2});
   assert.equal(own.ok,true,own.reason);
-  assert.equal(own.earlyReflections,2);
+  assert.equal(own.earlyReflections,4);
   const far=player.play('destruction',{distance:32,variant:2});
   assert.equal(far.earlyReflections,0);
   assert.ok(far.gain<own.gain);
