@@ -102,9 +102,9 @@ test('both player and AI share physical six-ray traces but only one ammo/recoil/
     assert.match(main,/function resolveAiShotContact\(actor,target,contact,damage/);
     assert.match(main,/applyAiHitToPlayer\(actor, contact, damage/);
     assert.match(main,/shotContacts\(shotIndex/);
-    assert.match(main,/soundWeaponShot\\(weaponSpec\\.id,\\{shotIndex:shot,cockpit:true\\}\\)/);
-    assert.match(main,/soundWeaponShot\\(actor\\.weaponSpec\\.id/);
-    assert.equal((main.match(/soundWeaponShot\\(/g)??[]).length,2,'one call site for player shell and one for AI shell');
+    assert.match(main,/soundWeaponShot\(weaponSpec\.id,\{shotIndex:shot,cockpit:true\}\)/);
+    assert.match(main,/soundWeaponShot\(actor\.weaponSpec\.id/);
+    assert.equal((main.match(/soundWeaponShot\(/g)??[]).length,2,'one call site for player shell and one for AI shell');
     assert.match(main,/registerPowerShot\(playerPower, assembly\)/);
     assert.match(main,/registerPowerShot\(actor\.powerSystem, actor\.assembly\)/);
     assert.match(scene,/case 'gun-scatter'/);
