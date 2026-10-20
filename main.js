@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundFire, soundScatter, soundFootScrape, soundImpact, soundReload, soundShield } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundImpact, soundReload, soundShield } from './audio.js';
 import { shotContacts } from './scattergun.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
@@ -2126,7 +2126,13 @@ function attemptAiFire(actor, target, shotIndex) {
     actor.weaponState.cooldown *= 1+
         (1-actorOutput.weapon)*.65+(1-actorOutput.power)*.45;
     registerPowerShot(actor.powerSystem, actor.assembly);
-    if(actor.weaponSpec.pellets>1)soundScatter();else soundFire();
+    // Listen from the player's position, not at the same volume from every
+    // opponent across the map. One sound per consumed round, not per pellet.
+    soundWeaponShot(actor.weaponSpec.id,{
+        shotIndex:consumed,
+        distance:Math.hypot(actor.rig.x-rig.x,actor.rig.z-rig.z),
+        cockpit:false,
+    });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
@@ -2234,7 +2240,9 @@ function attemptFire() {
     applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
     shotsFired++;
     sortieRoundsFired++;
-    if(multi)soundScatter();else soundFire();
+    // The only cockpit-local blast: short muffled cabin reflections rather
+    // than distant outdoor echo. No damage or weapon cadence is modified.
+    soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
     let impactSoundPlayed=false;
     for(const contact of contacts){
         if(testEnded)break;

@@ -1,3 +1,4 @@
+import { makeLiveWeaponAudio } from './liveWeaponAudio.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
 function context() {
@@ -62,4 +63,13 @@ export function soundDriveStrain() {
 export function soundShield() {
     tone(385, 145, .11, .065, 'triangle');
     tone(167, 92, .17, .044, 'square');
+}
+
+/** k3w7: selected real combat weapon sounds. Only call after a round is
+ * physically consumed; blast and mechanism are ONE buffer per trigger.
+ * A failed or missing browser audio device never changes weapon physics.
+ */
+const weaponBus=makeLiveWeaponAudio(context);
+export function soundWeaponShot(weaponId,options={}) {
+    return weaponBus.play(weaponId,options);
 }
