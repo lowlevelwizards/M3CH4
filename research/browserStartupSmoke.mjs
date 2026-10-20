@@ -135,6 +135,34 @@ try {
       (await page.locator('#audio-bench [name="audio-metal"]').inputValue())!=='90')
     throw Error('Needle preset lost after full page reload');
   console.log('AUDIO PRESET RELOAD: PASS · 4 independent recipes exported');
+  // Isolated k3w5 Stump material studies: existing saved A/B/C and sliders
+  // must survive reference and three unsaved PCM comparisons unchanged.
+  const priorPresets=await page.evaluate(() => localStorage.getItem('m3ch4-audio-bench-presets-v2'));
+  await page.locator('#audio-bench [data-weapon="gun-short"]').click();
+  await page.locator('#audio-stump-experiment').waitFor({state:'visible'});
+  for(const material of ['reference','pressure','steel','hybrid']){
+    await page.locator('#audio-stump-experiment [data-experiment="'+material+'"]').click();
+    const status=await page.locator('#audio-stump-experiment-status').textContent();
+    if(!status.includes(material==='reference'?'SAVED STUMP':'TRIGGERED'))
+      throw Error('Stump material '+material+' failed to trigger: '+status);
+    const recorded=await page.locator('#audio-stump-experiment').getAttribute('data-last-experiment');
+    if(recorded!==material)throw Error('Wrong material selected: '+recorded);
+  }
+  const afterPresets=await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2'));
+  if(afterPresets!==priorPresets)throw Error('Material experiment silently modified saved weapon choices');
+  await page.screenshot({path:output+'/stump-materials-iphone-landscape.png'});
+  await page.locator('#audio-bench .audio-lab-dismiss').click();
+  await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  await page.locator('#dev-toggle').click();
+  await page.locator('#audio-bench-open').click();
+  await page.locator('#audio-bench [data-weapon="gun-short"]').click();
+  if((await page.locator('#audio-stump-experiment').isVisible())!==true)
+    throw Error('Stump experiment missing after reload');
+  if((await page.evaluate(()=>localStorage.getItem('m3ch4-audio-bench-presets-v2')))!==priorPresets)
+    throw Error('Presets changed after page reload');
+  console.log('STUMP MATERIAL STUDY: PASS · 3 PCM styles and saved reference, untouched presets');
+
 
 } finally {
   await browser.close();
