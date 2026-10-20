@@ -433,6 +433,32 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
 }
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
+// DEV-only external animation preview. Uses the real current garage assembly,
+// never drives live physics, expenses, weapon state, or persistent ownership.
+const animationPreviewButton=required('#animation-preview-toggle');
+const animationPreviewMode=required('#animation-preview-mode');
+const animationPreviewSpeed=required('#animation-preview-speed');
+let animationPreviewOn=false;
+function syncAnimationPreview(){
+    const mode=animationPreviewOn?animationPreviewMode.value:'off';
+    arena.setAnimationPreview(mode,Number(animationPreviewSpeed.value));
+    animationPreviewButton.textContent=animationPreviewOn?'■ STOP ANIMATION':'▶ ANIMATION LAB';
+    animationPreviewButton.setAttribute('aria-pressed',String(animationPreviewOn));
+}
+animationPreviewButton.addEventListener('click',()=>{
+    if(!inspecting){
+        showStatus('OPEN GARAGE TO AUDITION ARTICULATION');
+        return;
+    }
+    animationPreviewOn=!animationPreviewOn;
+    syncAnimationPreview();
+});
+animationPreviewMode.addEventListener('change',()=>{
+    if(animationPreviewOn)syncAnimationPreview();
+});
+animationPreviewSpeed.addEventListener('input',()=>{
+    if(animationPreviewOn)syncAnimationPreview();
+});
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
     aiPlanCooldown=0,aiPerceptionCooldown=0;
 let strategicMemory=createStrategicState();
@@ -1305,6 +1331,10 @@ function toggleInspection(force) {
     assemblyToggle.setAttribute('aria-pressed', String(inspecting));
     assemblyToggle.textContent = inspecting ? 'DEPLOY' : 'GARAGE';
     arena.setInspection(inspecting);
+    if(!inspecting&&animationPreviewOn){
+        animationPreviewOn=false;
+        syncAnimationPreview();
+    }
     if (inspecting) {
         arena.resetOrbit();
         syncInspectorLayout();
