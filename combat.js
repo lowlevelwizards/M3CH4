@@ -151,6 +151,11 @@ function targetPartFor(assembly, slot, useOwnedCondition = false) {
     }
     return part;
 }
+/** One installed part can be inspected or serviced in an unfinished garage bay.
+ * Full createTargetCondition deliberately remains strict for fieldable combat rigs. */
+export function createTargetPartCondition(assembly, slot, useOwnedCondition = false) {
+    return targetPartFor(assembly, slot, useOwnedCondition);
+}
 export function createTargetCondition(assembly, useOwnedCondition = false) {
     const parts = {};
     for (const slot of SLOTS)

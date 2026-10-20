@@ -4,7 +4,7 @@
 import { BY_ID, SLOTS, inspectAssembly, generatorMount, setGeneratorMount } from './components.js';
 import { stationLabel } from './uiLanguage.js';
 import { graphFromStations } from './assemblyGraph.js';
-import { createTargetCondition, restoreTargetPart } from './combat.js';
+import { createTargetPartCondition, restoreTargetPart } from './combat.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { repairInstalledPart } from './garage.js';
 import { repairQuote, rebuildQuote } from './economy.js';
@@ -95,16 +95,21 @@ export function serviceInactiveBay(storage, rigId, slot, credits) {
     const installed = rig.installed[slot];
     const part = stable.inventory.find(p => p.serial === installed);
     if (!part) return { ok:false, reason:'NO INSTALLED MODULE' };
-    if (!rig.playerCondition?.parts) rig.playerCondition = createTargetCondition(assembly, true);
+    // An unfinished bay has no valid five-station combat snapshot. Use an
+    // ephemeral single-part condition for servicing without fabricating parts
+    // or serials at the missing stations.
+    const target = rig.playerCondition?.parts ? rig.playerCondition : { parts: {}, shotsHit: 0 };
+    if (target.parts[slot]?.serial !== part.serial)
+        target.parts[slot] = createTargetPartCondition(assembly, slot, true);
     if (!rig.damage?.drives) rig.damage = createFunctionalDamage();
-    const condition = rig.playerCondition.parts[slot];
+    const condition = target.parts[slot];
     const destroyed = !!part.destroyed || !!condition?.destroyed;
     const quote = destroyed ? rebuildQuote(condition) : repairQuote(condition);
     if (quote <= 0 && part.condition >= 1) return { ok:false, reason:'NO SERVICE REQUIRED' };
     if (!destroyed && quote > credits) return { ok:false, reason:'INSUFFICIENT CREDITS' };
     const charged = destroyed ? Math.min(quote, credits) : quote;
     repairInstalledPart(assembly, rig.damage, slot);
-    restoreTargetPart(rig.playerCondition, assembly, slot);
+    restoreTargetPart(target, assembly, slot);
     stable.inventory = assembly.owned.map(p => ({ serial:p.serial, definitionId:p.definitionId,
         condition:p.condition, destroyed:!!p.destroyed, wear:p.wear, repairs:p.repairs }));
     if (!storeStable(storage, stable)) return { ok:false, reason:'STABLE SAVE FAILED' };
@@ -116,8 +121,11 @@ export function bayModuleQuote(stable, rigId, slot) {
     const owned = stable.inventory.find(p => p.serial === rig?.installed?.[slot]);
     if (!owned) return null;
     const assembly = bayAssembly(stable, rigId);
-    const snapshot = rig.playerCondition?.parts?.[slot] ??
-        createTargetCondition(assembly, true).parts[slot];
+    // Missing neighboring stations are normal in the garage; only this
+    // serial's real housing state matters for its own repair quote.
+    const snapshot = rig.playerCondition?.parts?.[slot]?.serial === owned.serial
+        ? rig.playerCondition.parts[slot]
+        : createTargetPartCondition(assembly, slot, true);
     const destroyed = !!snapshot?.destroyed || !!owned.destroyed;
     return { amount: destroyed ? rebuildQuote(snapshot) : repairQuote(snapshot),
         destroyed, serial:owned.serial };
