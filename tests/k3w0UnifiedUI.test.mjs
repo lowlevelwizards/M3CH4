@@ -94,7 +94,7 @@ test('bundled entry and mobile versions include exact changed assets and no new 
     const html=source('index.html'),mount=source('garageMountUI.js');
     assert.match(html,/0\.0\.1k\.3v\.6 — Scrapyard Scattergun/);
     assert.match(html,/uiRedesign\.css\?v=k3w0/);
-    assert.match(html,/main\.js\?v=k3v6/);
+    assert.match(html,/main\.js\?v=k3w1/);
     assert.match(html,/garageMountUI\.js\?v=k3v6/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
