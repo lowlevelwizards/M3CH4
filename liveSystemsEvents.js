@@ -19,7 +19,8 @@ export function hitSoundPlan(hit,{shielded=false,slot=null,ordinal=0}={}){
   // several full-volume clicks over a major rupture.
   if(hit.justDestroyed||hit.justDisabled){
     const sounds=[{id:'destruction',variant:count%3,strength:hit.justDestroyed?1.0:.80}];
-    if(slot==='power')sounds.push({id:'sparks',variant:2,strength:.24});
+    if(slot==='power')sounds.push(count%2
+      ?{id:'zap',variant:1,strength:.24}:{id:'sparks',variant:2,strength:.24});
     return sounds;
   }
   if((hit.internalDamage??0)>0){
@@ -30,7 +31,8 @@ export function hitSoundPlan(hit,{shielded=false,slot=null,ordinal=0}={}){
       sounds.push({id:'armor',variant:2,strength:.35});
     else if(hit.armorAbsorbed>0)
       sounds.push({id:'glance',variant:2,strength:.17});
-    if(slot==='power')sounds.push({id:'sparks',variant:2,strength:.32});
+    if(slot==='power')sounds.push(count%2
+      ?{id:'zap',variant:1,strength:.30}:{id:'sparks',variant:2,strength:.32});
     return sounds;
   }
   if(hit.armorAbsorbed>0||shielded){
