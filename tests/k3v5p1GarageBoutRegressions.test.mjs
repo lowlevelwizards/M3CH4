@@ -113,7 +113,7 @@ test('DEV version comes from the actual page build label, not a stale hardcoded 
     assert.match(html,/0\.0\.1k\.3v\.6 — Scrapyard Scattergun/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
     assert.match(main,/devVersion\.textContent = document\.title\.split/);
-    assert.match(html,/main\.js\?v=k3v6/);
+    assert.match(html,/main\.js\?v=k3w1/);
     assert.match(html,/garageMountUI\.js\?v=k3v6/);
     assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k3v6/);
 });
