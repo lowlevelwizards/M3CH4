@@ -16,10 +16,11 @@ test('field service drives constant blue sparks from the weapon attachment rathe
 });
 
 test('recovering AI weapons visibly sag during service then raise back online', () => {
-    assert.match(scene, /const serviceSag = visual\?\.weaponServicing \? \.28 : \.16/);
-    assert.match(scene, /wasServicing && !record\.weaponServicing && !record\.weaponFault/);
+    assert.match(scene, /const fault=record\.weaponFault\|\|record\.disabledSlots\.has\('combat'\)/);
+    assert.match(scene, /wasServicing&&!record\.weaponServicing&&!record\.weaponFault/);
     assert.match(scene, /record\.weaponRecoveryKick = 1/);
-    assert.match(scene, /combat\.rotation\.x = THREE\.MathUtils\.lerp[\s\S]*recoveryLift/);
+    assert.match(scene, /combat\.rotation\.x=combatBase\.rotation\.x\+aim\.elevation\+/);
+    assert.match(scene, /\-\(recovery\*\.12\)/);
 });
 
 test('the player cockpit weapon uses the same authoritative fault/service state and recovery motion', () => {
@@ -41,7 +42,7 @@ test('recovery status and friendly screening are legible without omniscient new 
 });
 
 test('mobile runtime cache identity still loads the recovery-readability scene source', () => {
-    assert.match(index, /sceneAssembly\.js\?v=k3w1/);
+    assert.match(index, /sceneAssembly\.js\?v=k3w15/);
     assert.match(index, /main\.js\?v=k3w15/);
-    assert.match(bridge, /scene\.js\?source=k3w1/);
+    assert.match(bridge, /scene\.js\?source=k3w15/);
 });
