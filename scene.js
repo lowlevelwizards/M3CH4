@@ -1143,6 +1143,78 @@ export function createArenaScene(initial, targetAssembly) {
     let cockpitPitch = 0;
     const gunPivot = cockpit.userData.gunPivot;
     const flashMesh = cockpit.userData.flashMesh;
+    let animationPreviewMode='off',animationPreviewSpeed=3,previewTime=0,
+        previewRecord=null;
+    function restoreInspectionPose(){
+        if(!previewRecord||previewRecord.exterior!==exterior)return;
+        for(const joint of previewRecord.articulation.joints)
+            joint.object.rotation.copy(joint.base);
+        for(const [slot,base] of previewRecord.baseParts){
+            const group=exterior.partGroups.get(slot);
+            if(!group)continue;
+            group.position.copy(base.position);
+            group.rotation.copy(base.rotation);
+        }
+        const mechanism=exterior.partGroups.get('combat')?.userData.weaponMechanism;
+        if(mechanism){
+            mechanism.carriage.position.set(0,0,0);
+            mechanism.bolt.position.z=.40;
+            if(mechanism.cassette)mechanism.cassette.position.y=-.31;
+        }
+    }
+    function setAnimationPreview(mode='off',speed=3){
+        const safe=['off','walk','turn','reload','disabled'].includes(mode)?mode:'off';
+        if(animationPreviewMode!==safe){
+            restoreInspectionPose();
+            previewTime=0;previewRecord=null;
+        }
+        animationPreviewMode=safe;
+        animationPreviewSpeed=THREE.MathUtils.clamp(Number(speed)||3,.5,6);
+        if(safe==='off')restoreInspectionPose();
+        return {mode:safe,speed:animationPreviewSpeed};
+    }
+    function poseInspectionPreview(dt){
+        if(animationPreviewMode==='off'||vendorEnabled)return;
+        if(!previewRecord||previewRecord.exterior!==exterior){
+            previewRecord={
+                id:'inspection-preview',active:true,wrecked:false,cleared:false,
+                assembly:inspectionAssembly??initial,exterior,
+                disabledSlots:new Set(),destroyedSlots:new Set(),
+                articulation:captureArticulation(exterior),
+                baseParts:capturePartTransforms(exterior),
+                recoilKick:0,weaponRecoveryKick:0,
+            };
+        }
+        const a=previewRecord;
+        const moving=animationPreviewMode==='walk'||animationPreviewMode==='turn';
+        const family=installedPart(a.assembly,'mobility')?.definition.id;
+        const style=familyAnimation(family);
+        previewTime+=dt;
+        const speed=moving?animationPreviewSpeed:0;
+        if(moving)a.articulation.phase+=Math.PI*speed*dt/style.stride;
+        a.disabledSlots.clear();
+        if(animationPreviewMode==='disabled'){
+            a.disabledSlots.add('mobility');
+            a.disabledSlots.add('combat');
+        }
+        const turn=animationPreviewMode==='turn'?Math.sin(previewTime*.63)*.28:0;
+        const reloading=animationPreviewMode==='reload';
+        const total=installedPart(a.assembly,'combat')?.definition.id==='gun-scatter'?3.15:2.5;
+        const reloadLeft=reloading?total-(previewTime%total):0;
+        poseCombatantExterior(a,{
+            x:0,z:0,yaw:turn,vx:0,vz:speed,
+            forwardSpeed:speed,lateralSpeed:0,yawRate:0,
+            brace:0,footingLoad:.10,recoilLoad:0,
+        },{
+            dt,target:{x:Math.sin(previewTime*.75)*6,z:-8,height:2.1},
+            gait:{phase:a.articulation.phase,gaitWeight:moving?1:0},
+            weaponFault:animationPreviewMode==='disabled',
+            reloadLeft,reloadSeconds:total,
+            posture:{animationHealth:animationPreviewMode==='disabled'?.35:1},
+        });
+        exterior.root.position.set(0,0,0);
+        exterior.root.rotation.y=GARAGE_RIG_YAW;
+    }
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         const wasServicing = pilotWeaponServicing;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
@@ -1207,6 +1279,7 @@ export function createArenaScene(initial, targetAssembly) {
             // rig always returns to the service pad instead of inheriting its last arena pose.
             exterior.root.position.set(0, 0, 0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
+            poseInspectionPreview(dt);
             orbitTarget.lerp(desiredTarget, 1 - Math.exp(-9 * dt));
             const around = new THREE.Vector3(
                 radius * Math.sin(azimuth) * Math.cos(elevation),
@@ -1384,6 +1457,7 @@ export function createArenaScene(initial, targetAssembly) {
         scene.background.setHex(enabled ? 0x0d1210 : 0x171915);
         scene.fog.color.setHex(enabled ? 0x0d1210 : 0x171915);
         scene.fog.density = enabled ? 0.0075 : 0.0125;
+        if (!enabled) setAnimationPreview('off');
         if (enabled) {
             pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;
             pilotWeaponRecoveryKick = 0; pilotRecoveryBurstPending = false;
@@ -1396,6 +1470,8 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function rebuildAssembly(assembly) {
+        restoreInspectionPose();
+        previewRecord=null;
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
         updateGarageFixtures(assembly);
@@ -1920,7 +1996,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, selectPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
