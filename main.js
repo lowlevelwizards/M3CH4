@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundImpact, soundReload, soundShield } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
+import { soundFamilyFor, createMotionSoundState, advanceMotionSound } from './liveSystemsEvents.js';
 import { shotContacts } from './scattergun.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
@@ -405,6 +406,25 @@ for (const actor of supportActors)
 arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState();
 let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
+// Sound cadence is isolated from the physics integrator. Do not mutate drive,
+// foot contacts or any persistent machine state to produce these events.
+const movementSoundStates=new WeakMap();
+function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
+    const distance=local?0:Math.hypot(machineRig.x-rig.x,machineRig.z-rig.z);
+    if(!local&&distance>38)return;
+    let acoustic=movementSoundStates.get(machineRig);
+    if(!acoustic){acoustic=createMotionSoundState();movementSoundStates.set(machineRig,acoustic);}
+    const family=soundFamilyFor(installedPart(machineAssembly,'mobility')?.definition.id);
+    const speed=Math.hypot(machineRig.vx,machineRig.vz);
+    const events=advanceMotionSound(acoustic,family,speed,dt);
+    for(const id of events) {
+        const idle=id==='engine'&&speed<.65;
+        // A running motor is heard beneath the footsteps, not on top of them.
+        const strength=id==='engine'?(idle?.19:.29):id==='hydraulics'?.30:local?.72:.62;
+        soundSystemEvent(id,{variant:id==='engine'?0:acoustic.hydraulicStep%3,
+            distance,cockpit:local,strength});
+    }
+}
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
@@ -1473,11 +1493,15 @@ function frame(now) {
             if (playerCombatActive) {
                 const yawBefore = rig.yaw;
                 const wasBraced = rig.braced;
+                const powerWasReady=playerPower.weaponReady;
                 advancePowerSystem(playerPower, assembly, rig, FIXED_DT,
                     playerCondition.parts.power.integrity / Math.max(1, playerCondition.parts.power.maxIntegrity));
+                if(!powerWasReady&&playerPower.weaponReady)
+                    soundSystemEvent('recharge',{variant:1,cockpit:true,strength:.42});
                 output = powerConstrainedOutput(staticOutput, playerPower);
                 effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
+                emitMachineMotionSound(assembly,rig,FIXED_DT,true);
                 if (rig.braced && !wasBraced) soundBrace();
                 // Threshold-crossing sounds rather than per-frame synth loops.
                 // Disabled/inspection/garage rigs never emit footing feedback.
@@ -1632,6 +1656,7 @@ function frame(now) {
                     Math.abs(maneuver.steer) < .12;
                 if (settledToShoot) maneuver = { ...maneuver, brake: 1 };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
+                if(actor.active)emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false);
                 shoveDisabledWrecks(actor.rig, actorConfig);
                 if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
                     beginFieldService(actor.condition, actor.fieldService, actor.rig);
@@ -2080,7 +2105,8 @@ function applyAiHitToPlayer(actor, contact, damage = actor.weaponSpec.damage, au
     signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
     showVerifiedShieldReadout(contact);
     persistMachine();
-    if (audible) {if (shieldImpactLabel(contact)) soundShield(); else soundImpact();}
+    if(audible)soundCombatImpact(visualHit,{slot:contact.slot,
+        shielded:!!shieldImpactLabel(contact),cockpit:true});
     rig.impact = Math.min(1, rig.impact + .65);
     updateFunctionalStatus();
     renderPartsList();
@@ -2195,6 +2221,11 @@ function resolveAiShotContact(actor,target,contact,damage) {
         hit.internalDamage > 0 ? 1.55 : 1.08,target.rig);
     recordSubsystemHit(target.combatMemory,contact.slot,aiClock);
     const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+    if(!actor._scatterImpactAudible){
+        soundCombatImpact(visualHit,{slot:contact.slot,shielded:!!shieldImpactLabel(contact),
+            distance:Math.hypot(target.rig.x-rig.x,target.rig.z-rig.z)});
+        actor._scatterImpactAudible=true;
+    }
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updateCombatantDamage(target.id, target.condition);
     if (target.id === 'enemy-0') {
@@ -2285,14 +2316,16 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
                 mirrorTargetCondition(targetAssembly, targetCondition);
                 renderTarget();
             }
-            if(audible)soundImpact();
+            if(audible)soundSystemEvent('part',{variant:2,
+                distance:Math.hypot(targetActor.rig.x-rig.x,targetActor.rig.z-rig.z),strength:.50});
             showHitConfirm(wreckHit);
             lastHit = `${targetActor.label} · ${wreckHit.justDestroyed ? 'PART DESTROYED' : `WRECK ${Math.round(targetActor.wreckIntegrity * 100)}%`}`;
             return true;
         }
         if (targetActor.team !== HOSTILE_TEAM) {
             arena.showShot(contact, null);
-            if(audible)soundImpact();
+            if(audible)soundSystemEvent('glance',{variant:1,
+                distance:Math.hypot(targetActor.rig.x-rig.x,targetActor.rig.z-rig.z),strength:.43});
             showHitConfirm({ friendlyBlock: true });
             lastHit = `ALLY BLOCK · ${targetActor.label}`;
             return true;
@@ -2315,7 +2348,9 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
             mirrorTargetCondition(targetAssembly, targetCondition);
             renderTarget();
         }
-        if(audible){if(shieldImpactLabel(contact))soundShield();else soundImpact();}
+        if(audible)soundCombatImpact(visualHit,{slot:contact.slot,
+            shielded:!!shieldImpactLabel(contact),
+            distance:Math.hypot(targetActor.rig.x-rig.x,targetActor.rig.z-rig.z)});
         recoilFlash = .19;
         const shieldText = showVerifiedShieldReadout(contact);
         lastHit = `${targetActor.label} · ${shieldText ?? targetLabels[hit.slot]} · ${hit.serial}`;

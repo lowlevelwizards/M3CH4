@@ -7,7 +7,7 @@ const main = readFileSync(new URL('../main.js', import.meta.url), 'utf8');
 
 test('startup errors are captured before module scripts, without modifying local saves', () => {
   const instrumentation = html.indexOf('id = "startup-diagnostic"');
-  const moduleEntry = html.indexOf('src="./main.js?v=k3w7"');
+  const moduleEntry = html.indexOf('src="./main.js?v=k3w10"');
   assert.ok(instrumentation >= 0);
   assert.ok(moduleEntry > instrumentation);
   assert.match(html, /addEventListener\("error", event =>/);

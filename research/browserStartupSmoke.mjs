@@ -306,6 +306,38 @@ try {
   if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==oldForge)
     throw Error('Existing weapon Forge changed across Systems Lab reload');
   console.log('SYSTEMS SOUND LAB: PASS · 39 examples, three pages, save/export, landscape');
+  // Production effects must work in the same browser AudioContext as weapon
+  // audio. Verify physical hit classification, distance and cockpit routing.
+  const soundscape=await page.evaluate(async()=>{
+    const {soundCombatImpact,soundSystemEvent}=await import('./audio.js');
+    const {createMotionSoundState,advanceMotionSound,soundFamilyFor}=await import('./liveSystemsEvents.js');
+    const armor=soundCombatImpact({armorAbsorbed:32,internalDamage:0,remainingArmor:70},
+      {cockpit:true,slot:'structure'});
+    const breached=soundCombatImpact({armorAbsorbed:0,internalDamage:20,remainingArmor:0},
+      {distance:16,slot:'mobility'});
+    const failed=soundCombatImpact({justDestroyed:true,internalDamage:50},
+      {distance:6,slot:'power'});
+    const local=soundSystemEvent('hauler',{cockpit:true,variant:0});
+    const distant=soundSystemEvent('hauler',{distance:30,variant:0});
+    const charger=soundSystemEvent('recharge',{cockpit:true,variant:1});
+    const engine=soundSystemEvent('engine',{cockpit:true,variant:0});
+    const movement=createMotionSoundState();
+    const events=[];
+    for(let i=0;i<90;i++)events.push(...advanceMotionSound(movement,soundFamilyFor('legs-yard'),3,.02));
+    return {armor,breached,failed,local,distant,charger,engine,events};
+  });
+  if(soundscape.armor[0]?.id!=='glance' ||
+     soundscape.breached[0]?.id!=='part' ||
+     soundscape.failed[0]?.id!=='destruction'||
+     !soundscape.local.ok||!soundscape.distant.ok||
+     !(soundscape.local.gain>soundscape.distant.gain)||
+     soundscape.local.earlyReflections!==2||
+     soundscape.distant.earlyReflections!==0||
+     !soundscape.charger.ok||!soundscape.engine.ok||
+     !soundscape.events.includes('yardwalker'))
+    throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
+  console.log('LIVE SYSTEMS AUDIO: PASS · physical damage, attenuation, cabin reverb and walking');
+
 
 
 
