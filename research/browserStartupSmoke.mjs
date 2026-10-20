@@ -83,6 +83,24 @@ try {
   if (stagedError || !quote || !quote.includes('SERVICE CAB'))
     throw Error('Cannot inspect a partial Rig 02: ' + (stagedError || quote || 'missing repair quote'));
 
+  // The first real iPhone audio milestone: DEV -> SOUND TEST BENCH -> one
+  // tapped WebAudio audition, without affecting any rig or save data.
+  await page.locator('#dev-toggle').click({ timeout: 12000 });
+  await page.locator('#audio-bench-open').click({ timeout: 12000 });
+  await page.locator('#audio-bench [data-weapon="gun-scatter"]').click({ timeout: 12000 });
+  await page.locator('#audio-bench [data-variation="B"]').click({ timeout: 12000 });
+  const benchStatus = await page.locator('#audio-bench-status').textContent();
+  const benchRecipe = await page.locator('#audio-bench .audio-lab-identity').textContent();
+  console.log('SOUND LAB:', benchRecipe, benchStatus);
+  if (!benchStatus.includes('TRIGGERED') || !benchStatus.includes('S-6 SCATTERGUN / B'))
+    throw Error('DEV Audio Lab did not trigger a WebAudio audition');
+  await page.screenshot({ path: output + '/audio-lab-iphone-landscape.png' });
+  await page.locator('#audio-bench .audio-lab-dismiss').click({ timeout: 12000 });
+  if (!(await page.locator('#audio-bench').evaluate(node=>node.classList.contains('hidden'))))
+    throw Error('Audio Lab did not close');
+  if (await page.locator('#startup-diagnostic-detail').count())
+    throw Error('Audio Lab introduced a startup/runtime error');
+
 } finally {
   await browser.close();
 }
