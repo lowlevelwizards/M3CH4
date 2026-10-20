@@ -83,9 +83,44 @@ try {
   if (stagedError || !quote || !quote.includes('SERVICE CAB'))
     throw Error('Cannot inspect a partial Rig 02: ' + (stagedError || quote || 'missing repair quote'));
 
+  // DEV animation inspection previews the ACTUAL fitted garage model;
+  // all moving parts must be real transforms rather than just UI controls.
+  await page.locator('#dev-toggle').click({ timeout: 12000 });
+  await page.locator('#animation-preview-toggle').click({ timeout: 12000 });
+  await page.waitForTimeout(650);
+  const inspectionMotion=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const root=activePlayerArena()?.arena?.scene;
+    const joints=[];root?.traverse(node=>{
+      if(node.userData?.joint==='hip'||node.userData?.joint==='knee')
+        joints.push(Math.abs(node.rotation.x));
+    });
+    return joints;
+  });
+  if(!inspectionMotion.some(a=>a>.04))
+    throw Error('Garage animation preview does not articulate the actual hip/knee transforms: '+
+      JSON.stringify(inspectionMotion));
+  await page.locator('#animation-preview-mode').selectOption('reload');
+  await page.waitForTimeout(480);
+  const actionMotion=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    let found=[];
+    activePlayerArena()?.arena.scene.traverse(n=>{
+      if(n.name==='EXPOSED BOLT / RELOAD CARRIAGE')found.push(n.position.z);
+    });
+    return found;
+  });
+  if(!actionMotion.some(z=>z>.025))
+    throw Error('Reload inspection did not slide real mechanical parts: '+JSON.stringify(actionMotion));
+  await page.locator('#animation-preview-mode').selectOption('disabled');
+  await page.waitForTimeout(150);
+  await page.screenshot({path:output+'/articulation-disabled-iphone.png'});
+  await page.locator('#animation-preview-toggle').click();
+  if(await page.locator('#animation-preview-toggle').getAttribute('aria-pressed')!=='false')
+    throw Error('DEV animation inspection did not stop');
+  console.log('ARTICULATION LAB: PASS · true leg joints, real bolt movement, damaged pose');
   // The first real iPhone audio milestone: DEV -> SOUND TEST BENCH -> one
   // tapped WebAudio audition, without affecting any rig or save data.
-  await page.locator('#dev-toggle').click({ timeout: 12000 });
   await page.locator('#audio-bench-open').click({ timeout: 12000 });
   await page.locator('#audio-bench [data-weapon="gun-scatter"]').click({ timeout: 12000 });
   await page.locator('#audio-bench [data-variation="B"]').click({ timeout: 12000 });
