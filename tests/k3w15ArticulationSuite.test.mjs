@@ -22,7 +22,8 @@ test('all three mobility families have distinct reach, lift, load travel',()=>{
 test('opposing feet alternate planted stance and toe-clear swing arc',()=>{
  const at=(phase,side)=>footTrajectory(phase,side,1,'legs-yard',false);
  assert.equal(at(0,-1).planted,true);
- assert.equal(at(0,1).planted,false);
+ assert.equal(at(0,1).planted,true,'both feet briefly touch during transfer');
+ assert.equal(at(.2*Math.PI,1).planted,false);
  assert.equal(at(Math.PI,-1).planted,true,'short two-foot weight-transfer overlap');
  assert.equal(at(1.2*Math.PI,-1).planted,false);
  assert.equal(at(Math.PI,1).planted,true);
