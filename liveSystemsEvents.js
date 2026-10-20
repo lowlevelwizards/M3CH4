@@ -52,8 +52,12 @@ export function advanceMotionSound(state,family,speed,dt){
   if(!state||!family||!Number.isFinite(dt)||dt<=0)return events;
   const metersPerSecond=Math.max(0,Number.isFinite(speed)?speed:0);
   if(metersPerSecond<.65){
-    state.travelM=0;state.active=false;state.engineLeft=0;
+    state.travelM=0;state.active=false;
     state.stepLeft=Math.max(0,(state.stepLeft??0)-dt);
+    state.engineLeft=Math.max(0,(state.engineLeft??0)-dt);
+    // Engines do not suddenly fall silent every time a pilot plants a foot.
+    // The PCM fades in/out; a gentle idle pulse avoids a permanent AI loop.
+    if(state.engineLeft<=0){events.push('engine');state.engineLeft=1.54;}
     return events;
   }
   state.stepLeft=Math.max(0,(state.stepLeft??0)-dt);
