@@ -8,7 +8,7 @@ import {LIVE_WEAPON_RECIPES} from './liveWeaponAudio.js?v=k3w11';
 const rate=24000;
 const tasks=[
   ...Object.keys(LIVE_WEAPON_RECIPES).map(id=>['weapon',id,0]),
-  ['system','glance',0],['system','glance',1],
+  ['system','glance',0],['system','glance',1],['system','glance',2],
   ['system','armor',2],['system','part',2],
   ['system','destruction',0],['system','destruction',1],['system','destruction',2],
   ['system','sparks',2],['system','zap',1],['system','recharge',1],
