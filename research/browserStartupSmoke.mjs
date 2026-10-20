@@ -83,6 +83,11 @@ try {
   if (stagedError || !quote || !quote.includes('SERVICE CAB'))
     throw Error('Cannot inspect a partial Rig 02: ' + (stagedError || quote || 'missing repair quote'));
 
+  // The fixture deliberately views an incomplete Rig 02 with only a cab.
+  // Change to complete Rig 01 before checking moving leg joints.
+  await page.locator('.unified-bay-navigation button[aria-label="View bay 1"]')
+    .click({timeout:12000});
+  await page.waitForFunction(()=>document.querySelector('.unified-bay-navigation button[aria-label="View bay 1"]')?.getAttribute('aria-pressed')==='true');
   // DEV animation inspection previews the ACTUAL fitted garage model;
   // all moving parts must be real transforms rather than just UI controls.
   await page.locator('#dev-toggle').click({ timeout: 12000 });
