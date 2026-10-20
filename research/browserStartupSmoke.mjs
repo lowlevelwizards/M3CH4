@@ -27,6 +27,39 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
+  // Reproduce the iPhone user's second failure: a staged cab is installed in
+  // Rig 02 with no frame. It may be inspected and quoted before commissioning.
+  const fixture = await page.evaluate(async () => {
+    const { BY_ID } = await import('./components.js');
+    const { loadMachine, storeMachine } = await import('./persistence.js');
+    const { loadStable, mountPartOnRig, storeStable } = await import('./stable.js');
+    const live = loadMachine(localStorage);
+    const cab = live.assembly.owned.find(p => BY_ID.get(p.definitionId)?.slot === 'command');
+    if (!cab) throw Error('Starter fixture has no cab');
+    const serial = 'BROWSER-STAGED-CAB';
+    live.assembly.owned.push({ ...cab, serial, condition: .42, wear: 0, repairs: 0, destroyed: false });
+    if (!storeMachine(localStorage, live)) throw Error('Could not store browser fixture');
+    const stable = loadStable(localStorage).stable;
+    const mounted = mountPartOnRig(stable, 'rig-02', 'command', serial);
+    if (!mounted.ok) throw Error('Could not stage cab: ' + mounted.reason);
+    if (!storeStable(localStorage, stable)) throw Error('Could not store staged bay');
+    sessionStorage.setItem('m3ch4-viewed-bay-v1', 'rig-02');
+    return { serial, installed: stable.rigs.find(r => r.id === 'rig-02').installed };
+  });
+  if (Object.keys(fixture.installed).length !== 1 || fixture.installed.command !== fixture.serial)
+    throw Error('Fixture accidentally fielded a complete rig');
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForFunction(() => window.__m3ch4BootOK === true, undefined, { timeout: 25000 });
+  await page.locator('#unified-garage .unified-station').nth(3).click({ timeout: 12000 });
+  await page.waitForFunction(() => document.querySelector('#startup-diagnostic') ||
+    document.querySelector('#unified-garage .unified-service'), undefined, { timeout: 12000 });
+  await page.screenshot({ path: output + '/staged-rig-02.png' });
+  const stagedError = await page.locator('#startup-diagnostic-detail').textContent().catch(() => null);
+  const quote = await page.locator('#unified-garage .unified-service').textContent().catch(() => null);
+  console.log('STAGED RIG QUOTE:', quote || 'none', 'ERROR:', stagedError || 'none');
+  if (stagedError || !quote || !quote.includes('SERVICE CAB'))
+    throw Error('Cannot inspect a partial Rig 02: ' + (stagedError || quote || 'missing repair quote'));
+
 } finally {
   await browser.close();
 }
