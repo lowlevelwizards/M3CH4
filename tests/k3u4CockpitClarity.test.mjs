@@ -114,7 +114,7 @@ test('branching contract map uses campaign prerequisites, optional nodes and rea
 });
 test('new mobile assets load instead of cached pre-clarity cockpit and garage scripts',()=>{
     const html=code('index.html'),bridge=code('sceneAssembly.js'),mount=code('garageMountUI.js');
-    assert.match(html,/main\.js\?v=k3w11/);
+    assert.match(html,/main\.js\?v=k3w15/);
     assert.match(html,/sceneAssembly\.js\?v=k3w1/);
     assert.match(html,/styles\.css\?v=k3v1/);
     assert.match(html,/uiRedesign\.css\?v=k3w0/);
