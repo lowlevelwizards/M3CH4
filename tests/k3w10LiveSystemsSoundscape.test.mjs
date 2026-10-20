@@ -18,6 +18,10 @@ test('real armor, breach, disable and destruction outcomes select grounded sound
   assert.deepEqual(breached.map(s=>s.id),['part','armor']);
   const power=hitSoundPlan({internalDamage:20,armorAbsorbed:0},{slot:'power'});
   assert.deepEqual(power.map(s=>s.id),['part','sparks']);
+  assert.deepEqual(hitSoundPlan({internalDamage:20,armorAbsorbed:0},{slot:'power',ordinal:1})
+    .map(s=>s.id),['part','zap']);
+  assert.deepEqual(hitSoundPlan({justDestroyed:true},{slot:'power',ordinal:1})
+    .map(s=>s.id),['destruction','zap']);
   assert.deepEqual(hitSoundPlan({justDisabled:true,internalDamage:23},{slot:'combat'}).map(s=>s.id),['destruction']);
   assert.deepEqual(hitSoundPlan({justDestroyed:true,internalDamage:40},{slot:'power'}).map(s=>s.id),['destruction','sparks']);
   assert.equal(hitSoundPlan({internalDamage:0,armorAbsorbed:0},{shielded:true})[0].id,'glance');
