@@ -51,8 +51,17 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForFunction(() => window.__m3ch4BootOK === true, undefined, { timeout: 25000 });
   await page.locator('#unified-garage .unified-station').nth(3).click({ timeout: 12000 });
+  const garageState = await page.evaluate(() => ({
+    view: document.querySelector('#unified-garage')?.dataset.mode,
+    selected: document.querySelector('#unified-garage .unified-station.selected')?.textContent,
+    modules: document.querySelector('#unified-garage .unified-modules')?.textContent?.slice(0,800),
+    hasQuote: !!document.querySelector('#unified-garage .unified-service'),
+    startupError: document.querySelector('#startup-diagnostic-detail')?.textContent,
+    garageText: document.querySelector('#unified-garage')?.textContent?.slice(0,1200),
+  }));
+  console.log('STAGED BAY DOM AFTER SELECT:', JSON.stringify(garageState));
   await page.waitForFunction(() => document.querySelector('#startup-diagnostic') ||
-    document.querySelector('#unified-garage .unified-service'), undefined, { timeout: 12000 });
+    document.querySelector('#unified-garage .unified-service'), undefined, { timeout: 6000 });
   await page.screenshot({ path: output + '/staged-rig-02.png' });
   const stagedError = await page.locator('#startup-diagnostic-detail').textContent().catch(() => null);
   const quote = await page.locator('#unified-garage .unified-service').textContent().catch(() => null);
