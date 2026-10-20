@@ -191,13 +191,30 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
         +.23*low*exp(t,.32,.13)
         +.15*rasp*exp(t,.33,.040);
       break;
-    case 'reload':
-      x=.18*middle*exp(t,0,.06)+.17*rasp*exp(t,.032,.11)
-        +.23*low*exp(t,variant===2?.39:.275,.075)
-        +.20*pulse(t,variant===2?.41:.29,92,.045)
-        +.20*sharp*exp(t,variant===1?.54:.58,.022)
-        +.24*metal(t,variant===1?.55:.59,320,.025);
+    case 'reload': {
+      // Three physical actions, not a generic clink:
+      // pull friction / housing collision / short catch. No modal steel drum.
+      const slide=(from,to,amount)=>t<from||t>to?0:
+        amount*(.42*middle+.30*rasp+.23*low)*
+        (1-Math.exp(-(t-from)/.008))*
+        Math.min(1,Math.max(0,(to-t)/.032));
+      const thunk=(at,mass)=>mass*(.58*low+.26*middle+.23*rasp)*exp(t,at,.037);
+      const latch=(at,strength)=>strength*(.52*sharp+.28*middle)*exp(t,at,.013);
+      if(variant===0) {
+        // A / Slide & lock: draw back, weighty forward return, hard lock.
+        x=thunk(0,.35)+slide(.075,.365,.48)+thunk(.40,.86)+latch(.545,.60);
+      }else if(variant===1) {
+        // B / Magazine slap: removal, seating, short rack and latch.
+        x=slide(.02,.16,.26)+latch(.165,.38)+
+          thunk(.335,1.00)+slide(.415,.59,.31)+latch(.625,.75);
+      }else {
+        // C / Heavy breech: unlatch, drag massive block, slam, final catch.
+        x=thunk(.015,.67)+slide(.112,.48,.51)+
+          .33*low*exp(t,.535,.083)+thunk(.548,1.36)+
+          latch(.714,.62)+.15*low*exp(t,.72,.048);
+      }
       break;
+    }
     }
     // Limit peaks; the sound engine provides a second output limiter.
     out[i]=Math.tanh(x*2.1)*.72*fade(t,length);
