@@ -43,7 +43,8 @@ export function hitSoundPlan(hit,{shielded=false,slot=null,ordinal=0}={}){
   return [];
 }
 export function createMotionSoundState(){
-  return {travelM:0,stepLeft:0,engineLeft:0,hydraulicStep:0,active:false};
+  return {travelM:0,stepLeft:0,engineLeft:0,hydraulicStep:0,active:false,
+    phase:0,gaitWeight:0,stepCount:0,lastFoot:null};
 }
 /** Returns a small list of actual events, not a looped "footsteps if moving"
  * timer. Each step requires real displacement, a speed gate and a cadence
@@ -53,6 +54,13 @@ export function advanceMotionSound(state,family,speed,dt){
   const events=[];
   if(!state||!family||!Number.isFinite(dt)||dt<=0)return events;
   const metersPerSecond=Math.max(0,Number.isFinite(speed)?speed:0);
+  const locomoting=metersPerSecond>=.65;
+  const blend=1-Math.exp(-dt*(locomoting?6:9));
+  state.gaitWeight=(state.gaitWeight??0)+((locomoting?1:0)-(state.gaitWeight??0))*blend;
+  // One visual half-cycle per sound-generating displacement interval.
+  // No independent per-frame clock: the planted foot and thud share cadence.
+  if(locomoting)state.phase=(state.phase??0)+
+    Math.PI*metersPerSecond*dt/Math.max(.2,family.strideM);
   if(metersPerSecond<.65){
     state.travelM=0;state.active=false;
     state.stepLeft=Math.max(0,(state.stepLeft??0)-dt);
@@ -75,6 +83,8 @@ export function advanceMotionSound(state,family,speed,dt){
     state.stepLeft=family.minimumSeconds;
     events.push(family.id);
     state.hydraulicStep=(state.hydraulicStep??0)+1;
+    state.stepCount=(state.stepCount??0)+1;
+    state.lastFoot=state.stepCount%2?'right':'left';
     if(state.hydraulicStep%3===0)events.push('hydraulics');
   }
   return events;
