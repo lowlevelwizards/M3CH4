@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildPartVisual } from './partVisuals.js';
+import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
@@ -357,12 +358,21 @@ export function createArenaScene(initial, targetAssembly) {
         position: group.position.clone(), rotation: group.rotation.clone(), scale: group.scale.clone(), parent: group.parent,
     }]));
     const captureArticulation = exterior => {
-        const joints = [];
+        const joints = [], legs = new Map();
         exterior.partGroups.get('mobility')?.traverse(object => {
             if (!object.userData?.joint) return;
-            joints.push({ object, joint: object.userData.joint, side: Number(object.userData.side) || 0, base: object.rotation.clone() });
+            const side = Number(object.userData.side) || 0;
+            joints.push({object,joint:object.userData.joint,side,
+                base:object.rotation.clone()});
+            if(!legs.has(side))legs.set(side,{});
+            legs.get(side)[object.userData.joint]=object;
         });
-        return { joints, phase: 0 };
+        for(const chain of legs.values()){
+            if(!chain.hip||!chain.knee||!chain.ankle||!chain.foot)continue;
+            chain.upper=[chain.knee.position.y,chain.knee.position.z];
+            chain.lower=[chain.ankle.position.y,chain.ankle.position.z];
+        }
+        return {joints,legs,phase:0,aim:{waist:0,gun:0,elevation:0}};
     };
     const primaryMarker = makeSquadMarker('hostile');
     squadCombatants.set('enemy-0', {
@@ -2559,6 +2569,26 @@ export function buildExteriorRig(assembly) {
                 break;
             }
         }
+        if(slot==='combat'){
+            // Simple movable metalwork on the existing weapon assembly. This
+            // is NOT a second weapon/hit volume: each piece is physical mesh,
+            // tagged like the rest and participates in normal shot raycasts.
+            const carriage=new THREE.Group();
+            carriage.name='EXPOSED BOLT / RELOAD CARRIAGE';
+            group.add(carriage);
+            const b=def.id==='gun-short'?.35:def.id==='gun-scatter'?.42:.27;
+            const bolt=add(plate(b,.16,.35,m(brightSteel)),0,.31,.40);
+            carriage.add(bolt);
+            const track=add(plate(b*.45,.05,.56,m(steel)),0,.415,.35);
+            carriage.add(track);
+            let cassette=null;
+            if(def.id==='gun-scatter'){
+                cassette=add(plate(.43,.26,.31,m(0x8c6745)),0,-.31,.33);
+                carriage.add(cassette);
+            }
+            group.userData.weaponMechanism={carriage,bolt,cassette,
+                baseZ:carriage.position.z,baseY:carriage.position.y};
+        }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
     // their authored interface hardware; mass and compatibility remain graph data.
@@ -2567,10 +2597,14 @@ export function buildExteriorRig(assembly) {
         for (const [slot, group] of partGroups) {
             if (slot === 'structure')
                 continue;
-            hull.add(group);
-            const c = SLOT_CENTERS[slot];
-            const parent = SLOT_CENTERS.structure;
-            group.position.set(c[0] - parent[0], c[1] - parent[1], c[2] - parent[2]);
+            // The leg carriage is carried by the same physical body but is
+            // a sibling of the visual waist. Upper hull can twist without
+            // yawing every planted foot. Rest coordinates remain IDENTICAL.
+            const isLegs=slot==='mobility';
+            (isLegs?root:hull).add(group);
+            const c=SLOT_CENTERS[slot];
+            const parent=isLegs?[0,0,0]:SLOT_CENTERS.structure;
+            group.position.set(c[0]-parent[0],c[1]-parent[1],c[2]-parent[2]);
         }
     }
     return { root, partGroups, partMeshes, pickMeshes };
