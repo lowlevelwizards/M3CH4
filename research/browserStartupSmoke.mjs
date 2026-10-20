@@ -243,7 +243,7 @@ try {
   });
   if(Object.values(liveShot).some(s=>!s.ok) ||
      !(liveShot.own.gain>liveShot.remote.gain) ||
-     liveShot.own.reflectionCount!==2 || liveShot.remote.reflectionCount!==0)
+     liveShot.own.reflectionCount!==4 || liveShot.remote.reflectionCount!==0)
     throw Error('Production weapon audio did not initialize correctly: '+JSON.stringify(liveShot));
   if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==forgeRaw)
     throw Error('Live weapon audio modified the audition presets');
@@ -331,12 +331,28 @@ try {
      soundscape.failed[0]?.id!=='destruction'||
      !soundscape.local.ok||!soundscape.distant.ok||
      !(soundscape.local.gain>soundscape.distant.gain)||
-     soundscape.local.earlyReflections!==2||
+     soundscape.local.earlyReflections!==4||
      soundscape.distant.earlyReflections!==0||
      !soundscape.charger.ok||!soundscape.engine.ok||
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
   console.log('LIVE SYSTEMS AUDIO: PASS · physical damage, attenuation, cabin reverb and walking');
+  const cachedPrep=await page.evaluate(async()=>{
+    const {warmupStatus,warmPCM}=await import('./audioWarmup.js');
+    const {renderSystemSound}=await import('./audioSystemsSynth.js');
+    const status=warmupStatus();
+    const glance=warmPCM('system','glance',0);
+    const weapon=warmPCM('weapon','gun-cannon',0);
+    const workerBlasted=!!(glance?.pcm?.length>1000&&weapon?.pcm?.length>1000);
+    const src=renderSystemSound('glance',0,16000);
+    return {status,workerBlasted,glancePeak:Math.max(...src.slice(0,250)),
+      samples:src.length};
+  });
+  if(!cachedPrep.workerBlasted||cachedPrep.status.received<20||
+     cachedPrep.status.failed||!cachedPrep.status.finished)
+    throw Error('Combat PCM was not prepared by the background worker: '+JSON.stringify(cachedPrep));
+  console.log('AUDIO PREWARM: PASS · worker delivered ',cachedPrep.status.received,' samples');
+
 
 
 
