@@ -48,6 +48,20 @@ try {
   });
   if (Object.keys(fixture.installed).length !== 1 || fixture.installed.command !== fixture.serial)
     throw Error('Fixture accidentally fielded a complete rig');
+  // The current live game persists its own in-memory inventory on pagehide.
+  // Seed the prepared save *before* JS modules run after reload, otherwise
+  // pagehide overwrites this synthetic extra part with the older inventory.
+  const prepared = await page.evaluate(() => ({
+    machine: localStorage.getItem('mech-arena-machine-v8'),
+    stable: localStorage.getItem('m3ch4-stable-v1'),
+  }));
+  if (!prepared.machine || !prepared.stable) throw Error('Browser fixture save missing');
+  await page.addInitScript(`(() => {
+    if (!location.pathname.endsWith('/index.html')) return;
+    localStorage.setItem('mech-arena-machine-v8', ${JSON.stringify(prepared.machine)});
+    localStorage.setItem('m3ch4-stable-v1', ${JSON.stringify(prepared.stable)});
+    sessionStorage.setItem('m3ch4-viewed-bay-v1', 'rig-02');
+  })();`);
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForFunction(() => window.__m3ch4BootOK === true, undefined, { timeout: 25000 });
   await page.locator('#unified-garage .unified-station').nth(3).click({ timeout: 12000 });
