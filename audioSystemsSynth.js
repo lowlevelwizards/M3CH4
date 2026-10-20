@@ -1,4 +1,4 @@
-/** k.3w.8 / Audition-only industrial systems and damage sound library.
+/** k.3w.9 / Audition-only industrial systems and damage sound library.
  * No remote samples and no runtime combat changes. Each category has its own
  * physically motivated envelope/event arrangement, NOT one pitched formula.
  */
@@ -9,7 +9,7 @@ export const SYSTEM_SOUND_GROUPS=Object.freeze([
 ]);
 export const SYSTEM_SOUNDS=Object.freeze([
   {id:'glance',group:'damage',label:'ARMOR GLANCE',subtitle:'Surface contact, no penetration',
-    variants:['Dull ricochet','Bright metal clink','Skidding scrape']},
+    variants:['Dull ricochet','Bright metal clink','Quiet skidding scrape']},
   {id:'armor',group:'damage',label:'ARMOR BREAK',subtitle:'Plate cracking or shearing',
     variants:['Plate shear','Brittle split','Crushed sheet']},
   {id:'part',group:'damage',label:'INTERNAL PART HIT',subtitle:'Mechanism behind the armor',
@@ -79,7 +79,7 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
       x=.22*weight*pulse(t,0,133,.040)
         +.22*edge*metal(t,.003,variant===1?950:variant===2?515:730,variant===1?.082:.044)
         +.20*sharp*exp(t,0,.012)
-        +(variant===2?.21*middle*exp(t,.026,.124):.035*rasp*exp(t,.035,.023));
+        +(variant===2?.086*middle*exp(t,.026,.11):.035*rasp*exp(t,.035,.023));
       break;
     case 'armor':
       x=.38*weight*pulse(t,0,96,.090)+.23*sharp*exp(t,0,.017)
@@ -138,16 +138,17 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
       break;
     }
     case 'engine':{
-      // Coherent low rotating masses and uneven combustion: long enough to
-      // preview a running mechanism, never one-shot sci-fi swept beeps.
+      // Weighted upper-bass hum and lumpy combustion, not TV-static fizz.
       const rpm=[10,7.8,17][variant],spin=Math.sin(TAU*(rpm*t+.17*t*t));
-      const modulation=(.67+.33*spin*spin);
-      x=(.20*weight*Math.sin(TAU*[64,51,108][variant]*t)
-        +.11*Math.sin(TAU*[123,97,207][variant]*t))
-        *modulation
-        +(.15+.16*(variant===1))*low*modulation
-        +.12*middle*(.6+.4*Math.sin(TAU*rpm*t)**8)
-        +.08*rasp*(variant===2?1.3:.65);
+      const loading=.74+.26*spin*spin;
+      const base=[68,57,96][variant];
+      const rotor=.285*weight*Math.sin(TAU*base*t)+
+        .145*Math.sin(TAU*(base*1.92)*t)+
+        .072*Math.sin(TAU*(base*.5)*t);
+      const combustion=(.20+.085*(variant===1))*low*(.50+.50*Math.max(0,spin));
+      const chassis=.055*middle*(.55+.45*spin*spin)+
+        .014*rasp*(variant===2?1.2:1);
+      x=rotor*loading+combustion+chassis;
       const ramp=Math.min(1,t/.085,Math.max(0,(length-t)/.095));
       x*=Math.max(0,ramp);
       break;
@@ -165,10 +166,12 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
       break;
     }
     case 'yardwalker':
-      x=.34*weight*pulse(t,0,91,.082)+.24*low*exp(t,0,.072)
-        +.15*sharp*exp(t,.011,.011)
-        +.19*pulse(t,.100,139,.06)+.16*rasp*exp(t,.112,.042)
-        +(variant===2?.14*middle*exp(t,.183,.075):0);
+      // Bigger work-boot heel / toe, with phone-audible low-mid mass.
+      x=.44*weight*pulse(t,0,118,.062)+.42*low*exp(t,0,.11)
+        +.22*middle*exp(t,.009,.038)
+        +.31*pulse(t,.104,135,.054)+.27*low*exp(t,.106,.076)
+        +.19*rasp*exp(t,.116,.043)
+        +(variant===2?.13*middle*exp(t,.183,.060):0);
       break;
     case 'kestrel':
       // Split runner toes and flex; no struck-steel handpan note.
@@ -179,11 +182,14 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
         +(variant===1?.12*sharp*exp(t,.210,.013):0);
       break;
     case 'hauler':
-      x=.53*weight*pulse(t,0,68,.155)+.32*low*exp(t,0,.15)
-        +.26*rasp*exp(t,.027,.045)
-        +.30*pulse(t,.155,81,.11)
-        +.22*middle*exp(t,.18,.10)
-        +.20*low*exp(t,.32,.12);
+      // Retain the satisfying low loaded-pad body. Remove the secondary
+      // pitched sine decay so compression sounds broad instead of tuned.
+      x=.49*weight*pulse(t,0,98,.070)+.41*low*exp(t,0,.19)
+        +.25*rasp*exp(t,.027,.047)
+        +.36*low*exp(t,.155,.13)
+        +.26*middle*exp(t,.18,.095)
+        +.23*low*exp(t,.32,.13)
+        +.15*rasp*exp(t,.33,.040);
       break;
     case 'reload':
       x=.18*middle*exp(t,0,.06)+.17*rasp*exp(t,.032,.11)
