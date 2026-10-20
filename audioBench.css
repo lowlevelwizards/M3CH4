@@ -1,0 +1,46 @@
+/* k.3w.3 -- low-friction landscape audio audition, never part of combat HUD. */
+.audio-lab-layer{position:fixed;inset:0;z-index:70;box-sizing:border-box;padding:max(8px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#080c09eF;display:flex;justify-content:center;align-items:center;color:#e1d4ae;font:600 12px/1.35 ui-monospace,SFMono-Regular,monospace;letter-spacing:.015em;pointer-events:auto;touch-action:pan-y}
+.audio-lab-work{box-sizing:border-box;display:flex;flex-direction:column;gap:8px;width:min(96vw,925px);max-height:92dvh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;border:1px solid #ad8b50;background:linear-gradient(150deg,#18221c,#0d1311);box-shadow:0 10px 45px #000d;padding:12px 14px}
+.audio-lab-mast{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.audio-lab-kicker{display:block;font-size:9px;color:#9baf9f;letter-spacing:.15em}
+.audio-lab-mast h2{font-size:17px;line-height:1;margin:5px 0 0;font-weight:900;letter-spacing:.08em;color:#efc77d}
+.audio-lab-mast button,.audio-lab-actions button,.audio-lab-choices button,.audio-lab-variations button{font:800 10px/1.2 ui-monospace,SFMono-Regular,monospace;color:#d5d4b7;background:#151c18;border:1px solid #6d795f;border-radius:3px;padding:9px 10px;min-height:39px;touch-action:manipulation;white-space:normal;cursor:pointer}
+.audio-lab-mast button{border-color:#af9b68;color:#f0d8a3;min-width:76px}
+.audio-lab-note{font-size:10px;color:#98a99d;margin:0}
+.audio-lab-columns{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(310px,1.7fr);gap:14px;min-height:0}
+.audio-lab-left,.audio-lab-right{min-width:0;display:flex;flex-direction:column;gap:7px}
+.audio-lab-section-label{font-size:9px;letter-spacing:.13em;color:#85a795;border-bottom:1px solid #4b5c4d;padding-bottom:5px}
+.audio-lab-choices{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.audio-lab-choices button{font-size:9px;min-height:43px}
+.audio-lab-choices button.selected,.audio-lab-variations button.selected{border-color:#e2b35b;background:#433523;color:#ffde92;box-shadow:inset 0 0 0 1px #bc8b40}
+.audio-lab-identity{font-size:10px;color:#d5b872;letter-spacing:.06em}
+.audio-lab-variations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.audio-lab-variations button{min-height:51px;font-size:10px;letter-spacing:.01em}
+.audio-lab-sliders{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.audio-lab-slider{display:grid;grid-template-columns:minmax(0,1fr) 20px;gap:3px 5px;align-items:center;min-width:0}
+.audio-lab-slider-title{display:flex;flex-direction:column;gap:1px;grid-column:1 / -1}
+.audio-lab-slider-title b{font-size:10px;color:#eac77e}
+.audio-lab-slider-title small{font-size:8px;color:#94a69b;font-weight:500}
+.audio-lab-slider input{width:100%;height:24px;min-width:0;accent-color:#dcaa56;touch-action:pan-x}
+.audio-lab-slider output{font-size:10px;color:#e2d8b5;text-align:right}
+.audio-lab-actions{display:flex;flex-wrap:wrap;gap:5px}
+.audio-lab-actions button{min-height:36px;flex:1 1 auto;font-size:10px}
+.audio-lab-actions button.audio-lab-replay{background:#e0ae5a;color:#172019;border-color:#f3c981;min-width:92px}
+.audio-lab-status{background:#0a100d;border:1px solid #354f3c;min-height:23px;box-sizing:border-box;color:#acbfa6;padding:5px 8px;overflow-wrap:anywhere;font-size:9px;letter-spacing:.05em}
+#audio-bench-open{display:block;width:100%;min-height:34px;background:#24372b;border:1px solid #d5b36e;color:#eaca86;font:800 10px ui-monospace,monospace;letter-spacing:.06em;touch-action:manipulation;margin:7px 0}
+@media (max-width:720px),(max-height:340px){
+ .audio-lab-work{padding:8px;gap:5px;max-height:94dvh}
+ .audio-lab-mast h2{font-size:13px}
+ .audio-lab-note{font-size:9px}
+ .audio-lab-columns{gap:7px;grid-template-columns:minmax(115px,.75fr) minmax(0,1.7fr)}
+ .audio-lab-choices button{padding:6px 3px;font-size:8px;min-height:38px}
+ .audio-lab-variations button{font-size:8px;padding:5px 3px;min-height:38px}
+ .audio-lab-actions button{font-size:8px;padding:6px 7px;min-height:30px}
+ .audio-lab-slider-title small{display:none}
+}
+@media (max-width:480px) and (orientation:portrait) {
+ .audio-lab-columns{grid-template-columns:1fr}
+ .audio-lab-choices{grid-template-columns:1fr 1fr}
+ .audio-lab-sliders{gap:8px}
+}
+@media (prefers-reduced-motion:reduce){.audio-lab-layer *{scroll-behavior:auto!important;transition:none!important}}
