@@ -4,6 +4,67 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#151816" />
+    <script>
+      // k.3w.1: this runs before module imports, so a failed game boot can
+      // explain itself even when the 3D canvas and the DEV button are inert.
+      (() => {
+        const issues = [];
+        let panel = null;
+        const shortened = value => String(value || "").slice(0, 900);
+        function showDiagnostic(message) {
+          const detail = shortened(message || issues[0] || "Main game did not finish its first frame.");
+          if (!panel) {
+            panel = document.createElement("section");
+            panel.id = "startup-diagnostic";
+            panel.setAttribute("role", "alert");
+            panel.style.cssText = "position:fixed;z-index:2147483647;left:50%;top:50%;transform:translate(-50%,-50%);width:min(88vw,560px);max-height:82dvh;overflow:auto;box-sizing:border-box;padding:15px 17px;background:#1c1714;color:#f0d4a4;border:2px solid #d69a53;box-shadow:0 0 0 100vmax #0008,0 8px 32px #000a;font:12px/1.5 ui-monospace,monospace;pointer-events:auto;touch-action:auto";
+            const heading = document.createElement("strong");
+            heading.textContent = "M3CH4 · STARTUP / RUNTIME ERROR";
+            heading.style.cssText = "display:block;font-size:14px;margin-bottom:6px";
+            const hint = document.createElement("p");
+            hint.textContent = "Screenshot this panel and send it here. Your machines and save have not been reset."; 
+            hint.style.margin = "4px 0 10px";
+            const output = document.createElement("pre");
+            output.id = "startup-diagnostic-detail";
+            output.style.cssText = "white-space:pre-wrap;overflow-wrap:anywhere;padding:9px;background:#090c0a;border:1px solid #65503a;color:#e7c1a0;font:11px/1.4 ui-monospace,monospace";
+            const actions = document.createElement("div");
+            actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap";
+            const retry = document.createElement("button");
+            retry.textContent = "RELOAD (KEEPS SAVE)";
+            retry.style.cssText = "padding:10px;background:#d7a24b;color:#101612;border:0;font:bold 11px monospace;touch-action:manipulation";
+            retry.addEventListener("click", () => location.reload());
+            const copy = document.createElement("button");
+            copy.textContent = "COPY ERROR";
+            copy.style.cssText = "padding:10px;background:#26392f;color:#e6d3ac;border:1px solid #8b9e8c;font:bold 11px monospace;touch-action:manipulation";
+            copy.addEventListener("click", () => {
+              const value = document.querySelector("#startup-diagnostic-detail")?.textContent || "";
+              navigator.clipboard?.writeText(value).catch(() => {});
+            });
+            actions.append(retry, copy);
+            panel.append(heading, hint, output, actions);
+            (document.body || document.documentElement).append(panel);
+          }
+          panel.querySelector("#startup-diagnostic-detail").textContent = document.title + "\n" + detail;
+        }
+        window.addEventListener("error", event => {
+          const resource = event.target !== window ? (event.target?.src || event.target?.href) : null;
+          const message = resource ? "RESOURCE LOAD FAILED: " + resource :
+            shortened(event.message || "Uncaught script error") + "\n" + shortened(event.filename) + ":" + (event.lineno || 0) + ":" + (event.colno || 0);
+          issues.push(message);
+          if (!resource) showDiagnostic(message);
+        }, true);
+        window.addEventListener("unhandledrejection", event => {
+          const reason = event.reason?.stack || event.reason?.message || event.reason || "Unknown rejected promise";
+          issues.push("UNHANDLED REJECTION: " + shortened(reason));
+          showDiagnostic(issues[issues.length - 1]);
+        });
+        document.addEventListener("DOMContentLoaded", () => {
+          setTimeout(() => {
+            if (!window.__m3ch4BootOK) showDiagnostic("FIRST FRAME NEVER COMPLETED\n" + (issues.join("\n") || "No browser error was reported. Possible WebGL failure or initialization hang."));
+          }, 7500);
+        }, { once: true });
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="MECH ARENA" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
