@@ -120,7 +120,7 @@ test('there are no new slots/serial IDs and mobile controls still use existing m
     const html = read('../index.html'), controls = read('../controls.js');
     const main = read('../main.js'), scene = read('../scene.js');
     assert.match(html,/0\.0\.1k\.3w\.7 — Live Weapon Sound/);
-    assert.match(html,/main\.js\?v=k3w2/);
+    assert.match(html,/main\.js\?v=k3w7/);
     assert.match(html,/audio\.js\?v=k3v6/);
     assert.match(controls,/this\.keyboard\.has\('Space'\)/);
     assert.match(html,/id="drive-zone"/);
