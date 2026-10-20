@@ -3,7 +3,7 @@
  * the shared part-model construction now handled inside scene.js.
  */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3w1';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3w15';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 import { installCockpitIdentities } from './cockpitIdentityScene.js';
 
@@ -48,9 +48,14 @@ function alignAssemblyMeshes(arena, assembly) {
         const group = findPartGroup(arena.scene, slot, installed?.instance.serial);
         const pose = poses.get(installed?.instance.serial);
         if (!group || !pose) continue;
-        if (group.parent !== hull) hull.attach(group);
-        group.position.set(...pose.position.map((n, i) => n - frame.definition.center[i]));
-        group.rotation.set(0, pose.rotationQuarterTurns * Math.PI / 2, 0);
+        // Mobility is a sibling of the independent upper-hull waist pivot.
+        // Preserve the SAME graph-derived resting world pose; no phantom
+        // connection or second hit volume is introduced.
+        const mountParent=slot==='mobility'?hull.parent:hull;
+        if(group.parent!==mountParent)mountParent.attach(group);
+        const reference=slot==='mobility'?[0,0,0]:frame.definition.center;
+        group.position.set(...pose.position.map((n,i)=>n-reference[i]));
+        group.rotation.set(0,pose.rotationQuarterTurns*Math.PI/2,0);
     }
     // Hardware is rendered ONLY if it appears as a genuine adapter in the graph.
     // It is attached to the structural frame, not to the generator's scene mesh.

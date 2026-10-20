@@ -411,14 +411,14 @@ let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
 const movementSoundStates=new WeakMap();
 function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     const distance=local?0:Math.hypot(machineRig.x-rig.x,machineRig.z-rig.z);
-    // Near-field motors and steps only. Distant mechanical events should
-    // disappear beneath gunfire instead of filling the arena with static.
-    if(!local&&distance>17)return;
+    // All rigs advance their visible gait whether or not they are audible.
+    // Only emission is distance culled; never freeze remote animation.
     let acoustic=movementSoundStates.get(machineRig);
     if(!acoustic){acoustic=createMotionSoundState();movementSoundStates.set(machineRig,acoustic);}
     const family=soundFamilyFor(installedPart(machineAssembly,'mobility')?.definition.id);
     const speed=Math.hypot(machineRig.vx,machineRig.vz);
     const events=advanceMotionSound(acoustic,family,speed,dt);
+    if(!local&&distance>17)return acoustic;
     for(const id of events) {
         const idle=id==='engine'&&speed<.65;
         if(!local&&id==='engine'&&distance>9)continue;
@@ -429,9 +429,36 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
         soundSystemEvent(id,{variant:id==='engine'?0:acoustic.hydraulicStep%3,
             distance,cockpit:local,strength});
     }
+    return acoustic;
 }
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
+// DEV-only external animation preview. Uses the real current garage assembly,
+// never drives live physics, expenses, weapon state, or persistent ownership.
+const animationPreviewButton=required('#animation-preview-toggle');
+const animationPreviewMode=required('#animation-preview-mode');
+const animationPreviewSpeed=required('#animation-preview-speed');
+let animationPreviewOn=false;
+function syncAnimationPreview(){
+    const mode=animationPreviewOn?animationPreviewMode.value:'off';
+    arena.setAnimationPreview(mode,Number(animationPreviewSpeed.value));
+    animationPreviewButton.textContent=animationPreviewOn?'■ STOP ANIMATION':'▶ ANIMATION LAB';
+    animationPreviewButton.setAttribute('aria-pressed',String(animationPreviewOn));
+}
+animationPreviewButton.addEventListener('click',()=>{
+    if(!inspecting){
+        showStatus('OPEN GARAGE TO AUDITION ARTICULATION');
+        return;
+    }
+    animationPreviewOn=!animationPreviewOn;
+    syncAnimationPreview();
+});
+animationPreviewMode.addEventListener('change',()=>{
+    if(animationPreviewOn)syncAnimationPreview();
+});
+animationPreviewSpeed.addEventListener('input',()=>{
+    if(animationPreviewOn)syncAnimationPreview();
+});
 let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
     aiPlanCooldown=0,aiPerceptionCooldown=0;
 let strategicMemory=createStrategicState();
@@ -1304,6 +1331,10 @@ function toggleInspection(force) {
     assemblyToggle.setAttribute('aria-pressed', String(inspecting));
     assemblyToggle.textContent = inspecting ? 'DEPLOY' : 'GARAGE';
     arena.setInspection(inspecting);
+    if(!inspecting&&animationPreviewOn){
+        animationPreviewOn=false;
+        syncAnimationPreview();
+    }
     if (inspecting) {
         arena.resetOrbit();
         syncInspectorLayout();
@@ -1661,7 +1692,7 @@ function frame(now) {
                     Math.abs(maneuver.steer) < .12;
                 if (settledToShoot) maneuver = { ...maneuver, brake: 1 };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
-                if(actor.active)emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false);
+                if(actor.active)actor.visualGait=emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false);
                 shoveDisabledWrecks(actor.rig, actorConfig);
                 if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
                     beginFieldService(actor.condition, actor.fieldService, actor.rig);
@@ -1670,6 +1701,9 @@ function frame(now) {
                 arena.updateCombatantRig(actor.id, actor.rig, {
                     target: target?.rig ?? null, posture, dt: FIXED_DT,
                     weaponFault: recovery.active, weaponServicing: actor.fieldService.held,
+                    gait:actor.visualGait,
+                    reloadLeft:actor.weaponState?.reloadLeft??0,
+                    reloadSeconds:actor.weaponSpec?.reloadSeconds??0,
                 });
                 if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
                 if (actor.weaponSpec && actor.weaponState) {
@@ -1715,6 +1749,9 @@ function frame(now) {
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
         weaponFault: playerRecoveryState === 'faulted',
         weaponServicing: fieldService.held,
+        gait:movementSoundStates.get(rig),
+        reloadLeft:weaponState?.reloadLeft??0,
+        reloadSeconds:weaponSpec?.reloadSeconds??0,
     });
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {

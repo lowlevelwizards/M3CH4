@@ -63,7 +63,7 @@ test('approved sounds and per-event choices remain present and game audio untouc
   const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
   assert.match(html,/audioSystemsSynth\.js\?v=k3w11/);
   assert.match(html,/audioSystemsUI\.js\?v=k3w9/);
-  assert.match(html,/0\.0\.1k\.3w\.11 — Soundscape Mix & Performance/);
+  assert.match(html,/0\.0\.1k\.3w\.15 — Articulation Suite/);
   assert.doesNotMatch(main,/audioSystemsUI/);
   assert.match(main,/soundCombatImpact\(/);
   assert.match(main,/soundWeaponShot\(weaponSpec\.id/);

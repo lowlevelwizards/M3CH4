@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildPartVisual } from './partVisuals.js';
+import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
@@ -357,12 +358,21 @@ export function createArenaScene(initial, targetAssembly) {
         position: group.position.clone(), rotation: group.rotation.clone(), scale: group.scale.clone(), parent: group.parent,
     }]));
     const captureArticulation = exterior => {
-        const joints = [];
+        const joints = [], legs = new Map();
         exterior.partGroups.get('mobility')?.traverse(object => {
             if (!object.userData?.joint) return;
-            joints.push({ object, joint: object.userData.joint, side: Number(object.userData.side) || 0, base: object.rotation.clone() });
+            const side = Number(object.userData.side) || 0;
+            joints.push({object,joint:object.userData.joint,side,
+                base:object.rotation.clone()});
+            if(!legs.has(side))legs.set(side,{});
+            legs.get(side)[object.userData.joint]=object;
         });
-        return { joints, phase: 0 };
+        for(const chain of legs.values()){
+            if(!chain.hip||!chain.knee||!chain.ankle||!chain.foot)continue;
+            chain.upper=[chain.knee.position.y,chain.knee.position.z];
+            chain.lower=[chain.ankle.position.y,chain.ankle.position.z];
+        }
+        return {joints,legs,phase:0,aim:{waist:0,gun:0,elevation:0}};
     };
     const primaryMarker = makeSquadMarker('hostile');
     squadCombatants.set('enemy-0', {
@@ -952,6 +962,8 @@ export function createArenaScene(initial, targetAssembly) {
         record.recoilKick = 0;
         if (record.articulation) {
             record.articulation.phase = 0;
+            record.articulation.weight = 0;
+            record.articulation.aim={waist:0,gun:0,elevation:0};
             for (const joint of record.articulation.joints) joint.object.rotation.copy(joint.base);
         }
         record.disabledSlots.clear();
@@ -1131,6 +1143,79 @@ export function createArenaScene(initial, targetAssembly) {
     let cockpitPitch = 0;
     const gunPivot = cockpit.userData.gunPivot;
     const flashMesh = cockpit.userData.flashMesh;
+    let previewAssembly=initial;
+    let animationPreviewMode='off',animationPreviewSpeed=3,previewTime=0,
+        previewRecord=null;
+    function restoreInspectionPose(){
+        if(!previewRecord||previewRecord.exterior!==exterior)return;
+        for(const joint of previewRecord.articulation.joints)
+            joint.object.rotation.copy(joint.base);
+        for(const [slot,base] of previewRecord.baseParts){
+            const group=exterior.partGroups.get(slot);
+            if(!group)continue;
+            group.position.copy(base.position);
+            group.rotation.copy(base.rotation);
+        }
+        const mechanism=exterior.partGroups.get('combat')?.userData.weaponMechanism;
+        if(mechanism){
+            mechanism.carriage.position.set(0,0,0);
+            mechanism.bolt.position.z=.40;
+            if(mechanism.cassette)mechanism.cassette.position.y=-.31;
+        }
+    }
+    function setAnimationPreview(mode='off',speed=3){
+        const safe=['off','walk','turn','reload','disabled'].includes(mode)?mode:'off';
+        if(animationPreviewMode!==safe){
+            restoreInspectionPose();
+            previewTime=0;previewRecord=null;
+        }
+        animationPreviewMode=safe;
+        animationPreviewSpeed=THREE.MathUtils.clamp(Number(speed)||3,.5,6);
+        if(safe==='off')restoreInspectionPose();
+        return {mode:safe,speed:animationPreviewSpeed};
+    }
+    function poseInspectionPreview(dt){
+        if(animationPreviewMode==='off'||vendorEnabled)return;
+        if(!previewRecord||previewRecord.exterior!==exterior){
+            previewRecord={
+                id:'inspection-preview',active:true,wrecked:false,cleared:false,
+                assembly:previewAssembly,exterior,
+                disabledSlots:new Set(),destroyedSlots:new Set(),
+                articulation:captureArticulation(exterior),
+                baseParts:capturePartTransforms(exterior),
+                recoilKick:0,weaponRecoveryKick:0,
+            };
+        }
+        const a=previewRecord;
+        const moving=animationPreviewMode==='walk'||animationPreviewMode==='turn';
+        const family=installedPart(a.assembly,'mobility')?.definition.id;
+        const style=familyAnimation(family);
+        previewTime+=dt;
+        const speed=moving?animationPreviewSpeed:0;
+        if(moving)a.articulation.phase+=Math.PI*speed*dt/style.stride;
+        a.disabledSlots.clear();
+        if(animationPreviewMode==='disabled'){
+            a.disabledSlots.add('mobility');
+            a.disabledSlots.add('combat');
+        }
+        const turn=animationPreviewMode==='turn'?Math.sin(previewTime*.63)*.28:0;
+        const reloading=animationPreviewMode==='reload';
+        const total=installedPart(a.assembly,'combat')?.definition.id==='gun-scatter'?3.15:2.5;
+        const reloadLeft=reloading?total-(previewTime%total):0;
+        poseCombatantExterior(a,{
+            x:0,z:0,yaw:turn,vx:0,vz:speed,
+            forwardSpeed:speed,lateralSpeed:0,yawRate:0,
+            brace:0,footingLoad:.10,recoilLoad:0,
+        },{
+            dt,target:{x:Math.sin(previewTime*.75)*6,z:-8,height:2.1},
+            gait:{phase:a.articulation.phase,gaitWeight:moving?1:0},
+            weaponFault:animationPreviewMode==='disabled',
+            reloadLeft,reloadSeconds:total,
+            posture:{animationHealth:animationPreviewMode==='disabled'?.35:1},
+        });
+        exterior.root.position.set(0,0,0);
+        exterior.root.rotation.y=GARAGE_RIG_YAW;
+    }
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         const wasServicing = pilotWeaponServicing;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
@@ -1178,6 +1263,13 @@ export function createArenaScene(initial, targetAssembly) {
         gunPivot.rotation.set(lookPitch * .85 + muzzleKick * .042 + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + muzzleKick * .19;
+        // Actual reload timer drives the pilot-visible breech. A moving
+        // mechanism is shown even though the audio recipe stays unchanged.
+        const reload=reloadArticulation(serviceVisual?.reloadLeft??0,
+            serviceVisual?.reloadSeconds??0,pilotWeaponPresentation.id);
+        cockpit.userData.gunBreech.position.z=-.19+reload.slide;
+        cockpit.userData.gunBreech.position.y=reload.bolt*.24;
+        cockpit.userData.scatterGreebles.position.y=-reload.cassette;
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12);
         cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
@@ -1188,6 +1280,7 @@ export function createArenaScene(initial, targetAssembly) {
             // rig always returns to the service pad instead of inheriting its last arena pose.
             exterior.root.position.set(0, 0, 0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
+            poseInspectionPreview(dt);
             orbitTarget.lerp(desiredTarget, 1 - Math.exp(-9 * dt));
             const around = new THREE.Vector3(
                 radius * Math.sin(azimuth) * Math.cos(elevation),
@@ -1222,73 +1315,126 @@ export function createArenaScene(initial, targetAssembly) {
         }
         updateSquadMarkers();
     }
-    function updateCombatantRig(id, state, visual = null) {
-        const record = squadCombatants.get(id);
-        if (!record) return;
-        record.exterior.root.position.set(state.x, record.cleared ? -.14 : record.wrecked ? -.06 : 0, state.z);
-        record.exterior.root.rotation.y = physicsYawToViewYaw(state.yaw);
-        if (record.active && !record.wrecked && !record.cleared) {
-            const dt = Math.max(0, visual?.dt ?? 1 / 60);
-            const wasServicing = record.weaponServicing;
-            record.weaponFault = !!visual?.weaponFault;
-            record.weaponServicing = !!visual?.weaponServicing;
-            if (wasServicing && !record.weaponServicing && !record.weaponFault) {
-                record.weaponRecoveryKick = 1;
-                record.recoveryBurstPending = true;
+    function poseCombatantExterior(record,state,visual=null){
+        const root=record.exterior.root;
+        root.position.set(state.x??0,record.cleared?-.14:record.wrecked?-.06:0,state.z??0);
+        root.rotation.y=physicsYawToViewYaw(state.yaw??0);
+        if(record.active&&!record.wrecked&&!record.cleared){
+            const dt=Math.max(0,Math.min(.10,visual?.dt??1/60));
+            const wasServicing=record.weaponServicing;
+            record.weaponFault=!!visual?.weaponFault;
+            record.weaponServicing=!!visual?.weaponServicing;
+            if(wasServicing&&!record.weaponServicing&&!record.weaponFault){
+                record.weaponRecoveryKick=1;
+                record.recoveryBurstPending=true;
             }
-            record.weaponRecoveryKick = Math.max(0, (record.weaponRecoveryKick ?? 0) - dt * 2.0);
-            const health = THREE.MathUtils.clamp(visual?.posture?.animationHealth ?? 1, .08, 1);
-            const speed = Math.hypot(state.vx ?? 0, state.vz ?? 0);
-            const movement = Math.min(1, speed / 2.8);
-            const articulation = record.articulation;
-            if (articulation) {
-                articulation.phase += dt * (1.5 + speed * 1.45) * (.52 + health * .48);
-                const amplitude = movement * (.075 + health * .11);
-                for (const joint of articulation.joints) {
-                    const sidePhase = joint.side > 0 ? Math.PI : 0;
-                    const wave = Math.sin(articulation.phase + sidePhase);
-                    const magnitude = joint.joint === 'hip' ? .42 : joint.joint === 'knee' ? -.62 : joint.joint === 'ankle' ? .32 : -.16;
-                    const compression = Math.min(1, (state.footingLoad ?? 0) * .7 + (state.recoilLoad ?? 0) * .3);
-                    joint.object.rotation.x = joint.base.x + wave * amplitude * magnitude +
-                        (joint.joint === 'knee' ? -.075 : joint.joint === 'ankle' ? .025 : 0) * (state.brace ?? 0) +
-                        (joint.joint === 'knee' ? -.07 : joint.joint === 'ankle' ? .025 : 0) * compression;
-                    joint.object.rotation.z = joint.base.z + (1 - health) * joint.side * Math.sin(articulation.phase * .53) * .035 +
-                        (joint.joint === 'hip' ? -.012 : .006) * joint.side * Math.min(2, state.footSlipMps ?? 0);
+            record.weaponRecoveryKick=Math.max(0,(record.weaponRecoveryKick??0)-dt*2);
+            const health=THREE.MathUtils.clamp(visual?.posture?.animationHealth??1,.08,1);
+            const speed=Math.hypot(state.vx??0,state.vz??0);
+            const motion=record.articulation;
+            const mobilityId=installedPart(record.assembly,'mobility')?.definition.id??'legs-yard';
+            const spec=familyAnimation(mobilityId);
+            const visualGait=visual?.gait;
+            if(motion){
+                if(visualGait){
+                    motion.phase=visualGait.phase??motion.phase;
+                    motion.weight=visualGait.gaitWeight??0;
+                }else{
+                    // Fallback only for inspection or legacy external callers.
+                    if(speed>.65)motion.phase+=Math.PI*dt*speed/spec.stride;
+                    const target=speed>.65?1:0;
+                    motion.weight=(motion.weight??0)+(target-(motion.weight??0))*(1-Math.exp(-dt*7));
+                }
+                const moving=(motion.weight??0);
+                const backward=(state.forwardSpeed??0)<-.3;
+                const strafe=(state.lateralSpeed??0)/2.4;
+                const blocked=record.disabledSlots.has('mobility')||
+                    record.destroyedSlots.has('mobility');
+                for(const [side,leg] of motion.legs){
+                    if(!leg.hip||!leg.knee||!leg.ankle||!leg.foot)continue;
+                    const pose=legPose(leg.upper,leg.lower,{
+                        phase:motion.phase,side,weight:moving,family:mobilityId,
+                        backward,strafe,brace:state.brace??0,health,disabled:blocked,
+                    });
+                    leg.hip.rotation.x=pose.hip;
+                    leg.hip.rotation.z=pose.spread+(1-health)*side*.03;
+                    leg.knee.rotation.x=pose.knee;
+                    leg.ankle.rotation.x=pose.ankle;
+                    leg.foot.rotation.x=pose.foot;
                 }
             }
-            const target = visual?.target;
-            if (target) {
-                const desired = Math.atan2(target.x - state.x, -(target.z - state.z));
-                const error = Math.atan2(Math.sin(desired - state.yaw), Math.cos(desired - state.yaw));
-                const command = record.exterior.partGroups.get('command');
-                const combat = record.exterior.partGroups.get('combat');
-                const commandBase = record.baseParts.get('command');
-                const combatBase = record.baseParts.get('combat');
-                const smoothing = 1 - Math.exp(-dt * (5.2 * (.45 + health * .55)));
-                if (command && commandBase) command.rotation.y = THREE.MathUtils.lerp(command.rotation.y, commandBase.rotation.y - THREE.MathUtils.clamp(error, -.48, .48) * .42, smoothing);
-                if (combat && combatBase) {
-                    const weaponFault = !!visual?.weaponFault;
-                    const serviceSag = visual?.weaponServicing ? .28 : .16;
-                    const recoveryLift = (record.weaponRecoveryKick ?? 0) * .11;
-                    const traverseScale = weaponFault ? .18 : .72;
-                    const weaponSmoothing = record.weaponRecoveryKick > 0 ? Math.max(smoothing, 1 - Math.exp(-dt * 12.5)) : smoothing;
-                    combat.rotation.y = THREE.MathUtils.lerp(combat.rotation.y, combatBase.rotation.y - THREE.MathUtils.clamp(error, -.72, .72) * traverseScale, weaponSmoothing);
-                    combat.rotation.x = THREE.MathUtils.lerp(combat.rotation.x, combatBase.rotation.x + (weaponFault ? serviceSag : 0) - recoveryLift, weaponSmoothing);
-                    combat.position.y = THREE.MathUtils.lerp(combat.position.y, combatBase.position.y - (weaponFault ? .055 : 0) + recoveryLift * .14, weaponSmoothing);
-                    combat.position.z = combatBase.position.z + (record.recoilKick ?? 0);
+            const desired=visual?.target
+                ?Math.atan2(visual.target.x-state.x,-(visual.target.z-state.z))
+                :state.yaw??0;
+            const error=Math.atan2(Math.sin(desired-(state.yaw??0)),
+                Math.cos(desired-(state.yaw??0)));
+            const range=visual?.target
+                ?Math.hypot(visual.target.x-state.x,visual.target.z-state.z):20;
+            const elevation=visual?.aimPitch??Math.atan2(
+                (visual?.target?.height??2.05)-2.0,Math.max(1,range));
+            const fault=record.weaponFault||record.disabledSlots.has('combat');
+            const previous=motion?.aim??{waist:0,gun:0,elevation:0};
+            const aim=aimArticulation(-error,elevation,dt,previous,{health,fault});
+            if(motion)motion.aim=aim;
+            const frame=record.exterior.partGroups.get('structure');
+            const combat=record.exterior.partGroups.get('combat');
+            const command=record.exterior.partGroups.get('command');
+            const frameBase=record.baseParts.get('structure');
+            const combatBase=record.baseParts.get('combat');
+            const commandBase=record.baseParts.get('command');
+            if(frame&&frameBase){
+                // Structure is upper-waist visual; mobility is root sibling.
+                frame.rotation.y=frameBase.rotation.y+aim.waist;
+            }
+            if(command&&commandBase&&!record.destroyedSlots.has('command')){
+                const commandBroken=record.disabledSlots.has('command');
+                command.rotation.y=commandBase.rotation.y+aim.gun*.18;
+                command.rotation.x=commandBase.rotation.x+(commandBroken?.19:0);
+                command.position.y=commandBase.position.y-(commandBroken?.09:0);
+            }
+            if(combat&&combatBase&&!record.destroyedSlots.has('combat')){
+                const recovery=record.weaponRecoveryKick??0;
+                const reload=reloadArticulation(visual?.reloadLeft??0,
+                    visual?.reloadSeconds??0,
+                    installedPart(record.assembly,'combat')?.definition.id);
+                combat.rotation.y=combatBase.rotation.y+aim.gun;
+                combat.rotation.x=combatBase.rotation.x+aim.elevation+
+                    (fault?.20:0)-(recovery*.12);
+                combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
+                combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
+                combat.position.z=combatBase.position.z+(record.recoilKick??0);
+                const mechanism=combat.userData.weaponMechanism;
+                if(mechanism){
+                    mechanism.carriage.position.z=mechanism.baseZ+reload.slide+
+                        (record.recoilKick??0)*.35;
+                    mechanism.carriage.position.y=mechanism.baseY+reload.bolt*.14;
+                    mechanism.bolt.position.z=.40+reload.bolt;
+                    if(mechanism.cassette)
+                        mechanism.cassette.position.y=-.31-reload.cassette;
                 }
             }
-            const damage = 1 - health;
-            record.exterior.root.position.y += Math.sin((record.articulation?.phase ?? 0) * .5) *
-                damage * movement * .035 - (state.brace ?? 0) * .045 -
-                (state.footingLoad ?? 0) * .035 - (state.recoilLoad ?? 0) * .020;
-            record.exterior.root.rotation.x = THREE.MathUtils.clamp(-(state.longitudinalAcceleration ?? 0) * .007 + Math.sin((record.articulation?.phase ?? 0) * .47) * damage * .018, -.065, .065);
-            record.exterior.root.rotation.z = THREE.MathUtils.clamp(-(state.lateralSpeed ?? 0) * .012 -
-                (state.yawRate ?? 0) * speed * .008 -
-                (state.lateralAcceleration ?? 0) * .006 +
-                Math.sin((record.articulation?.phase ?? 0) * .61) * damage * .022, -.09, .09);
+            const load=Math.min(1,(state.footingLoad??0)*.7+
+                (state.recoilLoad??0)*.3);
+            const grounded=motion?.weight??0;
+            // A supporting step has a visible compressed chassis (not a
+            // floating perfectly sinusoidal machine on rigid legs).
+            root.position.y-=load*spec.compression+(state.brace??0)*.032;
+            root.position.y+=Math.abs(Math.sin(motion?.phase??0))*
+                grounded*(spec.compression*.43);
+            const damage=1-health;
+            root.rotation.x=THREE.MathUtils.clamp(
+                -(state.longitudinalAcceleration??0)*.008+
+                damage*Math.sin((motion?.phase??0)*.51)*.022,-.09,.09);
+            root.rotation.z=THREE.MathUtils.clamp(
+                -(state.lateralSpeed??0)*.014-
+                (state.yawRate??0)*speed*.009+
+                damage*Math.sin((motion?.phase??0)*.64)*.032,-.12,.12);
         }
-        record.exterior.root.updateWorldMatrix(true, true);
+        root.updateWorldMatrix(true,true);
+    }
+    function updateCombatantRig(id,state,visual=null){
+        const record=squadCombatants.get(id);
+        if(record)poseCombatantExterior(record,state,visual);
     }
     function updateTargetRigVisual(state) {
         // Backwards-compatible wrapper for the selected contract leader.
@@ -1312,6 +1458,7 @@ export function createArenaScene(initial, targetAssembly) {
         scene.background.setHex(enabled ? 0x0d1210 : 0x171915);
         scene.fog.color.setHex(enabled ? 0x0d1210 : 0x171915);
         scene.fog.density = enabled ? 0.0075 : 0.0125;
+        if (!enabled) setAnimationPreview('off');
         if (enabled) {
             pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;
             pilotWeaponRecoveryKick = 0; pilotRecoveryBurstPending = false;
@@ -1324,6 +1471,9 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function rebuildAssembly(assembly) {
+        restoreInspectionPose();
+        previewRecord=null;
+        previewAssembly=assembly;
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
         updateGarageFixtures(assembly);
@@ -1848,7 +1998,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, selectPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
@@ -2559,6 +2709,26 @@ export function buildExteriorRig(assembly) {
                 break;
             }
         }
+        if(slot==='combat'){
+            // Simple movable metalwork on the existing weapon assembly. This
+            // is NOT a second weapon/hit volume: each piece is physical mesh,
+            // tagged like the rest and participates in normal shot raycasts.
+            const carriage=new THREE.Group();
+            carriage.name='EXPOSED BOLT / RELOAD CARRIAGE';
+            group.add(carriage);
+            const b=def.id==='gun-short'?.35:def.id==='gun-scatter'?.42:.27;
+            const bolt=add(plate(b,.16,.35,m(brightSteel)),0,.31,.40);
+            carriage.add(bolt);
+            const track=add(plate(b*.45,.05,.56,m(steel)),0,.415,.35);
+            carriage.add(track);
+            let cassette=null;
+            if(def.id==='gun-scatter'){
+                cassette=add(plate(.43,.26,.31,m(0x8c6745)),0,-.31,.33);
+                carriage.add(cassette);
+            }
+            group.userData.weaponMechanism={carriage,bolt,cassette,
+                baseZ:carriage.position.z,baseY:carriage.position.y};
+        }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
     // their authored interface hardware; mass and compatibility remain graph data.
@@ -2567,10 +2737,14 @@ export function buildExteriorRig(assembly) {
         for (const [slot, group] of partGroups) {
             if (slot === 'structure')
                 continue;
-            hull.add(group);
-            const c = SLOT_CENTERS[slot];
-            const parent = SLOT_CENTERS.structure;
-            group.position.set(c[0] - parent[0], c[1] - parent[1], c[2] - parent[2]);
+            // The leg carriage is carried by the same physical body but is
+            // a sibling of the visual waist. Upper hull can twist without
+            // yawing every planted foot. Rest coordinates remain IDENTICAL.
+            const isLegs=slot==='mobility';
+            (isLegs?root:hull).add(group);
+            const c=SLOT_CENTERS[slot];
+            const parent=isLegs?[0,0,0]:SLOT_CENTERS.structure;
+            group.position.set(c[0]-parent[0],c[1]-parent[1],c[2]-parent[2]);
         }
     }
     return { root, partGroups, partMeshes, pickMeshes };

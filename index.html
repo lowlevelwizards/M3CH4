@@ -87,7 +87,8 @@
     "./audioWarmup.js": "./audioWarmup.js?v=k3w11",
     "./audioRoom.js": "./audioRoom.js?v=k3w11",
     "./liveSystemsAudio.js": "./liveSystemsAudio.js?v=k3w11",
-    "./liveSystemsEvents.js": "./liveSystemsEvents.js?v=k3w11",
+    "./liveSystemsEvents.js": "./liveSystemsEvents.js?v=k3w12",
+    "./articulationMotion.js": "./articulationMotion.js?v=k3w15",
     "./liveWeaponAudio.js": "./liveWeaponAudio.js?v=k3w11",
     "./audioBenchSynth.js": "./audioBenchSynth.js?v=k3w5",
     "./audioBenchStumpMaterials.js": "./audioBenchStumpMaterials.js?v=k3w5",
@@ -117,7 +118,7 @@
     "./faultSupport.js": "./faultSupport.js?v=k3p1",
     "./hostileRig.js": "./hostileRig.js?v=k3u7",
     "./locomotion.js": "./locomotion.js?v=k3v2",
-    "./scene.js": "./sceneAssembly.js?v=k3w1",
+    "./scene.js": "./sceneAssembly.js?v=k3w15",
     "./enemyMotion.js": "./enemyMotion.js?v=k3u7",
     "./tacticalAwareness.js": "./tacticalAwareness.js?v=k3u7",
     "./squadBattle.js": "./squadBattle.js?v=k3k0",
@@ -151,8 +152,9 @@
     <link rel="stylesheet" href="./audioBench.css?v=k3w5" />
     <link rel="stylesheet" href="./audioPressureForge.css?v=k3w6" />
     <link rel="stylesheet" href="./audioSystems.css?v=k3w8" />
+    <link rel="stylesheet" href="./articulationPreview.css?v=k3w15" />
     <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
-    <title>MECH ARENA — 0.0.1k.3w.11 — Soundscape Mix & Performance</title>
+    <title>MECH ARENA — 0.0.1k.3w.15 — Articulation Suite</title>
   </head>
   <body>
     <div id="game" aria-label="3D warehouse test rig"></div>
@@ -248,6 +250,16 @@
     <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
       <header>RIG DIAGNOSTICS <span id="dev-version"></span></header>
       <pre id="dev-readout"></pre>
+      <div class="animation-dev-controls" aria-label="garage articulation inspection">
+        <button id="animation-preview-toggle" type="button" aria-pressed="false">▶ ANIMATION LAB</button>
+        <select id="animation-preview-mode" aria-label="animation action">
+          <option value="walk">WALK / STEPS</option>
+          <option value="turn">TURN / AIM</option>
+          <option value="reload">WEAPON RELOAD</option>
+          <option value="disabled">DISABLED POSE</option>
+        </select>
+        <label class="animation-dev-speed">SPEED <input id="animation-preview-speed" type="range" min="0.5" max="6" step="0.5" value="3" aria-label="preview walking speed" /></label>
+      </div>
       <button id="audio-bench-open" type="button">♪ OPEN AUDIO TEST BENCH</button>
       <button id="pressure-forge-open" type="button">◉ PRESSURE FORGE · NEW</button>
       <button id="systems-sound-open" type="button">⚙ SYSTEMS SOUND LAB · 39 SOUNDS</button>
@@ -309,7 +321,7 @@
     </div>
 
     <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
-    <script type="module" src="./main.js?v=k3w11"></script>
+    <script type="module" src="./main.js?v=k3w15"></script>
     <script type="module" src="./garageMountUI.js?v=k3v6"></script>
     <script type="module" src="./audioBenchUI.js?v=k3w5"></script>
     <script type="module" src="./audioPressureForgeUI.js?v=k3w6"></script>

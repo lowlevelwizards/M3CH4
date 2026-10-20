@@ -101,6 +101,6 @@ test('live integration gives every AI actor service state and visibly sags a fau
   assert.match(main, /aiWeaponRecoveryDirective\(actor,\s*target\)/);
   assert.match(main, /advanceFieldService\(actor\.condition, actor\.fieldService, actor\.rig, FIXED_DT\)/);
   assert.match(main, /weaponFault: recovery\.active/);
-  assert.match(scene, /const weaponFault = !!visual\?\.weaponFault/);
-  assert.match(scene, /serviceSag/);
+  assert.match(scene, /record\.weaponFault=!!visual\?\.weaponFault/);
+  assert.match(scene, /const fault=record\.weaponFault\|\|record\.disabledSlots\.has\('combat'\)/);
 });
