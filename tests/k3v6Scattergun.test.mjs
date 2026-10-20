@@ -107,6 +107,6 @@ test('both player and AI share physical six-ray traces but only one ammo/recoil/
     assert.match(main,/registerPowerShot\(actor\.powerSystem, actor\.assembly\)/);
     assert.match(scene,/case 'gun-scatter'/);
     assert.match(scene,/weaponId==='gun-scatter'/);
-    assert.match(scene,/scatterGreebles\.visible=scatter/);
+    assert.match(scene,/cockpit\.userData\.scatterGreebles\.visible = scatter/);
     assert.match(audio,/export function soundScatter\(\)/);
 });

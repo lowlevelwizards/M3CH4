@@ -139,5 +139,5 @@ test('counter is only accessible from normal garage, and cannot bypass BO3 pit r
     const mount=code('garageMountUI.js'),html=code('index.html');
     assert.match(mount,/unifiedGarageUI\.js\?v=k3v6/);
     assert.match(mount,/stableUI\.js\?v=k3t0/);
-    assert.match(html,/sceneAssembly\.js\?v=k3v6/);
+    assert.match(html,/sceneAssembly\.js\?v=k3w1/);
 });

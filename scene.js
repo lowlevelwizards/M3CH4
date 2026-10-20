@@ -1426,7 +1426,7 @@ export function createArenaScene(initial, targetAssembly) {
         barrel.scale.x=scatter?2.40:1;
         barrel.scale.z=scatter?2.40:1;
         barrel.scale.y=scatter?.86:1;
-        scatterGreebles.visible=scatter;
+        cockpit.userData.scatterGreebles.visible = scatter;
     }
     function traceShot(spreadX, spreadY, muzzleZ) {
         camera.updateMatrixWorld();
@@ -2217,6 +2217,7 @@ function buildCockpit(scene) {
     gunPivot.add(scatterGreebles);
     cockpit.userData.gunBarrel = barrel;
     cockpit.userData.gunBreech = breech;
+    cockpit.userData.scatterGreebles = scatterGreebles; // pilot weapon switch owns this assembled kit
     cockpit.userData.flashMesh = flashMesh;
 
     const makeScreen = (name, width, height, x, y, z, rotationX = -.18) => {
