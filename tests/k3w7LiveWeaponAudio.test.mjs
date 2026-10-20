@@ -74,12 +74,12 @@ test('one source per actual shot, cache PCM and protect speaker with shared comp
   assert.equal(buffers,0,'must lazy-build only when shots are fired');
   const own=engine.play('gun-short',{cockpit:true,shotIndex:7});
   assert.equal(own.ok,true,own.reason);
-  assert.equal(own.reflectionCount,2);
+  assert.equal(own.reflectionCount,4);
   assert.equal(engine.cachedCount(),1);
   assert.equal(events.filter(x=>x[0]==='start'&&x[1]==='source').length,1);
   const near=engine.play('gun-short',{distance:3,shotIndex:8});
   const far=engine.play('gun-short',{distance:30,shotIndex:9});
-  assert.equal(near.reflectionCount,0);
+  assert.equal(near.reflectionCount,4);
   assert.ok(far.gain<near.gain);
   assert.ok(own.gain>near.gain);
   assert.notEqual(own.playbackRate,near.playbackRate);
@@ -103,9 +103,9 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/soundCombatImpact\(/);
   assert.match(main,/soundSystemEvent\(/);
   assert.match(main,/soundReload\(/);
-  assert.match(html,/\.\/audio\.js\?v=k3w10/);
-  assert.match(html,/\.\/liveWeaponAudio\.js\?v=k3w7/);
-  assert.match(html,/main\.js\?v=k3w10/);
-  assert.match(html,/0\.0\.1k\.3w\.10 — Live Systems Soundscape/);
+  assert.match(html,/\.\/audio\.js\?v=k3w11/);
+  assert.match(html,/\.\/liveWeaponAudio\.js\?v=k3w11/);
+  assert.match(html,/main\.js\?v=k3w11/);
+  assert.match(html,/0\.0\.1k\.3w\.11 — Soundscape Mix & Performance/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });

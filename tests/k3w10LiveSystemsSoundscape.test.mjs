@@ -83,7 +83,7 @@ test('production system player caches selected PCM, limits polyphony and provide
   assert.equal(player.bufferCount(),0,'no precalculation before audio unlock');
   const own=player.play('destruction',{cockpit:true,variant:2});
   assert.equal(own.ok,true,own.reason);
-  assert.equal(own.earlyReflections,2);
+  assert.equal(own.earlyReflections,4);
   const far=player.play('destruction',{distance:32,variant:2});
   assert.equal(far.earlyReflections,0);
   assert.ok(far.gain<own.gain);
@@ -116,9 +116,9 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.match(audio,/export function soundReload\(\)/);
   assert.doesNotMatch(main,/soundImpact\(|soundShield\(/);
   assert.doesNotMatch(main,/audioSystemsPresets|systems-sound-lab-v1/);
-  assert.match(html,/liveSystemsAudio\.js\?v=k3w10/);
-  assert.match(html,/liveSystemsEvents\.js\?v=k3w10/);
-  assert.match(html,/main\.js\?v=k3w10/);
-  assert.match(html,/audio\.js\?v=k3w10/);
-  assert.match(html,/0\.0\.1k\.3w\.10 — Live Systems Soundscape/);
+  assert.match(html,/liveSystemsAudio\.js\?v=k3w11/);
+  assert.match(html,/liveSystemsEvents\.js\?v=k3w11/);
+  assert.match(html,/main\.js\?v=k3w11/);
+  assert.match(html,/audio\.js\?v=k3w11/);
+  assert.match(html,/0\.0\.1k\.3w\.11 — Soundscape Mix & Performance/);
 });

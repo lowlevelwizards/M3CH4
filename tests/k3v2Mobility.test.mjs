@@ -119,9 +119,9 @@ test('there are no new slots/serial IDs and mobile controls still use existing m
     const read = file => fs.readFileSync(new URL(file,import.meta.url),'utf8');
     const html = read('../index.html'), controls = read('../controls.js');
     const main = read('../main.js'), scene = read('../scene.js');
-    assert.match(html,/0\.0\.1k\.3w\.10 — Live Systems Soundscape/);
-    assert.match(html,/main\.js\?v=k3w10/);
-    assert.match(html,/audio\.js\?v=k3w10/);
+    assert.match(html,/0\.0\.1k\.3w\.11 — Soundscape Mix & Performance/);
+    assert.match(html,/main\.js\?v=k3w11/);
+    assert.match(html,/audio\.js\?v=k3w11/);
     assert.match(controls,/this\.keyboard\.has\('Space'\)/);
     assert.match(html,/id="drive-zone"/);
     assert.match(html,/id="brake"/);

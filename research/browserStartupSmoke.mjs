@@ -243,7 +243,7 @@ try {
   });
   if(Object.values(liveShot).some(s=>!s.ok) ||
      !(liveShot.own.gain>liveShot.remote.gain) ||
-     liveShot.own.reflectionCount!==2 || liveShot.remote.reflectionCount!==0)
+     liveShot.own.reflectionCount!==4 || liveShot.remote.reflectionCount!==0)
     throw Error('Production weapon audio did not initialize correctly: '+JSON.stringify(liveShot));
   if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==forgeRaw)
     throw Error('Live weapon audio modified the audition presets');
@@ -317,26 +317,60 @@ try {
       {distance:16,slot:'mobility'});
     const failed=soundCombatImpact({justDestroyed:true,internalDamage:50},
       {distance:6,slot:'power'});
-    const local=soundSystemEvent('hauler',{cockpit:true,variant:0});
-    const distant=soundSystemEvent('hauler',{distance:30,variant:0});
+    const local=soundSystemEvent('part',{cockpit:true,variant:2});
+    const distant=soundSystemEvent('part',{distance:30,variant:2});
+    const localFoot=soundSystemEvent('hauler',{cockpit:true,variant:0});
+    const distantFoot=soundSystemEvent('hauler',{distance:30,variant:0});
     const charger=soundSystemEvent('recharge',{cockpit:true,variant:1});
     const engine=soundSystemEvent('engine',{cockpit:true,variant:0});
     const movement=createMotionSoundState();
     const events=[];
     for(let i=0;i<90;i++)events.push(...advanceMotionSound(movement,soundFamilyFor('legs-yard'),3,.02));
-    return {armor,breached,failed,local,distant,charger,engine,events};
+    return {armor,breached,failed,local,distant,localFoot,distantFoot,charger,engine,events};
   });
   if(soundscape.armor[0]?.id!=='glance' ||
      soundscape.breached[0]?.id!=='part' ||
      soundscape.failed[0]?.id!=='destruction'||
      !soundscape.local.ok||!soundscape.distant.ok||
      !(soundscape.local.gain>soundscape.distant.gain)||
-     soundscape.local.earlyReflections!==2||
+     soundscape.local.earlyReflections!==4||
      soundscape.distant.earlyReflections!==0||
+     !soundscape.localFoot.ok||!soundscape.distantFoot.skipped||
      !soundscape.charger.ok||!soundscape.engine.ok||
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
   console.log('LIVE SYSTEMS AUDIO: PASS · physical damage, attenuation, cabin reverb and walking');
+  const cachedPrep=await page.evaluate(async()=>{
+    const {warmupStatus,warmPCM}=await import('./audioWarmup.js');
+    const {renderSystemSound}=await import('./audioSystemsSynth.js');
+    // Poll in the SAME page execution world as the actual game's modules.
+    // Priority buffers should arrive early; optional late samples can continue
+    // warming without blocking the match or this acceptance check.
+    await new Promise((resolve,reject)=>{
+      const start=performance.now();
+      const poll=()=>{
+        const state=warmupStatus();
+        if(state.failed)return reject(Error('Audio worker failed'));
+        if(state.received>=20)return resolve();
+        if(performance.now()-start>18000)
+          return reject(Error('Priority audio sample preparation timed out'));
+        setTimeout(poll,120);
+      };
+      poll();
+    });
+    const status=warmupStatus();
+    const glance=warmPCM('system','glance',0);
+    const weapon=warmPCM('weapon','gun-cannon',0);
+    const workerBlasted=!!(glance?.pcm?.length>1000&&weapon?.pcm?.length>1000);
+    const src=renderSystemSound('glance',0,16000);
+    return {status,workerBlasted,glancePeak:Math.max(...src.slice(0,250)),
+      samples:src.length};
+  });
+  if(!cachedPrep.workerBlasted||cachedPrep.status.received<20||
+     cachedPrep.status.failed)
+    throw Error('Combat PCM was not prepared by the background worker: '+JSON.stringify(cachedPrep));
+  console.log('AUDIO PREWARM: PASS · worker delivered ',cachedPrep.status.received,' samples');
+
 
 
 

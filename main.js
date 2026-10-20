@@ -411,7 +411,9 @@ let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
 const movementSoundStates=new WeakMap();
 function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     const distance=local?0:Math.hypot(machineRig.x-rig.x,machineRig.z-rig.z);
-    if(!local&&distance>38)return;
+    // Near-field motors and steps only. Distant mechanical events should
+    // disappear beneath gunfire instead of filling the arena with static.
+    if(!local&&distance>17)return;
     let acoustic=movementSoundStates.get(machineRig);
     if(!acoustic){acoustic=createMotionSoundState();movementSoundStates.set(machineRig,acoustic);}
     const family=soundFamilyFor(installedPart(machineAssembly,'mobility')?.definition.id);
@@ -419,8 +421,11 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     const events=advanceMotionSound(acoustic,family,speed,dt);
     for(const id of events) {
         const idle=id==='engine'&&speed<.65;
-        // A running motor is heard beneath the footsteps, not on top of them.
-        const strength=id==='engine'?(idle?.19:.29):id==='hydraulics'?.30:local?.72:.62;
+        if(!local&&id==='engine'&&distance>9)continue;
+        // Reduce simultaneous machinery. Local footfalls still communicate
+        // mass; other mechs are an acoustic background, not five co-pilots.
+        const strength=id==='engine'?(local?(idle?.13:.20):.12)
+            :id==='hydraulics'?(local?.20:.10):(local?.66:.30);
         soundSystemEvent(id,{variant:id==='engine'?0:acoustic.hydraulicStep%3,
             distance,cockpit:local,strength});
     }
@@ -2349,7 +2354,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
             renderTarget();
         }
         if(audible)soundCombatImpact(visualHit,{slot:contact.slot,
-            shielded:!!shieldImpactLabel(contact),
+            shielded:!!shieldImpactLabel(contact),focus:true,
             distance:Math.hypot(targetActor.rig.x-rig.x,targetActor.rig.z-rig.z)});
         recoilFlash = .19;
         const shieldText = showVerifiedShieldReadout(contact);

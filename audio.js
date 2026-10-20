@@ -1,19 +1,33 @@
 import { makeLiveWeaponAudio } from './liveWeaponAudio.js';
 import { makeLiveSystemsAudio } from './liveSystemsAudio.js';
 import { hitSoundPlan } from './liveSystemsEvents.js';
+import { beginAudioWarmup } from './audioWarmup.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
+let userActivated = false;
 function context() {
+    // NEVER attempt to start iOS WebAudio from the physics loop. An early
+    // resume() outside a gesture may stay pending for seconds and interfere
+    // with the later, legitimate unlock. Return null until a real input.
+    if (!userActivated) return null;
     try {
-        if (!audio)
-            audio = new AudioContext();
-        if (audio.state === 'suspended')
-            void audio.resume();
+        if (!audio) audio = new AudioContext();
         return audio;
-    }
-    catch {
-        return null;
-    }
+    } catch { return null; }
+}
+function unlockAudio() {
+    userActivated = true;
+    const ctx = context();
+    // Must be invoked INSIDE each trusted interaction; repeating it on
+    // later taps also recovers audio after Safari backgrounds the page.
+    if (ctx?.state === 'suspended') void ctx.resume().catch(() => {});
+}
+// Prepare PCM off-thread immediately. Never create or run an AudioContext
+// from this background path. Only a user gesture unlocks actual playback.
+if (typeof document !== 'undefined') {
+    beginAudioWarmup();
+    document.addEventListener('pointerdown',unlockAudio,{capture:true});
+    document.addEventListener('keydown',unlockAudio,{capture:true});
 }
 function tone(frequency, endFrequency, duration, volume, kind) {
     const ctx = context();
@@ -88,7 +102,7 @@ export function soundCombatImpact(hit,options={}) {
     const plan=hitSoundPlan(hit,{...options,ordinal:soundOrdinal});
     for(const entry of plan)systemsBus.play(entry.id,{
         variant:entry.variant,distance:options.distance??0,
-        cockpit:!!options.cockpit,strength:entry.strength,
+        cockpit:!!options.cockpit,focus:!!options.focus,strength:entry.strength,
     });
     return plan;
 }

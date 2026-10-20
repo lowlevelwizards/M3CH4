@@ -1,4 +1,4 @@
-/** k.3w.9 / Audition-only industrial systems and damage sound library.
+/** k.3w.11 / Industrial systems materials for auditions and live combat.
  * No remote samples and no runtime combat changes. Each category has its own
  * physically motivated envelope/event arrangement, NOT one pitched formula.
  */
@@ -75,11 +75,18 @@ export function renderSystemSound(id,variant=0,sampleRate=44100){
     let x=0;
     switch(id){
     case 'glance':
-      // Clink has a fleeting steel resonance. None is a long steel drum.
-      x=.22*weight*pulse(t,0,133,.040)
-        +.22*edge*metal(t,.003,variant===1?950:variant===2?515:730,variant===1?.082:.044)
-        +.20*sharp*exp(t,0,.012)
-        +(variant===2?.086*middle*exp(t,.026,.11):.035*rasp*exp(t,.035,.023));
+      // An armor deflection is a HARD, broadband surface contact, not
+      // a pitched bell / handpan. The two live variants have a dry, very
+      // short metallic click with distinct low shell weight and grit.
+      // C stays a soft skid for optional penetration/ricochet texture.
+      x=variant===2
+        ?(.15*low*exp(t,0,.048)+.16*sharp*exp(t,0,.012)
+          +.13*middle*exp(t,.025,.11))
+        :(.36*low*exp(t,0,variant===0?.078:.044)
+          +.32*rasp*exp(t,0,variant===0?.014:.009)
+          +.30*sharp*exp(t,.002,variant===0?.008:.014)
+          +.15*middle*exp(t,.015,variant===0?.029:.050)
+          +.10*low*exp(t,.054,.044));
       break;
     case 'armor':
       x=.38*weight*pulse(t,0,96,.090)+.23*sharp*exp(t,0,.017)

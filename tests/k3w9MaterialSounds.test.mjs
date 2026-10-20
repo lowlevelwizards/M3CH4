@@ -9,17 +9,17 @@ const source=readFileSync(new URL('../audioSystemsSynth.js',import.meta.url),'ut
 const energy=a=>a.reduce((n,v)=>n+v*v,0)/a.length;
 const intervalEnergy=(a,sr,from,to)=>energy(a.slice(Math.floor(from*sr),Math.floor(to*sr)));
 const section=(a,b)=>source.slice(source.indexOf("case '"+a+"'"),source.indexOf("case '"+b+"'"));
-test('handpan modal synthesis is retained only for approved armor-deflection glances',()=>{
-  assert.equal((source.match(/metal\(t,/g)??[]).length,1,
+test('handpan modal synthesis is no longer used even for armor glances',()=>{
+  assert.equal((source.match(/metal\(t,/g)??[]).length,0,
     'after shared modal declaration only one call remains, within glance');
-  assert.match(section('glance','armor'),/metal\(t,/);
+  assert.doesNotMatch(section('glance','armor'),/metal\(t,/);
   for(const [a,b] of [['part','destruction'],['recharge','engine'],['hydraulics','yardwalker'],
     ['kestrel','hauler']]){
     assert.doesNotMatch(section(a,b),/metal\(t,/,'no pitched steel drum in '+a);
   }
   const reload=source.slice(source.indexOf("case 'reload':"),source.indexOf('// Limit peaks'));
   assert.doesNotMatch(reload,/metal\(t,/,'no metal handpan in reload');
-  assert.match(section('glance','armor'),/\.086\*middle/,'the background skidding scrape is quieter');
+  assert.match(section('glance','armor'),/\.13\*middle/,'the background skidding scrape remains subdued');
   assert.match(SYSTEM_SOUNDS.find(x=>x.id==='glance').variants[2],/Quiet/);
 });
 test('low body sound family is valid and no longer uses identical ringing contacts',()=>{
@@ -61,9 +61,9 @@ test('approved sounds and per-event choices remain present and game audio untouc
   assert.equal(SYSTEMS_SOUND_KEY,'m3ch4-systems-sound-lab-v1');
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
-  assert.match(html,/audioSystemsSynth\.js\?v=k3w9/);
+  assert.match(html,/audioSystemsSynth\.js\?v=k3w11/);
   assert.match(html,/audioSystemsUI\.js\?v=k3w9/);
-  assert.match(html,/0\.0\.1k\.3w\.10 — Live Systems Soundscape/);
+  assert.match(html,/0\.0\.1k\.3w\.11 — Soundscape Mix & Performance/);
   assert.doesNotMatch(main,/audioSystemsUI/);
   assert.match(main,/soundCombatImpact\(/);
   assert.match(main,/soundWeaponShot\(weaponSpec\.id/);
