@@ -317,14 +317,16 @@ try {
       {distance:16,slot:'mobility'});
     const failed=soundCombatImpact({justDestroyed:true,internalDamage:50},
       {distance:6,slot:'power'});
-    const local=soundSystemEvent('hauler',{cockpit:true,variant:0});
-    const distant=soundSystemEvent('hauler',{distance:30,variant:0});
+    const local=soundSystemEvent('part',{cockpit:true,variant:2});
+    const distant=soundSystemEvent('part',{distance:30,variant:2});
+    const localFoot=soundSystemEvent('hauler',{cockpit:true,variant:0});
+    const distantFoot=soundSystemEvent('hauler',{distance:30,variant:0});
     const charger=soundSystemEvent('recharge',{cockpit:true,variant:1});
     const engine=soundSystemEvent('engine',{cockpit:true,variant:0});
     const movement=createMotionSoundState();
     const events=[];
     for(let i=0;i<90;i++)events.push(...advanceMotionSound(movement,soundFamilyFor('legs-yard'),3,.02));
-    return {armor,breached,failed,local,distant,charger,engine,events};
+    return {armor,breached,failed,local,distant,localFoot,distantFoot,charger,engine,events};
   });
   if(soundscape.armor[0]?.id!=='glance' ||
      soundscape.breached[0]?.id!=='part' ||
@@ -333,6 +335,7 @@ try {
      !(soundscape.local.gain>soundscape.distant.gain)||
      soundscape.local.earlyReflections!==4||
      soundscape.distant.earlyReflections!==0||
+     !soundscape.localFoot.ok||!soundscape.distantFoot.skipped||
      !soundscape.charger.ok||!soundscape.engine.ok||
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
