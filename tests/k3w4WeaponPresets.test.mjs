@@ -122,10 +122,10 @@ test('UI wiring scopes saved presets to bench and leaves combat audio untouched'
   assert.match(ui,/remember\(\{mix:\{\[key\]:Number\(input\.value\)\}\}\)/);
   assert.match(ui,/formatAllBenchRecipes\(presets\)/);
   assert.match(ui,/audio-bench-export/);
-  assert.match(html,/audioBenchUI\.js\?v=k3w4/);
+  assert.match(html,/audioBenchUI\.js\?v=k3w5/);
   assert.match(html,/audioBenchPresets\.js\?v=k3w4/);
-  assert.match(html,/audioBenchSynth\.js\?v=k3w4/);
-  assert.match(html,/audioBench\.css\?v=k3w4/);
+  assert.match(html,/audioBenchSynth\.js\?v=k3w5/);
+  assert.match(html,/audioBench\.css\?v=k3w5/);
   assert.doesNotMatch(ui,/clearMachineSave|storeMachine|mech-arena-machine-v8/);
   assert.doesNotMatch(main,/audioBenchPresets/);
 });

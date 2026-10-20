@@ -1,3 +1,4 @@
+import { renderStumpExperiment } from './audioBenchStumpMaterials.js';
 /** k.3w.4 / Distinct industrial weapon sound architectures.
  * Audition-only: live weapon gameplay/audio stays unchanged until approved.
  * Browser Web Audio only: no downloads or recorded samples.
@@ -42,6 +43,7 @@ export function benchRecipe(weaponId='gun-cannon',variationId='A',mix={}){
 export function makeBenchAudioEngine(){
   let ctx=null,noise=null,master=null;
   const active=new Set();
+  const stumpBuffers=new Map();
   let unavailable=false;
   const context=()=>{
     if(ctx)return ctx;
@@ -169,5 +171,35 @@ export function makeBenchAudioEngine(){
       return {ok:true,recipe:r,state:live.state};
     }catch(error){stop();return {ok:false,reason:String(error?.message||error)};}
   };
-  return {play,stop,getState:()=>unavailable?'unavailable':ctx?.state??'locked'};
+  /** Material PCM uses the SAME tapped AudioContext, limiter and stop path
+   * as the saved-reference shot. It never touches the per-weapon A/B/C presets.
+   */
+  const playStumpExperiment=(kind)=>{
+    try{
+      const live=context();
+      if(!live)return {ok:false,reason:'WEB AUDIO NOT AVAILABLE'};
+      if(live.state==='suspended')void live.resume().catch(()=>{});
+      let buffer=stumpBuffers.get(kind);
+      if(!buffer){
+        const samples=renderStumpExperiment(kind,live.sampleRate);
+        buffer=live.createBuffer(1,samples.length,live.sampleRate);
+        buffer.getChannelData(0).set(samples);
+        stumpBuffers.set(kind,buffer);
+      }
+      stop();
+      const source=live.createBufferSource();
+      source.buffer=buffer;
+      source.connect(master);
+      active.add(source);
+      source.onended=()=>{active.delete(source);try{source.disconnect();}catch{}};
+      const t=live.currentTime+.014;
+      source.start(t);
+      source.stop(t+buffer.duration+.005);
+      return {ok:true,kind,state:live.state};
+    }catch(error){
+      stop();
+      return {ok:false,reason:String(error?.message||error)};
+    }
+  };
+  return {play,playStumpExperiment,stop,getState:()=>unavailable?'unavailable':ctx?.state??'locked'};
 }

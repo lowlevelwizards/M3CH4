@@ -1,3 +1,4 @@
+import { STUMP_EXPERIMENTS } from './audioBenchStumpMaterials.js';
 /** k.3w.4 / Saved independent auditions, still isolated from combat. */
 import { BENCH_WEAPONS, BENCH_VARIATIONS, makeBenchAudioEngine } from './audioBenchSynth.js';
 import { readBenchPresets, saveBenchPresets, updateBenchPreset, formatAllBenchRecipes } from './audioBenchPresets.js';
@@ -134,7 +135,42 @@ if(opener) {
   status.id='audio-bench-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   right.append(actions,status,exportBox);
   columns.append(left,right);
-  work.append(mast,info,columns);
+  // Separate material-synthesis experiment: never overwrites saved A/B/C
+  // or per-weapon slider mixes, and never becomes a combat sound by default.
+  const stumpLab=el('section','audio-stump-experiment hidden');
+  stumpLab.id='audio-stump-experiment';
+  const title=el('div','audio-lab-section-label','03 / STUMP MATERIAL STUDY · UNSAVED EXPERIMENT');
+  const note=el('p','audio-lab-note',
+    'Listen beside your SAVED Stump A/B/C. These are three NEW constructions, not replacement presets. No whistles, no combat integration.');
+  const options=el('div','audio-stump-options');
+  const reference=button('REFERENCE · SAVED STUMP',()=>{
+    const saved=presets.weapons['gun-short'];
+    const result=engine.play('gun-short',saved.variation,saved.mix);
+    report(result.ok?'SAVED STUMP '+saved.variation+' · REFERENCE':'AUDIO UNAVAILABLE · '+result.reason,'reference');
+  },'audio-stump-reference');
+  reference.dataset.experiment='reference';
+  options.append(reference);
+  for(const item of STUMP_EXPERIMENTS){
+    const control=button(item.label,()=>{
+      const result=engine.playStumpExperiment(item.id);
+      report(result.ok?'EXPERIMENT '+item.label+' · TRIGGERED':'EXPERIMENT ERROR · '+result.reason,item.id);
+    },'audio-stump-choice');
+    control.dataset.experiment=item.id;
+    control.title=item.detail;
+    options.append(control);
+  }
+  const description=el('div','audio-stump-experiment-description',
+    'A: pressure blast / B: struck steel / C: pressure + iron recoil. Start at low volume.');
+  const experimentStatus=el('div','audio-lab-status','READY FOR MATERIAL COMPARISON');
+  experimentStatus.id='audio-stump-experiment-status';
+  experimentStatus.setAttribute('role','status');
+  function report(message,mode){
+    stumpLab.dataset.lastExperiment=mode;
+    experimentStatus.textContent=message;
+    updateStatus(message);
+  }
+  stumpLab.append(title,note,options,description,experimentStatus);
+  work.append(mast,info,columns,stumpLab);
   root.append(work);
   document.body.append(root);
 
@@ -142,6 +178,7 @@ if(opener) {
   function showSelection() {
     const current=BENCH_WEAPONS.find(x=>x.id===weaponId);
     identity.textContent=current.label+' · '+current.identity;
+    stumpLab.classList.toggle('hidden',weaponId!=='gun-short');
     for(const key of ['body','metal','action']) {
       const row=sliderRows.get(key);
       row.input.value=String(mix[key]);row.value.textContent=String(mix[key]);
