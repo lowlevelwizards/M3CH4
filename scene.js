@@ -962,6 +962,8 @@ export function createArenaScene(initial, targetAssembly) {
         record.recoilKick = 0;
         if (record.articulation) {
             record.articulation.phase = 0;
+            record.articulation.weight = 0;
+            record.articulation.aim={waist:0,gun:0,elevation:0};
             for (const joint of record.articulation.joints) joint.object.rotation.copy(joint.base);
         }
         record.disabledSlots.clear();
@@ -1188,6 +1190,13 @@ export function createArenaScene(initial, targetAssembly) {
         gunPivot.rotation.set(lookPitch * .85 + muzzleKick * .042 + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + muzzleKick * .19;
+        // Actual reload timer drives the pilot-visible breech. A moving
+        // mechanism is shown even though the audio recipe stays unchanged.
+        const reload=reloadArticulation(serviceVisual?.reloadLeft??0,
+            serviceVisual?.reloadSeconds??0,pilotWeaponPresentation.id);
+        cockpit.userData.gunBreech.position.z=-.19+reload.slide;
+        cockpit.userData.gunBreech.position.y=reload.bolt*.24;
+        cockpit.userData.scatterGreebles.position.y=-reload.cassette;
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12);
         cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
