@@ -248,6 +248,65 @@ try {
   if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==forgeRaw)
     throw Error('Live weapon audio modified the audition presets');
   console.log('LIVE WEAPON SOUNDS: PASS · all four, cockpit reflections and remote attenuation');
+  // k3w8: navigate a compact category lab without disturbing live combat
+  // audio, garage save, or the existing user's Pressure Forge selections.
+  await page.locator('#pressure-forge .forge-close').click({timeout:12000});
+  const oldForge=await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1'));
+  await page.locator('#systems-sound-open').click({timeout:12000});
+  await page.locator('#systems-sound-lab').waitFor({state:'visible'});
+  const soundFit=await page.evaluate(()=>{
+    const work=document.querySelector('.systems-lab-work');
+    const list=document.querySelector('.systems-lab-list');
+    const foot=document.querySelector('.systems-lab-footer').getBoundingClientRect();
+    const a=work.getBoundingClientRect();
+    return {width:innerWidth,height:innerHeight,left:a.left,top:a.top,right:a.right,bottom:a.bottom,
+      footerBottom:foot.bottom,scrollHeight:work.scrollHeight,clientHeight:work.clientHeight,
+      listScrollable:list.scrollHeight>=list.clientHeight};
+  });
+  console.log('SYSTEMS SOUND FIT:',JSON.stringify(soundFit));
+  if(soundFit.left<0||soundFit.top<0||soundFit.right>soundFit.width||
+     soundFit.bottom>soundFit.height||soundFit.footerBottom>soundFit.bottom||
+     soundFit.scrollHeight>soundFit.clientHeight+2)
+    throw Error('Systems Sound Lab clipped outside iPhone landscape viewport');
+  await page.locator('#systems-sound-lab [data-sound="glance"] [data-variant="1"]').click();
+  if(!(await page.locator('#systems-sound-status').textContent()).includes('ARMOR GLANCE / B'))
+    throw Error('Metallic deflection did not audition');
+  await page.locator('#systems-sound-lab [data-sound="destruction"] [data-variant="2"]').click();
+  await page.locator('#systems-sound-lab [data-group="electrical"]').click();
+  await page.locator('#systems-sound-lab [data-sound="sparks"] [data-variant="1"]').click();
+  await page.locator('#systems-sound-lab [data-sound="recharge"] [data-variant="2"]').click();
+  await page.locator('#systems-sound-lab [data-group="machinery"]').click();
+  for(const id of ['engine','hydraulics','yardwalker','kestrel','hauler','reload']){
+    await page.locator('#systems-sound-lab [data-sound="'+id+'"] [data-variant="2"]').click();
+    if(!(await page.locator('#systems-sound-status').textContent()).includes(' / C'))
+      throw Error('Machine sound '+id+' did not audition');
+  }
+  await page.locator('#systems-sound-lab .systems-lab-copy').click();
+  const soundChoices=await page.locator('#systems-sound-export').inputValue();
+  if((soundChoices.match(/ \[/g)||[]).length!==13||
+     !soundChoices.includes('HAULER H2 FOOTFALL [hauler] | C')||
+     !soundChoices.includes('ARMOR GLANCE [glance] | B'))
+    throw Error('Missing systems effect choices in export');
+  const soundSave=await page.evaluate(()=>localStorage.getItem('m3ch4-systems-sound-lab-v1'));
+  if(!soundSave||JSON.parse(soundSave).choices.hauler!==2)
+    throw Error('Systems choices did not persist');
+  await page.locator('.systems-lab-export-close').click();
+  await page.screenshot({path:output+'/systems-audio-iphone-landscape.png'});
+  await page.locator('#systems-sound-lab .systems-lab-close').click();
+  if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==oldForge)
+    throw Error('Systems audio changed existing weapon Forge');
+  await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  await page.locator('#dev-toggle').click();
+  await page.locator('#systems-sound-open').click();
+  await page.locator('#systems-sound-lab [data-group="machinery"]').click();
+  if((await page.locator('#systems-sound-lab [data-sound="hauler"] [data-variant="2"]').
+      getAttribute('aria-pressed'))!=='true')
+    throw Error('Hauler sound choice lost after reload');
+  if((await page.evaluate(()=>localStorage.getItem('m3ch4-pressure-forge-v1')))!==oldForge)
+    throw Error('Existing weapon Forge changed across Systems Lab reload');
+  console.log('SYSTEMS SOUND LAB: PASS · 39 examples, three pages, save/export, landscape');
+
 
 
 

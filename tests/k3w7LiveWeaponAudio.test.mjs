@@ -105,6 +105,6 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(html,/\.\/audio\.js\?v=k3w7/);
   assert.match(html,/\.\/liveWeaponAudio\.js\?v=k3w7/);
   assert.match(html,/main\.js\?v=k3w7/);
-  assert.match(html,/0\.0\.1k\.3w\.7 — Live Weapon Sound/);
+  assert.match(html,/0\.0\.1k\.3w\.8 — Systems Sound Lab/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });
