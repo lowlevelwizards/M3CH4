@@ -1,13 +1,22 @@
-/** k.3w.3 / Developer-only sound audition.
- * No production sound decisions or persistent user data are touched.
- */
-import { BENCH_WEAPONS, BENCH_VARIATIONS, benchRecipe, makeBenchAudioEngine } from './audioBenchSynth.js';
+/** k.3w.4 / Saved independent auditions, still isolated from combat. */
+import { BENCH_WEAPONS, BENCH_VARIATIONS, makeBenchAudioEngine } from './audioBenchSynth.js';
+import { readBenchPresets, saveBenchPresets, updateBenchPreset, formatAllBenchRecipes } from './audioBenchPresets.js';
 
 const opener=document.querySelector('#audio-bench-open');
 if(opener) {
   const engine=makeBenchAudioEngine();
-  const mix={body:50,metal:50,action:50};
-  let weaponId='gun-cannon', variationId='A';
+  const storage=(()=>{try{return window.localStorage;}catch{return null;}})();
+  let presets=readBenchPresets(storage);
+  let weaponId='gun-cannon';
+  let variationId=presets.weapons[weaponId].variation;
+  let mix=presets.weapons[weaponId].mix;
+  const persist=()=>saveBenchPresets(storage,presets);
+  function remember(updates) {
+    presets=updateBenchPreset(presets,weaponId,updates);
+    variationId=presets.weapons[weaponId].variation;
+    mix=presets.weapons[weaponId].mix;
+    return persist();
+  }
   const el=(tag,className='',label='')=>{
     const node=document.createElement(tag);
     if(className)node.className=className;
@@ -39,7 +48,12 @@ if(opener) {
   const choices=el('div','audio-lab-choices');
   const weaponButtons=new Map();
   for(const item of BENCH_WEAPONS) {
-    const node=button(item.label,()=>{weaponId=item.id;showSelection();},'audio-lab-weapon');
+    const node=button(item.label,()=>{
+      weaponId=item.id;
+      variationId=presets.weapons[weaponId].variation;
+      mix=presets.weapons[weaponId].mix;
+      showSelection();
+    },'audio-lab-weapon');
     node.dataset.weapon=item.id;
     weaponButtons.set(item.id,node);
     choices.append(node);
@@ -52,7 +66,7 @@ if(opener) {
   const variantButtons=new Map();
   for(const item of BENCH_VARIATIONS) {
     const node=button(item.id+' · '+item.label,()=>{
-      variationId=item.id;showSelection();playSelected();
+      variationId=item.id;remember({variation:item.id});showSelection();playSelected();
     },'audio-lab-variant');
     node.dataset.variation=item.id;
     node.setAttribute('aria-label','Play version '+item.id+' '+item.label);
@@ -77,9 +91,9 @@ if(opener) {
     input.setAttribute('aria-label',label+' level');
     const value=el('output','',String(mix[key]));
     input.addEventListener('input',()=>{
-      mix[key]=Number(input.value);
+      const saved=remember({mix:{[key]:Number(input.value)}});
       value.textContent=String(mix[key]);
-      updateStatus('MIX ADJUSTED · TAP REPLAY');
+      updateStatus(saved?'SAVED '+weaponId+' · TAP REPLAY':'SESSION ONLY · STORAGE UNAVAILABLE');
     });
     group.append(caption,input,value);
     controls.append(group);
@@ -93,27 +107,32 @@ if(opener) {
     engine.stop();updateStatus('STOPPED');
   },'audio-lab-stop');
   const reset=button('RESET MIX',()=>{
-    for(const key of Object.keys(mix)) {
-      mix[key]=50;
-      const row=sliderRows.get(key);row.input.value='50';row.value.textContent='50';
-    }
-    updateStatus('DEFAULT MIX · TAP REPLAY');
+    const saved=remember({mix:{body:50,metal:50,action:50}});
+    showSelection();
+    updateStatus(saved?'RESET THIS WEAPON · SAVED':'RESET THIS WEAPON · SESSION ONLY');
   },'audio-lab-reset');
-  const copy=button('COPY RECIPE',()=>{
-    const recipe=benchRecipe(weaponId,variationId,mix);
-    const description='M3CH4 SOUND / '+recipe.weapon.label+' / '+recipe.variationId+
-      ' / '+recipe.variation.label+' / BODY '+mix.body+' METAL '+mix.metal+' ACTION '+mix.action;
+  const copy=button('COPY ALL FOUR RECIPES',()=>{
+    const description=formatAllBenchRecipes(presets);
+    exportBox.value=description;
+    exportBox.classList.remove('hidden');
     if(navigator.clipboard?.writeText) {
       void navigator.clipboard.writeText(description).then(
-        ()=>updateStatus('RECIPE COPIED · SEND IT IN CHAT'),
-        ()=>updateStatus(description)
+        ()=>updateStatus('ALL FOUR RECIPES COPIED · PASTE IN CHAT'),
+        ()=>{exportBox.focus();exportBox.select();updateStatus('COPY THE SELECTED TEXT BELOW · CLIPBOARD BLOCKED');}
       );
-    }else updateStatus(description);
+    }else {
+      exportBox.focus();exportBox.select();
+      updateStatus('COPY THE SELECTED TEXT BELOW · CLIPBOARD UNAVAILABLE');
+    }
   },'audio-lab-copy');
   actions.append(replay,stop,reset,copy);
   const status=el('div','audio-lab-status','TAP A VERSION TO AUDITION');
+  const exportBox=el('textarea','audio-lab-export hidden');
+  exportBox.id='audio-bench-export';
+  exportBox.readOnly=true;
+  exportBox.setAttribute('aria-label','All four saved weapon recipes');
   status.id='audio-bench-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
-  right.append(actions,status);
+  right.append(actions,status,exportBox);
   columns.append(left,right);
   work.append(mast,info,columns);
   root.append(work);
@@ -123,17 +142,23 @@ if(opener) {
   function showSelection() {
     const current=BENCH_WEAPONS.find(x=>x.id===weaponId);
     identity.textContent=current.label+' · '+current.identity;
+    for(const key of ['body','metal','action']) {
+      const row=sliderRows.get(key);
+      row.input.value=String(mix[key]);row.value.textContent=String(mix[key]);
+    }
     for(const [id,node] of weaponButtons) {
       const selected=id===weaponId;
       node.classList.toggle('selected',selected);
       node.setAttribute('aria-pressed',String(selected));
+      const item=BENCH_WEAPONS.find(w=>w.id===id);
+      node.textContent=item.label+' · '+presets.weapons[id].variation;
     }
     for(const [id,node] of variantButtons) {
       const selected=id===variationId;
       node.classList.toggle('selected',selected);
       node.setAttribute('aria-pressed',String(selected));
     }
-    updateStatus('READY · '+current.label+' / '+variationId+' · TAP TO PLAY');
+    updateStatus('READY · '+current.label+' / '+variationId+' · SAVED PER WEAPON');
   }
   function playSelected() {
     const result=engine.play(weaponId,variationId,mix);
