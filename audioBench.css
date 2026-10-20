@@ -47,3 +47,18 @@
 
 /* k.3w.4: expandable text fallback when iOS denies clipboard access. */
 .audio-lab-export{display:block;box-sizing:border-box;width:100%;min-height:105px;max-height:32dvh;resize:vertical;overflow:auto;border:1px solid #8b7756;border-radius:3px;background:#0a100d;color:#f1d6a3;padding:9px;font:10px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;touch-action:pan-y;-webkit-user-select:text;user-select:text}
+
+/* k.3w.5: explicitly separate unsaved material studies from saved presets. */
+.audio-stump-experiment{display:flex;flex-direction:column;gap:7px;border-top:1px dashed #aa8750;padding-top:9px}
+.audio-stump-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.audio-stump-options button{min-height:43px;white-space:normal;padding:8px 5px;border:1px solid #927348;background:#1b221c;color:#ebd3a2;border-radius:3px;font:800 10px/1.25 ui-monospace,SFMono-Regular,monospace;touch-action:manipulation;cursor:pointer}
+.audio-stump-options .audio-stump-reference{background:#213d31;border-color:#94b198;color:#e2f1dc}
+.audio-stump-experiment-description{font:10px/1.45 ui-monospace,monospace;color:#b6b6a3}
+@media(max-width:720px),(max-height:340px){
+  .audio-stump-options button{min-height:35px;font-size:8px;padding:5px 3px}
+  .audio-stump-experiment{gap:5px;padding-top:6px}
+  .audio-stump-experiment-description{font-size:8px}
+}
+@media (max-width:480px) and (orientation:portrait){
+  .audio-stump-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
