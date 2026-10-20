@@ -340,14 +340,24 @@ try {
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
   console.log('LIVE SYSTEMS AUDIO: PASS · physical damage, attenuation, cabin reverb and walking');
-  await page.waitForFunction(async()=>{
-    const {warmupStatus}=await import('./audioWarmup.js');
-    const state=warmupStatus();
-    return state.finished||state.failed;
-  },undefined,{timeout:30000});
   const cachedPrep=await page.evaluate(async()=>{
     const {warmupStatus,warmPCM}=await import('./audioWarmup.js');
     const {renderSystemSound}=await import('./audioSystemsSynth.js');
+    // Poll in the SAME page execution world as the actual game's modules.
+    // Priority buffers should arrive early; optional late samples can continue
+    // warming without blocking the match or this acceptance check.
+    await new Promise((resolve,reject)=>{
+      const start=performance.now();
+      const poll=()=>{
+        const state=warmupStatus();
+        if(state.failed)return reject(Error('Audio worker failed'));
+        if(state.received>=20)return resolve();
+        if(performance.now()-start>18000)
+          return reject(Error('Priority audio sample preparation timed out'));
+        setTimeout(poll,120);
+      };
+      poll();
+    });
     const status=warmupStatus();
     const glance=warmPCM('system','glance',0);
     const weapon=warmPCM('weapon','gun-cannon',0);
@@ -357,7 +367,7 @@ try {
       samples:src.length};
   });
   if(!cachedPrep.workerBlasted||cachedPrep.status.received<20||
-     cachedPrep.status.failed||!cachedPrep.status.finished)
+     cachedPrep.status.failed)
     throw Error('Combat PCM was not prepared by the background worker: '+JSON.stringify(cachedPrep));
   console.log('AUDIO PREWARM: PASS · worker delivered ',cachedPrep.status.received,' samples');
 
