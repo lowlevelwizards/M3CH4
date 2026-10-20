@@ -1,19 +1,29 @@
 import { makeLiveWeaponAudio } from './liveWeaponAudio.js';
 import { makeLiveSystemsAudio } from './liveSystemsAudio.js';
 import { hitSoundPlan } from './liveSystemsEvents.js';
+import { beginAudioWarmup } from './audioWarmup.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
+let resumePending = null;
 function context() {
     try {
         if (!audio)
             audio = new AudioContext();
-        if (audio.state === 'suspended')
-            void audio.resume();
+        if (audio.state === 'suspended' && !resumePending)
+            resumePending = audio.resume().catch(() => {}).finally(() => { resumePending = null; });
         return audio;
     }
     catch {
         return null;
     }
+}
+// Start CPU-heavy PCM preparation in a background worker long before the
+// first round. Only a real touch/keyboard event unlocks browser WebAudio;
+// the audio context itself is not created by this background process.
+if(typeof document!=='undefined'){
+    beginAudioWarmup();
+    document.addEventListener('pointerdown',() => { context(); },{capture:true,once:true});
+    document.addEventListener('keydown',() => { context(); },{capture:true,once:true});
 }
 function tone(frequency, endFrequency, duration, volume, kind) {
     const ctx = context();
@@ -88,7 +98,7 @@ export function soundCombatImpact(hit,options={}) {
     const plan=hitSoundPlan(hit,{...options,ordinal:soundOrdinal});
     for(const entry of plan)systemsBus.play(entry.id,{
         variant:entry.variant,distance:options.distance??0,
-        cockpit:!!options.cockpit,strength:entry.strength,
+        cockpit:!!options.cockpit,focus:!!options.focus,strength:entry.strength,
     });
     return plan;
 }
