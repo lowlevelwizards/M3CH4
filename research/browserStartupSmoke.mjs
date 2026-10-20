@@ -94,12 +94,47 @@ try {
   console.log('SOUND LAB:', benchRecipe, benchStatus);
   if (!benchStatus.includes('TRIGGERED') || !benchStatus.includes('S-6 SCATTERGUN / B'))
     throw Error('DEV Audio Lab did not trigger a WebAudio audition');
+  // Stage 1b: each weapon's mix/variation persists independently. Export all
+  // four, then reload the real page and verify it restores them.
+  await page.locator('#audio-bench [name="audio-body"]').fill('25');
+  await page.locator('#audio-bench [name="audio-action"]').fill('85');
+  await page.locator('#audio-bench [data-weapon="gun-light"]').click();
+  await page.locator('#audio-bench [data-variation="C"]').click();
+  await page.locator('#audio-bench [name="audio-metal"]').fill('90');
+  await page.locator('#audio-bench [data-weapon="gun-scatter"]').click();
+  if ((await page.locator('#audio-bench [name="audio-body"]').inputValue())!=='25' ||
+      (await page.locator('#audio-bench [name="audio-action"]').inputValue())!=='85' ||
+      (await page.locator('#audio-bench [data-variation="B"]').getAttribute('aria-pressed'))!=='true')
+    throw Error('Scattergun did not retain its own mix and B selection');
+  await page.locator('#audio-bench .audio-lab-copy').click();
+  const exported = await page.locator('#audio-bench-export').inputValue();
+  if(!exported.includes('S-6 SCATTERGUN [gun-scatter] — B') ||
+     !exported.includes('NEEDLE CANNON [gun-light] — C') ||
+     !exported.includes('BODY 25') || !exported.includes('METAL 90'))
+    throw Error('Copy All does not contain the four saved choices: '+exported);
+  const saved = await page.evaluate(() => localStorage.getItem('m3ch4-audio-bench-presets-v2'));
+  if (!saved || JSON.parse(saved).weapons['gun-scatter'].variation !== 'B')
+    throw Error('Weapon preferences were not saved to the isolated audition key');
   await page.screenshot({ path: output + '/audio-lab-iphone-landscape.png' });
   await page.locator('#audio-bench .audio-lab-dismiss').click({ timeout: 12000 });
   if (!(await page.locator('#audio-bench').evaluate(node=>node.classList.contains('hidden'))))
     throw Error('Audio Lab did not close');
   if (await page.locator('#startup-diagnostic-detail').count())
     throw Error('Audio Lab introduced a startup/runtime error');
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForFunction(() => window.__m3ch4BootOK === true, undefined, {timeout:25000});
+  await page.locator('#dev-toggle').click({timeout:12000});
+  await page.locator('#audio-bench-open').click({timeout:12000});
+  await page.locator('#audio-bench [data-weapon="gun-scatter"]').click();
+  if ((await page.locator('#audio-bench [data-variation="B"]').getAttribute('aria-pressed'))!=='true' ||
+      (await page.locator('#audio-bench [name="audio-body"]').inputValue())!=='25' ||
+      (await page.locator('#audio-bench [name="audio-action"]').inputValue())!=='85')
+    throw Error('Scattergun preset lost after full page reload');
+  await page.locator('#audio-bench [data-weapon="gun-light"]').click();
+  if ((await page.locator('#audio-bench [data-variation="C"]').getAttribute('aria-pressed'))!=='true' ||
+      (await page.locator('#audio-bench [name="audio-metal"]').inputValue())!=='90')
+    throw Error('Needle preset lost after full page reload');
+  console.log('AUDIO PRESET RELOAD: PASS · 4 independent recipes exported');
 
 } finally {
   await browser.close();
