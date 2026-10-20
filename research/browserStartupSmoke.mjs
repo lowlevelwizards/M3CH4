@@ -340,6 +340,11 @@ try {
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
   console.log('LIVE SYSTEMS AUDIO: PASS · physical damage, attenuation, cabin reverb and walking');
+  await page.waitForFunction(async()=>{
+    const {warmupStatus}=await import('./audioWarmup.js');
+    const state=warmupStatus();
+    return state.finished||state.failed;
+  },undefined,{timeout:30000});
   const cachedPrep=await page.evaluate(async()=>{
     const {warmupStatus,warmPCM}=await import('./audioWarmup.js');
     const {renderSystemSound}=await import('./audioSystemsSynth.js');
