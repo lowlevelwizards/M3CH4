@@ -86,7 +86,7 @@ export function makeLiveSystemsAudio(getContext){
         // reflections are spatial support, never repeated full-volume shots.
         const wet=LOW_BODY.has(id)? .69:.35;
         const send=c.createGain();
-        send.gain.value=gain*wet*(cockpit?1:focus?.83:.45);
+        send.gain.value=gain*wet*(cockpit?1:focus?.83:.45)*bus.gain.value;
         filter.connect(send);send.connect(room.send);
         nodes.push(send);
       }
