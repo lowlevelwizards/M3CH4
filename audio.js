@@ -1,4 +1,6 @@
 import { makeLiveWeaponAudio } from './liveWeaponAudio.js';
+import { makeLiveSystemsAudio } from './liveSystemsAudio.js';
+import { hitSoundPlan } from './liveSystemsEvents.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
 function context() {
@@ -72,4 +74,21 @@ export function soundShield() {
 const weaponBus=makeLiveWeaponAudio(context);
 export function soundWeaponShot(weaponId,options={}) {
     return weaponBus.play(weaponId,options);
+}
+
+/** Live systems soundscape. The same unlocked audio context services weapons,
+ * impacts and machinery. This bus never touches the old laboratory presets. */
+const systemsBus=makeLiveSystemsAudio(context);
+let acousticOrdinal=0;
+export function soundSystemEvent(id,options={}) {
+    return systemsBus.play(id,options);
+}
+export function soundCombatImpact(hit,options={}) {
+    const soundOrdinal=acousticOrdinal++;
+    const plan=hitSoundPlan(hit,{...options,ordinal:soundOrdinal});
+    for(const entry of plan)systemsBus.play(entry.id,{
+        variant:entry.variant,distance:options.distance??0,
+        cockpit:!!options.cockpit,strength:entry.strength,
+    });
+    return plan;
 }
