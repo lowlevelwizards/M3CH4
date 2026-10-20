@@ -18,7 +18,7 @@ test('field service drives constant blue sparks from the weapon attachment rathe
 test('recovering AI weapons visibly sag during service then raise back online', () => {
     assert.match(scene, /const fault=record\.weaponFault\|\|record\.disabledSlots\.has\('combat'\)/);
     assert.match(scene, /wasServicing&&!record\.weaponServicing&&!record\.weaponFault/);
-    assert.match(scene, /record\.weaponRecoveryKick = 1/);
+    assert.match(scene, /record\.weaponRecoveryKick\s*=\s*1/);
     assert.match(scene, /combat\.rotation\.x=combatBase\.rotation\.x\+aim\.elevation\+/);
     assert.match(scene, /\-\(recovery\*\.12\)/);
 });
