@@ -651,7 +651,7 @@ function showHitConfirm(hit, text = null) {
         return;
     }
     const destroyed = !!hit?.justDestroyed;
-    const kind = text==='FRAME BLOCK' ? 'blocked' : hit?.friendlyBlock ? 'friendly' : destroyed ? 'destroyed' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
+    const kind = text?.includes('FRAME BLOCK') ? 'blocked' : hit?.friendlyBlock ? 'friendly' : destroyed ? 'destroyed' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
     const label = text ?? (destroyed ? 'DESTROYED' : kind === 'disabled' ? 'DISABLED' : kind === 'breach' ? 'BREACH' : kind === 'cleared' ? 'WRECK CLEARED' : kind === 'wreck' ? 'WRECK' : kind === 'friendly' ? 'ALLY BLOCK' : 'HIT');
     hitConfirm.textContent = label;
     hitConfirm.className = `hit-confirm visible ${kind}`;
@@ -2458,7 +2458,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         recoilFlash = .19;
         const shieldText = showVerifiedShieldReadout(contact);
         lastHit = `${targetActor.label} · ${shieldText ?? targetLabels[hit.slot]} · ${hit.serial}`;
-        showHitConfirm(hit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
+        showHitConfirm(visualHit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return true;
