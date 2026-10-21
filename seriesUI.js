@@ -9,7 +9,7 @@ import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
 import { bayHealth, bayModuleQuote, SLOT_LABELS } from './garageBay.js';
 
-import { activePlayerArena, partThumbnailDataUrl } from './scene.js';
+import { activePlayerArena } from './scene.js';
 import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
 } from './sortieAssignment.js';
@@ -232,8 +232,7 @@ function renderRoundIntermission(series, round) {
         if(p.part?.definitionId){
             const url=activePlayerArena()?.arena?.partThumbnailDataUrl?.(p.part.definitionId,{
                 condition:p.condition,destroyed:p.destroyed,paint:p.part.paint
-            })??partThumbnailDataUrl(p.part.definitionId,{condition:p.condition,
-                destroyed:p.destroyed,paint:p.part.paint});
+            });
             if(url){const img=document.createElement('img');img.src=url;img.alt='';img.decoding='async';picture.append(img);}
         }
         if(!picture.childElementCount)picture.append(make('span','k4n-empty-art','—'));
