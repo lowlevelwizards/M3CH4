@@ -31,7 +31,7 @@ test('comparison suite uses real builders at baseline and updated origins',()=>{
  assert.match(script,/buildPartVisual/);
  assert.match(script,/buildExteriorRig/);
  assert.match(script,/geometryUnchanged/);
- assert.match(script,/mobilityUnchanged/);
+ assert.match(script,/mobilityRecolored/);
  assert.match(script,/Cross-instance tint leak/);
  assert.match(read('colorMaterialGallery.js'),/inspectAssembly/);
  assert.match(read('research/k4aBrowserComparison.mjs'),/mobilityRecolored/);
