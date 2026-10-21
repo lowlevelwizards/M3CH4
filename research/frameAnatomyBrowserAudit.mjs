@@ -80,7 +80,8 @@ try{
             });
             if(id==='frame-utility'&&named.some(n=>n.includes('welded core')||n.includes('monocoque')))
                 throw Error('Skeleton has fake solid core');
-            const bound=new THREE.Box3().setFromObject(fresh,true);
+            const bound=new THREE.Box3();
+            fresh.traverse(n=>{if(n.isMesh)bound.expandByObject(n,true);});
             // Genuine void: a center-front ray passes between the Skeleton upper and lower rails.
             rays.set(new THREE.Vector3(0,-.1,-6),new THREE.Vector3(0,0,1));
             rays.far=12;
@@ -100,9 +101,13 @@ try{
                 if(!owned?.length||owned.some(m=>m.userData.slot!=='structure'||
                     !rig.pickMeshes.includes(m)))throw Error('Frame pick ownership wrong '+id+'/'+leg);
                 const legBounds=new THREE.Box3().setFromObject(rig.partGroups.get('mobility'));
-                const frameBounds=new THREE.Box3().setFromObject(rig.partGroups.get('structure'));
+                // The structure group is the upper-hull parent for cab/power/combat.
+                // A group Box3 would therefore incorrectly include those other slots.
+                const frameBounds=new THREE.Box3();
+                for(const mesh of owned)frameBounds.expandByObject(mesh,true);
+                const shared=legBounds.clone().intersect(frameBounds);
                 combinations.push({leg,deployable:verdict.ready,
-                    overlapDepth:legBounds.clone().intersect(frameBounds).getSize(new THREE.Vector3()).toArray(),
+                    overlapDepth:shared.isEmpty()?[0,0,0]:shared.getSize(new THREE.Vector3()).toArray(),
                     frameBounds:{min:frameBounds.min.toArray(),max:frameBounds.max.toArray()},
                     mobilityBounds:{min:legBounds.min.toArray(),max:legBounds.max.toArray()}});
                 if(legBounds.isEmpty()||frameBounds.isEmpty())throw Error('Absent mounted geometry');

@@ -16,6 +16,8 @@ label{display:flex;gap:6px;align-items:center}input{accent-color:#e3be66}
 .tile{position:relative;border:1px solid #62776a;min-width:0;overflow:hidden;border-radius:5px}
 .name,.sub{position:absolute;left:7px;right:7px;padding:5px 8px;background:#16251fdc}
 .name{top:7px;font-weight:800;letter-spacing:.055em}.sub{bottom:7px;font-size:10px;color:#c2d1be}
+.matrix-row-labels{position:absolute;inset:0;display:none;grid-template-rows:repeat(3,minmax(0,1fr));pointer-events:none}
+.matrix-row-label{align-self:start;margin:35px 8px 0;padding:4px 7px;width:max-content;max-width:96%;border-radius:3px;background:#192920e8;color:#efca7f;font-weight:700;font-size:10px}
 #status{font:11px ui-monospace,monospace;white-space:pre-wrap;margin:10px 12px;color:#c9d7c4}
 footer{padding:12px;color:#bdcbbb;font-size:11px}
 @media(max-width:750px){#stage{height:960px}#tiles{grid-template-columns:1fr;grid-template-rows:repeat(3,minmax(0,1fr))}}

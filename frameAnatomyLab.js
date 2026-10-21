@@ -32,7 +32,17 @@ const subjects=ids.map((id,i)=>{
     const matched=makeMachine(id,'legs-yard');
     const matrix=legs.map(leg=>makeMachine(id,leg));
     world.add(bare,matched.root,...matrix.map(row=>row.root));
-    return {id,tile:tiles[i],bare,matched,matrix};
+    const matrixLabels=document.createElement('div');
+    matrixLabels.className='matrix-row-labels';
+    for(const [j,leg] of legs.entries()){
+        const row=document.createElement('span');
+        row.className='matrix-row-label';
+        const nice={'legs-yard':'YARDWALKER','legs-compact':'KESTREL','legs-hauler':'HAULER H2'}[leg];
+        row.textContent=nice+(matrix[j].inspection.ready?'':' / VISUAL FIT ONLY');
+        matrixLabels.appendChild(row);
+    }
+    tiles[i].appendChild(matrixLabels);
+    return {id,tile:tiles[i],bare,matched,matrix,matrixLabels};
 });
 function choose(subject,index){
     if(mode==='bare')return subject.bare;
@@ -46,7 +56,6 @@ function render(){
     renderer.setSize(bounds.width,bounds.height,false);
     renderer.setScissorTest(true);
     const rows=mode==='matrix'?3:1;
-    document.getElementById('tiles').style.gridTemplateRows=mode==='matrix'?'repeat(3,minmax(0,1fr))':'';
     stage.style.height=mode==='matrix'?(window.innerWidth<751?'2300px':'1120px'):
         (window.innerWidth<751?'960px':'460px');
     const stageRect=stage.getBoundingClientRect();
@@ -79,6 +88,8 @@ function request(){if(!queued){queued=true;requestAnimationFrame(render);}}
 function refreshLabels(){
     subjects.forEach(s=>{
         const label=s.tile.querySelector('.sub');
+        label.style.display=mode==='matrix'?'none':'';
+        s.matrixLabels.style.display=mode==='matrix'?'grid':'none';
         if(mode==='bare'){let n=0;s.bare.traverse(o=>{if(o.isMesh)n++;});
             label.textContent=n+' real solids · '+s.bare.userData.nominalEnvelope.join(' × ')+' m core';}
         else if(mode==='assembled')label.textContent='Yardwalker · Cyclops · Training Cannon · Dynamo';
