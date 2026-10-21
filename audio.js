@@ -170,7 +170,8 @@ export function soundWorkshop(kind='select'){
 }
 if(typeof document!=='undefined'){
     document.addEventListener('click',event=>{
-        if(!event.target.closest('button,summary,[role="button"]'))return;
+        const control=event.target.closest('button,summary,[role="button"]');
+        if(!control || control.matches('#fire,#reload,#brake'))return;
         soundWorkshop('select');
     },{capture:true});
 }
