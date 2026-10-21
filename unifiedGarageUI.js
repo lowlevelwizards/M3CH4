@@ -253,6 +253,10 @@ function renderTop(currentMode, series, machine) {
 }
 function renderWorkshopChrome(stable, view) {
     rail.append(moduleStation(view));
+    const reset=button('↺',()=>document.querySelector('#inspect-reset')?.click(),'workshop-reset');
+    reset.title='Reset camera orbit';
+    reset.setAttribute('aria-label','Reset garage camera orbit');
+    statusBar.append(reset);
     statusBar.append(button('◷ '+(view.rig.commissioned?'HISTORY':'COMMISSION'),()=>{
         identityExpanded=!identityExpanded;
         selectedSlot=null;swapExpanded=false;drawerExpanded=false;render();
