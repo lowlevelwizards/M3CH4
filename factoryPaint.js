@@ -37,6 +37,19 @@ export const PAINT_PRESETS = Object.freeze([
     Object.freeze({id:'coastal',name:'BLUE SHIFT',colors:finish('#62849a','#435b67','#bfc2b5','#bf8957')}),
     Object.freeze({id:'works',name:'WORKS GREY',colors:finish('#898c84','#545f60','#b4b2a6','#a37651')}),
 ]);
+/** Three distributions of the SAME four pigments. No new inventory or
+ * material roles: only which pigment feeds each coating channel changes. */
+export const PAINT_VARIANTS = Object.freeze([
+    Object.freeze({id:'default',name:'DEFAULT',channels:Object.freeze(['primary','secondary','armor','accent'])}),
+    Object.freeze({id:'alternate-a',name:'ALT A',channels:Object.freeze(['secondary','primary','armor','accent'])}),
+    Object.freeze({id:'alternate-b',name:'ALT B',channels:Object.freeze(['armor','primary','secondary','accent'])}),
+]);
+export function paintVariant(palette, variant=0) {
+    const colors=normalizePaint(palette);
+    if (!colors) return null;
+    const index=Number.isInteger(variant) && variant>=0 && variant<PAINT_VARIANTS.length ? variant : 0;
+    return Object.fromEntries(PAINT_CHANNELS.map((channel,i)=>[channel,colors[PAINT_VARIANTS[index].channels[i]]]));
+}
 export const USER_PALETTES_KEY = 'm3ch4-paint-palettes-v1';
 export function factoryFinishFor(definitionId) {
     return FACTORY_FINISHES[definitionId] || BASE;
