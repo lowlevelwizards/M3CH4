@@ -1,3 +1,4 @@
+import { normalizePaint } from './factoryPaint.js';
 /** k.3e.0: first real ownership + salvage acquisition.
  *
  * The catalogue describes what exists in the world. assembly.owned describes what
@@ -72,6 +73,7 @@ export function salvageOffer(playerAssembly, targetAssembly, targetCondition) {
             name: fitted.definition.name,
             condition,
             recoveryFee: salvageRecoveryFee(fitted.definition, condition),
+            ...(normalizePaint(fitted.instance.paint)?{paint:normalizePaint(fitted.instance.paint)}:{}),
         };
     }
     return null;
@@ -104,6 +106,7 @@ export function recoverSalvage(assembly, offer) {
         wear: Math.min(.35, (1 - clamp01(offer.condition)) * .12),
         repairs: 0,
         destroyed: false,
+        ...(normalizePaint(offer.paint)?{paint:normalizePaint(offer.paint)}:{}),
     };
     assembly.owned.push(instance);
     return { ok: true, instance, definition };
