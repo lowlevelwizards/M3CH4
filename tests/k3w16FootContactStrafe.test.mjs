@@ -11,7 +11,7 @@ const sets=[
 ];
 test('lateral gait moves feet sideways without turning it into a forward march',()=>{
  for(const [family,upper,lower,upperX,lowerX] of sets){
-  const shared={family,upperX,lowerX,phase:1.55*Math.PI,side:-1,weight:1,health:1};
+  const shared={family,upperX,lowerX,phase:1.89*Math.PI,side:-1,weight:1,health:1};
   const left=legPose(upper,lower,{...shared,strafe:-1,forward:0});
   const right=legPose(upper,lower,{...shared,strafe:1,forward:0});
   const fwd=legPose(upper,lower,{...shared,strafe:0,forward:1});
