@@ -52,8 +52,8 @@ try {
     return sample;
   });
   if(crewColors['enemy-0']!=='b39a52' || crewColors['enemy-1']!=='534d44' ||
-    crewColors['enemy-2']!=='bcb29b' || crewColors['ally-1']!=='59645c' ||
-    crewColors['ally-2']!=='d0c1a4')
+    crewColors['enemy-2']!=='bcb29b' || crewColors['ally-1']!=='515958' ||
+    crewColors['ally-2']!=='93968e')
     throw Error('Crew livery not reaching real combatant materials: '+JSON.stringify(crewColors));
   await page.locator('.paint-booth-preset').filter({hasText:'RACING RED'}).click();
   await page.locator('.paint-booth-variant').nth(1).click();
