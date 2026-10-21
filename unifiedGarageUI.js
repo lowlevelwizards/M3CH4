@@ -484,7 +484,11 @@ function renderGarage(stable,machine,view) {
         stable,rigId:viewedId,storage,
         onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
         onRefresh:()=>render(),
-        onSaved:()=>{paintPreviewEdits=null;previewSignature='';render();},
+        onSaved:()=>{
+            document.dispatchEvent(new CustomEvent('m3ch4:paint-committed'));
+            paintPreviewEdits=null;previewSignature='';render();
+        },
+        onTeamSaved:()=>document.dispatchEvent(new CustomEvent('m3ch4:team-livery-committed')),
         onMessage:message,
         thumbnailFor:(id,state)=>activePlayerArena()?.arena.partThumbnailDataUrl?.(id,state),
         rigThumbnailFor:assembly=>activePlayerArena()?.arena.rigThumbnailDataUrl?.(assembly),
