@@ -1688,6 +1688,16 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function selectPart(slot) {
         selected = slot;
+        for (const hit of emptyMountPicks) {
+            const active = hit.userData.slot === slot;
+            const bracket = hit.parent;
+            bracket.scale.setScalar(active ? 1.2 : 1);
+            for (const piece of bracket.children) {
+                if (!piece.material?.isMeshStandardMaterial) continue;
+                piece.material.emissive.setHex(active ? 0xa77b2d : 0x42290f);
+                piece.material.emissiveIntensity = active ? .75 : .24;
+            }
+        }
         for (const [groupSlot, meshes] of exterior.partMeshes) {
             for (const mesh of meshes) {
                 const material = mesh.material;
