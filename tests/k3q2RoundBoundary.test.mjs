@@ -82,7 +82,7 @@ test('inter-round pit keeps contract locked and blocks garage mutation surfaces'
 test('intermediate debrief explicitly defers settlement and suppresses salvage pages', () => {
     const ui = fs.readFileSync(new URL('../seriesUI.js', import.meta.url), 'utf8');
     const css = fs.readFileSync(new URL('../seriesStyles.css', import.meta.url), 'utf8');
-    assert.match(source('acquisitionUI.js'), /PAYOUT AFTER MATCH/);
+    assert.match(fs.readFileSync(new URL('../acquisitionUI.js',import.meta.url),'utf8'), /PAYOUT AFTER MATCH/);
     assert.match(ui, /CONTINUE TO INTERMISSION/);
     assert.doesNotMatch(css, /bo3-round-debrief \.debrief-page-nav\{/);
     assert.doesNotMatch(css, /bo3-round-debrief \[data-debrief-page="1"\]/);
