@@ -130,14 +130,14 @@ test('3D counter uses actual part meshes on four separate table stalls with touc
 });
 test('counter is only accessible from normal garage, and cannot bypass BO3 pit restrictions',()=>{
     const ui=code('unifiedGarageUI.js'),main=code('main.js');
-    assert.match(ui,/currentMode === 'garage'\) \{/);
+    assert.match(ui,/if\(workspace==='garage'\)/);
     assert.match(ui,/currentMode === 'vendor'/);
     assert.match(ui,/actualMode\(series\)/);
     assert.match(main,/dataset\.mode!=='vendor'/);
     assert.match(ui,/loadCampaign\(storage\)/);
     assert.match(ui,/stock\.cycle/);
     const mount=code('garageMountUI.js'),html=code('index.html');
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4r/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4s1/);
     assert.match(mount,/stableUI\.js\?v=k3t0/);
     assert.match(html,/sceneAssembly\.js\?v=k4r/);
 });
