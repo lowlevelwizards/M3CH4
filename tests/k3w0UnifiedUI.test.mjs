@@ -100,6 +100,6 @@ test('bundled entry and mobile versions include exact changed assets and no new 
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
     assert.match(html,/uiLanguage\.js\?v=k3w0/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k3v6/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4h/);
     assert.match(mount,/seriesUI\.js\?v=k3w0/);
 });
