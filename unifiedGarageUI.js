@@ -25,7 +25,7 @@ import {
     triageOptions,triagePreview,applyIntermissionTriage,TRIAGE_BUDGET,
     reconcileFieldPatches, clearFieldWorkAll, clearFieldWorkSeries,
 } from './fieldWork.js';
-import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
+import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayPreviewAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
 import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot, paintBoothCurrentEdits } from './paintBoothUI.js';
 
 
@@ -33,11 +33,12 @@ const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
 shell.id = 'unified-garage';
 shell.setAttribute('aria-label','Garage and contract operations');
-shell.innerHTML = '<div class="unified-top"></div><div id="unified-garage-dock"></div><div id="unified-garage-action"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
+shell.innerHTML = '<div class="unified-top"></div><div id="unified-garage-dock"></div><div id="unified-garage-shelf" aria-label="Compatible workshop parts"></div><div id="unified-garage-action"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
 document.body.append(shell);
 installPartGridStyles();
 const top = shell.querySelector('.unified-top');
 const dock = shell.querySelector('#unified-garage-dock');
+const shelf = shell.querySelector('#unified-garage-shelf');
 const actionBar = shell.querySelector('#unified-garage-action');
 const navigator = shell.querySelector('.unified-bay-navigation');
 const notice = shell.querySelector('.unified-notice');
@@ -50,7 +51,7 @@ let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
 let paintExpanded = false, paintPreviewEdits = null, paintHighlightSlots = null;
-let swapExpanded = false;
+let swapExpanded = false, drawerExpanded = false, detailsExpanded = false;
 let triageSelected=new Set();let triageRigId=null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
@@ -122,7 +123,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; swapExpanded=false;triageSelected.clear();triageRigId=null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
+    selectedSlot = null; selectedHardwareSerial = null; swapExpanded=false;drawerExpanded=false;detailsExpanded=false;triageSelected.clear();triageRigId=null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
     dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
@@ -137,8 +138,13 @@ function preview(stable, series) {
     if (!arena) return;
     const rig = rigById(stable, viewedId);
     if (!rig) return;
+    const fitSerial = !paintExpanded && swapExpanded && rackView==='ready' &&
+        selectedSlot && selectedHardwareSerial && rig.installed[selectedSlot]!==selectedHardwareSerial
+        ? selectedHardwareSerial : null;
+    const proposed = fitSerial ? bayPreviewAssembly(stable,viewedId,selectedSlot,fitSerial) : null;
     const id = [
         viewedId, JSON.stringify(rig.installed), JSON.stringify(rig.graph),
+        proposed ? selectedSlot+':'+fitSerial : '',
         JSON.stringify(rig.playerCondition?.parts),
         stable.inventory.filter(p=>Object.values(rig.installed).includes(p.serial))
             .map(p=>p.serial + ':' + p.condition + ':' + p.destroyed + ':' + JSON.stringify(p.paint)).join('|'),
@@ -146,16 +152,18 @@ function preview(stable, series) {
     ].join('::');
     if (previewSignature !== id) {
         previewSignature = id;
-        const assembly=bayAssembly(stable,viewedId);
+        const assembly=proposed || bayAssembly(stable,viewedId);
         for(const edit of paintPreviewEdits||[]) {
             const part=assembly.owned.find(item=>item.serial===edit.serial);
             if(part) {if(edit.paint===null)delete part.paint;else part.paint={...edit.paint};}
         }
         arena.rebuildAssembly(assembly);
-        if (rig.playerCondition?.parts) arena.updatePilotDamage(rig.playerCondition);
+        if (rig.playerCondition?.parts && !proposed) arena.updatePilotDamage(rig.playerCondition);
+        arena.setPreviewPart?.(proposed?selectedSlot:null);
         arena.selectPart(selectedSlot);
         arena.focusPart(selectedSlot);
     } else {
+        arena.setPreviewPart?.(proposed?selectedSlot:null);
         arena.selectPart(selectedSlot);
         arena.focusPart(selectedSlot);
     }
@@ -243,7 +251,10 @@ function moduleStation(view) {
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
             : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
-            if (selectedSlot !== item.slot) {selectedHardwareSerial = null; swapExpanded=false; rackView='ready';}
+            if (selectedSlot !== item.slot) {
+                selectedHardwareSerial = null;swapExpanded=!item.serial;drawerExpanded=false;
+                detailsExpanded=false;rackView='ready';
+            }
             selectedSlot = item.slot; // Repeated taps always open details.
             dock.scrollTop = 0;
             render();
@@ -266,9 +277,10 @@ function moduleDetails(stable, view, machine) {
     const box = el('section','unified-modules');
     const state = view.health.find(s => s.slot === slot);
     const heading=el('div','rig-part-identity');
-    heading.append(el('strong','unified-section-name',stationLabel(slot)+' · PART'));
+    heading.append(el('strong','unified-section-name',
+        state?.part ? (BY_ID.get(state.part.definitionId)?.name || stationLabel(slot)) : stationLabel(slot)+' · EMPTY MOUNT'));
     heading.append(button('×',()=>{
-        selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;dock.scrollTop=0;render();
+        selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;drawerExpanded=false;detailsExpanded=false;dock.scrollTop=0;render();
     },'unified-close'));
     box.append(heading);
     const installed = state?.part;
@@ -283,8 +295,7 @@ function moduleDetails(stable, view, machine) {
         if (quote && (quote.amount > 0 || state.condition < 1)) {
             const affordable = quote.destroyed || quote.amount <= machine.economy.credits;
             box.append(button(
-                (quote.destroyed ? 'REBUILD' : 'SERVICE') + ' ' + SLOT_LABELS[slot] +
-                ' · ₡' + quote.amount + (quote.destroyed ? ' · HOUSE GUARANTEE' : ''),
+                (quote.destroyed ? 'REBUILD' : 'REPAIR') + ' · ₡' + quote.amount,
                 () => {
                     const result = emitEdit('m3ch4:bay-service',{rigId:viewedId,slot});
                     message(result.ok ? (quote.destroyed ? 'REBUILT · ' : 'SERVICED · ') + installed.serial : result.reason, !result.ok);
@@ -292,7 +303,7 @@ function moduleDetails(stable, view, machine) {
                 },'unified-service',!affordable));
         }
     }
-    if (installed && slot === 'power') {
+    if (installed && slot === 'power' && detailsExpanded) {
         const currentMount = bayGeneratorMount(stable, viewedId);
         const positions = el('section','unified-mount-options');
         positions.append(el('div','unified-section-name','PHYSICAL GENERATOR MOUNT'));
@@ -308,20 +319,42 @@ function moduleDetails(stable, view, machine) {
     if (installed) {
         const quick=el('div','unified-quick-part');
         quick.append(el('span','unified-part-name',BY_ID.get(installed.definitionId)?.name+' · '+installed.serial));
-        const remove=button('×',()=>editModule(slot,null),'unified-remove-icon');
+        const remove=button('REMOVE',()=>editModule(slot,null),'unified-remove-icon');
         remove.setAttribute('aria-label','Remove '+installed.serial+' from '+stationLabel(slot));
         remove.title='REMOVE FROM BAY';quick.append(remove);box.append(quick);
         box.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
         if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
             box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
     }
-    const toggle=button(swapExpanded?'× CLOSE PARTS':'SWAP / INVENTORY ›',()=>{swapExpanded=!swapExpanded;dock.scrollTop=0;render();},'unified-swap-toggle');
-    box.append(toggle);
+    if (!installed) box.append(el('small','unified-owner-note','EMPTY SOCKET · TAP A PART TO PREVIEW'));
+    const actions=el('div','garage-part-actions');
+    const toggle=button(swapExpanded?'CLOSE SHELF':'REPLACE',()=>{
+        swapExpanded=!swapExpanded;drawerExpanded=false;selectedHardwareSerial=null;
+        rackView='ready';dock.scrollTop=0;render();
+    },'unified-swap-toggle');
+    actions.append(toggle);
+    if (installed) actions.append(button(detailsExpanded?'LESS':'DETAILS',()=>{
+        detailsExpanded=!detailsExpanded;render();
+    },'unified-secondary'));
+    box.append(actions);
+    if (installed && detailsExpanded) {
+        const def=BY_ID.get(installed.definitionId);
+        box.append(el('div','garage-spec-line',def?.massKg+' KG · '+Math.abs(def?.powerKw||0)+' KW'));
+        if (def?.description) box.append(el('p','garage-part-description',def.description));
+    }
     if(!swapExpanded)return box;
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
     // to another rig must remain inspectable but cannot be silently transferred.
     const choices = el('div','unified-part-gallery part-grid');
+    if (!drawerExpanded) {
+        const shelfTop=el('div','garage-shelf-title');
+        shelfTop.append(el('strong','',stationLabel(slot)+' · PARTS SHELF'));
+        shelfTop.append(button('ALL PARTS ↗',()=>{drawerExpanded=true;render();},'garage-shelf-expand'));
+        shelf.append(shelfTop);
+    } else {
+        box.append(button('‹ COMPACT SHELF',()=>{drawerExpanded=false;render();},'garage-drawer-close'));
+    }
     const owned = stable.inventory.filter(part => BY_ID.get(part.definitionId)?.slot === slot);
     if (!selectedHardwareSerial || !owned.some(part => part.serial === selectedHardwareSerial))
         selectedHardwareSerial = installed?.serial ?? owned[0]?.serial ?? null;
@@ -450,7 +483,7 @@ function moduleDetails(stable, view, machine) {
             reading.append(meter,el('span','rig-part-meta','◉ INTEGRITY  /  ◇ ARMOR'));
             copy.insertBefore(reading,copy.querySelector('.part-detail-action'));
         }
-        box.append(detail);
+        (drawerExpanded?box:shelf).append(detail);
         if(elsewhere) {
             box.append(el('p','unified-owner-note',
                 'FITTED · '+rigName(owner).toUpperCase()+' · REMOVE THERE FIRST'));
@@ -463,14 +496,19 @@ function moduleDetails(stable, view, machine) {
                 },'unified-owner-action'));
         }
     }
-    box.append(choices);
+    if (drawerExpanded) box.append(choices);
+    else shelf.insertBefore(choices,shelf.querySelector('.unified-part-detail'));
     return box;
 }
 function editModule(slot,serial) {
     if (actualMode(loadSeries(storage)) !== 'garage') { message('PIT LOCKED · NO PART CHANGES',true);return; }
     const result=emitEdit('m3ch4:bay-module',{rigId:viewedId,slot,serial});
     message(result.ok ? (serial ? 'PART INSTALLED · '+serial : 'PART REMOVED') : result.reason,!result.ok);
-    if(result.ok) {soundWorkshop(serial?'install':'remove');previewSignature='';render(); }
+    if(result.ok) {
+        soundWorkshop(serial?'install':'remove');
+        selectedHardwareSerial=null;rackView='ready';drawerExpanded=false;
+        swapExpanded=!serial;previewSignature='';render();
+    }
 }
 function appendIdentityForm(view, stable) {
     const wrap=el('section','unified-identity-form');
@@ -539,7 +577,7 @@ function renderGarage(stable,machine,view) {
         },
     }));
     else if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
-    else dock.append(el('p','unified-muted','SELECT STATION  ·  ⬡  ⋀  ϟ  ◉  ✦'));
+    else dock.append(el('p','unified-muted','TAP THE MECH OR A STATION ABOVE'));
     const completed = view.health.filter(item => !!item.serial).length;
     const identity = el('div','unified-identity-summary');
     if (!view.rig.commissioned) {
@@ -840,6 +878,7 @@ function render() {
     renderTop(state,series,machine);
     actionBar.replaceChildren();
     dock.replaceChildren();
+    shelf.replaceChildren();
     const selling=state==='vendor';
     const arena=activePlayerArena()?.arena;
     if(selling!==vendorShowing) {
@@ -857,6 +896,8 @@ function render() {
     dock.scrollTop = previousScroll;
     shell.classList.toggle('has-primary',actionBar.childElementCount>0);
     shell.dataset.mode=state;
+    shell.classList.toggle('has-selection',!!selectedSlot && !paintExpanded && state==='garage');
+    shelf.classList.toggle('shown',state==='garage' && swapExpanded && !drawerExpanded && !!selectedSlot);
 }
 function queueRender() {
     if(renderScheduled)return;
@@ -877,8 +918,11 @@ document.addEventListener('m3ch4:bay-picked',event=>{
     if(paintExpanded && togglePaintBoothSlot(loadStable(storage).stable,viewedId,slot)){
         paintPreviewEdits=paintBoothCurrentEdits();previewSignature='';render();return;
     }
+    if(selectedSlot!==slot) {
+        selectedHardwareSerial = null;swapExpanded=!bayStatus(loadStable(storage).stable,viewedId).health.find(item=>item.slot===slot)?.serial;
+        drawerExpanded=false;detailsExpanded=false;rackView='ready';
+    }
     selectedSlot = slot;
-    selectedHardwareSerial = null;swapExpanded=false;
     dock.scrollTop = 0;
     render();
 });
