@@ -165,11 +165,13 @@ try {
   await page.waitForTimeout(810);
   const actionMotion=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');
-    let found=[];
+    const displacement=[];
     activePlayerArena()?.arena.scene.traverse(n=>{
-      if(n.name==='EXPOSED BOLT / RELOAD CARRIAGE')found.push(n.position.z);
+      const mechanism=n.userData?.weaponMechanism;
+      if(mechanism?.carriage&&mechanism?.rest?.carriage)
+        displacement.push(Math.abs(mechanism.carriage.position.z-mechanism.rest.carriage.z));
     });
-    return found;
+    return displacement;
   });
   if(!actionMotion.some(z=>z>.025))
     throw Error('Reload inspection did not slide real mechanical parts: '+JSON.stringify(actionMotion));

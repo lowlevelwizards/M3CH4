@@ -8,7 +8,9 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const browser=readFileSync(new URL('../research/browserStartupSmoke.mjs',import.meta.url),'utf8');
 
 test('Scattergun underbarrel brace uses an actual steel material, not a color number',()=>{
-  assert.match(scene,/add\(plate\(\.28,\.15,\.57,m\(steel\)\),-\.30,-\.28,\.47\)/);
+  const scatter=readFileSync(new URL('../scattergunVisual.js',import.meta.url),'utf8');
+  assert.match(scatter,/strut\(r,'S6 \/ short load cradle'/);
+  assert.doesNotMatch(scene,/case 'gun-scatter'/);
   assert.doesNotMatch(scene,/add\(plate\(\.28,\.15,\.57,steel\)/);
   assert.match(scene,/const surface=typeof material==='number'\?mat\(material,\.82,\.31\):material/);
   assert.match(scene,/if\(!surface\?\.isMaterial\)throw new TypeError/);
@@ -34,8 +36,8 @@ test('Browser regression actually swaps the owned Scattergun and other gun defin
   assert.match(browser,/SCATTERGUN SWAP: PASS/);
 });
 test('Safari cache and version point to the fixed scene rather than k3w15 or k3w16',()=>{
-  assert.match(html,/sceneAssembly\.js\?v=k3w17/);
-  assert.match(bridge,/scene\.js\?source=k3w17/);
-  assert.match(html,/main\.js\?v=k3w17/);
-  assert.match(html,/0\.0\.1k\.3w\.17 — Scattergun Garage Recovery/);
+  assert.match(html,/sceneAssembly\.js\?v=k3x/);
+  assert.match(bridge,/scene\.js\?source=k3x/);
+  assert.match(html,/main\.js\?v=k3x/);
+  assert.match(html,/0\.0\.1k\.3x — Weapon Anatomy Rewrite/);
 });

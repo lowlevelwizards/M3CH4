@@ -46,6 +46,7 @@ jobs:
           node research/scattergunGeometryAudit.mjs | tee study-results/real-pellet-rays.json
           node research/frameShieldingAudit.mjs --assert > study-results/real-shielding.md
           node research/cockpitIdentityAudit.mjs > study-results/cockpit.json
+          node research/weaponGeometryAudit.mjs | tee study-results/k3x-weapon-geometry.json
       - name: Previous power, physics and headless three-on-three smoke
         run: |
           node research/powerResponseStudy.mjs > study-results/power.md

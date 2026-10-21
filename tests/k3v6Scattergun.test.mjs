@@ -107,7 +107,9 @@ test('both player and AI share physical six-ray traces but only one ammo/recoil/
     assert.equal((main.match(/soundWeaponShot\(/g)??[]).length,2,'one call site for player shell and one for AI shell');
     assert.match(main,/registerPowerShot\(playerPower, assembly\)/);
     assert.match(main,/registerPowerShot\(actor\.powerSystem, actor\.assembly\)/);
-    assert.match(scene,/case 'gun-scatter'/);
+    assert.doesNotMatch(scene,/case 'gun-scatter'/);
+    assert.match(textFile('../partVisuals.js'),/'gun-scatter': buildScattergunVisual/);
+    assert.match(textFile('../scattergunVisual.js'),/S6 \/ huge cream eight-sided flared choke/);
     assert.match(scene,/weaponId==='gun-scatter'/);
     assert.match(scene,/cockpit\.userData\.scatterGreebles\.visible = scatter/);
     assert.match(audio,/export function soundScatter\(\)/);

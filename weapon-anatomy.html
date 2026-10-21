@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#1b2520"/>
+<title>M3CH4 — k.3x Weapon Anatomy Lab</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<style>
+:root{color-scheme:dark;font:13px/1.4 system-ui,sans-serif;background:#18221e;color:#e6e7d9}
+*{box-sizing:border-box}body{margin:0}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px;background:#2b3730;border-bottom:1px solid #667064}
+header strong{letter-spacing:.06em}a{color:#e6bd68}
+p{max-width:1130px;margin:10px auto;padding:0 12px;color:#b9c9b9}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:12px}
+button,label{font:inherit;border:1px solid #66796b;border-radius:4px;color:#e5e8dd;background:#33473b;padding:9px;min-height:40px}
+button[aria-pressed=true]{background:#a08142;color:#151913;border-color:#f2d38d}
+label{display:flex;align-items:center;gap:5px}
+#stage{position:relative;width:min(100%,1320px);height:380px;margin:0 auto}
+#weapons{width:100%;height:100%;display:block}
+#tiles{position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));pointer-events:none}
+.tile{border:1px solid #546a5d;min-width:0;display:flex;flex-direction:column;justify-content:space-between;padding:10px}
+.tile strong{font-size:13px;letter-spacing:.08em;padding:5px;background:#18231ddc}
+.tile small{align-self:start;background:#18231ddc;padding:5px;font-size:10px;color:#d6e1d3}
+#status{padding:10px 14px;text-align:center;min-height:35px}
+@media(max-width:820px){
+ #stage{height:850px}#tiles{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:420px){#stage{height:1100px}#tiles{grid-template-columns:1fr;grid-template-rows:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header><div><strong>M3CH4 / WEAPON ANATOMY LAB</strong><div>k.3x — actual shared gameplay meshes</div></div><a href="./mobility-anatomy.html">MOBILITY LAB →</a></header>
+<p>All four models are built by the same registry used in arena combat. Compare side, muzzle, top and three-quarter views at one consistent camera scale. Gray view removes material cues to audit silhouette.</p>
+<div class="toolbar" role="group" aria-label="Weapon camera controls">
+  <button data-view="hero" aria-pressed="true">3/4</button>
+  <button data-view="side" aria-pressed="false">SIDE</button>
+  <button data-view="front" aria-pressed="false">MUZZLE</button>
+  <button data-view="top" aria-pressed="false">TOP</button>
+  <label><input id="gray" type="checkbox"/> Flat gray</label>
+</div>
+<div id="stage"><canvas id="weapons" aria-label="Rendered procedural weapon comparison"></canvas>
+<div id="tiles">
+  <div class="tile" data-id="gun-cannon"><strong>TRAINING CANNON</strong><small>Box brake / underslung ram</small></div>
+  <div class="tile" data-id="gun-short"><strong>STUMP CANNON</strong><small>Heavy cylinder / A-frame</small></div>
+  <div class="tile" data-id="gun-light"><strong>NEEDLE CANNON</strong><small>Exposed truss / long barrel</small></div>
+  <div class="tile" data-id="gun-scatter"><strong>S-6 SCATTERGUN</strong><small>Wide funnel / red cassette</small></div>
+</div></div>
+<div id="status" role="status">Rendering the four authored weapon models…</div>
+<p>No additional assets, random geometry, gameplay adjustment, or showroom plinth. This is a diagnostic, not an additional model path. Firing origins and collision ownership are validated separately.</p>
+<script type="module" src="./weaponAnatomyLab.js?v=k3x"></script>
+</body>
+</html>

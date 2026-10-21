@@ -22,6 +22,8 @@ jobs:
           sleep 2
       - name: Assert main scene renders its first frame
         run: node research/browserStartupSmoke.mjs
+      - name: Render weapon anatomy gallery in Chromium
+        run: node research/weaponLabSmoke.mjs
       - name: Save screenshot and errors
         if: always()
         uses: actions/upload-artifact@v4
