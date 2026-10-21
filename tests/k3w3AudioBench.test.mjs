@@ -98,5 +98,5 @@ test('bench remains DEV-only, user initiated, and does not write gameplay storag
   assert.match(ui,/formatAllBenchRecipes\(presets\)/);
   assert.doesNotMatch(synth,/localStorage|sessionStorage|storeMachine|setItem\(/);
   assert.doesNotMatch(ui,/storeMachine|clearMachineSave|mech-arena-machine-v8/);
-  assert.match(html,/0\.0\.1k\.4l — Garage & Combat QoL/);
+  assert.match(html,/0\.0\.1k\.4q — Interface Clarity/);
 });
