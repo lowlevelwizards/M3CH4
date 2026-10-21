@@ -2120,8 +2120,7 @@ function finishSortie(victory, reason) {
     sortiePhase = 'outro';
     // A complete squad wipe resolves immediately; territory/score outcomes keep
     // their short physical aftermath. This does not bypass rewards or BO3 scoring.
-    sortieOutroRemaining = squadOutcome(playerCombatActive, aiActors)
-        ? 0 : SORTIE_OUTRO_SECONDS;
+    sortieOutroRemaining = 5; // Retain the aftermath even on a complete squad wipe.
     pendingDebrief = { summary, reason };
     const match = resolvedResult?.series;
     if (match) {
