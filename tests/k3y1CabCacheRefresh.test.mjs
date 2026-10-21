@@ -7,7 +7,7 @@ test('k3z cache refresh has one coherent real-game module identity',()=>{
     const html=read('index.html'),bridge=read('sceneAssembly.js'),scene=read('scene.js');
     assert.match(html, /"\.\/scene\.js": "\.\/sceneAssembly\.js\?v=k3z"/);
     assert.match(html, /src="\.\/main\.js\?v=k3z"/);
-    assert.match(html, /0\.0\.1k\.3y — Frame Anatomy Rewrite/);
+    assert.match(html, /0\.0\.1k\.3z — Frame Anatomy Rewrite/);
     assert.match(bridge, /from '\.\/scene\.js\?source=k3z'/);
     assert.match(scene, /from '\.\/partVisuals\.js\?v=k3z'/);
     assert.doesNotMatch(html, /sceneAssembly\.js\?v=k3x|main\.js\?v=k3x/);
