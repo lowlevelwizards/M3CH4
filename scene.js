@@ -497,6 +497,26 @@ export function createArenaScene(initial, targetAssembly) {
         squadCombatants.set(id, record);
         return record;
     }
+    /** Update installed coating on an already spawned ally without rebuilding
+     * its rig, physics, pose or serialized hardware. Usually called in garage. */
+    function repaintCombatant(id){
+        const record=squadCombatants.get(id);
+        if(!record)return false;
+        for(const [slot,group] of record.exterior.partGroups){
+            const paint=normalizePaint(installedPart(record.assembly,slot)?.instance?.paint);
+            if(!paint)continue;
+            group.traverse(node=>{
+                if(!node.isMesh||!node.material)return;
+                const items=Array.isArray(node.material)?node.material:[node.material];
+                for(const material of items){
+                    const channel=material?.userData?.paintChannel;
+                    if(channel && paint[channel])material.color.set(paint[channel]);
+                }
+            });
+        }
+        record.colors=colorsFor(record.exterior);
+        return true;
+    }
     function setCombatantActive(id, active) {
         const record = squadCombatants.get(id);
         if (!record) return;
@@ -2115,7 +2135,7 @@ export function createArenaScene(initial, targetAssembly) {
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
-        addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
+        addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
     };
 }
