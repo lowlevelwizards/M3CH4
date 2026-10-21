@@ -437,3 +437,20 @@ body.inspecting #unified-garage{display:block}
  #unified-garage{--garage-dock-width:clamp(215px,33vw,268px)}
  #unified-garage-shelf{left:calc(var(--garage-dock-width) + 9px)}
 }
+
+/* Keep shelf rows from shrinking on short landscape screens. A squeezed
+   thumbnail must never paint over the install confirmation beneath it. */
+#unified-garage-shelf .unified-part-gallery{
+ position:relative;z-index:0;flex:0 0 82px;height:82px;min-height:0;
+ box-sizing:border-box;
+}
+#unified-garage-shelf .unified-part-detail{
+ position:relative;z-index:2;flex:0 0 auto;min-height:34px;
+ box-sizing:border-box;background:#111a15;
+}
+#unified-garage-shelf .unified-part-detail .part-detail-action{
+ position:relative;z-index:3;pointer-events:auto;
+}
+@media(max-height:460px){
+ #unified-garage-shelf .unified-part-gallery{flex-basis:73px;height:73px}
+}
