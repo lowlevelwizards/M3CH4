@@ -1533,12 +1533,24 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.visible = inspecting;
         scene.add(exterior.root);
         scene.remove(oldRoot);
+        // Part swaps can encounter legacy meshes with malformed material
+        // data (the original S-6 underbarrel brace had a bare color number).
+        // Never crash a player garage while cleaning up a discarded visual.
+        // Geometry belongs to this rig; cloned gameplay materials may be
+        // referenced by several of its meshes, so dispose each only once.
+        const releasedGeometry=new Set(),releasedMaterials=new Set();
         oldRoot.traverse(object => {
-            if (object instanceof THREE.Mesh) {
+            if (!object.isMesh) return;
+            if (object.geometry?.dispose && !releasedGeometry.has(object.geometry)) {
+                releasedGeometry.add(object.geometry);
                 object.geometry.dispose();
-                const materials = Array.isArray(object.material) ? object.material : [object.material];
-                for (const material of materials)
-                    material.dispose();
+            }
+            const materials=Array.isArray(object.material)?object.material:[object.material];
+            for(const material of materials) {
+                if (!material?.isMaterial || typeof material.dispose!=='function' ||
+                    releasedMaterials.has(material)) continue;
+                releasedMaterials.add(material);
+                material.dispose();
             }
         });
         selectPart(selected && installedPart(assembly, selected) ? selected : null);
@@ -2737,7 +2749,7 @@ export function buildExteriorRig(assembly) {
                     add(plate(.12,.075,.64,m(teal)),side*.42,.29,-.27);
                     add(plate(.12,.10,.63,m(steel)),side*.28,.23,-.58); // exposed barrel brace
                 }
-                add(plate(.28,.15,.57,steel),-.30,-.28,.47);
+                add(plate(.28,.15,.57,m(steel)),-.30,-.28,.47);
                 add(plate(.44,.13,.17,m(0x4b4e46)),0,.12,.60);
                 break;
             }
@@ -2845,7 +2857,11 @@ function plate(width, height, depth, material) {
         bevelSize: bevel, bevelSegments: 1, curveSegments: 1,
     });
     geometry.translate(0, 0, -depth / 2 + bevel);
-    const mesh = new THREE.Mesh(geometry, material);
+    // Do not permit raw hex color numbers as Three.js mesh materials.
+    // Coerce them to real materials and fail early for unsupported inputs.
+    const surface=typeof material==='number'?mat(material,.82,.31):material;
+    if(!surface?.isMaterial)throw new TypeError('Plate requires a Three.js material');
+    const mesh = new THREE.Mesh(geometry, surface);
     mesh.castShadow = true; mesh.receiveShadow = true;
     return mesh;
 }
