@@ -16,6 +16,34 @@ async function open(port,category='frames',view='quarter',mini=false){
  await page.waitForFunction(()=>window.__k4aGalleryRendered===true,undefined,{timeout:35000});
  return page;
 }
+/** Verify rendered physical surfaces are actually visible through the gallery DOM.
+ * Previously opaque tile backgrounds hid valid WebGL draws in otherwise blank PNGs.
+ */
+async function requireVisibleMeshes(page,bytes,subject){
+ const base64=bytes.toString('base64');
+ const distinct=await page.evaluate(async encoded=>{
+  const image=new Image();
+  image.src='data:image/png;base64,'+encoded;
+  await image.decode();
+  const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+  const context=canvas.getContext('2d',{willReadFrequently:true});
+  context.drawImage(image,0,0);
+  const {data,width}=context.getImageData(0,0,image.width,image.height);
+  const tile=document.querySelector('.tile').getBoundingClientRect();
+  const stage=document.querySelector('#stage').getBoundingClientRect();
+  const colors=new Set();
+  const x0=Math.round(tile.left-stage.left),y0=Math.round(tile.top-stage.top);
+  const w=Math.round(tile.width),h=Math.round(tile.height);
+  for(let y=y0+Math.floor(h*.23);y<y0+h*.77;y+=4){
+   for(let x=x0+Math.floor(w*.20);x<x0+w*.80;x+=4){
+    const n=(y*width+x)*4;
+    colors.add((data[n]>>3)+','+(data[n+1]>>3)+','+(data[n+2]>>3));
+   }
+  }
+  return colors.size;
+ },base64);
+ if(distinct<12)throw Error('Invisible Three.js render in '+subject+': only '+distinct+' visible center colors');
+}
 async function fingerprint(origin){
  const p=await open(origin);
  const result=await p.evaluate(async()=>{
@@ -129,6 +157,8 @@ try{
    const [before,after]=await Promise.all([open(beforeUrl,cat,view),open(afterUrl,cat,view)]);
    const [left,right]=await Promise.all([
     before.locator('#stage').screenshot(),after.locator('#stage').screenshot()]);
+   await requireVisibleMeshes(before,left,cat+' / '+view+' / before');
+   await requireVisibleMeshes(after,right,cat+' / '+view+' / after');
    const label=cat+'-'+view;
    writeFileSync(out+'/'+label+'-before.png',left);
    writeFileSync(out+'/'+label+'-after.png',right);
