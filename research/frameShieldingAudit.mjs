@@ -112,8 +112,13 @@ export function verifyShieldAudit(results = runFrameShieldAudit()) {
     // These are consequences of ACTUAL visible mesh placement at matched
     // shooter height and identical installed target modules, not invented
     // percentage reductions or universal facing flags.
-    assert.ok(wedge.front.command.verifiedShield >= 3,
-        'Wedge forward armor must physically intercept the lower outer cab');
+    // k.3y: Cyclops' real square optical carrier and occupied tub replace
+    // the old shell. The Wedge intercepts both outer, middle-height command
+    // rays (u=±0.4, v=0) rather than three former lower-face samples.
+    // Keep a real same-ray structural intercept gate; do not invent shielding
+    // or change any armour/health math to reproduce the old number.
+    assert.ok(wedge.front.command.verifiedShield >= 2,
+        'Wedge armor must still intercept both outer command sightlines');
     assert.ok(wedge.front.command.frameFirst > bruiser.front.command.frameFirst);
     assert.ok(wedge.front.command.frameFirst > skeleton.front.command.frameFirst);
     assert.ok(wedge.front.command.reached < bruiser.front.command.reached);

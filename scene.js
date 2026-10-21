@@ -2655,69 +2655,6 @@ export function buildExteriorRig(assembly) {
                 add(plate(.09, .45, .08, m(steel)), 0, .35, .47);
                 break;
             }
-            case 'cab-cyclops': {
-                // CYCLOPS: the single protected optical lens is a distinct serviceable
-                // camera carried by a low, visibly pilot-sized industrial enclosure.
-                add(plate(1.12, .61, .99, m(steel)), 0, -.13, .06);
-                const tub = add(plate(1.16, .26, .66, m(yellow)), 0, -.35, -.25);
-                tub.rotation.x = -.11;
-                // A central armored camera cassette; no paired face-like 'eyes'.
-                add(plate(.73, .66, .27, m(0x7a8279)), -.06, .13, -.38);
-                add(plate(.59, .52, .17, m(0x1a2626)), -.06, .13, -.53);
-                const bezel = add(cyl(.255, .255, .10, steel, 12), -.06, .11, -.64);
-                bezel.rotation.x = Math.PI / 2;
-                const lens = add(cyl(.182, .182, .032, 0x4b9f9a, 12), -.06, .11, -.713);
-                lens.rotation.x = Math.PI / 2;
-                const lensGlass = add(cyl(.103, .103, .035, 0x244649, 10), -.06, .11, -.736);
-                lensGlass.rotation.x = Math.PI / 2;
-                for (const side of [-1, 1]) {
-                    add(plate(.14, .77, .80, m(yellow)), side * .52, -.03, -.04);
-                    add(plate(.18, .20, .45, m(teal)), side * .51, -.30, .04);
-                }
-                add(plate(.78, .12, .79, m(0x827d66)), -.05, .51, .02);
-                add(plate(.35, .15, .38, m(steel)), .28, .49, .11);
-                break;
-            }
-            case 'cab-armored': {
-                // INTEGRATED: a shallow armored crew cell merging into the front deck.
-                // The slit is a separate visible glazing insert, NOT a smile/robot face.
-                add(plate(1.36, .53, 1.06, m(steel)), 0, -.17, .07);
-                const roof = add(plate(1.35, .19, .95, m(0x626357)), 0, .22, .15);
-                roof.rotation.x = -.07;
-                for (const side of [-1, 1]) {
-                    const cheek = add(plate(.25, .53, 1.06, m(yellow)), side * .65, -.14, -.04);
-                    cheek.rotation.z = side * -.09;
-                    add(plate(.17, .23, .63, m(teal)), side * .72, .04, .12);
-                }
-                const brow = add(plate(1.20, .14, .28, m(yellow)), 0, .15, -.47);
-                brow.rotation.x = -.10;
-                add(plate(.93, .105, .053, m(0x142326)), 0, .045, -.526);
-                add(plate(.79, .040, .023, m(0x538c85)), 0, .050, -.566);
-                const lower = add(plate(1.36, .35, .33, m(0xbf9141)), 0, -.38, -.46);
-                lower.rotation.x = -.26;
-                add(plate(.94, .09, .59, m(steel)), 0, -.48, .18);
-                break;
-            }
-            case 'cab-utility': {
-                // OBSERVATION: a distinctly taller utility cab with one broad windshield
-                // and two SIDE windows; their arrangement is vehicle-like, not humanoid.
-                add(plate(.93, .91, .98, m(steel)), -.06, .01, .05);
-                const sill = add(plate(1.08, .30, 1.02, m(yellow)), -.02, -.42, -.06);
-                sill.rotation.x = -.10;
-                add(plate(.86, .41, .064, m(0x20353a)), 0, .20, -.465);
-                add(plate(.71, .055, .022, m(0x548d88)), 0, .08, -.513);
-                for (const side of [-1, 1]) {
-                    const window = add(plate(.42, .28, .06, m(0x253e40)), side * .494, .18, -.10);
-                    window.rotation.y = side * Math.PI / 2;
-                    const pillar = add(plate(.16, .80, .83, m(yellow)), side * .50, .10, .06);
-                    pillar.rotation.z = side * -.05;
-                    add(plate(.19, .14, .42, m(teal)), side * .49, -.29, .20);
-                }
-                const canopy = add(plate(1.04, .17, 1.06, m(teal)), -.06, .53, .055);
-                canopy.rotation.x = -.06;
-                add(plate(.32, .11, .37, m(0x898d79)), .26, .65, .11);
-                break;
-            }
         }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
