@@ -1619,7 +1619,7 @@ export function createArenaScene(initial, targetAssembly) {
                     continue;
                 const illuminated=paintSelectedSlots ? paintSelectedSlots.has(groupSlot) : groupSlot===slot;
                 material.emissive.setHex(illuminated ? 0xb78b35 : 0);
-                material.emissiveIntensity = illuminated ? (paintSelectedSlots?.has(groupSlot)?.14:.30) : 0;
+                material.emissiveIntensity = illuminated ? (paintSelectedSlots ? 0.14 : 0.30) : 0;
             }
         }
     }
