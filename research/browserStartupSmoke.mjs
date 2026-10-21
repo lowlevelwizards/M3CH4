@@ -27,8 +27,20 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
-  // k4m: the mech pivot must be visible in the clear space beyond the
-  // workshop panel even after a reset, independently of tab width.
+  // k4s.1: an untouched garage must expose the physical machine, not a
+  // permanently expanded management column or another nested modal.
+  const workshop=await page.evaluate(()=>({
+    workspace:document.querySelector('#unified-garage')?.dataset.workspace,
+    rail:document.querySelectorAll('#unified-garage .workshop-rail .unified-station').length,
+    dockDisplay:getComputedStyle(document.querySelector('#unified-garage-dock')).display,
+    links:[...document.querySelectorAll('#unified-garage .workshop-links button')].map(x=>x.textContent),
+  }));
+  if(workshop.workspace!=='garage'||workshop.rail!==5||workshop.dockDisplay!=='none'||
+     workshop.links.length!==3)
+    throw Error('k4s.1 default workshop still behaves as a permanent panel: '+JSON.stringify(workshop));
+  console.log('WORKSHOP SHELL: PASS · five shortcuts, hidden inspector, distinct workspaces');
+  await page.screenshot({path:output+'/k4s1-open-garage.png'});
+  // k4s.1: reset framing should keep the mech centered when no panel is open.
   const orbitFrame=await page.evaluate(async()=>{
     const THREE=await import('three');
     const {activePlayerArena}=await import('./scene.js');
@@ -47,7 +59,7 @@ try {
   console.log('GARAGE CAMERA: PASS · reset frame stays in the open viewport');
   // k.4d: exercise the real garage controls, live Three.js preview, serial save,
   // reset to factory and the two-direction UI-to-renderer integration.
-  const paintAction=page.locator('#unified-garage .unified-top-action').filter({hasText:'PAINT'});
+  const paintAction=page.locator('#unified-garage .workshop-link-paint');
   await paintAction.click({timeout:12000});
   await page.locator('.paint-booth').waitFor({state:'visible',timeout:12000});
   await page.screenshot({path:output+'/paint-booth.png'});
@@ -171,7 +183,17 @@ try {
   });
   if(reset.filter(Boolean).length!==4)
     throw Error('Factory reset affected neighboring serials: '+JSON.stringify(reset));
-  await page.locator('#unified-garage .unified-top-action').filter({hasText:'PAINT'}).click();
+  await page.locator('#unified-garage .workshop-back').click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='garage')
+    throw Error('Paint Back did not return to the workshop');
+  await page.locator('#unified-garage .workshop-link-contracts').click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='contracts')
+    throw Error('Contract board did not become its own workspace');
+  await page.locator('#unified-garage .workshop-back').click();
+  await page.locator('#unified-garage .workshop-link-vendor').click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='vendor')
+    throw Error('Parts Counter did not become its own workspace');
+  await page.locator('#unified-garage .workshop-back').click();
   console.log('PAINT BOOTH: PASS · three rig variants, crew materials, multi-select, five serials, team save and partial reset');
 
   // k3w17: the first-ever Scattergun install must not leave a raw
