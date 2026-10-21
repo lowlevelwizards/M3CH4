@@ -263,6 +263,7 @@ try {
   });
   if(removed!==null)throw Error('Bay 02 quick-remove failed: '+removed);
   await page.locator('#unified-garage .unified-swap-toggle').click();
+  await page.locator('#unified-garage .unified-part-card').filter({hasText:fixture.serial}).first().click();
   await page.locator('#unified-garage .part-detail-action').filter({hasText:'INSTALL'}).click();
   const remounted=await page.evaluate(async()=>{
     const {loadStable}=await import('./stable.js');
