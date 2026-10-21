@@ -94,10 +94,10 @@ test('one explicit debrief-open event coordinates BO3 and salvage without a self
     assert.doesNotMatch(salvage,/observer\.observe\(sheet/);
     assert.doesNotMatch(assignment,/debriefObserver\.observe/);
     assert.match(assignment,/addEventListener\('m3ch4:debrief-opened'/);
-    assert.match(series,/CONTINUE TO INTERMISSION/);
-    assert.match(series,/INTEGRITY|INT ' \+ percent\(part\.condition\)/);
-    assert.match(series,/percent\(part\.armorRatio\)/);
-    assert.match(series,/percent\(part\.wear\)/);
+    assert.match(series,/CONTINUE TO PIT/);
+    assert.match(series,/Math\.round\(p\.condition\*100\)/);
+    assert.match(series,/Math\.round\(p\.armorRatio\*100\)/);
+    assert.match(series,/Math\.round\(p\.wear\*100\)/);
 });
 test('round score navigation works while salvage remains gated until contract completion',()=>{
     const score=source('acquisitionUI.js');
@@ -122,7 +122,7 @@ test('BO3 is visible in combat and restored on an active-round reload',()=>{
     const series=source('seriesUI.js');
     const styles=source('seriesStyles.css');
     assert.match(series,/id = 'bo3-combat-hud'/);
-    assert.match(series,/score\.textContent = 'R'\+match\.roundNumber\+'\/3/);
+    assert.match(series,/score\.textContent = match\.playerWins/);
     assert.match(series,/phase === 'round_active'/);
     assert.match(series,/renderCombatSeries\(\);\s*scheduleActiveRoundResume\(binding\)/);
     assert.match(styles,/body\.inspecting #bo3-combat-hud/);
@@ -132,10 +132,10 @@ test('updated mobile URLs reference fresh result and machine-status resources',(
     const html=source('index.html');
     const mount=source('garageMountUI.js');
     const series=source('seriesUI.js');
-    assert.match(html,/main\.js\?v=k4l/);
-    assert.match(html,/garageMountUI\.js\?v=k4h/);
+    assert.match(html,/main\.js\?v=k4q/);
+    assert.match(html,/garageMountUI\.js\?v=k4q/);
     assert.match(html,/garageBay\.js\?v=k3w0/);
-    assert.match(mount,/seriesUI\.js\?v=k3w0/);
-    assert.match(mount,/acquisitionUI\.js\?v=k3s2/);
-    assert.match(series,/seriesStyles\.css\?v=k3s2/);
+    assert.match(mount,/seriesUI\.js\?v=k4q/);
+    assert.match(mount,/acquisitionUI\.js\?v=k4o/);
+    assert.match(series,/seriesStyles\.css\?v=k4q/);
 });

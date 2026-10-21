@@ -1,0 +1,116 @@
+/* k4n/o — one authoritative landscape report skin.
+ * The informational score and five physical stations must fit without
+ * hidden expanders, vertical scrolling, or clipped header typography. */
+#sortie-debrief .debrief-content{
+  box-sizing:border-box;height:min(92dvh,610px)!important;max-height:92dvh!important;
+  width:min(960px,95vw)!important;max-width:95vw!important;
+  padding:12px 13px 10px!important;overflow:hidden!important;gap:3px;
+}
+#sortie-debrief .debrief-pages{min-height:0;flex:1 1 auto;overflow-y:hidden}
+#sortie-debrief .debrief-page{padding:5px 34px 6px;min-height:0}
+#sortie-debrief .debrief-page-title{
+  margin:0 0 6px;line-height:1.25;font:800 11px/1.25 ui-monospace,monospace;
+  color:#9ab4a3;letter-spacing:.12em;flex-shrink:0;
+}
+#sortie-debrief .debrief-edge{top:44%;height:42px;width:30px;opacity:.78}
+#sortie-debrief .debrief-page-result .debrief-result-summary{
+  width:100%;justify-content:flex-start;padding:0;gap:6px;
+}
+#sortie-debrief .k4n-condition-debrief .debrief-page-result .sheet-label,
+#sortie-debrief .k4n-condition-debrief .debrief-page-result .sheet-muted{display:none}
+#sortie-debrief .k4n-condition-debrief .debrief-page-result h1{
+  font:900 clamp(18px,3.4vw,27px)/1.1 ui-monospace,monospace;
+  color:#e4bb6c;margin:0 0 3px;letter-spacing:.09em;
+}
+#sortie-debrief .k4n-condition-debrief .debrief-lines.k4n-report{
+  display:flex;flex-direction:column;gap:5px;min-height:0;overflow:hidden;
+  flex:1 1 auto;
+}
+.k4n-overview{display:flex;justify-content:space-between;align-items:baseline;
+  gap:8px;font:700 12px/1.1 ui-monospace,monospace;color:#ddd0ad;min-height:16px}
+.k4n-overview strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k4n-match{color:#edc17b;white-space:nowrap;font-size:12px}
+.k4n-return{display:flex;justify-content:space-between;align-items:baseline;
+  font:800 9px/1.2 ui-monospace,monospace;color:#ddad83;min-height:13px}
+.k4n-return small{font-size:8px;color:#91b39f}
+.k4n-parts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;
+  min-height:0;flex:1 1 auto;align-content:stretch}
+.k4n-part{display:flex;flex-direction:column;align-items:center;min-width:0;
+  padding:5px 4px 4px;border:1px solid #66866e;background:#1b2821;
+  gap:2px;border-radius:3px}
+.k4n-part strong{font:800 9px/1 ui-monospace,monospace;color:#becfb9}
+.k4n-part-art{display:grid;place-items:center;min-height:20px;flex:1 1 auto;
+  width:100%;overflow:hidden;background:#0a1210}
+.k4n-part-art img{display:block;max-width:100%;width:100%;height:100%;
+  max-height:75px;object-fit:contain;image-rendering:pixelated}
+.k4n-empty-art{color:#687869;font:900 19px ui-monospace,monospace}
+.k4n-meters{display:grid;gap:3px;width:100%;flex-shrink:0}
+.k4n-meter{height:4px;width:100%;background:#38443b;overflow:hidden}
+.k4n-meter i{display:block;height:100%;background:#8bb7a1}
+.k4n-meter.armor i{background:#d8b170}
+.k4n-status{font:800 8px/1.3 ui-monospace,monospace;color:#afcab2;white-space:nowrap}
+.k4n-disabled,.k4n-destroyed{background:#35221e;border-color:#be735e}
+.k4n-disabled .k4n-status,.k4n-destroyed .k4n-status{color:#f29f83}
+.k4n-critical{background:#372d22;border-color:#c99b56}
+.k4n-critical .k4n-status,.k4n-worn .k4n-status{color:#e1ba78}
+.k4n-legend{display:flex;gap:14px;justify-content:center;
+  font:700 8px/1.2 ui-monospace,monospace;color:#98aea1;flex-shrink:0}
+.k4n-legend span:first-child{color:#8bb7a1}
+.k4n-legend span:last-child{color:#d8b170}
+/* Score is a readable list, not eight self-explanatory metric cards. */
+#sortie-debrief #debrief-score-page{display:flex;flex-direction:column;gap:1px}
+#sortie-debrief .k4o-score{min-height:0;display:flex;flex-direction:column;
+  gap:7px;flex:1 1 auto;width:100%;overflow:hidden;font-family:ui-monospace,monospace}
+.k4o-score-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.k4o-score-heading{display:grid;gap:3px}
+.k4o-score-heading strong{font:900 clamp(13px,2.9vw,20px)/1.1 ui-monospace,monospace;color:#edc77a}
+.k4o-score-heading small{font:700 9px/1.1 ui-monospace,monospace;color:#a6c9ad}
+.k4o-score-match{display:grid;text-align:right;gap:2px}
+.k4o-score-match small{font-size:8px;color:#99ad9e}
+.k4o-score-match strong{font:900 19px/1.1 ui-monospace,monospace;color:#ebc277}
+.k4o-highlights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.k4o-highlight{display:flex;align-items:center;justify-content:space-between;
+  min-width:0;padding:8px;gap:6px;background:#223027;border:1px solid #617364}
+.k4o-highlight span{color:#94aa99;font-size:8px}
+.k4o-highlight strong{color:#efc77b;font-size:16px;white-space:nowrap}
+.k4o-standings{display:grid;grid-template-rows:auto repeat(6,minmax(0,1fr));
+  min-height:0;flex:1 1 auto}
+.k4o-stand-head,.k4o-standing{
+  display:grid;grid-template-columns:minmax(0,1fr) 100px 52px;
+  align-items:center;gap:7px;padding:0 9px;min-height:0;border-bottom:1px solid #6a79664d;
+}
+.k4o-stand-head{background:#26332a;color:#96a99c;font-size:9px;font-weight:800;min-height:20px}
+.k4o-stand-head span:not(:first-child){text-align:right}
+.k4o-standing{font:700 11px/1.1 ui-monospace,monospace;color:#c9d1bd}
+.k4o-standing:nth-child(2n){background:#1c2720}
+.k4o-standing.player{background:#4b3e25;color:#f5d28d;border-left:3px solid #d6aa61}
+.k4o-standing.mvp .k4o-pilot::after{content:' ★';color:#efc77a}
+.k4o-pilot{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.k4o-stats,.k4o-standing strong{text-align:right;font-variant-numeric:tabular-nums}
+.k4o-standing strong{color:#e8c175}
+.k4o-foot{text-align:center;color:#a1afa0;font:800 8px/1.2 ui-monospace,monospace}
+@media(max-height:430px){
+ #sortie-debrief .debrief-content{height:92dvh!important;max-height:92dvh!important;padding:6px 11px 7px!important}
+ #sortie-debrief .debrief-page{padding:2px 27px 3px}
+ #sortie-debrief .debrief-page-title{font-size:9px;margin-bottom:2px}
+ #sortie-debrief .k4n-condition-debrief .debrief-page-result h1{font-size:17px;margin:0}
+ #sortie-debrief .k4n-condition-debrief .debrief-lines.k4n-report{gap:3px}
+ .k4n-overview{font-size:10px;min-height:13px}
+ .k4n-match{font-size:10px}
+ .k4n-return{font-size:8px;min-height:11px}
+ .k4n-part{padding:3px;gap:1px}
+ .k4n-part strong,.k4n-status{font-size:7px}
+ .k4n-part-art img{max-height:48px}
+ .k4n-legend{font-size:7px}
+ #sortie-debrief .k4o-score{gap:4px}
+ .k4o-score-heading strong{font-size:14px}
+ .k4o-score-heading small{font-size:8px}
+ .k4o-score-match strong{font-size:15px}
+ .k4o-highlight{padding:4px}
+ .k4o-highlight span{font-size:7px}
+ .k4o-highlight strong{font-size:12px}
+ .k4o-stand-head,.k4o-standing{grid-template-columns:minmax(0,1fr) 77px 38px;padding:0 5px;gap:4px}
+ .k4o-standing{font-size:9px}
+ .k4o-stand-head{font-size:7px;min-height:16px}
+ .k4o-foot{font-size:7px}
+}

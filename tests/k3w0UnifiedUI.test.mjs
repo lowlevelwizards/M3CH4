@@ -84,22 +84,22 @@ test('cockpit gets real armor data and two distinct physical damage events witho
 });
 test('intermission reports compact truthful dual gauges and reveal detailed readings on tap',()=>{
     const src=source('seriesUI.js'),garage=source('unifiedGarageUI.js'),css=source('uiRedesign.css');
-    assert.match(src,/createConditionMeter\(conditionFromPart\(reading\)/);
-    assert.match(src,/bayModuleQuote\(stable,round\.rigId,part\.slot\)/);
-    assert.match(src,/row\.addEventListener\('click',toggle\)/);
-    assert.match(src,/aria-expanded/);
+    assert.match(src,/partThumbnailDataUrl/);
+    assert.match(src,/\['armor',p\.armorRatio\]/);
+    assert.doesNotMatch(src,/row\.addEventListener\('click',toggle\)/);
+    assert.match(src,/tile\.setAttribute\('aria-label'/);
     assert.match(garage,/createConditionMeter\(conditionFromPart\(current\)/);
-    assert.match(css,/\.rig-condition-row\.expanded/);
+    assert.match(source('reportClarity.css'),/k4n-parts/);
 });
 test('bundled entry and mobile versions include exact changed assets and no new save contract',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.4l — Garage & Combat QoL/);
-    assert.match(html,/uiRedesign\.css\?v=k3w0/);
-    assert.match(html,/main\.js\?v=k4l/);
-    assert.match(html,/garageMountUI\.js\?v=k4h/);
+    assert.match(html,/0\.0\.1k\.4q — Interface Clarity/);
+    assert.match(html,/uiRedesign\.css\?v=k4q/);
+    assert.match(html,/main\.js\?v=k4q/);
+    assert.match(html,/garageMountUI\.js\?v=k4q/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
     assert.match(html,/uiLanguage\.js\?v=k3w0/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4h/);
-    assert.match(mount,/seriesUI\.js\?v=k3w0/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4q/);
+    assert.match(mount,/seriesUI\.js\?v=k4q/);
 });

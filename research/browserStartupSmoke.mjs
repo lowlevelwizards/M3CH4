@@ -27,6 +27,24 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
+  // k4m: the mech pivot must be visible in the clear space beyond the
+  // workshop panel even after a reset, independently of tab width.
+  const orbitFrame=await page.evaluate(async()=>{
+    const THREE=await import('three');
+    const {activePlayerArena}=await import('./scene.js');
+    const arena=activePlayerArena()?.arena;
+    arena.resetOrbit();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const rect=document.querySelector('#game canvas')?.getBoundingClientRect();
+    const panel=document.querySelector('#unified-garage-dock')?.getBoundingClientRect();
+    const center=new THREE.Vector3(0,1.85,0).project(arena.camera);
+    return {x:rect.left+(center.x+1)*rect.width/2,panelRight:panel.right,
+      viewportRight:rect.right,view:{x:arena.camera.position.x,y:arena.camera.position.y,z:arena.camera.position.z}};
+  });
+  if(orbitFrame.x<orbitFrame.panelRight+15||
+      orbitFrame.x>orbitFrame.viewportRight-12)
+    throw Error('Reset orbit hides mech behind garage panel: '+JSON.stringify(orbitFrame));
+  console.log('GARAGE CAMERA: PASS · reset frame stays in the open viewport');
   // k.4d: exercise the real garage controls, live Three.js preview, serial save,
   // reset to factory and the two-direction UI-to-renderer integration.
   const paintAction=page.locator('#unified-garage .unified-top-action').filter({hasText:'PAINT'});
@@ -55,8 +73,22 @@ try {
     crewColors['enemy-2']!=='bcb29b' || crewColors['ally-1']!=='515958' ||
     crewColors['ally-2']!=='93968e')
     throw Error('Crew livery not reaching real combatant materials: '+JSON.stringify(crewColors));
+  const beforeColorChange=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const arena=activePlayerArena()?.arena;
+    arena.orbitBy(38,-15);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    return arena.camera.position.toArray();
+  });
   await page.locator('.paint-booth-preset').filter({hasText:'RACING RED'}).click();
   await page.locator('.paint-booth-variant').nth(1).click();
+  const afterColorChange=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    return activePlayerArena()?.arena.camera.position.toArray();
+  });
+  if(Math.max(...afterColorChange.map((v,i)=>Math.abs(v-beforeColorChange[i])))>.06)
+    throw Error('Paint changed garage orbit unexpectedly: '+JSON.stringify({beforeColorChange,afterColorChange}));
   await page.screenshot({path:output+'/paint-alternate-a.png'});
   const altPreview=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');

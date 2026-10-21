@@ -1,0 +1,128 @@
+/* k4p/q — minimal industrial telemetry, one visual hierarchy.
+ * Symbols = rapidly recognizable state; words = actions/decisions. */
+body:not(.inspecting) #domination-hud{
+  position:absolute;left:50%;top:max(6px,env(safe-area-inset-top));
+  transform:translateX(-50%);width:min(470px,70vw);max-width:70vw;
+  box-sizing:border-box;padding:4px 10px 3px;
+  background:#121b16ed;border:1px solid #688477aa;border-radius:3px;
+  box-shadow:0 4px 18px #0007;z-index:13;text-align:center;white-space:normal;
+  pointer-events:none;
+}
+body:not(.inspecting) #domination-hud .k4p-band{
+  display:grid;grid-template-columns: minmax(29px,1fr) auto minmax(29px,1fr);
+  gap:8px;align-items:center;
+}
+#domination-hud .k4p-score{
+  font:900 clamp(13px,2vw,22px)/1 ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;text-shadow:0 1px 3px #000;
+}
+#domination-hud .k4p-score.friendly{color:#9ac8ad;text-align:right}
+#domination-hud .k4p-score.hostile{color:#db8d7a;text-align:left}
+#domination-hud .k4p-zones{display:flex;align-items:center;gap:6px}
+#domination-hud .k4p-zone{
+  position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-width:36px;width:clamp(36px,5vw,45px);
+  min-height:34px;box-sizing:border-box;
+  border:1px solid #7a8a78;background:#263029;color:#babfae;
+}
+#domination-hud .k4p-zone strong{
+  font:900 15px/1 ui-monospace,monospace;letter-spacing:0;color:inherit;
+}
+#domination-hud .k4p-zone small{
+  position:absolute;right:2px;top:1px;
+  font:800 8px/1 ui-monospace,monospace;color:#f1c179;
+}
+#domination-hud .k4p-zone[data-owner="friendly"]{
+  border-color:#83b499;color:#b7dfba;background:#2c4b3d;
+}
+#domination-hud .k4p-zone[data-owner="hostile"]{
+  border-color:#c7806b;color:#f0b19d;background:#553128;
+}
+#domination-hud .k4p-zone.contested{
+  border-style:dashed;border-color:#f4bb70;color:#f4bb70;
+  box-shadow:0 0 0 1px #f4bb7044;
+}
+#domination-hud .k4p-meter{
+  height:3px;width:78%;background:#101914;margin-top:3px;overflow:hidden;
+}
+#domination-hud .k4p-meter i{display:block;height:100%;background:#b7ad8c}
+#domination-hud .k4p-zone[data-capture="friendly"] .k4p-meter i{background:#96cdae}
+#domination-hud .k4p-zone[data-capture="hostile"] .k4p-meter i{background:#da8d77}
+#domination-hud .k4p-local{
+  margin:3px auto 0;min-height:10px;color:#c2d9c7;
+  font:800 9px/1.2 ui-monospace,monospace;letter-spacing:.08em;
+}
+#domination-hud .k4p-local.hidden{display:none}
+#domination-hud .k4p-local.contested{color:#ffbd7b}
+body.domination-active:not(.inspecting) #domination-hud #bo3-combat-hud{
+  position:relative;left:auto;top:auto;transform:none;
+  display:flex;justify-content:center;gap:8px;
+  border:0;border-top:1px solid #52655377;background:none;box-shadow:none;
+  margin:3px 0 0;padding:3px 0 0;max-width:none;width:100%;
+  color:#94b3a3;font:700 8px/1 ui-monospace,monospace;
+}
+body.domination-active:not(.inspecting) #domination-hud #bo3-combat-hud strong{font:inherit}
+body.domination-active:not(.inspecting) #domination-hud #bo3-combat-hud span{font:inherit;color:#d9be86}
+body.domination-active:not(.inspecting) #objective-status{display:none!important}
+body.domination-active:not(.inspecting) .look-heading{display:none!important}
+body.domination-active:not(.inspecting) .fault-strip.faulted{
+  top:max(103px,calc(env(safe-area-inset-top) + 95px));
+  font-size:8px;z-index:14;
+}
+body.domination-active:not(.inspecting) .shot-report:not(.faded){
+  top:max(128px,calc(env(safe-area-inset-top) + 120px));
+}
+/* A single compact observation strip; the camera is controlled by the
+ * player's orbit gesture and doesn't need a second reset button. */
+#allied-observation{
+  grid-template-columns:37px minmax(145px,1fr) 37px;
+  min-width:min(260px,66vw);max-width:66vw;
+  gap:5px;padding:5px 7px;border-radius:3px;
+}
+#allied-observation button{
+  width:37px;min-height:38px;height:38px;font-size:20px;
+}
+/* Idle sights are independent from contact-confirmation diagonals.
+ * Pellet dispersion is conveyed by the surrounding scatter circle. */
+#center-crosshair.center-crosshair:not(.confirmed-hit){
+  width:36px;height:36px;background:transparent;filter:none;
+  text-shadow:none;opacity:.8;
+}
+#center-crosshair.center-crosshair:not(.confirmed-hit)::before{
+  content:"";display:block;position:absolute;
+  top:50%;left:50%;width:4px;height:4px;
+  transform:translate(-50%,-50%);
+  background:#9cc2a8;border-radius:50%;border:0;
+}
+#center-crosshair.center-crosshair:not(.confirmed-hit)::after{content:none;display:none}
+#center-crosshair.center-crosshair.scatter-sight:not(.confirmed-hit)::before{
+  content:"";display:block;position:absolute;top:50%;left:50%;
+  width:20px;height:20px;transform:translate(-50%,-50%);
+  border:1px dashed #b3cfa8ad;border-radius:50%;background:transparent;
+}
+#center-crosshair.center-crosshair.scatter-sight:not(.confirmed-hit)::after{
+  content:"";display:block;position:absolute;top:50%;left:50%;
+  width:3px;height:3px;transform:translate(-50%,-50%);
+  background:#a9c9b1;border-radius:50%;
+}
+@media(max-height:430px){
+ body:not(.inspecting) #domination-hud{
+   width:min(390px,64vw);max-width:64vw;top:max(4px,env(safe-area-inset-top));
+   padding:3px 7px 2px;
+ }
+ #domination-hud .k4p-zone{min-width:30px;width:32px;min-height:29px}
+ #domination-hud .k4p-zone strong{font-size:12px}
+ #domination-hud .k4p-zones{gap:4px}
+ #domination-hud .k4p-score{font-size:14px}
+ #domination-hud .k4p-local{font-size:8px;min-height:8px}
+ body.domination-active:not(.inspecting) #domination-hud #bo3-combat-hud{
+  font-size:7px;padding-top:2px;margin-top:2px
+ }
+ body.domination-active:not(.inspecting) .fault-strip.faulted{
+   top:max(81px,calc(env(safe-area-inset-top) + 74px));
+ }
+ body.domination-active:not(.inspecting) .shot-report:not(.faded){
+   top:max(106px,calc(env(safe-area-inset-top) + 98px));
+ }
+ #allied-observation{max-width:61vw;min-width:240px;padding:4px 6px}
+}

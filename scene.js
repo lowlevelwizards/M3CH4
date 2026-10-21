@@ -1397,7 +1397,8 @@ export function createArenaScene(initial, targetAssembly) {
             exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
             poseInspectionPreview(dt);
-            orbitTarget.lerp(desiredTarget, 1 - Math.exp(-9 * dt));
+            // Keep the center of the physical machine as the orbit pivot on every frame.
+            orbitTarget.copy(desiredTarget);
             const around = new THREE.Vector3(
                 radius * Math.sin(azimuth) * Math.cos(elevation),
                 radius * Math.sin(elevation),
@@ -1405,10 +1406,15 @@ export function createArenaScene(initial, targetAssembly) {
             ).applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
             const center = orbitTarget.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
             camera.position.copy(center).add(around);
-            const right = new THREE.Vector3(Math.cos(azimuth), 0, Math.sin(azimuth))
-                .applyAxisAngle(THREE.Object3D.DEFAULT_UP, GARAGE_RIG_YAW);
-            const shift = framingOffsetWorld(panelRightPx, viewportWidth, viewportHeight, radius, camera.fov) * .78;
-            camera.lookAt(center.addScaledVector(right, shift));
+            // Parallel camera translation composes the rig in the FREE viewport
+            // to the right of the workshop panel. Never move the orbit pivot
+            // toward a selected part or turn the camera away from the rig.
+            camera.lookAt(center);
+            const screenRight = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+            const shift = framingOffsetWorld(panelRightPx,viewportWidth,viewportHeight,
+                radius,camera.fov) * 1.06;
+            camera.position.addScaledVector(screenRight,-shift);
+            camera.lookAt(center.clone().addScaledVector(screenRight,-shift));
         }
         else if (spectatorRig) {
             const yaw = physicsYawToViewYaw(spectatorRig.yaw ?? 0);
@@ -1655,26 +1661,17 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function focusPart(slot) {
-        const machineCenter = new THREE.Vector3(0, 1.85, 0);
-        if (!slot || !exterior.partGroups.has(slot)) {
-            desiredTarget.copy(machineCenter);
-            return;
-        }
-        // Bias toward the selected module rather than turning it into the entire shot.
-        // The machine remains legible as an owned object while the selected part is favored.
-        const partCenter = new THREE.Vector3(...SLOT_CENTERS[slot]);
-        desiredTarget.copy(machineCenter).lerp(partCenter, .40);
-        radius = Math.max(radius, 6.85);
+        // A selected station is an inspector state, NOT a camera focus target.
+        // Paint and part selection must not move, zoom or reset the orbit.
+        desiredTarget.set(0,1.85,0);
     }
     function orbitBy(dx, dy) {
         azimuth = orbitAzimuthAfterDrag(azimuth, dx);
         elevation = THREE.MathUtils.clamp(elevation + dy * 0.006, -0.18, 1.05);
     }
     function panBy(dx, dy, screenHeight) {
-        const delta = panInRigSpace(dx, dy, radius, azimuth, elevation, screenHeight, camera.fov);
-        desiredTarget.x = THREE.MathUtils.clamp(desiredTarget.x + delta.x, -3, 3);
-        desiredTarget.y = THREE.MathUtils.clamp(desiredTarget.y + delta.y, 0.45, 3.8);
-        desiredTarget.z = THREE.MathUtils.clamp(desiredTarget.z + delta.z, -3, 3);
+        // Retained only for old external callers. Free panning could move the
+        // machine off-screen and destroy the inspection interaction.
     }
     function setInspectorLayout(panelRight, width, height) {
         panelRightPx = panelRight;

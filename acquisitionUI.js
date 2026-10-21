@@ -62,7 +62,6 @@ function injectStyles() {
     style.id = 'bout-stakes-styles';
     style.textContent = `
 .debrief-content{position:relative;width:min(740px,94vw)!important;height:min(86dvh,560px);max-height:86dvh!important;overflow:hidden!important;display:flex;flex-direction:column;padding:11px 14px 10px!important}.debrief-pages{display:flex;flex:1 1 auto;min-height:0;width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none}.debrief-pages::-webkit-scrollbar{display:none}.debrief-page{flex:0 0 100%;width:100%;min-width:0;min-height:0;overflow:hidden;scroll-snap-align:start;scroll-snap-stop:always;padding:2px 18px 5px}.debrief-page-result{display:flex;flex-direction:column}.debrief-result-summary{flex:1 1 auto;min-height:0;width:min(680px,100%);margin:0 auto;display:flex;flex-direction:column;justify-content:center;padding:0 8px 8px}.debrief-page-title{margin:0 0 4px;color:#86998a;font:800 7px/1 ui-monospace,monospace;letter-spacing:.15em}.debrief-page-result .sheet-label{font-size:8px}.debrief-page-result h1{margin:4px 0 7px;font-size:18px}.debrief-page-result .debrief-lines{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 7px}.debrief-page-result .debrief-row{min-height:32px;margin:0;padding:5px 7px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.debrief-page-result .debrief-row span{font-size:7px}.debrief-page-result .debrief-row strong{font-size:10px}.debrief-page-result .sheet-muted{margin:7px 0 0;font:7px/1.25 ui-monospace,monospace;color:#8f9a90}.debrief-page-nav{display:flex;justify-content:center;gap:5px;flex:0 0 auto;padding:6px 0 5px;border-top:1px solid #8a754c44}.debrief-page-nav button{min-width:68px;min-height:24px;padding:3px 7px;border:1px solid #596b60;background:#151b18;color:#87998d;font:800 7px/1 ui-monospace,monospace;letter-spacing:.08em}.debrief-page-nav button.active{border-color:#d0a95f;background:#302a1c;color:#edc77a}.debrief-edge{position:absolute;z-index:4;top:43%;width:30px;height:56px;border:1px solid #6c806f;background:#101713d9;color:#d6b871;font:900 25px/1 ui-monospace,monospace;opacity:.82}.debrief-edge:disabled{opacity:.12}.debrief-edge-left{left:5px}.debrief-edge-right{right:5px}.debrief-content>.sheet-done{flex:0 0 auto;min-height:32px;margin-top:0;padding:6px 10px;font-size:9px}#debrief-garage{display:flex;align-items:center;justify-content:center;gap:8px;min-height:27px!important;padding:4px 10px!important;border:1px solid #59675e!important;background:#151b18!important;color:#89988e!important;box-shadow:none!important;font:800 7px/1.1 ui-monospace,monospace!important;letter-spacing:.06em}#debrief-garage strong{font:inherit;color:inherit}#debrief-garage small{font:600 5.8px/1 ui-monospace,monospace;color:#6f7f75;letter-spacing:.04em}#debrief-garage[data-mode="forfeit"]{border-color:#79594a!important;background:#211917!important;color:#c39378!important}#debrief-garage[data-mode="forfeit"] small{color:#8f7465}#debrief-garage[data-mode="complete"]{border-color:#627d66!important;background:#172019!important;color:#b6d2b6!important}
-.score-layout{height:calc(100% - 13px);display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:8px}.score-card{min-width:0;min-height:0;padding:8px;border:1px solid #68776d;background:#111714;color:#d8d0b9;font:7px/1.25 ui-monospace,monospace}.score-card h2{margin:0 0 3px;color:#edc77a;font:900 11px/1.1 ui-monospace,monospace;letter-spacing:.08em}.score-kicker{color:#91aa97;margin-bottom:6px}.score-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.score-stat{min-height:39px;padding:5px;border:1px solid #59665a55;background:#171d1a}.score-stat span,.score-stat small{display:block;color:#89998e}.score-stat b{display:block;margin:2px 0;color:#e0c078;font-size:12px}.score-stat small{font-size:6px}.score-explain{margin-top:6px;padding-top:5px;border-top:1px solid #59665a42;color:#9dac9d;font-size:6.5px}.score-match-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px}.score-match-meta div{padding:5px;border:1px solid #59665a55;background:#171d1a}.score-match-meta span,.score-match-meta b{display:block}.score-match-meta span{color:#89998e}.score-match-meta b{margin-top:2px;color:#e0c078;font-size:10px}.score-standings{border-top:1px solid #59665a42}.score-standing{display:grid;grid-template-columns:15px minmax(64px,1fr) 42px minmax(92px,1.35fr);gap:4px;align-items:center;min-height:20px;border-bottom:1px solid #59665a2b}.score-standing b{color:#e0c078}.score-standing small{color:#8d9b90;font-size:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.score-standing.low{opacity:.52}.score-standing.mvp strong:after{content:' · MVP';color:#f2c96f}.draft-order{margin-top:5px;padding:6px 7px;border:1px solid #9b845477;color:#d7c18b;background:#29271d;white-space:normal;overflow:visible;font-weight:800;letter-spacing:.035em}.draft-order b{color:#f0ca78}.draft-order small{color:#8fa293;font-weight:600}
 .salvage-draft{height:calc(100% - 13px);display:flex;flex-direction:column;min-height:0;color:#d8d0b9;font:7px/1.25 ui-monospace,monospace}.salvage-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex:0 0 auto;padding:0 1px 5px}.salvage-head h2{margin:0;color:#edc77a;font:900 11px/1 ui-monospace,monospace;letter-spacing:.08em}.salvage-head span{color:#8fa293;font-size:6.5px;text-align:right}.salvage-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(210px,.85fr);gap:8px;flex:1 1 auto;min-height:0}.salvage-browser,.salvage-inspector{min-width:0;min-height:0;border:1px solid #68776d;background:#111714;padding:6px}.salvage-browser{display:flex;flex-direction:column}.salvage-browser .part-grid-toolbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;flex:0 0 auto;margin:0 0 5px}.salvage-browser .part-grid-toolbar button{min-height:22px;padding:3px 2px;font-size:6px}.salvage-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding-right:2px}.salvage-browser .part-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:4px}.salvage-browser .part-card{min-height:58px;aspect-ratio:1.18/1}.salvage-browser .part-card-slot{font-size:9px}.salvage-browser .part-card-value,.salvage-browser .part-card-condition,.salvage-browser .part-card-source{font-size:5.8px}.wreck-grid-section{margin-top:5px}.wreck-grid-section:first-child{margin-top:0}.wreck-grid-section>header{padding:2px 1px;font-size:7px}.wreck-grid-section>header small{font-size:5.5px}.salvage-inspector{display:flex;flex-direction:column}.salvage-inspector .part-detail{display:grid;grid-template-columns:1fr;grid-template-rows:minmax(86px,1fr) auto;gap:5px;height:100%;min-height:0;margin:0;padding:0;border:0;background:transparent}.salvage-inspector .part-detail-preview{min-height:0}.salvage-inspector .part-detail-copy{padding:4px 2px 0}.salvage-inspector .part-detail h3{font-size:10px}.salvage-inspector .part-detail-meta{font-size:6.5px;line-height:1.3}.salvage-inspector .part-detail-value{font-size:9px}.salvage-inspector .part-detail-action{min-height:31px;margin-top:5px}.salvage-empty,.salvage-placeholder{padding:12px 6px;color:#87978a;text-align:center;border:1px dashed #59665a}.salvage-confirm-note{margin-top:4px;color:#89998e;font-size:6px}.salvage-action-message{margin:5px 0 0;padding:5px 6px;border:1px solid #bb7255;color:#efb188;background:#2c1815;font:800 6.5px/1.3 ui-monospace,monospace}
 @media(max-width:730px){.debrief-content{width:min(700px,96vw)!important;padding:8px 10px!important}.debrief-page{padding-left:15px;padding-right:15px}.debrief-edge{width:25px;height:48px}.score-layout,.salvage-layout{gap:6px}.score-card{padding:6px}.score-stat{min-height:34px;padding:4px}.score-stat b{font-size:10px}.score-standing{grid-template-columns:13px minmax(54px,1fr) 36px minmax(70px,1.2fr);font-size:6.5px}.salvage-browser,.salvage-inspector{padding:5px}.salvage-browser .part-card{min-height:52px}}
 @media(max-height:430px){.debrief-content{height:88dvh;max-height:88dvh!important}.debrief-result-summary{padding-bottom:1px}.debrief-page-result h1{font-size:15px;margin:3px 0 5px}.debrief-page-result .debrief-row{min-height:27px;padding:4px 6px}.debrief-page-result .sheet-muted{margin-top:4px}.score-stat{min-height:31px}.score-stat b{font-size:9px}.score-explain{margin-top:4px;padding-top:3px}.score-standing{min-height:17px}.salvage-head{padding-bottom:3px}.salvage-browser .part-grid-toolbar{margin-bottom:3px}.salvage-browser .part-card{min-height:46px}.salvage-inspector .part-detail{grid-template-rows:minmax(72px,1fr) auto}.debrief-page-nav{padding:4px 0}.debrief-content>.sheet-done{min-height:28px;padding:4px 8px}}
@@ -84,6 +83,10 @@ function injectStyles() {
 }
 `;
     document.head.append(style);
+    // One terminal report stylesheet overrides all prior prototype layouts.
+    const clarity=document.createElement('link');
+    clarity.rel='stylesheet';clarity.href='./reportClarity.css?v=k4o';
+    document.head.append(clarity);
 }
 
 function thumbnail(entry) {
@@ -97,92 +100,67 @@ function entryValue(entry) {
         : partCreditValue(entry?.definitionId, entry?.condition, { destroyed: entry?.destroyed });
 }
 
-function statTile(label, value, note) {
-    const tile = document.createElement('div');
-    tile.className = 'score-stat';
-    const name = document.createElement('span'); name.textContent = label;
-    const amount = document.createElement('b'); amount.textContent = value;
-    const detail = document.createElement('small'); detail.textContent = note;
-    tile.append(name, amount, detail);
-    return tile;
-}
-
 function renderScore(result) {
     scorePage.replaceChildren();
-    const title = document.createElement('div'); title.className = 'debrief-page-title'; title.textContent = '02 / SCORE';
-    scorePage.append(title);
-    if (!result || sheet.classList.contains('hidden')) return;
-    const standings = result.score.standings ?? [];
-    const player = standings.find(row => row.id === 'player');
-    const rank = Math.max(1, standings.findIndex(row => row.id === 'player') + 1);
-    const layout = document.createElement('div'); layout.className = 'score-layout';
-
-    const personal = document.createElement('section'); personal.className = 'score-card score-personal';
-    const personalTitle = document.createElement('h2');
-    personalTitle.textContent = result.terminal === false ? 'ROUND ' + result.round.round + ' SCORE' : 'YOUR BOUT';
-    const personalKick = document.createElement('div'); personalKick.className = 'score-kicker';
-    personalKick.textContent = player
-        ? `RANK ${rank}/${standings.length}${result.score.mvp?.id === 'player' ? ' · MVP' : ''} · ${player.survived ? 'RETURNED TO BAY' : 'MISSION KILLED'}`
-        : 'NO PLAYER SCORE RECORDED';
-    personal.append(personalTitle, personalKick);
-    if (player) {
-        const grid = document.createElement('div'); grid.className = 'score-stat-grid';
-        grid.append(
-            statTile('TOTAL SCORE', Math.round(player.totalScore), 'combat + result + survival'),
-            statTile('COMBAT SCORE', Math.round(player.combatScore), 'direct fighting contribution'),
-            statTile('MISSION KILLS', player.missionKills, 'rigs made combat-ineffective'),
-            statTile('DISABLES', player.disables, 'individual modules disabled'),
-            statTile('ASSISTS', player.assists, 'meaningful shared takedowns'),
-            statTile('BREACHES', player.breaches, 'armor sections opened'),
-            statTile('INTERNAL DMG', `${Math.round(player.internalPercent)}%`, 'integrity removed across targets'),
-            statTile('ARMOR STRIPPED', `${Math.round(player.armorPercent)}%`, 'armor removed across targets'),
-        );
-        personal.append(grid);
-        const explain = document.createElement('div'); explain.className = 'score-explain';
-        const draftRank = (result.score.draftOrder ?? []).indexOf('player');
-        explain.textContent = result.terminal === false
-            ? 'ROUND SCORE · CONTRACT SALVAGE AND PAYOUT SETTLE AFTER THE BO3 SERIES.'
-            : draftRank >= 0
-                ? `SALVAGE PRIORITY #${draftRank + 1} · score and participation determine claim order; destroying parts does not award bonus score.`
-                : 'LOW PARTICIPATION CAN DROP A PILOT BEHIND QUALIFIED TEAMMATES IN SALVAGE ORDER.';
-        personal.append(explain);
+    const make=(tag,cls,content)=>{
+        const node=document.createElement(tag);if(cls)node.className=cls;
+        if(content!==undefined)node.textContent=String(content);
+        return node;
+    };
+    scorePage.append(make('div','debrief-page-title','02 / SCORE'));
+    if(!result||sheet.classList.contains('hidden'))return;
+    const standings=result.score?.standings??[];
+    const player=standings.find(row=>row.id==='player');
+    const rank=standings.findIndex(row=>row.id==='player')+1;
+    const root=make('section','k4o-score');
+    const head=make('div','k4o-score-head');
+    const heading=make('div','k4o-score-heading');
+    heading.append(make('strong','',result.terminal===false?'ROUND SCORE':'MATCH SCORE'),
+        make('small','',result.victory?'TEAM VICTORY':'TEAM DEFEAT'));
+    const match=make('div','k4o-score-match');
+    match.append(make('small','','MATCH'),
+        make('strong','',result.series
+            ?result.series.playerWins+' – '+result.series.enemyWins
+            :result.victory?'WON':'LOST'));
+    head.append(heading,match);
+    root.append(head);
+    const highlights=make('div','k4o-highlights');
+    for(const [label,value] of [
+        ['YOUR SCORE',Math.round(player?.totalScore??0)],
+        ['K / A / DIS',[(player?.missionKills??0),(player?.assists??0),
+            (player?.disables??0)].join(' / ')],
+        ['RANK',rank?rank+' / '+standings.length:'—']
+    ]){
+        const tile=make('div','k4o-highlight');
+        tile.append(make('span','',label),make('strong','',value));highlights.append(tile);
     }
-
-    const match = document.createElement('section'); match.className = 'score-card score-match';
-    const matchTitle = document.createElement('h2');
-    matchTitle.textContent = result.terminal === false ? 'ROUND RESULT · BO3 IN PROGRESS' : 'FIELD RESULT';
-    const matchKick = document.createElement('div'); matchKick.className = 'score-kicker';
-    matchKick.textContent = result.victory ? 'FRIENDLY TEAM CONTROLS THE FIELD' : 'HOSTILE TEAM CONTROLS THE FIELD';
-    const meta = document.createElement('div'); meta.className = 'score-match-meta';
-    const mvp = document.createElement('div'); mvp.innerHTML = `<span>MVP</span><b>${result.score.mvp?.label ?? '—'} · ${Math.round(result.score.mvp?.combatScore ?? 0)}</b>`;
-    const preservation = document.createElement('div');
-    preservation.innerHTML = `<span>${result.terminal === false ? 'MATCH SCORE' : 'WRECK PRESERVATION'}</span><b>${result.terminal === false
-        ? result.series.playerWins + ' — ' + result.series.enemyWins
-        : result.victory ? result.wreckPreservation + '%' : '—'}</b>`;
-    meta.append(mvp, preservation);
-    const table = document.createElement('div'); table.className = 'score-standings';
-    standings.forEach((row, index) => {
-        const item = document.createElement('div');
-        item.className = `score-standing${row.lowParticipation ? ' low' : ''}${row.id === result.score.mvp?.id ? ' mvp' : ''}`;
-        const rankEl = document.createElement('b'); rankEl.textContent = String(index + 1);
-        const name = document.createElement('strong'); name.textContent = row.label;
-        const score = document.createElement('b'); score.textContent = String(Math.round(row.totalScore));
-        const stats = document.createElement('small');
-        stats.textContent = `${row.missionKills}K · ${row.assists}A · ${row.disables}DIS · ${row.survived ? 'RTB' : 'OUT'}${row.lowParticipation ? ' · LOW' : ''}`;
-        item.append(rankEl, name, score, stats); table.append(item);
+    root.append(highlights);
+    const table=make('div','k4o-standings');
+    const rowHead=make('div','k4o-stand-head');
+    rowHead.append(make('span','','PILOT'),make('span','','K / A / DIS'),make('span','','PTS'));
+    table.append(rowHead);
+    standings.forEach((row,index)=>{
+        const line=make('div','k4o-standing'+(row.id==='player'?' player':'')+
+            (row.id===result.score?.mvp?.id?' mvp':''));
+        const name=make('span','k4o-pilot',(index+1)+'. '+row.label);
+        const stats=make('span','k4o-stats',
+            row.missionKills+' / '+row.assists+' / '+row.disables);
+        const points=make('strong','',Math.round(row.totalScore));
+        line.title=row.label+' · '+(row.survived?'RETURNED':'OUT')+
+            (row.lowParticipation?' · LOW PARTICIPATION':'');
+        line.setAttribute('aria-label',line.title+' · '+stats.textContent+
+            ' kills assists disables · '+points.textContent+' points');
+        line.append(name,stats,points);table.append(line);
     });
-    match.append(matchTitle, matchKick, meta, table);
-    if (result.victory && result.terminal !== false) {
-        const order = document.createElement('div'); order.className = 'draft-order';
-        const orderIds = result.score.draftOrder ?? [];
-        const numbered = orderIds.map((id, index) => `${index + 1}. ${actorLabel(result, id)}`).join('  →  ');
-        order.innerHTML = `<b>CLAIM ORDER</b> · ${numbered}<br><small>Higher bout score / participation drafts first. Each pilot may recover one eligible component.</small>`;
-        match.append(order);
+    root.append(table);
+    if(result.terminal!==false && result.victory){
+        const n=(result.score?.draftOrder??[]).indexOf('player');
+        root.append(make('div','k4o-foot',n>=0?'SALVAGE PICK #'+(n+1):'TEAM SALVAGE'));
+    }else if(result.terminal===false){
+        root.append(make('div','k4o-foot','PAYOUT AFTER MATCH'));
     }
-    layout.append(personal, match);
-    scorePage.append(layout);
+    scorePage.append(root);
 }
-
 function isClaimable(result, entry) {
     return currentDrafter(result.draft) === 'player' && !entry.destroyed && !entry.claimedBy &&
         playerClaimChoices(result.draft).some(choice => choice.id === entry.id);
@@ -265,7 +243,7 @@ function appendSelection(panel, result) {
     panel.append(detail);
     if (claimable) {
         const note = document.createElement('div'); note.className = 'salvage-confirm-note';
-        note.textContent = 'EXACT SERIAL + BATTLE CONDITION ENTER OWNED INVENTORY.';
+        note.textContent = 'KEEP THIS PART?';
         panel.append(note);
     }
 }

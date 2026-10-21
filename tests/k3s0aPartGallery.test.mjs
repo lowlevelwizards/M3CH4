@@ -36,7 +36,7 @@ test('picture gallery and detail previews are sized for landscape phones',()=>{
     assert.match(css,/@media\(max-width:690px\)/);
     const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
     const mount=fs.readFileSync(new URL('../garageMountUI.js',import.meta.url),'utf8');
-    assert.match(html,/uiRedesign\.css\?v=k3w0/);
-    assert.match(html,/garageMountUI\.js\?v=k4h/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4h/);
+    assert.match(html,/uiRedesign\.css\?v=k4q/);
+    assert.match(html,/garageMountUI\.js\?v=k4q/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4q/);
 });
