@@ -263,8 +263,15 @@ function renderWorkshopChrome(stable, view) {
         },'workshop-warning-action');
         reason.title=view.reason||'Inspect machine readiness';statusBar.append(reason);
     }
-    for(const [target,label] of [['paint','PAINT'],['vendor','PARTS'],['contracts','CONTRACTS  ›']]){
-        const item=button(label,()=>openWorkspace(target),'workshop-link workshop-link-'+target);
+    const pending=loadSortieAssignment(session);
+    const links=[['paint','PAINT'],['vendor','PARTS'],['contracts','CONTRACTS  ›']];
+    if(pending?.phase==='pending'&&!loadSeries(storage)) links.push(['resume','RESUME SORTIE ›']);
+    for(const [target,label] of links){
+        const item=button(label,()=>target==='resume' ? (()=> {
+            selectedJobId=pending.contractId;
+            mode='setup';paintExpanded=false;identityExpanded=false;
+            selectedSlot=null;previewSignature='';render();
+        })() : openWorkspace(target),'workshop-link workshop-link-'+target);
         item.setAttribute('aria-label','Open '+(target==='vendor'?'Parts Counter':target==='contracts'?'Contract Board':'Paint Booth'));
         quickLinks.append(item);
     }
@@ -301,6 +308,7 @@ function moduleStation(view) {
                 detailsExpanded=false;rackView='ready';
             }
             selectedSlot = item.slot; // Repeated taps always open details.
+            identityExpanded=false; // Inspect and machine history never stack.
             dock.scrollTop = 0;
             render();
             if (!paintExpanded) activePlayerArena()?.arena.revealPart?.(item.slot);
@@ -808,6 +816,9 @@ function renderSetup(stable, view) {
     if (readout) dock.append(readout);
     // Bay navigation is always visible; the inspection is contextual.
     if (!view.canDeploy) dock.append(el('p','unified-warning',view.reason || 'MACHINE NOT COMMISSIONED'));
+    // Repairs are made in the real garage, not by a shadow setup editor.
+    // Keep the pending contract when returning to work on the rig.
+    dock.append(button('‹ WORK ON RIG',()=>openWorkspace('garage'),'unified-secondary workshop-return-to-rig'));
     setPrimary('DEPLOY '+view.name.toUpperCase(),()=>launch(stable,c.id),!view.canDeploy);
 }
 function patchInPit(stable,view,series) {
@@ -969,6 +980,7 @@ document.addEventListener('m3ch4:bay-picked',event=>{
         drawerExpanded=false;detailsExpanded=false;rackView='ready';
     }
     selectedSlot = slot;
+    identityExpanded=false; // A physical tap replaces the previous toolbox.
     dock.scrollTop = 0;
     render();
 });
