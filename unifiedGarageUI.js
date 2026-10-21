@@ -10,6 +10,7 @@ import { createPartCard, createPartDetail, installPartGridStyles } from './partG
 import { partCreditValue } from './partEconomy.js';
 import { activePlayerArena } from './scene.js';
 import { loadMachine } from './persistence.js';
+import { soundWorkshop } from './audio.js';
 import { loadStable, storeStable, commissionRig, renameRig, rigById } from './stable.js';
 import { loadSeries } from './series.js';
 import { CAMPAIGN_NODES, availableCampaignNodes, loadCampaign } from './campaign.js';
@@ -81,6 +82,7 @@ function button(label, action, cls = '', disabled = false) {
     return node;
 }
 function message(text, failed = false) {
+    soundWorkshop(failed?'reject':'confirm');
     notice.textContent = text;
     notice.classList.toggle('error', failed);
     notice.classList.toggle('shown', true);
@@ -284,7 +286,7 @@ function moduleDetails(stable, view, machine) {
                 () => {
                     const result = emitEdit('m3ch4:bay-service',{rigId:viewedId,slot});
                     message(result.ok ? (quote.destroyed ? 'REBUILT · ' : 'SERVICED · ') + installed.serial : result.reason, !result.ok);
-                    if (result.ok) { previewSignature=''; render(); }
+                    if (result.ok) { soundWorkshop('service');previewSignature=''; render(); }
                 },'unified-service',!affordable));
         }
     }
@@ -466,7 +468,7 @@ function editModule(slot,serial) {
     if (actualMode(loadSeries(storage)) !== 'garage') { message('PIT LOCKED · NO PART CHANGES',true);return; }
     const result=emitEdit('m3ch4:bay-module',{rigId:viewedId,slot,serial});
     message(result.ok ? (serial ? 'PART INSTALLED · '+serial : 'PART REMOVED') : result.reason,!result.ok);
-    if(result.ok) { previewSignature='';render(); }
+    if(result.ok) {soundWorkshop(serial?'install':'remove');previewSignature='';render(); }
 }
 function appendIdentityForm(view, stable) {
     const wrap=el('section','unified-identity-form');
@@ -494,6 +496,7 @@ function renderGarage(stable,machine,view) {
         onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
         onRefresh:()=>render(),
         onSaved:()=>{
+            soundWorkshop('paint');
             document.dispatchEvent(new CustomEvent('m3ch4:paint-committed'));
             paintPreviewEdits=null;previewSignature='';render();
         },
