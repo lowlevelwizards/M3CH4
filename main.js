@@ -376,6 +376,7 @@ const targetPanel = required('#target-panel');
 const targetReadout = required('#target-readout');
 const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
+rangeCrosshair.textContent='';
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
 const objectiveStatus = required('#objective-status');
@@ -637,19 +638,33 @@ function showVerifiedShieldReadout(contact) {
     reportFade = Math.max(reportFade, 1.55);
     return label;
 }
+let scatterFeedback=null;
 function showHitConfirm(hit, text = null) {
+    if(scatterFeedback){
+        const score=hit?.justDestroyed?6:hit?.justDisabled||hit?.disabled?5:
+            hit?.internalDamage>0?4:text==='FRAME BLOCK'?2:
+            hit?.friendlyBlock?1:hit?.wreckHit?1:3;
+        if(!hit?.friendlyBlock&&!hit?.wreckHit&&text!=='FRAME BLOCK')scatterFeedback.landed++;
+        if(score>scatterFeedback.rank){
+            scatterFeedback.rank=score;scatterFeedback.best={hit,text};
+        }
+        return;
+    }
     const destroyed = !!hit?.justDestroyed;
-    const kind = hit?.friendlyBlock ? 'friendly' : destroyed ? 'disabled' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
+    const kind = text==='FRAME BLOCK' ? 'blocked' : hit?.friendlyBlock ? 'friendly' : destroyed ? 'destroyed' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
     const label = text ?? (destroyed ? 'DESTROYED' : kind === 'disabled' ? 'DISABLED' : kind === 'breach' ? 'BREACH' : kind === 'cleared' ? 'WRECK CLEARED' : kind === 'wreck' ? 'WRECK' : kind === 'friendly' ? 'ALLY BLOCK' : 'HIT');
     hitConfirm.textContent = label;
     hitConfirm.className = `hit-confirm visible ${kind}`;
+    rangeCrosshair.classList.remove('blocked-hit','armor-hit','breach-hit','disable-hit','destroy-hit','friendly-hit');
     rangeCrosshair.classList.add('confirmed-hit');
-    rangeCrosshair.classList.toggle('breach-hit', kind === 'breach');
-    rangeCrosshair.classList.toggle('disable-hit', kind === 'disabled' || kind === 'cleared');
+    rangeCrosshair.classList.add(kind==='destroyed'?'destroy-hit':
+        kind==='disabled'||kind==='cleared'?'disable-hit':
+        kind==='breach'?'breach-hit':
+        kind==='blocked'?'blocked-hit':kind==='friendly'?'friendly-hit':'armor-hit');
     if (hitConfirmTimer !== null) window.clearTimeout(hitConfirmTimer);
     hitConfirmTimer = window.setTimeout(() => {
         hitConfirm.className = 'hit-confirm';
-        rangeCrosshair.classList.remove('breach-hit', 'disable-hit');
+        rangeCrosshair.classList.remove('blocked-hit','armor-hit','breach-hit','disable-hit','destroy-hit','friendly-hit');
         hitConfirmTimer = null;
     }, kind === 'disabled' || kind === 'cleared' ? 620 : 280);
 }
@@ -2352,11 +2367,23 @@ function attemptFire() {
     // than distant outdoor echo. No damage or weapon cadence is modified.
     soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
     let impactSoundPlayed=false;
+    if(multi)scatterFeedback={landed:0,pellets:contacts.length,best:null,rank:-1};
     for(const contact of contacts){
         if(testEnded)break;
         const affected=resolvePlayerShotContact(contact,weaponSpec.damage,
             !impactSoundPlayed,!multi);
         if(affected)impactSoundPlayed=true;
+    }
+    if(multi){
+        const report=scatterFeedback;scatterFeedback=null;
+        if(report?.best){
+            const base=report.best.text || (report.best.hit?.justDestroyed?'DESTROYED':
+                report.best.hit?.disabled?'DISABLED':
+                report.best.hit?.internalDamage>0?'BREACH':
+                report.best.hit?.friendlyBlock?'ALLY BLOCK':'ARMOR');
+            showHitConfirm(report.best.hit,report.landed+'/'+report.pellets+' · '+base);
+        }
+        lastHit='S-6 · '+(report?.landed||0)+' / '+contacts.length+' PELLETS ON TARGET';
     }
     // Do not replace a verified six-pellet hit with a generic MISS merely
     // because another pellet in the same shell sailed into empty space.
