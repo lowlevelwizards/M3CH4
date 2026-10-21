@@ -118,7 +118,7 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.doesNotMatch(main,/audioSystemsPresets|systems-sound-lab-v1/);
   assert.match(html,/liveSystemsAudio\.js\?v=k4i/);
   assert.match(html,/liveSystemsEvents\.js\?v=k3w12/);
-  assert.match(html,/main\.js\?v=k4q/);
+  assert.match(html,/main\.js\?v=k4r/);
   assert.match(html,/audio\.js\?v=k4i/);
-  assert.match(html,/0\.0\.1k\.4q — Interface Clarity/);
+  assert.match(html,/0\.0\.1k\.4r — Physical Workshop/);
 });
