@@ -45,7 +45,7 @@ try{
         const records=[];
         for(const id of ids){
             const fixture=BY_ID.get(id);
-            const fresh=buildPartVisual(id),copy=buildPartVisual(id);
+            const fresh=buildPartVisual(id,{mode:'gameplay'}),copy=buildPartVisual(id,{mode:'gameplay'});
             const materialsA=[],materialsB=[];
             fresh.traverse(n=>{if(n.isMesh)materialsA.push(n.material);});
             copy.traverse(n=>{if(n.isMesh)materialsB.push(n.material);});
