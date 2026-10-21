@@ -17,7 +17,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 const camera=new THREE.OrthographicCamera(-3,3,3,-3,.04,70);
 const gray=new THREE.MeshStandardMaterial({color:0xaaa9a0,roughness:.91,metalness:.08,flatShading:true});
-const directions={quarter:[4,2.5,-6],front:[0,0,-7],side:[7,0,0],top:[0,7,-.002]};
+const directions={quarter:[4,3.5,-6],front:[0,0,-7],side:[7,0,0],top:[0,7,-.002]};
 let mode='bare',view='quarter',grayMode=false,envelopeMode=false,queued=false;
 const makeMachine=(frame,mobility)=>{
     const a=makeTestAssembly();

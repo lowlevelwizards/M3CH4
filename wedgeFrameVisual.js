@@ -12,7 +12,7 @@ export function buildWedgeFrameVisual(fixture){
     const nose=groupAt(r,'WEDGE / BROAD CREAM FORWARD ARMOR');
     shell(nose,'large continuous sloping cream nose',[0,-.09,-.24],{
         frontWidth:1.17,rearWidth:1.54,depth:1.24,
-        frontBottom:-.18,frontTop:-.085,rearBottom:-.18,rearTop:.22,
+        frontBottom:-.18,frontTop:-.015,rearBottom:-.18,rearTop:.37,
     },'cream');
     shell(nose,'blunt lower nose strengthener',[0,-.31,-.57],{
         frontWidth:1.14,rearWidth:1.32,depth:.57,
@@ -33,9 +33,9 @@ export function buildWedgeFrameVisual(fixture){
         // A strong high-side forward shoulder lip catches real shallow-angle
         // frontal hits, while the exposed central cab remains hittable.
         shell(sides,(side<0?'left':'right')+' forward protective shell return',
-            [side*.505,.45,-1.02],{
-                frontWidth:.18,rearWidth:.26,depth:.53,
-                frontBottom:-.20,frontTop:.29,rearBottom:-.40,rearTop:.13,
+            [side*.505,.40,-.77],{
+                frontWidth:.29,rearWidth:.32,depth:.54,
+                frontBottom:-.26,frontTop:.235,rearBottom:-.31,rearTop:.31,
             },'ochre');
     }
     const mounts=groupAt(r,'WEDGE / INTEGRATED BEARINGS AND REAR BULKHEAD');
