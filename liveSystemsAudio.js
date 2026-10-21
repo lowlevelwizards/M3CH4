@@ -57,8 +57,10 @@ export function makeLiveSystemsAudio(getContext){
         const cached=warmPCM('system',id,v);
         // No big synchronous synthesis from six combatants. Important hits
         // use audio.js's tiny fallback while the worker primes this recipe.
-        if(!cached)return {ok:false,pending:true,id};
-        const {rate,pcm}=cached;
+        if(!cached&&typeof Worker!=='undefined')return {ok:false,pending:true,id};
+        const rate=cached?.rate??c.sampleRate;
+        const pcm=cached?.pcm??renderSystemSound(id,v,rate);
+        if(!cached)cacheWarmPCM('system',id,v,pcm,rate);
         buffer=c.createBuffer(1,pcm.length,rate);
         buffer.getChannelData(0).set(pcm);
         buffers.set(key,buffer);
