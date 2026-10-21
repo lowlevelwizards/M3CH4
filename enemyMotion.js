@@ -231,6 +231,14 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         (motion.awareness?.underFireSeconds??0)>.2&&
         tactical.point&&distance(from,tactical.point)>.3;
     const navigationOrderActive=teamIntent?.mode==='ORDER'&&!emergencyCover&&!emergencyTurn;
+    // Threat-facing while maneuvering is a presentation of tactical awareness:
+    // a close, visible adversary should not force a 90° or 180° chassis turn
+    // merely because the route waypoint sits to the side or behind us.
+    // stepRig remains authoritative for leg grip, reverse speed and strafing.
+    const threatFacing = motion.awareness?.lineOfSight === true &&
+        distance(enemy,player) < 17;
+    const steerFor=point=>clamp(headingError(enemy,threatFacing?player:point)*profile.steerGain-
+        enemy.yawRate*profile.yawRateDamping);
     let base;
     // Only the pilot brain owns strategic intent. Movement tracks a reachable
     // route waypoint and turns the *chassis* toward it. Weapon facing is a
@@ -240,8 +248,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         const d=distance(from,point);
         if(d>1.6){
             base=driveToward(enemy,point,d);
-            base.steer=clamp(headingError(enemy,point)*profile.steerGain-
-                enemy.yawRate*profile.yawRateDamping);
+            base.steer=steerFor(point);
             base.throttle*=teamIntent.throttleScale??1;
         }else{
             const hasContact=distance(enemy,player)>.3;
@@ -260,7 +267,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     else if (tactical.mode === 'SEEK_COVER' && tactical.point) {
         const d = distance(from, tactical.point);
         base = driveToward(enemy, tactical.point, d);
-        base.steer = clamp(headingError(enemy, tactical.point) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);
+        base.steer = steerFor(tactical.point);
         motion.phase = 'SEEK COVER';
         motion.navigation = `SEEK COVER · ${tactical.coverId ?? 'AVAILABLE'} · ${d.toFixed(1)}m`;
         motion.waypoint = tactical.point;
@@ -375,8 +382,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         if (motion.route && waypoint) {
             const dist = distance(from, waypoint);
             command = { ...driveToward(enemy, waypoint, dist),
-                steer:clamp(headingError(enemy,waypoint)*profile.steerGain-
-                    enemy.yawRate*profile.yawRateDamping) };
+                steer:steerFor(waypoint) };
             motion.phase = 'BYPASS';
             motion.navigation = `BYPASS ${route.id} ${route.side < 0 ? 'A' : 'B'} ${route.index + 1}/2`;
             motion.waypoint = waypoint;
