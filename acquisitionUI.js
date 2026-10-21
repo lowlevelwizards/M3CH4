@@ -254,7 +254,7 @@ function appendSelection(panel, result) {
     panel.append(detail);
     if (claimable) {
         const note = document.createElement('div'); note.className = 'salvage-confirm-note';
-        note.textContent = 'EXACT SERIAL + BATTLE CONDITION ENTER OWNED INVENTORY.';
+        note.textContent = 'KEEP THIS PART?';
         panel.append(note);
     }
 }
