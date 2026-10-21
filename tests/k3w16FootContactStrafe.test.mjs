@@ -66,8 +66,8 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(html,/<option value="strafe-left">STRAFE LEFT<\/option>/);
  assert.match(html,/<option value="strafe-right">STRAFE RIGHT<\/option>/);
  assert.match(html,/articulationMotion\.js\?v=k3w16/);
- assert.match(html,/sceneAssembly\.js\?v=k4i/);
- assert.match(html,/main\.js\?v=k4l/);
- assert.match(source('sceneAssembly.js'),/scene\.js\?source=k4i/);
- assert.match(html,/0\.0\.1k\.4l — Garage & Combat QoL/);
+ assert.match(html,/sceneAssembly\.js\?v=k4m/);
+ assert.match(html,/main\.js\?v=k4q/);
+ assert.match(source('sceneAssembly.js'),/scene\.js\?source=k4m/);
+ assert.match(html,/0\.0\.1k\.4q — Interface Clarity/);
 });
