@@ -77,6 +77,9 @@ function alignAssemblyMeshes(arena, assembly) {
         bracket.add(bar(.19, .17, .39, iron, .21, -.02, 0));
         hull.add(bracket);
     }
+    // Graph placement may have adjusted the true foot-sole elevation.
+    // Re-measure only on assembly changes, never in the frame loop.
+    arena.recalibratePlayerSoles?.();
     arena.scene.updateMatrixWorld(true);
 }
 
