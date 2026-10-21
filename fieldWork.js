@@ -225,7 +225,8 @@ export function fieldWorkRecoveryPossible(stable) {
     return fieldPatchCandidates(stable).length>0 ||
         (stable?.rigs||[]).some(rig=>{
             const available=triageOptions(stable,rig.id);
-            return available.length>0 && triagePreview(stable,rig.id,available.map(x=>x.slot)).fieldable;
+            return available.length>0 && triagePreview(stable,rig.id,
+                available.filter(x=>x.condition<=.001).map(x=>x.slot)).fieldable;
         });
 }
 
