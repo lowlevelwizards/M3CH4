@@ -135,7 +135,7 @@ test('updated mobile URLs reference fresh result and machine-status resources',(
     assert.match(html,/main\.js\?v=k4q/);
     assert.match(html,/garageMountUI\.js\?v=k4q/);
     assert.match(html,/garageBay\.js\?v=k3w0/);
-    assert.match(mount,/seriesUI\.js\?v=k3w0/);
-    assert.match(mount,/acquisitionUI\.js\?v=k3s2/);
+    assert.match(mount,/seriesUI\.js\?v=k4q/);
+    assert.match(mount,/acquisitionUI\.js\?v=k4o/);
     assert.match(series,/seriesStyles\.css\?v=k4q/);
 });
