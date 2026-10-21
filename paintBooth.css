@@ -44,3 +44,8 @@
 .paint-booth-library{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 6px;border-bottom:1px solid #404d47;font:10px ui-monospace,monospace}
 .paint-booth .paint-booth-delete{width:35px;min-height:29px;font-size:17px;color:#c6ada0}
 @media(min-width:610px){.paint-booth-presets{grid-template-columns:repeat(3,minmax(0,1fr))}.paint-booth-targets{gap:7px}.paint-booth-target-img{height:58px}.paint-booth .paint-booth-target{min-height:95px}.paint-booth-variant-img{height:85px}}
+
+.unified-contract-livery{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #ffffff18}
+.unified-contract-livery small{font:700 10px ui-monospace,monospace;color:#bcb8a2}
+.unified-crew-swatches{display:flex;width:110px;height:16px;flex-shrink:0;border:1px solid #7777}
+.unified-crew-swatches i{flex:1;min-width:0}
