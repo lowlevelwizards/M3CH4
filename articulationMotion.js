@@ -6,9 +6,9 @@ const TAU=Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fract=v=>v-Math.floor(v);
 export const ANIMATION_FAMILIES=Object.freeze({
-  'legs-yard':Object.freeze({stride:1.30,reach:.27,lift:.17,stepRate:1,waist:.19,compression:.045}),
-  'legs-compact':Object.freeze({stride:1.08,reach:.36,lift:.25,stepRate:1,waist:.25,compression:.025}),
-  'legs-hauler':Object.freeze({stride:1.66,reach:.19,lift:.11,stepRate:1,waist:.12,compression:.070}),
+  'legs-yard':Object.freeze({stride:1.30,reach:.27,lift:.17,lateralReach:.145,stepRate:1,waist:.19,compression:.045}),
+  'legs-compact':Object.freeze({stride:1.08,reach:.36,lift:.25,lateralReach:.185,stepRate:1,waist:.25,compression:.025}),
+  'legs-hauler':Object.freeze({stride:1.66,reach:.19,lift:.11,lateralReach:.105,stepRate:1,waist:.12,compression:.070}),
 });
 export const familyAnimation=id=>ANIMATION_FAMILIES[id]??ANIMATION_FAMILIES['legs-yard'];
 export const shortestAngle=r=>Math.atan2(Math.sin(r),Math.cos(r));
@@ -53,21 +53,49 @@ export function solveLegIK(upper,lower,deltaY,deltaZ){
   }
   return {hip:clamp(best.hip,-.85,.85),knee:clamp(best.knee,-1.20,1.20),reach};
 }
+/** Sideways travel uses the same planted/swing timing as forward motion.
+ * Each swing foot reaches in X while the planted foot pushes sideways, with
+ * upper/knee/ankle Z rotations to reach the new lateral contact point.
+ * No root translation, collision or physics changes.
+ */
 export function legPose(upper,lower,{phase=0,side=-1,weight=0,family='legs-yard',
-  backward=false,strafe=0,brace=0,health=1,disabled=false}={}){
+  backward=false,strafe=0,forward=0,brace=0,health=1,disabled=false,
+  upperX=0,lowerX=0}={}){
+  const f=familyAnimation(family);
   const working=clamp(weight,0,1)*clamp(health,.08,1)*(disabled?.035:1);
+  const strafeSigned=clamp(strafe,-1,1),fwd=Math.abs(clamp(forward,-1,1));
+  // Full lateral steps only when strafing predominates. Forward diagonal
+  // movement transitions continuously instead of abruptly switching gaits.
+  const lateral=clamp(Math.abs(strafeSigned)*1.12-fwd*.56,0,1);
   const p=footTrajectory(phase,side,working,family,backward);
-  const ik=solveLegIK(upper,lower,p.y,p.z);
+  const u=p.planted?p.phase/.58:(p.phase-.58)/.42;
+  const strideShift=p.planted?1-2*u:-1+2*u;
+  const reachX=Math.sign(strafeSigned)*strideShift*f.lateralReach*
+    working*lateral;
+  // Strong side strafing should not look like a forward march.
+  const forwardTravel=p.z*(1-lateral*.88);
+  const ik=solveLegIK(upper,lower,p.y,forwardTravel);
+  const lateralIK=lateral>.001?solveLegIK(
+    [upper[0],upperX],[lower[0],lowerX],
+    p.y*.50,reachX
+  ):{hip:0,knee:0};
+  // Three-axis foot counter-rotation keeps the pads comparatively flat
+  // even though the hip moves them laterally.
+  const hipRoll=clamp(-lateralIK.hip,-.35,.35);
+  const kneeRoll=clamp(-lateralIK.knee,-.43,.43);
+  const ankleRoll=clamp(-(hipRoll+kneeRoll)*.68,-.32,.32);
+  const footRoll=clamp(-(hipRoll+kneeRoll+ankleRoll)*.72,-.25,.25);
   const braceBend=clamp(brace,0,1)*.09;
   return {
     hip:ik.hip,
     knee:ik.knee-braceBend-(disabled?.33:0),
     ankle:-(ik.hip+ik.knee)*.65+p.pitch*.35+(disabled?.13:0),
     foot:-(ik.hip+ik.knee)*.22-p.pitch*.70,
-    spread:clamp(strafe,-1,1)*side*.11*working,
-    lift:p.y,planted:p.planted,phase:p.phase,
+    hipRoll,kneeRoll,ankleRoll,footRoll,spread:hipRoll,
+    lateralReach:reachX,lift:p.y,planted:p.planted,phase:p.phase,
   };
 }
+
 /** Motor-driven upper hull motion. Visual waist rotation never changes rig
  * yaw or physics. Gun offset compensates for waist, preserving world aim.
  */
