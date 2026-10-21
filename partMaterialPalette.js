@@ -26,6 +26,7 @@ const SPEC=Object.freeze({
   glazing:[0x182b2e,.52,.07,'optical'],
   optic:[0x3f898c,.48,.19,'optical'],
   opticalRecess:[0x121d1e,.90,.10,'optical'],
+  mechanicalRecess:[0x121d1e,.90,.10,'dark-mechanism'],
 });
 export const PART_MATERIALS=Object.freeze(Object.fromEntries(
   Object.entries(SPEC).map(([key,[hex,roughness,metalness,role]])=>{

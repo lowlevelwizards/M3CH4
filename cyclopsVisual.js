@@ -9,9 +9,9 @@ export function buildCyclopsVisual(fixture){
     block(body,'steel lower pressure sill',[0,-.319,.045],[.88,.105,.68],'raw');
     const optics=groupAt(root,'CYCLOPS / OPTIC ASSEMBLY');
     chamferBlock(optics,'square structural optical carrier',[-.06,.072,-.427],[.57,.55,.132],'iron',.085);
-    block(optics,'recessed square optical well',[-.06,.072,-.500],[.451,.43,.012],'recess');
+    block(optics,'recessed square optical well',[-.06,.072,-.500],[.451,.43,.012],'opticRecess');
     disk(optics,'outer machined circular bezel',[-.06,.072,-.512],.235,.047,'bright');
-    disk(optics,'dark recessed lens surround',[-.06,.072,-.541],.195,.017,'recess');
+    disk(optics,'dark recessed lens surround',[-.06,.072,-.541],.195,.017,'opticRecess');
     disk(optics,'single protected teal objective',[-.06,.072,-.555],.163,.013,'optic');
     disk(optics,'inner optical aperture',[-.06,.072,-.566],.091,.007,'glass');
     const cheeks=groupAt(root,'CYCLOPS / DETACHABLE CHEEKS');

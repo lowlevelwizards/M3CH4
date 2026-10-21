@@ -12,7 +12,8 @@ export const COMMAND_MATERIALS=Object.freeze({
     raw:partMaterial('rawSteel'),heat:partMaterial('heatSteel'),
     cream:partMaterial('cream'),olive:partMaterial('olive'),
     glass:partMaterial('glazing'),optic:partMaterial('optic'),
-    rust:partMaterial('oxide'),recess:partMaterial('opticalRecess'),
+    rust:partMaterial('oxide'),recess:partMaterial('mechanicalRecess'),
+    opticRecess:partMaterial('opticalRecess'),
 });
 const gray=new THREE.MeshStandardMaterial({color:0x999999,metalness:.02,roughness:.95,flatShading:true});
 const outlineMaterial=new THREE.LineBasicMaterial({color:0xe6b249,opacity:.85,transparent:true});

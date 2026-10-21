@@ -18,7 +18,7 @@ export function buildHearthVisual(fixture){
         frontBottom:.122,frontTop:.269,rearBottom:.241,rearTop:.408,
     },'cream');
     block(face,'deep recessed black vision aperture',[0,.080,-.557],
-        [.873,.075,.017],'recess');
+        [.873,.075,.017],'opticRecess');
     block(face,'narrow protected inner optic strip',[0,.080,-.569],
         [.752,.027,.007],'glass');
     const armor=groupAt(root,'HEARTH / LARGE SIDE CHEEKS');
