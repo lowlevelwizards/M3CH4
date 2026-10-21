@@ -1252,7 +1252,7 @@ export function createArenaScene(initial, targetAssembly) {
     let inspecting = false;
     let azimuth = 0.68;
     let elevation = 0.25;
-    let radius = 7.20;
+    let radius = 6.05;
     let orbitAssist = null; // shortcut-only reveal; manual orbit always wins
     const orbitTarget = new THREE.Vector3(0, 1.85, 0);
     const desiredTarget = orbitTarget.clone();
@@ -1749,7 +1749,7 @@ export function createArenaScene(initial, targetAssembly) {
         orbitAssist = null;
         azimuth = 0.68;
         elevation = 0.25;
-        radius = 7.20;
+        radius = 6.05;
         focusPart(null);
     }
     function pickPart(clientX, clientY, canvas) {
