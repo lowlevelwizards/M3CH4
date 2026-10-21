@@ -332,3 +332,15 @@ body.inspecting #unified-garage{display:block}
 @media(max-height:460px){
   #unified-garage .unified-station{min-height:74px}
 }
+
+/* k4h — common five-station quick service, inventory only on request */
+#unified-garage .unified-quick-part{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:35px}
+#unified-garage .unified-part-name{font:700 10px ui-monospace,monospace;color:#d1d6bc;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#unified-garage .unified-remove-icon{flex:0 0 35px;width:35px;height:34px;border:1px solid #ab655b;color:#f5aaa0;background:#392320;font:800 24px/1 ui-monospace,monospace;border-radius:4px}
+#unified-garage .unified-swap-toggle{min-height:38px;border:1px solid #789581;background:#27382e;color:#d7d6b1;font:800 11px ui-monospace,monospace}
+#unified-garage .unified-service{min-height:46px;background:#695c35;border-color:#cfb46d;color:#fff0bd}
+
+/* k4l — quick pit crew labor allocation */
+#unified-garage .unified-pit-budget{font:800 11px ui-monospace,monospace;color:#f2ce8f;padding:8px;background:#3d3428;border:1px solid #91794c}
+#unified-garage .unified-triage-choice{text-align:left;min-height:41px;padding:7px;background:#222f2a;border:1px solid #657565;color:#bcc9ae;font:700 10px ui-monospace,monospace}
+#unified-garage .unified-triage-choice.active{border-color:#d7b569;color:#f0d59c;background:#4b422e}

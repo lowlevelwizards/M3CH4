@@ -644,3 +644,27 @@ body.observing-allies #target-panel { display:none!important; }
 
 /* k.3v.1: existing brake pedal doubles as deliberate planted-foot stance. */
 .pedal.braced { border-color: #c8cc86; color: #eaf2b6; background: rgba(47, 77, 57, .94); box-shadow: inset 0 0 0 1px rgba(198, 214, 138, .30); }
+
+/* k4k — mechanical diagonal reticle, consistent with cockpit viewport palette.
+ * Color is secondary: distinct size and interrupted geometry carry hit meaning. */
+#center-crosshair.center-crosshair{
+  width:38px;height:38px;font-size:0;--reticle-tint:#b6bc9b88;
+  background:none;text-shadow:none;transition:filter .09s,transform .08s;
+}
+#center-crosshair.center-crosshair::before,#center-crosshair.center-crosshair::after{
+  content:"";display:block;position:absolute;top:calc(50% - 1.4px);left:calc(50% - 19px);
+  width:38px;height:2.8px;
+  background:linear-gradient(to right,var(--reticle-tint) 0 27%,transparent 27% 73%,var(--reticle-tint) 73% 100%);
+  transform:rotate(45deg);
+}
+#center-crosshair.center-crosshair::after{transform:rotate(-45deg)}
+#center-crosshair.confirmed-hit{--reticle-tint:#e4d6ad;filter:drop-shadow(0 0 4px #967e49)}
+#center-crosshair.armor-hit{--reticle-tint:#d8d0a4}
+#center-crosshair.breach-hit{--reticle-tint:#e6a165;filter:drop-shadow(0 0 6px #e78646)}
+#center-crosshair.disable-hit{--reticle-tint:#ef8a61;filter:drop-shadow(0 0 8px #da5533);transform:translate(-50%,-50%) scale(1.21)}
+#center-crosshair.destroy-hit{--reticle-tint:#fff0cf;filter:drop-shadow(0 0 10px #f36c45);transform:translate(-50%,-50%) scale(1.35)}
+#center-crosshair.blocked-hit{--reticle-tint:#8caca5;filter:none;opacity:.62;transform:translate(-50%,-50%) scale(.8)}
+#center-crosshair.friendly-hit{--reticle-tint:#70c9a9;filter:none}
+
+.hit-confirm.destroyed{color:#ffe3bf;font-size:9px;text-shadow:0 0 8px #b64c30}
+.hit-confirm.blocked{color:#a2b4ac;letter-spacing:.04em}

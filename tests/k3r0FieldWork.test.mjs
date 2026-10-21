@@ -116,7 +116,7 @@ test('one-action preflight refuses a patch that would still leave the committed 
     damageActive(storage, 'power');
     const stable = loadStable(storage).stable;
     assert.equal(fieldPatchCandidates(stable).length, 0);
-    assert.equal(fieldWorkRecoveryPossible(stable), false);
+    assert.equal(fieldWorkRecoveryPossible(stable), true, 'two disabled modules now fit within four-unit triage');
     assert.match(fieldPatchEligibility(stable, 'rig-01', 'combat').reason, /ONE PATCH WILL NOT RETURN/);
 });
 
@@ -231,7 +231,7 @@ test('pit integration makes field work legible and enforces patch-to-next-round 
     assert.match(ui, /assignment\?\.rigId !== commitment\.rigId/);
     assert.match(ui, /stopImmediatePropagation/);
     assert.match(css, /FIELD PATCH · COMMITTED/);
-    assert.match(garage, /unifiedGarageUI\.js\?v=k3v6/);
+    assert.match(garage, /unifiedGarageUI\.js\?v=k4h/);
     const unified = fs.readFileSync(new URL('../unifiedGarageUI.js', import.meta.url), 'utf8');
     assert.match(unified, /fieldWorkCommitment/);
     assert.match(unified, /applyEmergencyFieldPatch/);

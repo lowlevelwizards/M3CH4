@@ -376,6 +376,7 @@ const targetPanel = required('#target-panel');
 const targetReadout = required('#target-readout');
 const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
+rangeCrosshair.textContent='';
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
 const objectiveStatus = required('#objective-status');
@@ -637,19 +638,33 @@ function showVerifiedShieldReadout(contact) {
     reportFade = Math.max(reportFade, 1.55);
     return label;
 }
+let scatterFeedback=null;
 function showHitConfirm(hit, text = null) {
+    if(scatterFeedback){
+        const score=hit?.justDestroyed?6:hit?.justDisabled||hit?.disabled?5:
+            hit?.internalDamage>0?4:text==='FRAME BLOCK'?2:
+            hit?.friendlyBlock?1:hit?.wreckHit?1:3;
+        if(!hit?.friendlyBlock&&!hit?.wreckHit&&text!=='FRAME BLOCK')scatterFeedback.landed++;
+        if(score>scatterFeedback.rank){
+            scatterFeedback.rank=score;scatterFeedback.best={hit,text};
+        }
+        return;
+    }
     const destroyed = !!hit?.justDestroyed;
-    const kind = hit?.friendlyBlock ? 'friendly' : destroyed ? 'disabled' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
+    const kind = text?.includes('FRAME BLOCK') ? 'blocked' : hit?.friendlyBlock ? 'friendly' : destroyed ? 'destroyed' : hit?.cleared ? 'cleared' : hit?.wreckHit ? 'wreck' : hit?.disabled ? 'disabled' : hit?.internalDamage > 0 ? 'breach' : 'armor';
     const label = text ?? (destroyed ? 'DESTROYED' : kind === 'disabled' ? 'DISABLED' : kind === 'breach' ? 'BREACH' : kind === 'cleared' ? 'WRECK CLEARED' : kind === 'wreck' ? 'WRECK' : kind === 'friendly' ? 'ALLY BLOCK' : 'HIT');
     hitConfirm.textContent = label;
     hitConfirm.className = `hit-confirm visible ${kind}`;
+    rangeCrosshair.classList.remove('blocked-hit','armor-hit','breach-hit','disable-hit','destroy-hit','friendly-hit');
     rangeCrosshair.classList.add('confirmed-hit');
-    rangeCrosshair.classList.toggle('breach-hit', kind === 'breach');
-    rangeCrosshair.classList.toggle('disable-hit', kind === 'disabled' || kind === 'cleared');
+    rangeCrosshair.classList.add(kind==='destroyed'?'destroy-hit':
+        kind==='disabled'||kind==='cleared'?'disable-hit':
+        kind==='breach'?'breach-hit':
+        kind==='blocked'?'blocked-hit':kind==='friendly'?'friendly-hit':'armor-hit');
     if (hitConfirmTimer !== null) window.clearTimeout(hitConfirmTimer);
     hitConfirmTimer = window.setTimeout(() => {
         hitConfirm.className = 'hit-confirm';
-        rangeCrosshair.classList.remove('breach-hit', 'disable-hit');
+        rangeCrosshair.classList.remove('blocked-hit','armor-hit','breach-hit','disable-hit','destroy-hit','friendly-hit');
         hitConfirmTimer = null;
     }, kind === 'disabled' || kind === 'cleared' ? 620 : 280);
 }
@@ -694,7 +709,10 @@ const observeNext = document.createElement('button');
 observeNext.type = 'button'; observeNext.textContent = '›';
 observePrev.setAttribute('aria-label','Previous surviving ally');
 observeNext.setAttribute('aria-label','Next surviving ally');
-observeOverlay.append(observePrev, observeCaption, observeNext);
+const observeReset=document.createElement('button');observeReset.type='button';observeReset.textContent='⟳';
+observeReset.setAttribute('aria-label','Reset spectator orbit');
+observeReset.addEventListener('click',()=>arena.resetSpectatorOrbit());
+observeOverlay.append(observePrev, observeCaption, observeNext,observeReset);
 document.body.append(observeOverlay);
 let observedAllyId = null;
 function activeAllies() { return friendlySupportActors.filter(actor=>actor.active); }
@@ -1378,7 +1396,7 @@ centerView.addEventListener('click', () => controls.recenterLook());
 resetOrbitButton.addEventListener('click', () => { arena.resetOrbit(); showStatus('INSPECTION CAMERA RESET'); });
 const pointers = new Map();
 renderer.domElement.addEventListener('pointerdown', event => {
-    if (!inspecting)
+    if (!inspecting && !observedAllyId)
         return;
     event.preventDefault();
     renderer.domElement.setPointerCapture(event.pointerId);
@@ -1392,7 +1410,7 @@ renderer.domElement.addEventListener('pointerdown', event => {
 });
 renderer.domElement.addEventListener('pointermove', event => {
     const pointer = pointers.get(event.pointerId);
-    if (!pointer || !inspecting)
+    if (!pointer || (!inspecting && !observedAllyId))
         return;
     event.preventDefault();
     const before = gestureMetrics([...pointers.values()]);
@@ -1408,13 +1426,15 @@ renderer.domElement.addEventListener('pointermove', event => {
             active.dragged = true;
         const panX = after.center.x - before.center.x;
         const panY = after.center.y - before.center.y;
-        if (panX || panY)
-            arena.panBy(panX, panY, renderer.domElement.clientHeight);
-        if (before.separation > 2 && after.separation > 2)
-            arena.zoomBy(after.separation / before.separation);
+        if(inspecting){
+            if(panX||panY)arena.panBy(panX,panY,renderer.domElement.clientHeight);
+            if(before.separation>2&&after.separation>2)arena.zoomBy(after.separation/before.separation);
+        }else if(before.separation>2&&after.separation>2)
+            arena.zoomSpectatorBy(after.separation/before.separation);
     }
     else if (pointer.dragged) {
-        arena.orbitBy(dx, dy);
+        if(inspecting)arena.orbitBy(dx,dy);
+        else arena.orbitSpectatorBy(dx,dy);
     }
 });
 const endPointer = (event) => {
@@ -2120,8 +2140,7 @@ function finishSortie(victory, reason) {
     sortiePhase = 'outro';
     // A complete squad wipe resolves immediately; territory/score outcomes keep
     // their short physical aftermath. This does not bypass rewards or BO3 scoring.
-    sortieOutroRemaining = squadOutcome(playerCombatActive, aiActors)
-        ? 0 : SORTIE_OUTRO_SECONDS;
+    sortieOutroRemaining = 5; // Retain the aftermath even on a complete squad wipe.
     pendingDebrief = { summary, reason };
     const match = resolvedResult?.series;
     if (match) {
@@ -2348,11 +2367,23 @@ function attemptFire() {
     // than distant outdoor echo. No damage or weapon cadence is modified.
     soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
     let impactSoundPlayed=false;
+    if(multi)scatterFeedback={landed:0,pellets:contacts.length,best:null,rank:-1};
     for(const contact of contacts){
         if(testEnded)break;
         const affected=resolvePlayerShotContact(contact,weaponSpec.damage,
             !impactSoundPlayed,!multi);
         if(affected)impactSoundPlayed=true;
+    }
+    if(multi){
+        const report=scatterFeedback;scatterFeedback=null;
+        if(report?.best){
+            const base=report.best.text || (report.best.hit?.justDestroyed?'DESTROYED':
+                report.best.hit?.disabled?'DISABLED':
+                report.best.hit?.internalDamage>0?'BREACH':
+                report.best.hit?.friendlyBlock?'ALLY BLOCK':'ARMOR');
+            showHitConfirm(report.best.hit,report.landed+'/'+report.pellets+' · '+base);
+        }
+        lastHit='S-6 · '+(report?.landed||0)+' / '+contacts.length+' PELLETS ON TARGET';
     }
     // Do not replace a verified six-pellet hit with a generic MISS merely
     // because another pellet in the same shell sailed into empty space.
@@ -2427,7 +2458,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         recoilFlash = .19;
         const shieldText = showVerifiedShieldReadout(contact);
         lastHit = `${targetActor.label} · ${shieldText ?? targetLabels[hit.slot]} · ${hit.serial}`;
-        showHitConfirm(hit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
+        showHitConfirm(visualHit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return true;

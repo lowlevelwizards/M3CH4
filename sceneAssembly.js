@@ -3,7 +3,7 @@
  * the shared part-model construction now handled inside scene.js.
  */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3z';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k4i';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 import { installCockpitIdentities } from './cockpitIdentityScene.js';
 

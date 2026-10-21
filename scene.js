@@ -1233,6 +1233,15 @@ export function createArenaScene(initial, targetAssembly) {
     const spectatorCameraPosition = new THREE.Vector3();
     const spectatorDesired = new THREE.Vector3();
     const spectatorLook = new THREE.Vector3();
+    let spectatorAzimuth=0,spectatorElevation=.20,spectatorRadius=5.8;
+    function orbitSpectatorBy(dx,dy){
+        spectatorAzimuth-=dx*.008;
+        spectatorElevation=THREE.MathUtils.clamp(spectatorElevation+dy*.006,-.15,.95);
+    }
+    function zoomSpectatorBy(scale){
+        if(Number.isFinite(scale)&&scale>0)spectatorRadius=THREE.MathUtils.clamp(spectatorRadius/scale,3.4,13.5);
+    }
+    function resetSpectatorOrbit(){spectatorAzimuth=0;spectatorElevation=.20;spectatorRadius=5.8;}
     function setSpectatorRig(rig = null) {
         if (spectatorRig !== rig) spectatorCameraReady = false;
         spectatorRig = rig;
@@ -1403,8 +1412,10 @@ export function createArenaScene(initial, targetAssembly) {
         }
         else if (spectatorRig) {
             const yaw = physicsYawToViewYaw(spectatorRig.yaw ?? 0);
-            spectatorDesired.set(spectatorRig.x + Math.sin(yaw) * 5.2,
-                4.1, spectatorRig.z + Math.cos(yaw) * 5.2);
+            const angle=yaw+spectatorAzimuth;
+            spectatorDesired.set(spectatorRig.x+Math.sin(angle)*spectatorRadius*Math.cos(spectatorElevation),
+                1.65+spectatorRadius*Math.sin(spectatorElevation),
+                spectatorRig.z+Math.cos(angle)*spectatorRadius*Math.cos(spectatorElevation));
             spectatorLook.set(spectatorRig.x, 1.65, spectatorRig.z);
             if (!spectatorCameraReady) {
                 spectatorCameraPosition.copy(spectatorDesired);
@@ -1637,7 +1648,7 @@ export function createArenaScene(initial, targetAssembly) {
                 const material = mesh.material;
                 if (!(material instanceof THREE.MeshStandardMaterial))
                     continue;
-                const illuminated=paintSelectedSlots ? paintSelectedSlots.has(groupSlot) : groupSlot===slot;
+                const illuminated=paintSelectedSlots ? false : groupSlot===slot;
                 material.emissive.setHex(illuminated ? 0xb78b35 : 0);
                 material.emissiveIntensity = illuminated ? (paintSelectedSlots ? 0.14 : 0.30) : 0;
             }
@@ -2131,7 +2142,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,

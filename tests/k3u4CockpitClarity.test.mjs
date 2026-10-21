@@ -65,8 +65,8 @@ test('the pit module tile shows internal integrity, while detail verifies the ex
     assert.match(ui,/createStationFace\(item\.slot,item\)/);
     assert.match(ui,/createConditionMeter\(conditionFromPart\(current\)/);
     assert.match(ui,/createConditionMeter\(conditionFromPart\(current\)/);
-    assert.match(ui,/const verified=view\.health\.find/);
-    assert.match(ui,/PATCH CONDITION MISMATCH/);
+    assert.match(ui,/const repairs=action\.type==='triage'/);
+    assert.match(ui,/triagePreview\(stable,viewedId/);
     assert.match(ui,/if\(patch\?\.rigId===viewedId && !selectedSlot\)selectedSlot=patch\.slot/);
 });
 test('the cockpit has exactly one Domination objective readout plus one BO3 header',()=>{
@@ -114,12 +114,12 @@ test('branching contract map uses campaign prerequisites, optional nodes and rea
 });
 test('new mobile assets load instead of cached pre-clarity cockpit and garage scripts',()=>{
     const html=code('index.html'),bridge=code('sceneAssembly.js'),mount=code('garageMountUI.js');
-    assert.match(html,/main\.js\?v=k3z/);
-    assert.match(html,/sceneAssembly\.js\?v=k3z/);
-    assert.match(html,/styles\.css\?v=k3v1/);
+    assert.match(html,/main\.js\?v=k4l/);
+    assert.match(html,/sceneAssembly\.js\?v=k4i/);
+    assert.match(html,/styles\.css\?v=k4k/);
     assert.match(html,/uiRedesign\.css\?v=k3w0/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k3v6/);
-    assert.match(bridge,/scene\.js\?source=k3z/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4h/);
+    assert.match(bridge,/scene\.js\?source=k4i/);
 });
 
 test('the observer persists a camera position across frames and exits on return to the garage',()=>{

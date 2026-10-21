@@ -10,6 +10,7 @@ import { createPartCard, createPartDetail, installPartGridStyles } from './partG
 import { partCreditValue } from './partEconomy.js';
 import { activePlayerArena } from './scene.js';
 import { loadMachine } from './persistence.js';
+import { soundWorkshop } from './audio.js';
 import { loadStable, storeStable, commissionRig, renameRig, rigById } from './stable.js';
 import { loadSeries } from './series.js';
 import { CAMPAIGN_NODES, availableCampaignNodes, loadCampaign } from './campaign.js';
@@ -21,11 +22,12 @@ import {
 import {
     applyEmergencyFieldPatch, currentIntermissionFieldAction,
     fieldPatchCandidates, fieldWorkCommitment, partLifecycle,
+    triageOptions,triagePreview,applyIntermissionTriage,TRIAGE_BUDGET,
     reconcileFieldPatches, clearFieldWorkAll, clearFieldWorkSeries,
 } from './fieldWork.js';
 import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
 import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot, paintBoothCurrentEdits } from './paintBoothUI.js';
-import { contractCrew } from './crewLivery.js';
+
 
 const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
@@ -48,6 +50,8 @@ let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
 let paintExpanded = false, paintPreviewEdits = null, paintHighlightSlots = null;
+let swapExpanded = false;
+let triageSelected=new Set();let triageRigId=null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
@@ -80,6 +84,7 @@ function button(label, action, cls = '', disabled = false) {
     return node;
 }
 function message(text, failed = false) {
+    soundWorkshop(failed?'reject':'confirm');
     notice.textContent = text;
     notice.classList.toggle('error', failed);
     notice.classList.toggle('shown', true);
@@ -117,7 +122,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
+    selectedSlot = null; selectedHardwareSerial = null; swapExpanded=false;triageSelected.clear();triageRigId=null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
     dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
@@ -238,7 +243,7 @@ function moduleStation(view) {
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
             : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
-            if (selectedSlot !== item.slot) {selectedHardwareSerial = null; rackView='ready';}
+            if (selectedSlot !== item.slot) {selectedHardwareSerial = null; swapExpanded=false; rackView='ready';}
             selectedSlot = item.slot; // Repeated taps always open details.
             dock.scrollTop = 0;
             render();
@@ -263,7 +268,7 @@ function moduleDetails(stable, view, machine) {
     const heading=el('div','rig-part-identity');
     heading.append(el('strong','unified-section-name',stationLabel(slot)+' · PART'));
     heading.append(button('×',()=>{
-        selectedSlot=null;selectedHardwareSerial=null;dock.scrollTop=0;render();
+        selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;dock.scrollTop=0;render();
     },'unified-close'));
     box.append(heading);
     const installed = state?.part;
@@ -283,7 +288,7 @@ function moduleDetails(stable, view, machine) {
                 () => {
                     const result = emitEdit('m3ch4:bay-service',{rigId:viewedId,slot});
                     message(result.ok ? (quote.destroyed ? 'REBUILT · ' : 'SERVICED · ') + installed.serial : result.reason, !result.ok);
-                    if (result.ok) { previewSignature=''; render(); }
+                    if (result.ok) { soundWorkshop('service');previewSignature=''; render(); }
                 },'unified-service',!affordable));
         }
     }
@@ -301,10 +306,18 @@ function moduleDetails(stable, view, machine) {
         box.append(positions);
     }
     if (installed) {
-        box.append(button('REMOVE PART · ' + installed.serial, () => editModule(slot,null), 'unified-remove'));
+        const quick=el('div','unified-quick-part');
+        quick.append(el('span','unified-part-name',BY_ID.get(installed.definitionId)?.name+' · '+installed.serial));
+        const remove=button('×',()=>editModule(slot,null),'unified-remove-icon');
+        remove.setAttribute('aria-label','Remove '+installed.serial+' from '+stationLabel(slot));
+        remove.title='REMOVE FROM BAY';quick.append(remove);box.append(quick);
+        box.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
         if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
             box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
     }
+    const toggle=button(swapExpanded?'× CLOSE PARTS':'SWAP / INVENTORY ›',()=>{swapExpanded=!swapExpanded;dock.scrollTop=0;render();},'unified-swap-toggle');
+    box.append(toggle);
+    if(!swapExpanded)return box;
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
     // to another rig must remain inspectable but cannot be silently transferred.
@@ -404,11 +417,11 @@ function moduleDetails(stable, view, machine) {
                 Math.round((focused.wear??0)*100)+'%'+
                 (elsewhere?' · BAY '+String(owner.bay).padStart(2,'0'):''),
 
-            actionLabel: here ? 'REMOVE FROM THIS BAY' :
+            actionLabel: here ? null :
                 elsewhere ? 'FITTED · BAY ' + String(owner.bay).padStart(2,'0') :
                 'INSTALL · ' + focused.serial,
             actionDisabled: !!elsewhere,
-            onAction: () => editModule(slot,here ? null : focused.serial),
+            onAction: () => editModule(slot, focused.serial),
         });
         detail.classList.add('unified-part-detail','rig-part-focus');
         const info=detail.querySelector('.part-detail-meta');
@@ -457,7 +470,7 @@ function editModule(slot,serial) {
     if (actualMode(loadSeries(storage)) !== 'garage') { message('PIT LOCKED · NO PART CHANGES',true);return; }
     const result=emitEdit('m3ch4:bay-module',{rigId:viewedId,slot,serial});
     message(result.ok ? (serial ? 'PART INSTALLED · '+serial : 'PART REMOVED') : result.reason,!result.ok);
-    if(result.ok) { previewSignature='';render(); }
+    if(result.ok) {soundWorkshop(serial?'install':'remove');previewSignature='';render(); }
 }
 function appendIdentityForm(view, stable) {
     const wrap=el('section','unified-identity-form');
@@ -480,11 +493,39 @@ function appendIdentityForm(view, stable) {
 
 function renderGarage(stable,machine,view) {
     dock.append(bayHeader(view), summary(view), moduleStation(view));
+    // Repeat servicing is a common garage task: skip the inventory rack and
+    // quote each actual installed serial before offering a one-tap bulk job.
+    const quotes=view.health.filter(item=>item.part&&!item.destroyed)
+        .map(item=>({item,quote:bayModuleQuote(stable,viewedId,item.slot)}))
+        .filter(row=>row.quote?.amount>0);
+    if(quotes.length>=2){
+        const total=quotes.reduce((sum,row)=>sum+row.quote.amount,0);
+        const affordable=total<=machine.economy.credits;
+        const serviceAll=button('SERVICE '+quotes.length+' PARTS · ₡'+total,()=>{
+            const current=data();
+            const fresh=quotes.map(row=>bayModuleQuote(current.stable,viewedId,row.item.slot));
+            const amount=fresh.reduce((sum,q)=>sum+(q?.amount||0),0);
+            if(amount>current.machine.economy.credits){message('NOT ENOUGH CREDITS FOR ALL SERVICE',true);return;}
+            let repaired=0,problem=null;
+            for(const row of quotes){
+                const result=emitEdit('m3ch4:bay-service',{rigId:viewedId,slot:row.item.slot});
+                if(!result.ok){problem=result.reason;break;}
+                repaired++;
+            }
+            message(problem?'SERVICED '+repaired+' · '+problem:'ALL '+repaired+' PARTS SERVICED',!!problem);
+            if(repaired){soundWorkshop('service');previewSignature='';render();}
+        },'unified-service unified-service-all',!affordable);
+        serviceAll.setAttribute('aria-label','Service all '+quotes.length+' damaged parts for '+total+' credits');
+        serviceAll.title=affordable?'SHOP SERVICE · ALL DAMAGED INSTALLED STATIONS':
+            'INSUFFICIENT CREDITS · REPAIR INDIVIDUALLY';
+        dock.append(serviceAll);
+    }
     if(paintExpanded) dock.append(createPaintBooth({
         stable,rigId:viewedId,storage,
         onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
         onRefresh:()=>render(),
         onSaved:()=>{
+            soundWorkshop('paint');
             document.dispatchEvent(new CustomEvent('m3ch4:paint-committed'));
             paintPreviewEdits=null;previewSignature='';render();
         },
@@ -611,14 +652,15 @@ function renderContracts(stable) {
             c.objective.label + ' · RISK ' + c.risk.toUpperCase() + ' · ₡' + c.payout));
         detail.append(el('p','',c.briefing));
         detail.append(el('div','unified-muted','OBJECTIVE · ' + c.objective.description));
-        const crew=contractCrew(c.id);
+        /* Opposing crew palettes belong on the battlefield, not on the job briefing. */
+        /* const crew=contractCrew(c.id);
         const livery=el('div','unified-contract-livery');
         const band=el('div','unified-crew-swatches');
         for(const color of Object.values(crew.colors)){
             const swatch=el('i');swatch.style.background=color;band.append(swatch);
         }
         livery.append(el('small','','OPPOSING CREW · '+crew.name),band);
-        detail.append(livery);
+        detail.append(livery); */
         detail.append(el('div','unified-muted','KNOWN EQUIPMENT · '+c.knownEquipment.join(' / ')));
         detail.append(el('div','unified-muted','SALVAGE · '+c.salvageHint));
         dock.append(detail);
@@ -698,33 +740,56 @@ function patchInPit(stable,view,series) {
     const wrap=el('section','unified-field-work');
     const action=currentIntermissionFieldAction(storage,series);
     const committed=fieldWorkCommitment(storage);
-    wrap.append(el('strong','unified-section-name',action?'FIELD WORK · SPENT':'FIELD WORK · ONE ACTION'));
-    if(action) {
+    wrap.append(el('strong','unified-section-name',action?'PIT CREW · COMMITTED':'PIT CREW · TRIAGE'));
+    if(action){
         const owner=rigById(stable,action.rigId);
-        const verified=view.health.find(part=>part.slot===action.slot &&
-            part.serial===action.serial);
-        const condition=verified?'INTEGRITY '+pct(verified.condition)+' · ARMOR '+
-            pct(verified.armorRatio)+' · WEAR '+pct(verified.wear):'SAVE VERIFICATION UNAVAILABLE';
-        wrap.append(el('p','unified-patch-proof',rigName(owner).toUpperCase()+
-            ' · '+SLOT_LABELS[action.slot]+' · '+action.serial+' · '+condition));
-        if(!verified || Math.abs(verified.condition-action.restoredCondition)>.015)
-            wrap.append(el('p','unified-warning','PATCH CONDITION MISMATCH · VERIFY BEFORE DEPLOYMENT'));
-        wrap.append(el('small','unified-warning',rigName(owner).toUpperCase()+' COMMITTED TO ROUND '+series.roundNumber));
-    } else {
-        const choices=fieldPatchCandidates(stable).filter(c=>c.rigId===view.rig.id);
-        if(!choices.length) wrap.append(el('p','unified-muted','NO SINGLE PATCH CAN RESTORE THIS MACHINE TO FIELDABLE.'));
-        for(const c of choices) wrap.append(button('FIELD PATCH '+SLOT_LABELS[c.slot]+' → 22% · COMMIT '+view.name.toUpperCase(),
-            ()=> {
-                const assign=assignment(stable,series.contractId,c.rigId);
-                if(!assign.ok){message(assign.reason,true);return;}
-                const result=applyEmergencyFieldPatch(storage,{seriesId:series.id,rigId:c.rigId,slot:c.slot});
-                message(result.ok?'FIELD PATCH COMPLETE · '+view.name.toUpperCase()+' COMMITTED':result.reason,!result.ok);
-                if(result.ok) {
-                    document.dispatchEvent(new CustomEvent('m3ch4:bay-reconcile-patch',{detail:result.action}));
-                    window.location.reload();
-                }
-            },'unified-service'));
+        const repairs=action.type==='triage'?(action.repairs||[]):[action];
+        wrap.append(el('p','unified-patch-proof',rigName(owner).toUpperCase()+' · '+
+            repairs.map(r=>SLOT_LABELS[r.slot]+' '+pct(r.restoredCondition??action.restoredCondition)).join(' / ')));
+        wrap.append(el('small','unified-warning','COMMITTED TO ROUND '+series.roundNumber));
+        return wrap;
     }
+    if(triageRigId!==viewedId){
+        triageRigId=viewedId;triageSelected.clear();
+        let units=TRIAGE_BUDGET;
+        const candidates=triageOptions(stable,viewedId).sort((a,b)=>
+            (a.condition<=.001?0:1)-(b.condition<=.001?0:1)||a.condition-b.condition);
+        for(const c of candidates)if(c.cost<=units){triageSelected.add(c.slot);units-=c.cost;}
+    }
+    const options=triageOptions(stable,viewedId);
+    if(!options.length){
+        wrap.append(el('small','unified-muted','NO REPAIRABLE CRITICAL SYSTEMS · SEND MACHINE AS IS'));
+        return wrap;
+    }
+    const plan=triagePreview(stable,viewedId,[...triageSelected]);
+    wrap.append(el('div','unified-pit-budget','WORK UNITS · '+plan.cost+' / '+TRIAGE_BUDGET+
+        ' · '+(plan.fieldable?'FIELDABLE AFTER SERVICE':'NOT READY')));
+    for(const candidate of options){
+        const selected=triageSelected.has(candidate.slot);
+        const b=button((selected?'☑ ':'☐ ')+SLOT_LABELS[candidate.slot]+' · '+
+            pct(candidate.condition)+' → 30% · '+candidate.cost+' UNIT'+(candidate.cost===1?'':'S'),()=>{
+            if(selected)triageSelected.delete(candidate.slot);
+            else triageSelected.add(candidate.slot);
+            render();
+        },'unified-triage-choice'+(selected?' active':''));
+        b.setAttribute('aria-pressed',String(selected));wrap.append(b);
+    }
+    wrap.append(el('small','unified-muted','LIMITED LABOR · 18% ARMOR FLOOR ON SERVICED PARTS · NO SHOP REBUILDS'));
+    const commit=button('COMMIT TRIAGE · '+plan.cost+' / '+TRIAGE_BUDGET,()=>{
+        const selected=[...triageSelected];
+        const check=triagePreview(stable,viewedId,selected);
+        if(!check.valid||!check.fieldable){message('TRIAGE MUST RESTORE A FIELDABLE MACHINE',true);return;}
+        const assign=assignment(stable,series.contractId,viewedId);
+        if(!assign.ok){message(assign.reason,true);return;}
+        const result=applyIntermissionTriage(storage,{seriesId:series.id,rigId:viewedId,slots:selected});
+        message(result.ok?'PIT TRIAGE COMPLETE · ROUND '+series.roundNumber+' COMMITTED':result.reason,!result.ok);
+        if(result.ok){
+            soundWorkshop('service');
+            document.dispatchEvent(new CustomEvent('m3ch4:bay-reconcile-patch',{detail:result.action}));
+            window.location.reload();
+        }
+    },'unified-service',!plan.valid||!plan.fieldable||!!committed);
+    wrap.append(commit);
     return wrap;
 }
 function renderPit(stable,view,series) {
@@ -735,7 +800,7 @@ function renderPit(stable,view,series) {
     dock.append(bayHeader(view),summary(view),moduleStation(view));
     const readout=renderStationReadout(view);
     if (readout) dock.append(readout);
-    dock.append(el('small','unified-pit-lock','🔒 PIT · ONE FIELD PATCH · NO PART SWAPS'));
+    dock.append(el('small','unified-pit-lock','🔒 PIT · FOUR WORK UNITS · NO PART SWAPS'));
     dock.append(patchInPit(stable,view,series));
     const committed=fieldWorkCommitment(storage);
     const canGo=view.canDeploy && (!committed || committed.rigId===viewedId);
@@ -813,7 +878,7 @@ document.addEventListener('m3ch4:bay-picked',event=>{
         paintPreviewEdits=paintBoothCurrentEdits();previewSignature='';render();return;
     }
     selectedSlot = slot;
-    selectedHardwareSerial = null;
+    selectedHardwareSerial = null;swapExpanded=false;
     dock.scrollTop = 0;
     render();
 });

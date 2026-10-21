@@ -73,9 +73,14 @@ export function makeLiveWeaponAudio(getContext){
       let buffer=buffers.get(weaponId);
       if(!buffer){
         const cached=warmPCM('weapon',weaponId,0);
+        // Never run the expensive Pressure Forge renderer on the main thread
+        // during combat. audio.js plays a small immediate fallback impulse until
+        // the off-thread buffer arrives.
+        if(!cached&&typeof Worker!=='undefined')return {ok:false,pending:true,weaponId};
+        // In non-browser/offline test harnesses there is no worker. Keep the
+        // original CPU renderer for that environment, never production combat.
         const rate=cached?.rate??c.sampleRate;
-        const pcm=cached?.pcm??
-          renderPressureForgePCM(weaponId,LIVE_WEAPON_RECIPES[weaponId],rate,'full');
+        const pcm=cached?.pcm??renderPressureForgePCM(weaponId,LIVE_WEAPON_RECIPES[weaponId],rate,'full');
         if(!cached)cacheWarmPCM('weapon',weaponId,0,pcm,rate);
         buffer=c.createBuffer(1,pcm.length,rate);
         buffer.getChannelData(0).set(pcm);

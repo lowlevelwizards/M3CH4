@@ -62,7 +62,8 @@ test('garage uses same vocabulary and compact selected part + single swipe rack,
     assert.match(ui,/const tabs=el\('div','rig-gallery-tabs'\)/);
     assert.match(ui,/selectedHardwareSerial=focused\.serial/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
-    assert.match(ui,/onAction: \(\) => editModule\(slot,here \? null : focused\.serial\)/);
+    assert.match(ui,/onAction: \(\) => editModule\(slot, focused\.serial\)/);
+    assert.match(ui,/unified-remove-icon/);
     assert.match(ui,/selectBay\(owner\.id\)/);
     assert.match(ui,/arena\.selectPart\(selectedSlot\)/);
     assert.match(css,/scroll-snap-type:x mandatory/);
@@ -92,13 +93,13 @@ test('intermission reports compact truthful dual gauges and reveal detailed read
 });
 test('bundled entry and mobile versions include exact changed assets and no new save contract',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.3z — Frame Anatomy Rewrite/);
+    assert.match(html,/0\.0\.1k\.4l — Garage & Combat QoL/);
     assert.match(html,/uiRedesign\.css\?v=k3w0/);
-    assert.match(html,/main\.js\?v=k3z/);
-    assert.match(html,/garageMountUI\.js\?v=k3v6/);
+    assert.match(html,/main\.js\?v=k4l/);
+    assert.match(html,/garageMountUI\.js\?v=k4h/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
     assert.match(html,/uiLanguage\.js\?v=k3w0/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k3v6/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4h/);
     assert.match(mount,/seriesUI\.js\?v=k3w0/);
 });
