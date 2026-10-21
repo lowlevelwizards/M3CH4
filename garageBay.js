@@ -111,7 +111,8 @@ export function serviceInactiveBay(storage, rigId, slot, credits) {
     repairInstalledPart(assembly, rig.damage, slot);
     restoreTargetPart(target, assembly, slot);
     stable.inventory = assembly.owned.map(p => ({ serial:p.serial, definitionId:p.definitionId,
-        condition:p.condition, destroyed:!!p.destroyed, wear:p.wear, repairs:p.repairs }));
+        condition:p.condition, destroyed:!!p.destroyed, wear:p.wear, repairs:p.repairs,
+        ...(p.paint ? {paint:{...p.paint}} : {}) }));
     if (!storeStable(storage, stable)) return { ok:false, reason:'STABLE SAVE FAILED' };
     return { ok:true, charged, serial:part.serial, rebuilt:destroyed,
         part:stable.inventory.find(p => p.serial === part.serial) };
