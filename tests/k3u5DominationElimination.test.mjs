@@ -44,7 +44,7 @@ test('Domination score still independently resolves before last enemy dies',()=>
 
 test('k3u7 Pages entrypoint loads the new squad-elimination gameplay script',()=>{
  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
- assert.ok(html.includes('main.js?v=k3y'));
+ assert.ok(html.includes('main.js?v=k3z'));
  assert.ok(html.includes('RIG DIAGNOSTICS <span id="dev-version"></span>'));
- assert.match(html,/Command Cab Anatomy Rewrite/);
+ assert.match(html,/Frame Anatomy Rewrite/);
 });

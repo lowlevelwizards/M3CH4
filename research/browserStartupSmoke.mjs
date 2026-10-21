@@ -55,7 +55,7 @@ try {
       const structure=[];
       arena.scene.traverse(node=>{
         if(node.type==='Group'&&node.name.startsWith('structure: ')&&
-          node.children.some(child=>child.userData?.actorId==='player'))
+          (()=>{let owned=false;node.traverse(child=>{if(child.isMesh&&child.userData?.actorId==='player')owned=true;});return owned;})())
           structure.push(node);
       });
       if(!structure.length)throw Error('Could not find player exterior');
