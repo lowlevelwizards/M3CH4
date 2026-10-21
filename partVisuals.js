@@ -1,4 +1,4 @@
-/** Shared M3CH4 mobility models. Gameplay and preview use the same authored
+/** Shared M3CH4 mobility and command models. Gameplay and preview use the same authored
  * geometry for every current mobility family. This remains a deliberately tiny
  * registry, not a procedural generator or a second assembly graph.
  */
@@ -6,11 +6,17 @@ import { fitFixtureFor } from './chassisFitFixtures.js';
 import { buildYardwalkerVisual } from './yardwalkerVisual.js';
 import { buildKestrelVisual } from './kestrelVisual.js';
 import { buildHaulerVisual } from './haulerVisual.js';
+import { buildCyclopsVisual } from './cyclopsVisual.js';
+import { buildVistaVisual } from './vistaVisual.js';
+import { buildHearthVisual } from './hearthVisual.js';
 
 const BUILDERS = Object.freeze({
     'legs-yard': buildYardwalkerVisual,
     'legs-compact': buildKestrelVisual,
     'legs-hauler': buildHaulerVisual,
+    'cab-cyclops': buildCyclopsVisual,
+    'cab-utility': buildVistaVisual,
+    'cab-armored': buildHearthVisual,
 });
 
 export const SHARED_PART_IDS = Object.freeze(Object.keys(BUILDERS));
