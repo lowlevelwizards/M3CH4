@@ -258,6 +258,7 @@ function moduleStation(view) {
             selectedSlot = item.slot; // Repeated taps always open details.
             dock.scrollTop = 0;
             render();
+            if (!paintExpanded) activePlayerArena()?.arena.revealPart?.(item.slot);
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(createStationFace(item.slot,item));
         node.title=item.serial ? formatCondition(conditionFromPart(item)) : 'EMPTY STATION';
