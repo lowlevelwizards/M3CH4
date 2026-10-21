@@ -694,7 +694,10 @@ const observeNext = document.createElement('button');
 observeNext.type = 'button'; observeNext.textContent = '›';
 observePrev.setAttribute('aria-label','Previous surviving ally');
 observeNext.setAttribute('aria-label','Next surviving ally');
-observeOverlay.append(observePrev, observeCaption, observeNext);
+const observeReset=document.createElement('button');observeReset.type='button';observeReset.textContent='⟳';
+observeReset.setAttribute('aria-label','Reset spectator orbit');
+observeReset.addEventListener('click',()=>arena.resetSpectatorOrbit());
+observeOverlay.append(observePrev, observeCaption, observeNext,observeReset);
 document.body.append(observeOverlay);
 let observedAllyId = null;
 function activeAllies() { return friendlySupportActors.filter(actor=>actor.active); }
@@ -1378,7 +1381,7 @@ centerView.addEventListener('click', () => controls.recenterLook());
 resetOrbitButton.addEventListener('click', () => { arena.resetOrbit(); showStatus('INSPECTION CAMERA RESET'); });
 const pointers = new Map();
 renderer.domElement.addEventListener('pointerdown', event => {
-    if (!inspecting)
+    if (!inspecting && !observedAllyId)
         return;
     event.preventDefault();
     renderer.domElement.setPointerCapture(event.pointerId);
@@ -1392,7 +1395,7 @@ renderer.domElement.addEventListener('pointerdown', event => {
 });
 renderer.domElement.addEventListener('pointermove', event => {
     const pointer = pointers.get(event.pointerId);
-    if (!pointer || !inspecting)
+    if (!pointer || (!inspecting && !observedAllyId))
         return;
     event.preventDefault();
     const before = gestureMetrics([...pointers.values()]);
@@ -1408,13 +1411,15 @@ renderer.domElement.addEventListener('pointermove', event => {
             active.dragged = true;
         const panX = after.center.x - before.center.x;
         const panY = after.center.y - before.center.y;
-        if (panX || panY)
-            arena.panBy(panX, panY, renderer.domElement.clientHeight);
-        if (before.separation > 2 && after.separation > 2)
-            arena.zoomBy(after.separation / before.separation);
+        if(inspecting){
+            if(panX||panY)arena.panBy(panX,panY,renderer.domElement.clientHeight);
+            if(before.separation>2&&after.separation>2)arena.zoomBy(after.separation/before.separation);
+        }else if(before.separation>2&&after.separation>2)
+            arena.zoomSpectatorBy(after.separation/before.separation);
     }
     else if (pointer.dragged) {
-        arena.orbitBy(dx, dy);
+        if(inspecting)arena.orbitBy(dx,dy);
+        else arena.orbitSpectatorBy(dx,dy);
     }
 });
 const endPointer = (event) => {
