@@ -10,6 +10,7 @@ import { loadStable, rigById, rigFieldability } from './stable.js';
 import { bayHealth, bayModuleQuote, SLOT_LABELS } from './garageBay.js';
 import { createConditionMeter } from './uiMeters.js';
 import { conditionFromPart, stationLabel } from './uiLanguage.js';
+import { activePlayerArena, partThumbnailDataUrl } from './scene.js';
 import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
 } from './sortieAssignment.js';
@@ -56,9 +57,9 @@ function renderCombatSeries() {
     if (!visible) return;
     hud.replaceChildren();
     const contract = document.createElement('strong');
-    contract.textContent = contractById(match.contractId).name.toUpperCase()+' · BO3';
+    contract.textContent = 'ROUND '+match.roundNumber;
     const score = document.createElement('span');
-    score.textContent = 'R'+match.roundNumber+'/3  ·  '+match.playerWins+' — '+match.enemyWins;
+    score.textContent = match.playerWins+' – '+match.enemyWins;
     hud.setAttribute('aria-label',contractById(match.contractId).name+' best of three, round '+match.roundNumber+
         ', your score '+match.playerWins+', opponents '+match.enemyWins);
     hud.append(contract,score);
@@ -143,7 +144,7 @@ function pitBanner(series) {
     const score = document.createElement('div'); score.className = 'bo3-score';
     score.innerHTML = `<span>YOU</span><b>${series.playerWins}</b><i>—</i><b>${series.enemyWins}</b><span>HOSTILE</span>`;
     const note = document.createElement('p');
-    note.textContent = 'PIT LOCKED · ONE FIELD PATCH · NO PART SWAPS';
+    note.textContent = 'PIT · 4 WORK UNITS';
     banner.append(left, score, note);
     return banner;
 }
@@ -229,30 +230,71 @@ function appendDebriefRow(label, value, kind = '', reading = null, serviceQuote 
 
 function renderRoundIntermission(series, round) {
     if (!round || series.phase !== 'intermission') return;
-    const stable = loadStable(localStorageRef).stable;
-    const rig = rigById(stable, round.rigId);
-    debriefSheet.classList.add('bo3-round-debrief');
-    debriefTitle.textContent = `ROUND ${round.round} ${round.victory ? 'WON' : 'LOST'}`;
+    const stable=loadStable(localStorageRef).stable;
+    const rig=rigById(stable,round.rigId);
+    const health=bayHealth(stable,round.rigId);
+    const disabled=health.filter(p=>p.destroyed||p.condition<=.001);
+    const critical=health.filter(p=>!p.destroyed&&p.condition>.001&&Math.min(p.condition,p.armorRatio)<.38);
+    debriefSheet.classList.add('bo3-round-debrief','k4n-condition-debrief');
+    debriefTitle.textContent=round.victory?'VICTORY':'DEFEAT';
+    const resultPage=debriefSheet.querySelector('.debrief-page-result .debrief-page-title');
+    if(resultPage)resultPage.textContent='ROUND '+round.round+' / 3';
     debriefLines.replaceChildren();
-    appendDebriefRow('ROUND RESULT', round.victory ? 'VICTORY' : 'DEFEAT', 'primary');
-    appendDebriefRow('MATCH', `YOU ${series.playerWins} — ${series.enemyWins} HOSTILE`, 'primary');
-    appendDebriefRow('ASSIGNED MACHINE', `${round.rigName || rigLabel(rig)} · ${round.rigId.toUpperCase()}`, 'progression');
-    appendDebriefRow('RETURNED CONDITION', readinessText(stable, round.rigId), rigFieldability(stable, round.rigId).fieldable ? '' : 'repair');
-    for (const part of bayHealth(stable, round.rigId)) {
-        const percent = value => Math.round(Math.max(0,Math.min(1,value))*100) + '%';
-        const reading = part.serial
-            ? 'INT ' + percent(part.condition) + ' · ARM ' + percent(part.armorRatio) +
-                ' · WEAR ' + percent(part.wear)
-            : 'NOT INSTALLED';
-        appendDebriefRow(stationLabel(part.slot)+(part.label==='READY'?'':' · '+part.label),
-            reading, part.destroyed || part.condition <= .001 ? 'repair'
-                : Math.min(part.condition, part.armorRatio) < .995 ? 'damage' : '',part,
-            bayModuleQuote(stable,round.rigId,part.slot));
+    debriefLines.className='debrief-lines k4n-report';
+    const make=(tag,className,content)=>{
+        const node=document.createElement(tag);
+        if(className)node.className=className;
+        if(content!==undefined)node.textContent=String(content);
+        return node;
+    };
+    const overview=make('div','k4n-overview');
+    const name=make('strong','',round.rigName||rigLabel(rig));
+    const match=make('span','k4n-match','MATCH '+series.playerWins+' – '+series.enemyWins);
+    overview.append(name,match);
+    const flags=make('div','k4n-return');
+    const summary=disabled.length
+        ? disabled.length+' DISABLED'
+        : critical.length?critical.length+' CRITICAL':'FIELDABLE';
+    flags.append(make('span','',summary),make('small','',disabled.length?'PIT CREW AVAILABLE':'RETURNED TO BAY'));
+    const parts=make('div','k4n-parts');
+    const category={structure:'FRAME',mobility:'DRIVE',power:'POWER',command:'CAB',combat:'GUN'};
+    const statusOf=p=>!p.serial?'EMPTY':p.destroyed?'DESTROYED':
+        p.condition<=.001?'DISABLED':Math.min(p.condition,p.armorRatio)<.38?'CRITICAL':
+        Math.min(p.condition,p.armorRatio)<.995?'WORN':'OK';
+    for(const p of health){
+        const status=statusOf(p);
+        const tile=make('div','k4n-part k4n-'+status.toLowerCase());
+        const title=make('strong','',category[p.slot]);
+        const picture=make('div','k4n-part-art');
+        if(p.part?.definitionId){
+            const url=activePlayerArena()?.arena?.partThumbnailDataUrl?.(p.part.definitionId,{
+                condition:p.condition,destroyed:p.destroyed,paint:p.part.paint
+            })??partThumbnailDataUrl(p.part.definitionId,{condition:p.condition,
+                destroyed:p.destroyed,paint:p.part.paint});
+            if(url){const img=document.createElement('img');img.src=url;img.alt='';img.decoding='async';picture.append(img);}
+        }
+        if(!picture.childElementCount)picture.append(make('span','k4n-empty-art','—'));
+        const meters=make('div','k4n-meters');
+        for(const [kind,value] of [['core',p.condition],['armor',p.armorRatio]]){
+            const track=make('div','k4n-meter '+kind);
+            const fill=make('i');
+            fill.style.width=Math.round(100*Math.max(0,Math.min(1,value||0)))+'%';
+            track.append(fill);meters.append(track);
+        }
+        const statusEl=make('small','k4n-status',status);
+        const internal=Math.round(p.condition*100),armor=Math.round(p.armorRatio*100);
+        tile.setAttribute('aria-label',category[p.slot]+' · '+status+' · integrity '+internal+
+            ' percent, armor '+armor+' percent');
+        tile.title=(p.serial||'NOT INSTALLED')+' · INT '+internal+'% · ARM '+armor+
+            '% · WEAR '+Math.round(p.wear*100)+'%';
+        tile.append(title,picture,meters,statusEl);
+        parts.append(tile);
     }
-    appendDebriefRow('CONTRACT SETTLEMENT', 'DEFERRED · SERIES IN PROGRESS');
-    debriefGarage.textContent = 'CONTINUE TO INTERMISSION · ROUND ' + series.roundNumber;
+    const legend=make('div','k4n-legend');
+    legend.append(make('span','','● INTEGRITY'),make('span','','● ARMOR'));
+    debriefLines.append(overview,flags,parts,legend);
+    debriefGarage.textContent='CONTINUE TO PIT · ROUND '+series.roundNumber;
 }
-
 function decorateTerminalDebrief(series) {
     if (!series || series.phase !== 'complete') return;
     debriefSheet.classList.remove('bo3-round-debrief');
