@@ -6,6 +6,7 @@
  * global: one serial may be mounted to at most one rig at a time.
  */
 import { BY_ID, SLOTS, equipSerial, inspectAssembly, installedPart, remove } from './components.js';
+import { normalizePaint, validPaint } from './factoryPaint.js';
 import { graphFromStations, graphMatchesStations, validateGraph } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition, reconcileTargetCondition } from './combat.js';
@@ -84,6 +85,7 @@ function inventoryClone(owned = []) {
         wear: part.wear,
         repairs: part.repairs,
         destroyed: !!part.destroyed,
+        ...(normalizePaint(part.paint) ? {paint:normalizePaint(part.paint)} : {}),
     }));
 }
 
@@ -460,6 +462,36 @@ export function registerAcquiredPart(stable, serial, source = 'salvage') {
     const history = ensurePartHistory(stable, part, source);
     if (history.acquisitionSource === 'owned') history.acquisitionSource = source;
     return true;
+}
+
+
+/** k.4d: paint is owned by serial, not by rig or palette selection.
+ * The live v8 machine owns the authoritative inventory and is mirrored into
+ * the three-bay stable by loadStable. Always save it FIRST or bay switching
+ * will silently restore the previous finish from the live machine.
+ */
+export function repaintSerializedParts(storage, edits) {
+    if (!storage) return {ok:false,reason:'LOCAL SAVE UNAVAILABLE'};
+    if (!Array.isArray(edits) || !edits.length || edits.length>5)
+        return {ok:false,reason:'NO PAINT TARGETS'};
+    const machine=loadMachine(storage);
+    const owned=new Map(machine.assembly.owned.map(part=>[part.serial,part]));
+    const seen=new Set();
+    for (const item of edits) {
+        if (!item || typeof item.serial!=='string' || seen.has(item.serial) ||
+            !owned.has(item.serial) || (item.paint!==null && !validPaint(item.paint)))
+            return {ok:false,reason:'INVALID SERIAL OR PAINT'};
+        seen.add(item.serial);
+    }
+    for (const {serial,paint} of edits) {
+        if (paint===null) delete owned.get(serial).paint;
+        else owned.get(serial).paint=normalizePaint(paint);
+    }
+    if (!storeMachine(storage,machine))
+        return {ok:false,reason:'COULD NOT SAVE PAINT'};
+    // Update stable immediately as well. Inactive rigs share this serial inventory.
+    loadStable(storage);
+    return {ok:true,count:edits.length};
 }
 
 export function clearStable(storage) {
