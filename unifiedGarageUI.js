@@ -138,7 +138,7 @@ function preview(stable, series) {
     if (!arena) return;
     const rig = rigById(stable, viewedId);
     if (!rig) return;
-    const fitSerial = !paintExpanded && swapExpanded && rackView==='ready' &&
+    const fitSerial = actualMode(series)==='garage' && !paintExpanded && swapExpanded && rackView==='ready' &&
         selectedSlot && selectedHardwareSerial && rig.installed[selectedSlot]!==selectedHardwareSerial
         ? selectedHardwareSerial : null;
     const proposed = fitSerial ? bayPreviewAssembly(stable,viewedId,selectedSlot,fitSerial) : null;
@@ -326,7 +326,7 @@ function moduleDetails(stable, view, machine) {
         if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
             box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
     }
-    if (!installed) box.append(el('small','unified-owner-note','EMPTY SOCKET · TAP A PART TO PREVIEW'));
+    if (!installed) box.append(el('small','garage-empty-label','EMPTY SOCKET · SELECT A PART BELOW'));
     const actions=el('div','garage-part-actions');
     const toggle=button(swapExpanded?'CLOSE SHELF':'REPLACE',()=>{
         swapExpanded=!swapExpanded;drawerExpanded=false;selectedHardwareSerial=null;
@@ -356,8 +356,8 @@ function moduleDetails(stable, view, machine) {
         box.append(button('‹ COMPACT SHELF',()=>{drawerExpanded=false;render();},'garage-drawer-close'));
     }
     const owned = stable.inventory.filter(part => BY_ID.get(part.definitionId)?.slot === slot);
-    if (!selectedHardwareSerial || !owned.some(part => part.serial === selectedHardwareSerial))
-        selectedHardwareSerial = installed?.serial ?? owned[0]?.serial ?? null;
+    if (selectedHardwareSerial && !owned.some(part => part.serial === selectedHardwareSerial))
+        selectedHardwareSerial = null;
     if (!owned.length) choices.append(el('p','unified-muted','NO PARTS · COUNTER'));
 
     const ownerFor = serial => stable.rigs.find(rig =>
@@ -406,9 +406,8 @@ function moduleDetails(stable, view, machine) {
     addTab('other','OTHER BAYS',elsewhereParts.length);
     box.append(tabs);
     const visibleParts=rackView==='other'?elsewhereParts:available;
-    if(!selectedHardwareSerial||!visibleParts.some(part=>part.serial===selectedHardwareSerial))
-        selectedHardwareSerial=(rackView==='ready'?installed?.serial:null)||
-            visibleParts[0]?.serial||null;
+    if (selectedHardwareSerial && !visibleParts.some(part=>part.serial===selectedHardwareSerial))
+        selectedHardwareSerial=null;
     if(!visibleParts.length)choices.append(el('p','unified-muted',
         rackView==='other'?'NO PARTS FITTED IN OTHER BAYS':'NO AVAILABLE PARTS'));
     for (const part of visibleParts) {
@@ -897,6 +896,7 @@ function render() {
     shell.classList.toggle('has-primary',actionBar.childElementCount>0);
     shell.dataset.mode=state;
     shell.classList.toggle('has-selection',!!selectedSlot && !paintExpanded && state==='garage');
+    shell.classList.toggle('painting',paintExpanded && state==='garage');
     shelf.classList.toggle('shown',state==='garage' && swapExpanded && !drawerExpanded && !!selectedSlot);
 }
 function queueRender() {
