@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildPartVisual } from './partVisuals.js?v=k3x';
+import { buildPartVisual } from './partVisuals.js?v=k3y';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';

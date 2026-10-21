@@ -36,8 +36,8 @@ test('Browser regression actually swaps the owned Scattergun and other gun defin
   assert.match(browser,/SCATTERGUN SWAP: PASS/);
 });
 test('Safari cache and version point to the fixed scene rather than k3w15 or k3w16',()=>{
-  assert.match(html,/sceneAssembly\.js\?v=k3x/);
-  assert.match(bridge,/scene\.js\?source=k3x/);
-  assert.match(html,/main\.js\?v=k3x/);
-  assert.match(html,/0\.0\.1k\.3x — Weapon Anatomy Rewrite/);
+  assert.match(html,/sceneAssembly\.js\?v=k3y/);
+  assert.match(bridge,/scene\.js\?source=k3y/);
+  assert.match(html,/main\.js\?v=k3y/);
+  assert.match(html,/0\.0\.1k\.3y — Command Cab Anatomy Rewrite/);
 });
