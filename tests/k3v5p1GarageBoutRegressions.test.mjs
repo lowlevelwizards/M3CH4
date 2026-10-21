@@ -73,8 +73,8 @@ test('the garage keeps mounted parts accessible and separates other-machine owne
     assert.doesNotMatch(ui,/selectedSlot = selectedSlot === item\.slot \?/);
     assert.match(ui,/dock\.scrollTop = 0; \/\/ New machine/);
     assert.match(ui,/button\('×'/);
-    assert.match(ui,/REMOVE PART/);
-    assert.match(ui,/REMOVE FROM THIS BAY/);
+    assert.match(ui,/unified-remove-icon/);
+    assert.match(ui,/SWAP \/ INVENTORY/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
     assert.match(ui,/OTHER BAYS/);
     assert.match(ui,/OPEN BAY /);
@@ -104,7 +104,7 @@ test('the elimination resolver ends Domination when all enemy combat rigs have b
     assert.equal(state.complete,false);
     const main=source('main.js');
     assert.match(main,/checkSquadOutcome\(\)/);
-    assert.match(main,/sortieOutroRemaining = squadOutcome\(playerCombatActive, aiActors\)\s*\? 0 : SORTIE_OUTRO_SECONDS/);
+    assert.match(main,/sortieOutroRemaining = 5/);
     assert.match(main,/renderDebrief\(next\.summary, next\.reason\)/);
 });
 test('DEV version comes from the actual page build label, not a stale hardcoded string',()=>{
