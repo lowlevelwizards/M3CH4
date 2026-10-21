@@ -4,6 +4,7 @@
  * Older save keys stay untouched so cached/rolled-back builds never read newer data.
  */
 import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
+import { normalizePaint, USER_PALETTES_KEY } from './factoryPaint.js';
 import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
@@ -28,7 +29,10 @@ const fraction = value => typeof value === 'number' && Number.isFinite(value) &&
 const integer = value => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000;
 const validSlot = value => SLOTS.includes(value);
 const ownKeys = (value, allowed) => Object.keys(value).every(key => allowed.includes(key));
-const clonePart = ({ serial, definitionId, condition, wear, repairs, destroyed = false }) => ({ serial, definitionId, condition, wear, repairs, destroyed: !!destroyed });
+const clonePart = ({ serial, definitionId, condition, wear, repairs, destroyed = false, paint }) => ({
+    serial, definitionId, condition, wear, repairs, destroyed: !!destroyed,
+    ...(normalizePaint(paint) ? { paint: normalizePaint(paint) } : {}),
+});
 const MAX_OWNED_PARTS = 250;
 
 function fresh() {
@@ -326,7 +330,7 @@ export function storeMachine(storage, state) {
 export function clearMachineSave(storage) {
     if (!storage) return false;
     try {
-        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY, CAMPAIGN_STORAGE_KEY])
+        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY, CAMPAIGN_STORAGE_KEY, USER_PALETTES_KEY])
             storage.removeItem(key);
         return true;
     } catch {

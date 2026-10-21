@@ -12,6 +12,12 @@ export const MOBILITY_MATERIALS=Object.freeze({
     charcoal:material(0x535d56,.28),orange:material(0xb9684c,.2),
     teal:material(0x60999a),
 });
+// Mobility kits retain their original authored geometry and physical materials;
+// these tags merely identify which shell coatings accept owner paint.
+for (const [tone,role] of Object.entries({
+    ochre:'primary-paint',teal:'secondary-paint',olive:'secondary-paint',
+    cream:'protective-paint',orange:'accent',
+})) MOBILITY_MATERIALS[tone].userData.materialRole=role;
 const greyMaterial=material(0x999999,.05);
 const sharedOutlineMaterial=new THREE.LineBasicMaterial({color:0xe6b249,transparent:true,opacity:.85});
 const vec=p=>new THREE.Vector3(...p);

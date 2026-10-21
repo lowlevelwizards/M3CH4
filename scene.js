@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
+import { applyPartFinish } from './partFinish.js';
+import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
@@ -33,7 +35,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     if (!definition) return null;
     const condition = Math.max(0, Math.min(1, Number(state.condition) || 0));
     const destroyed = !!state.destroyed || state.status === 'destroyed';
-    const key = `k4a:${definitionId}:${destroyed ? 'x' : Math.round(condition * 10)}`;
+    const key = `k4a:${definitionId}:${destroyed ? 'x' : Math.round(condition * 10)}:${JSON.stringify(normalizePaint(state.paint))}`;
     if (partThumbnailCache.has(key)) return partThumbnailCache.get(key);
     if (!partThumbnailRenderer) {
         partThumbnailRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
@@ -44,7 +46,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
         partThumbnailRenderer.setPixelRatio(1);
     }
     const serial = 'PREVIEW-001';
-    const assembly = { serial: 'PREVIEW', name: 'PREVIEW', owned: [{ serial, definitionId, condition: 1, wear: 0, repairs: 0 }], installed: { [definition.slot]: serial } };
+    const assembly = { serial: 'PREVIEW', name: 'PREVIEW', owned: [{ serial, definitionId, condition: 1, wear: 0, repairs: 0, paint:normalizePaint(state.paint) }], installed: { [definition.slot]: serial } };
     const exterior = buildExteriorRig(assembly);
     exterior.root.position.set(-definition.center[0], -definition.center[1], -definition.center[2]);
     const damageTint = new THREE.Color(0x6f2d24);
@@ -2561,6 +2563,12 @@ export function buildExteriorRig(assembly) {
                 break;
             }
         }
+    }
+    // Factory finish is definition-specific; owner paint is serial-specific.
+    // All original geometry, physical material roles and mechanism tags remain.
+    for (const [slot, group] of partGroups) {
+        const fitted=installedPart(assembly,slot);
+        if (fitted) applyPartFinish(group,fitted.definition.id,fitted.instance.paint);
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
     // their authored interface hardware; mass and compatibility remain graph data.

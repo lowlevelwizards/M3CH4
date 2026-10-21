@@ -27,6 +27,57 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
+  // k.4d: exercise the real garage controls, live Three.js preview, serial save,
+  // reset to factory and the two-direction UI-to-renderer integration.
+  const paintAction=page.locator('#unified-garage .unified-top-action').filter({hasText:'PAINT'});
+  await paintAction.click({timeout:12000});
+  await page.locator('.paint-booth').waitFor({state:'visible',timeout:12000});
+  await page.screenshot({path:output+'/paint-booth.png'});
+  await page.locator('.paint-booth-preset').filter({hasText:'RACING RED'}).click();
+  const paintedPreview=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const arena=activePlayerArena()?.arena;
+    if(!arena)throw Error('Missing live garage for owner-paint preview');
+    let coated=0,plain=0;
+    arena.scene.traverse(mesh=>{
+      if(!mesh.isMesh || mesh.userData.actorId!=='player')return;
+      const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];
+      for(const mat of materials){
+        if(mat?.userData?.paintChannel){
+          coated++;
+          if(mat.userData.paintChannel==='primary' && mat.color.getHexString()!=='a94237')
+            throw Error('Paint channel did not reach the real mesh');
+        }else plain++;
+      }
+    });
+    return {coated,plain};
+  });
+  if(!paintedPreview.coated || !paintedPreview.plain)
+    throw Error('Owner paint leaked into all mechanical surfaces: '+JSON.stringify(paintedPreview));
+  await page.locator('.paint-booth-primary').click();
+  const paintedSave=await page.evaluate(async()=>{
+    const {loadMachine}=await import('./persistence.js');
+    const machine=loadMachine(localStorage);
+    return Object.values(machine.assembly.installed).map(serial=>{
+      const part=machine.assembly.owned.find(p=>p.serial===serial);
+      return {serial,paint:part?.paint||null};
+    });
+  });
+  if(paintedSave.length!==5 || paintedSave.some(p=>p.paint?.primary!=='#a94237'))
+    throw Error('Whole-machine paint not saved to installed serials: '+JSON.stringify(paintedSave));
+  await page.locator('.paint-booth-targets button').nth(1).click();
+  await page.locator('.paint-booth-restore').click();
+  const reset=await page.evaluate(async()=>{
+    const {loadMachine}=await import('./persistence.js');
+    const machine=loadMachine(localStorage);
+    return Object.values(machine.assembly.installed).map(serial=>
+      machine.assembly.owned.find(p=>p.serial===serial)?.paint||null);
+  });
+  if(reset.filter(Boolean).length!==4)
+    throw Error('Factory reset affected neighboring serials: '+JSON.stringify(reset));
+  await page.locator('#unified-garage .unified-top-action').filter({hasText:'PAINT'}).click();
+  console.log('PAINT BOOTH: PASS · live factory/owner surfaces, 5 serials, partial reset');
+
   // k3w17: the first-ever Scattergun install must not leave a raw
   // number in Mesh.material, and cleanup of any legacy malformed material
   // must never turn a legitimate garage part-swap into a fatal overlay.
