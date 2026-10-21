@@ -120,7 +120,7 @@ test('mobile UX has a single physical bay navigator and explicit contract/setup/
     assert.match(ui,/mode\s*=\s*'contracts'/);
     assert.match(ui,/mode='setup'/);
     assert.match(ui,/return series\?\.phase === 'intermission' \? 'pit'/);
-    assert.match(ui,/const assembly=bayAssembly\(stable,viewedId\)/);
+    assert.match(ui,/const assembly=proposed \|\| bayAssembly\(stable,viewedId\)/);
     assert.match(ui,/arena\.rebuildAssembly\(assembly\)/);
     assert.match(ui,/paintPreviewEdits/);
     assert.match(ui,/clearSortieAssignment\(session\)/);
