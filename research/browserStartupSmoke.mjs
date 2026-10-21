@@ -252,6 +252,24 @@ try {
   if (stagedError || !quote || !quote.includes('SERVICE CAB'))
     throw Error('Cannot inspect a partial Rig 02: ' + (stagedError || quote || 'missing repair quote'));
 
+  // k4h: explicitly exercise Bay 02's quick-remove and the same install rack
+  // as Bay 01. Formerly the remove control could disappear in parked bays.
+  const removeCab=page.locator('#unified-garage .unified-remove-icon');
+  await removeCab.waitFor({state:'visible',timeout:6000});
+  await removeCab.click();
+  const removed=await page.evaluate(async()=>{
+    const {loadStable}=await import('./stable.js');
+    return loadStable(localStorage).stable.rigs.find(r=>r.id==='rig-02')?.installed?.command??null;
+  });
+  if(removed!==null)throw Error('Bay 02 quick-remove failed: '+removed);
+  await page.locator('#unified-garage .unified-swap-toggle').click();
+  await page.locator('#unified-garage .part-detail-action').filter({hasText:'INSTALL'}).click();
+  const remounted=await page.evaluate(async()=>{
+    const {loadStable}=await import('./stable.js');
+    return loadStable(localStorage).stable.rigs.find(r=>r.id==='rig-02')?.installed?.command??null;
+  });
+  if(remounted!==fixture.serial)throw Error('Bay 02 gallery install failed: '+remounted);
+  console.log('BAY 02: PASS · independent quick-remove and optional visual swap rack');
   // The fixture deliberately views an incomplete Rig 02 with only a cab.
   // Change to complete Rig 01 before checking moving leg joints.
   await page.locator('.unified-bay-navigation button[aria-label="View bay 1"]')
