@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildPartVisual } from './partVisuals.js?v=k3y';
+import { buildPartVisual } from './partVisuals.js?v=k3z';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
@@ -2526,105 +2526,6 @@ export function buildExteriorRig(assembly) {
             continue;
         }
         switch (def.id) {
-            case 'frame-sr': {
-                // BRUISER: deep shoulder sockets, a layered armored belly and one obvious
-                // horizontal load path from trunnions through the frame to the hip bridge.
-                add(plate(1.74, .77, 1.38, m(steel)), 0, .13, .03);
-                add(plate(1.86, .42, 1.37, m(yellow)), 0, .35, .08);
-                const belly = add(plate(1.38, .33, 1.08, m(0x575b52)), 0, -.35, .02);
-                belly.rotation.x = -.10;
-                const glacis = add(plate(1.53, .48, .22, m(0xc29a49)), 0, -.015, -.72);
-                glacis.rotation.x = -.22;
-                const lowerLip = add(plate(1.40, .20, .21, m(yellow)), 0, -.34, -.76);
-                lowerLip.rotation.x = -.15;
-                add(plate(1.12, .11, .88, m(0x646558)), 0, .58, .03);
-                for (const side of [-1, 1]) {
-                    const socket = add(cyl(.39, .39, .30, steel), side * .95, .15, -.02);
-                    socket.rotation.z = Math.PI / 2;
-                    const cap = add(cyl(.24, .24, .055, brightSteel), side * 1.10, .15, -.02);
-                    cap.rotation.z = Math.PI / 2;
-                    const shoulder = add(plate(.34, .59, .94, m(yellow)), side * .84, .20, .02);
-                    shoulder.rotation.z = side * -.09;
-                    add(plate(.18, .40, .60, m(teal)), side * 1.02, .13, -.01);
-                    const hip = add(cyl(.32, .32, .23, steel), side * .72, -.47, .15);
-                    hip.rotation.z = Math.PI / 2;
-                }
-                const hipBridge = add(cyl(.24, .24, 1.78, brightSteel), 0, -.47, .15);
-                hipBridge.rotation.z = Math.PI / 2;
-                add(plate(.43, .26, .54, m(steel)), 0, -.50, -.09);
-                break;
-            }
-            case 'frame-utility': {
-                // SKELETON: the existing U-2's 1,290 kg and 4,120 kg rating are unchanged.
-                // Its voids are intentional: an exposed spine and open equipment rails,
-                // not a light hull merely colored black.
-                const spine = add(plate(.38, .73, 1.47, m(steel)), 0, .05, .03);
-                spine.rotation.x = -.035;
-                add(plate(.52, .20, 1.37, m(brightSteel)), 0, -.28, .02);
-                for (const side of [-1, 1]) {
-                    const rail = add(plate(.17, .16, 1.47, m(yellow)), side * .59, .35, .02);
-                    rail.rotation.z = side * -.035;
-                    const bellyRail = add(plate(.15, .14, 1.32, m(0x74766b)), side * .60, -.31, .03);
-                    bellyRail.rotation.z = side * .025;
-                    add(plate(.12, .58, .18, m(brightSteel)), side * .59, .01, -.48);
-                    add(plate(.12, .58, .18, m(brightSteel)), side * .59, .01, .49);
-                    const hip = add(cyl(.30, .30, .25, steel), side * .65, -.43, .14);
-                    hip.rotation.z = Math.PI / 2;
-                    const triangleBrace = add(plate(.16, .56, .18, m(0x727e76)), side * .42, .05, .05);
-                    triangleBrace.rotation.z = side * .53;
-                }
-                // Forward/rear crossmembers are visual evidence of load-bearing width.
-                add(plate(1.34, .17, .21, m(yellow)), 0, .34, -.49);
-                add(plate(1.28, .16, .23, m(yellow)), 0, .34, .52);
-                const bridge = add(cyl(.20, .20, 1.51, brightSteel), 0, -.44, .11);
-                bridge.rotation.z = Math.PI / 2;
-                // A standardized command mounting saddle spans the open frame.
-                add(plate(.78, .11, .81, m(steel)), 0, .46, -.29);
-                // Original U-2 weapon outrigger; its extra reach remains visible.
-                add(plate(.62, .19, .29, m(brightSteel)), .81, .13, -.31);
-                const trunnion = add(cyl(.31, .31, .19, steel), 1.07, .12, -.45);
-                trunnion.rotation.z = Math.PI / 2;
-                add(plate(.27, .32, .58, m(teal)), -.68, .10, .13);
-                break;
-            }
-            case 'frame-wedge': {
-                // WEDGE: shape itself is structural. A lower armored shell rises toward
-                // the rear command saddle and connects to the very same U1 stations.
-                add(wedgeHull(1.12, 1.80, .06, .44, 1.88, m(0xc69a43)), 0, .10, -.08);
-                add(plate(1.56, .23, 1.63, m(steel)), 0, -.35, .10);
-                const nose = add(plate(1.03, .15, .24, m(0xa17d37)), 0, -.15, -1.01);
-                nose.rotation.x = -.24;
-                // No window or sensor on this hull: those are separate command modules.
-                add(plate(.90, .09, .77, m(steel)), 0, .54, .29);
-                for (const side of [-1, 1]) {
-                    const cheek = add(wedgeHull(.20, .34, .07, .46, 1.61, m(yellow)), side * .72, .06, .03);
-                    cheek.rotation.z = side * -.07;
-                    add(plate(.16, .34, .70, m(teal)), side * .91, -.03, .18);
-                    const mount = add(cyl(.31, .31, .28, steel), side * .91, .17, -.20);
-                    mount.rotation.z = Math.PI / 2;
-                    const hip = add(cyl(.33, .33, .24, brightSteel), side * .72, -.48, .20);
-                    hip.rotation.z = Math.PI / 2;
-                }
-                const crossbar = add(cyl(.23, .23, 1.74, steel), 0, -.46, .17);
-                crossbar.rotation.z = Math.PI / 2;
-                // Physical nose skirt covers some lower drive angles, but does
-                // not wrap around the legs. The same exact plates are raycast
-                // and rendered: no invisible front-facing armor.
-                const skirt = add(plate(1.17, .36, .18, m(0xac873c)), 0, -.64, -1.08);
-                skirt.rotation.x = -.24;
-                // Two narrow upper cheek shields climb toward the cab's outer
-                // lower tub. The central optic and elevated shots stay exposed.
-                // This is frame metal, NOT a second or magically armored cab.
-                for (const side of [-1, 1]) {
-                    const browCheek = add(plate(.34, .51, .20, m(0xbd9142)), side * .46, .52, -1.16);
-                    browCheek.rotation.z = side * -.13;
-                    browCheek.rotation.x = -.15;
-                    add(plate(.22, .30, .36, m(0x626859)), side * .54, .27, -.95);
-                }
-                // Low-slung front crash hoop reads as chassis, not a second cockpit.
-                add(plate(1.04, .12, .14, m(0x5b645d)), 0, -.31, -.92);
-                break;
-            }
             case 'power-dynamo': {
                 // Rear-mounted generator/cooling pack: fans and exposed teal radiator fins.
                 add(plate(1.06, .85, .76, m(steel)), 0, 0, 0);
@@ -2675,36 +2576,6 @@ export function buildExteriorRig(assembly) {
         }
     }
     return { root, partGroups, partMeshes, pickMeshes };
-}
-/** Eight-corner tapered low-poly hull. Front (-Z) is lower and narrower;
- * broad rear carries load into the chassis. Pure geometry: no builder-specific
- * special cases or fake 'universal' adapters. */
-function wedgeHull(frontWidth, rearWidth, frontHeight, rearHeight, depth, material) {
-    const f = -depth / 2;
-    const b = depth / 2;
-    const bottom = -.40;
-    const vertices = new Float32Array([
-        -frontWidth / 2, bottom, f, frontWidth / 2, bottom, f,
-        frontWidth / 2, frontHeight, f, -frontWidth / 2, frontHeight, f,
-        -rearWidth / 2, bottom, b, rearWidth / 2, bottom, b,
-        rearWidth / 2, rearHeight, b, -rearWidth / 2, rearHeight, b,
-    ]);
-    const indices = [
-        0, 2, 1, 0, 3, 2, // forward armored nose
-        4, 5, 6, 4, 6, 7, // rear bulkhead
-        0, 4, 7, 0, 7, 3, // left cheek
-        1, 2, 6, 1, 6, 5, // right cheek
-        3, 7, 6, 3, 6, 2, // upper sloped deck
-        0, 1, 5, 0, 5, 4, // structural belly
-    ];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    geometry.setIndex(indices);
-    // Non-indexed normals keep the wedge faceted at mobile render resolutions.
-    const faceted = geometry.toNonIndexed();
-    faceted.computeVertexNormals();
-    geometry.dispose();
-    return new THREE.Mesh(faceted, material);
 }
 /** Chamfered polygon, deliberately low-poly; avoid the cuboid-only silhouette. */
 function plate(width, height, depth, material) {
