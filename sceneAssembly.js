@@ -3,7 +3,7 @@
  * the shared part-model construction now handled inside scene.js.
  */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3w15';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k3w16';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 import { installCockpitIdentities } from './cockpitIdentityScene.js';
 
@@ -77,6 +77,9 @@ function alignAssemblyMeshes(arena, assembly) {
         bracket.add(bar(.19, .17, .39, iron, .21, -.02, 0));
         hull.add(bracket);
     }
+    // Graph placement may have adjusted the true foot-sole elevation.
+    // Re-measure only on assembly changes, never in the frame loop.
+    arena.recalibratePlayerSoles?.();
     arena.scene.updateMatrixWorld(true);
 }
 

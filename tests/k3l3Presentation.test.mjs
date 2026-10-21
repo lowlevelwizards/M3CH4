@@ -25,7 +25,7 @@ test('garage is an isolated service-bay presentation at a stable origin', () => 
     assert.match(scene, /function buildGarageBay\(\)/);
     assert.match(scene, /arenaRoot\.visible = !enabled/);
     assert.match(scene, /garageRoot\.visible = enabled/);
-    assert.match(scene, /exterior\.root\.position\.set\(0, 0, 0\)/);
+    assert.match(scene, /exterior\.root\.position\.set\(0,\(exterior\.groundOffset\?\?0\)\+GARAGE_PAD_TOP_Y,0\)/);
 });
 
 test('post-bout flow exposes compact two-card layouts and explicit page arrows', () => {

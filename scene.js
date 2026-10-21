@@ -320,10 +320,45 @@ export function createArenaScene(initial, targetAssembly) {
         if (point)
             navMarker.position.set(point.x, .09, point.z);
     }
+    // The catalogue's mobility centre is a mounting datum, not ground level.
+    // Measuring the real soles avoids the old ~20cm visual hover and works
+    // across all three families without shifting connection sockets or
+    // altering locomotion/collision calculations.
+    const GARAGE_PAD_TOP_Y=.09;
+    function calibrateExteriorSoles(visual){
+        const feet=[];
+        visual.partGroups.get('mobility')?.traverse(node=>{
+            if(node.userData?.joint==='foot')feet.push(node);
+        });
+        if(!feet.length){
+            visual.groundOffset=0;
+            return 0;
+        }
+        visual.root.updateWorldMatrix(true,true);
+        const baseY=visual.root.getWorldPosition(new THREE.Vector3()).y;
+        let bottom=Infinity;
+        const bounds=new THREE.Box3();
+        for(const foot of feet){
+            bounds.setFromObject(foot);
+            if(Number.isFinite(bounds.min.y))
+                bottom=Math.min(bottom,bounds.min.y-baseY);
+        }
+        // 1cm deliberate optical tolerance avoids constant surface z-fighting.
+        const height=Number.isFinite(bottom)
+            ?THREE.MathUtils.clamp(.012-bottom,-.34,.08):0;
+        visual.groundOffset=height;
+        return height;
+    }
+    function recalibratePlayerSoles(){
+        const offset=calibrateExteriorSoles(exterior);
+        exterior.root.position.y=offset+(inspecting?GARAGE_PAD_TOP_Y:0);
+        return offset;
+    }
     // The moving target is assembled from the SAME definitions and geometry
     // as the player. It has its own installed serials and never inherits player swaps.
     let targetExterior = buildExteriorRig(targetAssembly);
-    targetExterior.root.position.set(HOSTILE_SPAWN.x, 0, HOSTILE_SPAWN.z);
+    calibrateExteriorSoles(targetExterior);
+    targetExterior.root.position.set(HOSTILE_SPAWN.x, targetExterior.groundOffset, HOSTILE_SPAWN.z);
     targetExterior.root.rotation.y = Math.PI; // Look back toward the pilot.
     arenaPresentationRoot.add(targetExterior.root);
     const rangeMarks = new THREE.Group();
@@ -371,6 +406,8 @@ export function createArenaScene(initial, targetAssembly) {
             if(!chain.hip||!chain.knee||!chain.ankle||!chain.foot)continue;
             chain.upper=[chain.knee.position.y,chain.knee.position.z];
             chain.lower=[chain.ankle.position.y,chain.ankle.position.z];
+            chain.upperX=chain.knee.position.x;
+            chain.lowerX=chain.ankle.position.x;
         }
         return {joints,legs,phase:0,aim:{waist:0,gun:0,elevation:0}};
     };
@@ -397,7 +434,8 @@ export function createArenaScene(initial, targetAssembly) {
         if (!id || id === 'player' || squadCombatants.has(id))
             throw new Error(`Invalid or duplicate squad combatant: ${id}`);
         const actorExterior = buildExteriorRig(assembly);
-        actorExterior.root.position.set(spawn.x, 0, spawn.z);
+        calibrateExteriorSoles(actorExterior);
+        actorExterior.root.position.set(spawn.x, actorExterior.groundOffset, spawn.z);
         actorExterior.root.rotation.y = physicsYawToViewYaw(spawn.yaw ?? 0);
         for (const mesh of actorExterior.pickMeshes)
             mesh.userData.actorId = id;
@@ -1083,6 +1121,7 @@ export function createArenaScene(initial, targetAssembly) {
     let pilotWeaponFault = false, pilotWeaponServicing = false, pilotServiceSparkBudget = 0;
     let pilotWeaponRecoveryKick = 0, pilotRecoveryBurstPending = false;
     let exterior = buildExteriorRig(initial);
+    calibrateExteriorSoles(exterior);
     for (const mesh of exterior.pickMeshes)
         mesh.userData.actorId = 'player';
     scene.add(exterior.root);
@@ -1164,7 +1203,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function setAnimationPreview(mode='off',speed=3){
-        const safe=['off','walk','turn','reload','disabled'].includes(mode)?mode:'off';
+        const safe=['off','walk','strafe-left','strafe-right','turn','reload','disabled'].includes(mode)?mode:'off';
         if(animationPreviewMode!==safe){
             restoreInspectionPose();
             previewTime=0;previewRecord=null;
@@ -1187,7 +1226,9 @@ export function createArenaScene(initial, targetAssembly) {
             };
         }
         const a=previewRecord;
-        const moving=animationPreviewMode==='walk'||animationPreviewMode==='turn';
+        const sideStep=animationPreviewMode==='strafe-left'?-1:
+            animationPreviewMode==='strafe-right'?1:0;
+        const moving=animationPreviewMode==='walk'||animationPreviewMode==='turn'||sideStep!==0;
         const family=installedPart(a.assembly,'mobility')?.definition.id;
         const style=familyAnimation(family);
         previewTime+=dt;
@@ -1203,8 +1244,8 @@ export function createArenaScene(initial, targetAssembly) {
         const total=installedPart(a.assembly,'combat')?.definition.id==='gun-scatter'?3.15:2.5;
         const reloadLeft=reloading?total-(previewTime%total):0;
         poseCombatantExterior(a,{
-            x:0,z:0,yaw:turn,vx:0,vz:speed,
-            forwardSpeed:speed,lateralSpeed:0,yawRate:0,
+            x:0,z:0,yaw:turn,vx:sideStep*speed,vz:sideStep?0:speed,
+            forwardSpeed:sideStep?0:speed,lateralSpeed:sideStep*speed,yawRate:0,
             brace:0,footingLoad:.10,recoilLoad:0,
         },{
             dt,target:{x:Math.sin(previewTime*.75)*6,z:-8,height:2.1},
@@ -1213,7 +1254,7 @@ export function createArenaScene(initial, targetAssembly) {
             reloadLeft,reloadSeconds:total,
             posture:{animationHealth:animationPreviewMode==='disabled'?.35:1},
         });
-        exterior.root.position.set(0,0,0);
+        exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
         exterior.root.rotation.y=GARAGE_RIG_YAW;
     }
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
@@ -1278,7 +1319,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (inspecting) {
             // Garage inspection is a deliberately separate presentation state. The owned
             // rig always returns to the service pad instead of inheriting its last arena pose.
-            exterior.root.position.set(0, 0, 0);
+            exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
             poseInspectionPreview(dt);
             orbitTarget.lerp(desiredTarget, 1 - Math.exp(-9 * dt));
@@ -1317,7 +1358,8 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function poseCombatantExterior(record,state,visual=null){
         const root=record.exterior.root;
-        root.position.set(state.x??0,record.cleared?-.14:record.wrecked?-.06:0,state.z??0);
+        root.position.set(state.x??0,(record.exterior.groundOffset??0)+
+            (record.cleared?-.14:record.wrecked?-.06:0),state.z??0);
         root.rotation.y=physicsYawToViewYaw(state.yaw??0);
         if(record.active&&!record.wrecked&&!record.cleared){
             const dt=Math.max(0,Math.min(.10,visual?.dt??1/60));
@@ -1348,19 +1390,24 @@ export function createArenaScene(initial, targetAssembly) {
                 const moving=(motion.weight??0);
                 const backward=(state.forwardSpeed??0)<-.3;
                 const strafe=(state.lateralSpeed??0)/2.4;
+                const forward=(state.forwardSpeed??0)/3.2;
                 const blocked=record.disabledSlots.has('mobility')||
                     record.destroyedSlots.has('mobility');
                 for(const [side,leg] of motion.legs){
                     if(!leg.hip||!leg.knee||!leg.ankle||!leg.foot)continue;
                     const pose=legPose(leg.upper,leg.lower,{
                         phase:motion.phase,side,weight:moving,family:mobilityId,
-                        backward,strafe,brace:state.brace??0,health,disabled:blocked,
+                        backward,strafe,forward,brace:state.brace??0,health,disabled:blocked,
+                        upperX:leg.upperX,lowerX:leg.lowerX,
                     });
                     leg.hip.rotation.x=pose.hip;
-                    leg.hip.rotation.z=pose.spread+(1-health)*side*.03;
+                    leg.hip.rotation.z=pose.hipRoll+(1-health)*side*.03;
                     leg.knee.rotation.x=pose.knee;
+                    leg.knee.rotation.z=pose.kneeRoll;
                     leg.ankle.rotation.x=pose.ankle;
+                    leg.ankle.rotation.z=pose.ankleRoll;
                     leg.foot.rotation.x=pose.foot;
+                    leg.foot.rotation.z=pose.footRoll;
                 }
             }
             const desired=visual?.target
@@ -1462,7 +1509,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (enabled) {
             pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;
             pilotWeaponRecoveryKick = 0; pilotRecoveryBurstPending = false;
-            exterior.root.position.set(0, 0, 0);
+            exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
         }
         for (const record of squadCombatants.values()) {
@@ -1476,6 +1523,7 @@ export function createArenaScene(initial, targetAssembly) {
         previewAssembly=assembly;
         const oldRoot = exterior.root;
         exterior = buildExteriorRig(assembly);
+        calibrateExteriorSoles(exterior);
         updateGarageFixtures(assembly);
         for (const mesh of exterior.pickMeshes)
             mesh.userData.actorId = 'player';
@@ -1998,7 +2046,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
