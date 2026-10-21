@@ -87,8 +87,33 @@ export function soundShield() {
  * A failed or missing browser audio device never changes weapon physics.
  */
 const weaponBus=makeLiveWeaponAudio(context);
+/** Always audible after gesture unlock, even when the PCM worker is still busy.
+ * The temporary non-tonal pressure impulse is much cheaper than a full asset. */
+function immediateImpulse({distance=0,cockpit=false,weight=1}={}){
+    const ctx=context();
+    if(!ctx||ctx.state==='suspended')return false;
+    const n=Math.floor(ctx.sampleRate*.095);
+    const buffer=ctx.createBuffer(1,n,ctx.sampleRate);
+    const arr=buffer.getChannelData(0);let seed=11231;
+    for(let i=0;i<n;i++){
+        seed=(seed*16807)%2147483647;
+        const t=i/n;
+        arr[i]=((seed/2147483647)*2-1)*Math.exp(-11*t)*(1-t);
+    }
+    const source=ctx.createBufferSource();source.buffer=buffer;
+    const filter=ctx.createBiquadFilter();filter.type='lowpass';
+    filter.frequency.value=cockpit?2300:1200;
+    const gain=ctx.createGain();
+    gain.gain.value=weight*(cockpit?.18:.08)/(1+Math.pow(Math.max(0,distance)/9,1.7));
+    source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+    source.start(ctx.currentTime);
+    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};
+    return true;
+}
 export function soundWeaponShot(weaponId,options={}) {
-    return weaponBus.play(weaponId,options);
+    const result=weaponBus.play(weaponId,options);
+    if(result.pending)immediateImpulse({...options,weight:weaponId==='gun-scatter'?1.6:1.1});
+    return result;
 }
 
 /** Live systems soundscape. The same unlocked audio context services weapons,
@@ -96,12 +121,15 @@ export function soundWeaponShot(weaponId,options={}) {
 const systemsBus=makeLiveSystemsAudio(context);
 let acousticOrdinal=0;
 export function soundSystemEvent(id,options={}) {
-    return systemsBus.play(id,options);
+    const result=systemsBus.play(id,options);
+    if(result.pending && ['armor','part','destruction','glance','yardwalker','kestrel','hauler'].includes(id))
+        immediateImpulse({...options,weight:id==='destruction'?1.1:.38});
+    return result;
 }
 export function soundCombatImpact(hit,options={}) {
     const soundOrdinal=acousticOrdinal++;
     const plan=hitSoundPlan(hit,{...options,ordinal:soundOrdinal});
-    for(const entry of plan)systemsBus.play(entry.id,{
+    for(const entry of plan)soundSystemEvent(entry.id,{
         variant:entry.variant,distance:options.distance??0,
         cockpit:!!options.cockpit,focus:!!options.focus,strength:entry.strength,
     });
