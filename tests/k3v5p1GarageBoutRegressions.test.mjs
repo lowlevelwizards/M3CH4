@@ -110,10 +110,10 @@ test('the elimination resolver ends Domination when all enemy combat rigs have b
 test('DEV version comes from the actual page build label, not a stale hardcoded string',()=>{
     const html=source('index.html'),main=source('main.js');
     assert.match(html,/<span id="dev-version"><\/span>/);
-    assert.match(html,/0\.0\.1k\.4r — Physical Workshop/);
+    assert.match(html,/0\.0\.1k\.4s\.1 — Workshop Navigation/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
     assert.match(main,/devVersion\.textContent = document\.title\.split/);
-    assert.match(html,/main\.js\?v=k4r/);
-    assert.match(html,/garageMountUI\.js\?v=k4r/);
-    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k4r/);
+    assert.match(html,/main\.js\?v=k4s1/);
+    assert.match(html,/garageMountUI\.js\?v=k4s1/);
+    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k4s1/);
 });
