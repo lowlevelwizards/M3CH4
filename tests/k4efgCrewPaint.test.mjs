@@ -48,6 +48,7 @@ test('contract crews are distinct and their visual variants are deterministic',(
 
 test('allied inheritance never mutates player serials; explicit team palette can be removed',()=>{
     const db=storage(),player=makeTestAssembly();
+    assert.deepEqual(friendlyPalette(db,player),{primary:'#767a76',secondary:'#515958',armor:'#93968e',accent:'#8d745d'});
     const first=installedPart(player,'structure').instance;
     first.paint={...PAINT_PRESETS[3].colors};
     assert.deepEqual(friendlyPalette(db,player),first.paint);
