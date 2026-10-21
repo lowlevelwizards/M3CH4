@@ -102,6 +102,29 @@ try {
   });
   if(paintedSave.length!==5 || paintedSave.some(p=>p.paint?.primary!=='#a94237'))
     throw Error('Whole-machine paint not saved to installed serials: '+JSON.stringify(paintedSave));
+  // The browser's authoritative assembly must also receive the same paint
+  // now, before a later pagehide/autosave can overwrite the committed colors.
+  const livePaint=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const live=activePlayerArena()?.assembly;
+    return Object.values(live?.installed||{}).map(serial=>
+      live.owned.find(part=>part.serial===serial)?.paint?.primary||null);
+  });
+  if(livePaint.length!==5 || livePaint.some(value=>value!=='#a94237'))
+    throw Error('Live v8 assembly still has stale paint: '+JSON.stringify(livePaint));
+  const allyPaint=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const colors={};
+    activePlayerArena()?.arena?.scene?.traverse(mesh=>{
+      if(!mesh.isMesh||!['ally-1','ally-2'].includes(mesh.userData.actorId))return;
+      const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];
+      for(const mat of materials)if(!colors[mesh.userData.actorId]&&mat?.userData?.paintChannel==='primary')
+        colors[mesh.userData.actorId]=mat.color.getHexString();
+    });
+    return colors;
+  });
+  if(allyPaint['ally-1']!=='38434a' || allyPaint['ally-2']!=='d4c8b6')
+    throw Error('Allied rig paint failed live inheritance: '+JSON.stringify(allyPaint));
   await page.locator('.paint-booth-team-action').click();
   const savedCrew=await page.evaluate(()=>JSON.parse(localStorage.getItem('m3ch4-team-livery-v1')||'null'));
   if(savedCrew?.primary!=='#a94237')throw Error('Team paint palette not stored');
