@@ -92,6 +92,11 @@ async function fingerprint(origin){
 try{
  const [baseline,updated]=await Promise.all([fingerprint(beforeUrl),fingerprint(afterUrl)]);
  const findings={geometryUnchanged:[],mobilityRecolored:[],recolored:[],roles:[],isolation:true};
+ // This comparison originally ran only while k.4a was introducing material
+ // roles for the first time. Later visual PRs compare against an already
+ // materialized main branch, where unchanged factory skins are correct.
+ const baselineHasRoles=Object.values(baseline).every(part=>
+  part.materials.some(material=>!!material.roleFromMaterial));
  for(const [id,old] of Object.entries(baseline)){
   const fresh=updated[id];
   if(JSON.stringify(old.hierarchy)!==JSON.stringify(fresh.hierarchy))
@@ -111,10 +116,10 @@ try{
      coated++;
     }
    }
-   if(!coated)throw Error('No factory coating on legs '+id);
+   if(!coated && !baselineHasRoles)throw Error('No factory coating on legs '+id);
    findings.mobilityRecolored.push(id);
   }else{
-   if(JSON.stringify(old.materials)===JSON.stringify(fresh.materials))
+   if(!baselineHasRoles && JSON.stringify(old.materials)===JSON.stringify(fresh.materials))
     throw Error('No meaningful authored surface changes for '+id);
    const bare=fresh.materials.filter(m=>!m.role);
    if(bare.length)throw Error('Unclassified surface '+id+': '+bare.map(m=>m.name));
