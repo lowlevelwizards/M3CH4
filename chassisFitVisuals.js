@@ -3,7 +3,7 @@
  */
 import * as THREE from 'three';
 import { CHASSIS_MATERIALS } from './chassisConceptBuilder.js';
-import { buildPartVisual } from './partVisuals.js';
+import { buildPartVisual } from './partVisuals.js?v=k3x';
 
 const steel=CHASSIS_MATERIALS.iron;
 const bright=CHASSIS_MATERIALS.machined;
