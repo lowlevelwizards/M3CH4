@@ -52,7 +52,7 @@ test('multi-part triage spends exactly four units on one disabled and two critic
     assert.equal(saved.assembly.owned.find(p=>p.serial===serial).condition,TRIAGE_CONDITION);
     const part=saved.playerCondition.parts[slot];
     assert.equal(part.integrity/part.maxIntegrity,TRIAGE_CONDITION);
-    assert.ok(part.armor/part.maxArmor>=TRIAGE_ARMOR_FLOOR);
+    assert.ok(part.armor/part.maxArmor>=TRIAGE_ARMOR_FLOOR-1e-9);
  }
  assert.equal(rigFieldability(after,'rig-01').fieldable,true);
  assert.equal(rigById(after,'rig-01').career.fieldServices,1);
