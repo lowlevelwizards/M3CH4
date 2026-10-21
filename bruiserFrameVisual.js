@@ -23,6 +23,15 @@ export function buildBruiserFrameVisual(fixture){
     }
     const lower=groupAt(r,'BRUISER / LOWER LOAD BRIDGE');
     blockAt(lower,'reinforced lower transverse bridge',[0,-.38,.11],[1.42,.19,.46],'iron');
+    // Fabricated forward load lip: tied through the belly rib and load nodes,
+    // rather than a hidden hit proxy. This is the heavy frame's vulnerable
+    // front-of-hip steel bridge, absent from the Skeleton's open framework.
+    blockAt(lower,'heavy frontal mobility cross-load lip',[0,-.65,-.445],
+        [1.33,.27,.29],'iron');
+    for(const side of [-1,1]){
+        beam(lower,(side<0?'left':'right')+' chin-to-bridge gusset',
+            [side*.52,-.44,-.29],[side*.49,-.61,-.44],.16,.16,'bright');
+    }
     for(const side of [-1,1]){
         blockAt(lower,(side<0?'left':'right')+' downward structural knuckle',
             [side*.50,-.50,.10],[.32,.32,.32],'bright');
