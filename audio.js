@@ -27,6 +27,7 @@ function unlockAudio() {
 if (typeof document !== 'undefined') {
     beginAudioWarmup();
     document.addEventListener('pointerdown',unlockAudio,{capture:true});
+    document.addEventListener('touchstart',unlockAudio,{capture:true,passive:true});
     document.addEventListener('keydown',unlockAudio,{capture:true});
 }
 function tone(frequency, endFrequency, duration, volume, kind) {
@@ -105,4 +106,43 @@ export function soundCombatImpact(hit,options={}) {
         cockpit:!!options.cockpit,focus:!!options.focus,strength:entry.strength,
     });
     return plan;
+}
+
+/** Light UI sounds are synthesized instantly, independent of the background
+ * industrial PCM worker. Only play after a permitted browser gesture. */
+export function soundWorkshop(kind='select'){
+    const ctx=context();
+    if(!ctx||ctx.state==='suspended')return false;
+    if(kind==='select'){tone(510,380,.035,.009,'triangle');}
+    else if(kind==='confirm'){tone(245,200,.075,.035,'triangle');tone(410,300,.075,.016,'square');}
+    else if(kind==='reject'){tone(210,125,.095,.034,'triangle');tone(158,105,.085,.015,'square');}
+    else if(kind==='install'){tone(185,73,.17,.084,'triangle');tone(550,190,.07,.036,'square');}
+    else if(kind==='remove'){tone(210,95,.13,.04,'square');tone(100,52,.15,.042,'triangle');}
+    else if(kind==='service'){tone(325,150,.09,.034,'square');tone(140,65,.22,.051,'sawtooth');}
+    else if(kind==='paint'){
+        // Short compressor-air rush and valve click; noise is scoped to one
+        // quick apply, never generated continuously as a color picker moves.
+        const length=Math.floor(ctx.sampleRate*.23);
+        const buffer=ctx.createBuffer(1,length,ctx.sampleRate);
+        const data=buffer.getChannelData(0);
+        let seed=14681;
+        for(let i=0;i<length;i++){
+            seed=(seed*16807)%2147483647;
+            const env=Math.sin(Math.PI*i/length);
+            data[i]=((seed/2147483647)*2-1)*env*.18;
+        }
+        const noise=ctx.createBufferSource();noise.buffer=buffer;
+        const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=1050;
+        const gain=ctx.createGain();gain.gain.value=.26;
+        noise.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+        noise.start();noise.onended=()=>{noise.disconnect();filter.disconnect();gain.disconnect();};
+        tone(450,175,.08,.026,'triangle');
+    }
+    return true;
+}
+if(typeof document!=='undefined'){
+    document.addEventListener('click',event=>{
+        if(!event.target.closest('button,summary,[role="button"]'))return;
+        soundWorkshop('select');
+    },{capture:true});
 }
