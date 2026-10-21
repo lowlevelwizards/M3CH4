@@ -1203,7 +1203,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function setAnimationPreview(mode='off',speed=3){
-        const safe=['off','walk','turn','reload','disabled'].includes(mode)?mode:'off';
+        const safe=['off','walk','strafe-left','strafe-right','turn','reload','disabled'].includes(mode)?mode:'off';
         if(animationPreviewMode!==safe){
             restoreInspectionPose();
             previewTime=0;previewRecord=null;
@@ -1226,7 +1226,9 @@ export function createArenaScene(initial, targetAssembly) {
             };
         }
         const a=previewRecord;
-        const moving=animationPreviewMode==='walk'||animationPreviewMode==='turn';
+        const sideStep=animationPreviewMode==='strafe-left'?-1:
+            animationPreviewMode==='strafe-right'?1:0;
+        const moving=animationPreviewMode==='walk'||animationPreviewMode==='turn'||sideStep!==0;
         const family=installedPart(a.assembly,'mobility')?.definition.id;
         const style=familyAnimation(family);
         previewTime+=dt;
@@ -1242,8 +1244,8 @@ export function createArenaScene(initial, targetAssembly) {
         const total=installedPart(a.assembly,'combat')?.definition.id==='gun-scatter'?3.15:2.5;
         const reloadLeft=reloading?total-(previewTime%total):0;
         poseCombatantExterior(a,{
-            x:0,z:0,yaw:turn,vx:0,vz:speed,
-            forwardSpeed:speed,lateralSpeed:0,yawRate:0,
+            x:0,z:0,yaw:turn,vx:sideStep*speed,vz:sideStep?0:speed,
+            forwardSpeed:sideStep?0:speed,lateralSpeed:sideStep*speed,yawRate:0,
             brace:0,footingLoad:.10,recoilLoad:0,
         },{
             dt,target:{x:Math.sin(previewTime*.75)*6,z:-8,height:2.1},
