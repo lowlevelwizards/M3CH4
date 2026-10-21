@@ -116,7 +116,7 @@ test('one-action preflight refuses a patch that would still leave the committed 
     damageActive(storage, 'power');
     const stable = loadStable(storage).stable;
     assert.equal(fieldPatchCandidates(stable).length, 0);
-    assert.equal(fieldWorkRecoveryPossible(stable), false);
+    assert.equal(fieldWorkRecoveryPossible(stable), true, 'two disabled modules now fit within four-unit triage');
     assert.match(fieldPatchEligibility(stable, 'rig-01', 'combat').reason, /ONE PATCH WILL NOT RETURN/);
 });
 
