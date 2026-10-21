@@ -33,6 +33,7 @@ import { advanceSortieObjective, createSortieObjective, objectivePresentation, o
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
 import { contractById } from './contracts.js';
+import { applyEnemyCrewPaint, applyFriendlyCrewPaint } from './crewLivery.js';
 import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
 import { damageWreckIntegrity, shoveWreck, wreckCollisionRadius } from './wreckPhysics.js';
 import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from './combatPresentation.js';
@@ -66,6 +67,8 @@ const damage = loadedMachine.damage;
 const economy = loadedMachine.economy;
 // A separately owned hostile mech built with the same module definitions.
 const targetAssembly = makeRangeTarget();
+// Contract defines the whole opponent squad's signature livery; lead uses DEFAULT.
+applyEnemyCrewPaint(targetAssembly,targetAssembly.contractId,0);
 const activeContract = contractById(targetAssembly.contractId);
 let targetCondition = createTargetCondition(targetAssembly);
 let sortieObjective = createSortieObjective(activeContract);
@@ -97,8 +100,12 @@ const primaryEnemyActor = {
     combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
 };
-function makeSupportActor(id, team, contractId, spawn, label = null) {
+function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex=1) {
     const actorAssembly = makeRangeTarget(contractId);
+    if(team===FRIENDLY_TEAM)
+        applyFriendlyCrewPaint(actorAssembly,saveStorage,assembly,rosterIndex);
+    else
+        applyEnemyCrewPaint(actorAssembly,targetAssembly.contractId,rosterIndex);
     if (label) actorAssembly.name = label;
     const behavior = contractById(contractId).behavior;
     const actorCondition = createTargetCondition(actorAssembly);
@@ -121,10 +128,10 @@ function makeSupportActor(id, team, contractId, spawn, label = null) {
     };
 }
 const friendlySupportActors = FRIENDLY_SUPPORTS.map(spawn =>
-    makeSupportActor(spawn.id, FRIENDLY_TEAM, spawn.contractId, spawn, spawn.label));
+    makeSupportActor(spawn.id, FRIENDLY_TEAM, spawn.contractId, spawn, spawn.label, FRIENDLY_SUPPORTS.indexOf(spawn)+1));
 const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).map((contractId, index) => {
     const spawn = HOSTILE_SUPPORT_SPAWNS[index];
-    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn);
+    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn, null, index+1);
 });
 const supportActors = [...friendlySupportActors, ...hostileSupportActors];
 const aiActors = [primaryEnemyActor, ...supportActors];
