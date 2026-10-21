@@ -977,7 +977,15 @@ document.addEventListener('m3ch4:stable-status-cleared',queueRender);
 document.addEventListener('m3ch4:bay-picked',event=>{
     if(actualMode(loadSeries(storage))!=='garage')return;
     const slot=event.detail?.slot;
-    if (!slot) return;
+    // The physical canvas is the home surface: tapping a clear patch dismisses
+    // the toolbox and any uncommitted fit preview without changing inventory.
+    if (!slot) {
+        if(!paintExpanded && selectedSlot){
+            selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;
+            drawerExpanded=false;detailsExpanded=false;previewSignature='';render();
+        }
+        return;
+    }
     if(paintExpanded && togglePaintBoothSlot(loadStable(storage).stable,viewedId,slot)){
         paintPreviewEdits=paintBoothCurrentEdits();previewSignature='';render();return;
     }
