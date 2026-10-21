@@ -264,14 +264,16 @@ function renderWorkshopChrome(stable, view) {
         reason.title=view.reason||'Inspect machine readiness';statusBar.append(reason);
     }
     const pending=loadSortieAssignment(session);
-    const links=[['paint','PAINT'],['vendor','PARTS'],['contracts','CONTRACTS  ›']];
-    if(pending?.phase==='pending'&&!loadSeries(storage)) links.push(['resume','RESUME SORTIE ›']);
+    const hasPending=pending?.phase==='pending'&&!loadSeries(storage);
+    const links=[['paint','PAINT'],['vendor','PARTS'],
+        hasPending?['resume','RESUME SORTIE ›']:['contracts','CONTRACTS  ›']];
     for(const [target,label] of links){
-        const item=button(label,()=>target==='resume' ? (()=> {
-            selectedJobId=pending.contractId;
-            mode='setup';paintExpanded=false;identityExpanded=false;
+        const item=button(label,()=>{
+            if(target!=='resume'){openWorkspace(target);return;}
+            selectedJobId=pending.contractId;mode='setup';
+            paintExpanded=false;identityExpanded=false;
             selectedSlot=null;previewSignature='';render();
-        })() : openWorkspace(target),'workshop-link workshop-link-'+target);
+        },'workshop-link workshop-link-'+target);
         item.setAttribute('aria-label','Open '+(target==='vendor'?'Parts Counter':target==='contracts'?'Contract Board':'Paint Booth'));
         quickLinks.append(item);
     }
