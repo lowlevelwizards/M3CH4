@@ -122,7 +122,7 @@ const systemsBus=makeLiveSystemsAudio(context);
 let acousticOrdinal=0;
 export function soundSystemEvent(id,options={}) {
     const result=systemsBus.play(id,options);
-    if(result.pending && ['armor','part','destruction','glance','yardwalker','kestrel','hauler'].includes(id))
+    if(result.pending && ['armor','part','destruction','glance','yardwalker','kestrel','hauler','engine','hydraulics','sparks','zap','recharge'].includes(id))
         immediateImpulse({...options,weight:id==='destruction'?1.1:.38});
     return result;
 }
