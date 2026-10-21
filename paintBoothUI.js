@@ -57,7 +57,7 @@ export function togglePaintBoothSlot(stable,rigId,slot){
     return true;
 }
 export function createPaintBooth({
-    stable,rigId,storage,onPreview,onRefresh,onSaved,onMessage,onSelection,thumbnailFor,rigThumbnailFor,
+    stable,rigId,storage,onPreview,onRefresh,onSaved,onTeamSaved,onMessage,onSelection,thumbnailFor,rigThumbnailFor,
 }){
     const rig=stable.rigs.find(item=>item.id===rigId);
     const wrap=e('section','paint-booth');
@@ -188,12 +188,12 @@ export function createPaintBooth({
     team.append(b('USE PALETTE FOR CREW',()=>{
         const result=storeTeamLivery(storage,draft);
         onMessage(result?'TEAM LIVERY SAVED · ALLIES INHERIT VARIANTS':'TEAM PALETTE COULD NOT SAVE',!result);
-        if(result)onRefresh();
+        if(result){onTeamSaved?.();onRefresh();}
     },'paint-booth-team-action'));
     if(teamPalette)team.append(b('FOLLOW MY PAINT',()=>{
         const result=clearTeamLivery(storage);
         onMessage(result?'TEAM WILL FOLLOW YOUR PAINT':'COULD NOT RESET TEAM PALETTE',!result);
-        if(result)onRefresh();
+        if(result){onTeamSaved?.();onRefresh();}
     }));
     wrap.append(team);
 
