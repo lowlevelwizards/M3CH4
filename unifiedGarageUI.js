@@ -24,7 +24,7 @@ import {
     reconcileFieldPatches, clearFieldWorkAll, clearFieldWorkSeries,
 } from './fieldWork.js';
 import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
-import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot } from './paintBoothUI.js';
+import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot, paintBoothCurrentEdits } from './paintBoothUI.js';
 import { contractCrew } from './crewLivery.js';
 
 const key = 'm3ch4-viewed-bay-v1';
@@ -810,7 +810,7 @@ document.addEventListener('m3ch4:bay-picked',event=>{
     const slot=event.detail?.slot;
     if (!slot) return;
     if(paintExpanded && togglePaintBoothSlot(loadStable(storage).stable,viewedId,slot)){
-        paintPreviewEdits=null;previewSignature='';render();return;
+        paintPreviewEdits=paintBoothCurrentEdits();previewSignature='';render();return;
     }
     selectedSlot = slot;
     selectedHardwareSerial = null;
