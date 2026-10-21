@@ -8,6 +8,9 @@ import {fieldWorkRecoveryPossible,triageOptions,triagePreview,applyIntermissionT
 import {bayAssembly} from '../garageBay.js';
 import {WEAPONS} from '../combat.js';
 import {shotContacts} from '../scattergun.js';
+import {createEnemyMotion,advanceEnemyMotion} from '../enemyMotion.js';
+import {contractById} from '../contracts.js';
+import {DEFAULT_WORLD} from '../locomotion.js';
 import fs from 'node:fs';
 class Storage{constructor(){this.data=new Map();}getItem(k){return this.data.get(k)??null;}
 setItem(k,v){this.data.set(k,String(v));}removeItem(k){this.data.delete(k);}}
@@ -85,4 +88,17 @@ test('garage, audio and spectator flows retain all expected feedback hooks',()=>
  assert.match(scene,/const illuminated=paintSelectedSlots \? false/);
  assert.match(audio,/soundWorkshop/);
  assert.match(main,/scatterFeedback/);
+});
+
+test('visible lateral objectives prefer strafe instead of turning the rear toward an opponent',()=>{
+ const behavior=contractById('cutter').behavior;
+ const enemy={x:10,z:-14,yaw:0,yawRate:0,forwardSpeed:0,lateralSpeed:0,vx:0,vz:0};
+ const threat={x:10,z:-21};
+ const motion=createEnemyMotion(behavior);
+ const world={...DEFAULT_WORLD,obstacles:[]};
+ const command=advanceEnemyMotion(motion,enemy,threat,1/60,true,world,.95,behavior,{
+    mode:'ORDER',point:{x:18,z:-14},throttleScale:1,role:'FLANK'});
+ assert.ok(command.strafe>.4,'sideways waypoint should use rightward leg travel: '+JSON.stringify(command));
+ assert.ok(Math.abs(command.steer)<.25,'front should remain on visible threat: '+JSON.stringify(command));
+ assert.equal(motion.phase,'ORDER');
 });
