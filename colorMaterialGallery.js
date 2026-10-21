@@ -15,6 +15,7 @@ const types={
  weapons:[['gun-cannon','TRAINING'],['gun-short','STUMP'],['gun-light','NEEDLE'],['gun-scatter','S-6 SCATTER']],
  cabs:[['cab-cyclops','CYCLOPS'],['cab-utility','VISTA'],['cab-armored','HEARTH']],
  power:[['power-dynamo','DYNAMO G-2'],['power-air','DRAFT A-1']],
+ legs:[['legs-yard','YARDWALKER'],['legs-compact','KESTREL'],['legs-hauler','HAULER H2']],
 };
 const combinations=[
  ['BRUISER / YARDWALKER',['frame-sr','legs-yard','power-dynamo','cab-cyclops','gun-cannon']],

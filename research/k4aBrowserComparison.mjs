@@ -165,7 +165,7 @@ try{
  await inspect.close();
  findings.isolation=ownership;
  writeFileSync(out+'/structure-and-surface-audit.json',JSON.stringify(findings,null,2));
- for(const cat of ['frames','weapons','cabs','power','assembled']){
+ for(const cat of ['frames','weapons','cabs','power','legs','assembled']){
   for(const view of ['quarter','front','side']){
    const [before,after]=await Promise.all([open(beforeUrl,cat,view),open(afterUrl,cat,view)]);
    const [left,right]=await Promise.all([
