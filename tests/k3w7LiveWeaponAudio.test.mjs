@@ -105,7 +105,7 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/soundReload\(/);
   assert.match(html,/\.\/audio\.js\?v=k4i/);
   assert.match(html,/\.\/liveWeaponAudio\.js\?v=k4i/);
-  assert.match(html,/main\.js\?v=k4q/);
-  assert.match(html,/0\.0\.1k\.4q — Interface Clarity/);
+  assert.match(html,/main\.js\?v=k4r/);
+  assert.match(html,/0\.0\.1k\.4r — Physical Workshop/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });

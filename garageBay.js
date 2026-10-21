@@ -29,6 +29,20 @@ export function bayAssembly(stable, rigId) {
     assembly.graph = rig.graph ? clone(rig.graph) : graphFromStations(assembly, BY_ID);
     return assembly;
 }
+/** A temporary, non-persisted workshop fit. All real installations still pass
+ * through mountPartOnRig and the existing graph/ownership validation. */
+export function bayPreviewAssembly(stable, rigId, slot, serial) {
+    const assembly = bayAssembly(stable, rigId);
+    if (!assembly || !SLOTS.includes(slot) || !serial) return null;
+    const part = stable.inventory.find(p => p.serial === serial);
+    if (!part || BY_ID.get(part.definitionId)?.slot !== slot) return null;
+    if (stable.rigs.some(rig => rig.id !== rigId &&
+        Object.values(rig.installed).includes(serial))) return null;
+    assembly.installed[slot] = serial;
+    // A proposed fit is rendered independently from the live mounted graph.
+    assembly.graph = graphFromStations(assembly, BY_ID);
+    return assembly;
+}
 export function bayHealth(stable, rigId) {
     const rig = rigById(stable, rigId);
     if (!rig) return [];

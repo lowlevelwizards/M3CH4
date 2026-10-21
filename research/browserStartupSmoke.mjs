@@ -281,7 +281,7 @@ try {
   const stagedError = await page.locator('#startup-diagnostic-detail').textContent().catch(() => null);
   const quote = await page.locator('#unified-garage .unified-service').textContent().catch(() => null);
   console.log('STAGED RIG QUOTE:', quote || 'none', 'ERROR:', stagedError || 'none');
-  if (stagedError || !quote || !quote.includes('SERVICE CAB'))
+  if (stagedError || !quote || !/^(SERVICE CAB|REPAIR|REBUILD)/.test(quote))
     throw Error('Cannot inspect a partial Rig 02: ' + (stagedError || quote || 'missing repair quote'));
 
   // k4h: explicitly exercise Bay 02's quick-remove and the same install rack
@@ -294,7 +294,10 @@ try {
     return loadStable(localStorage).stable.rigs.find(r=>r.id==='rig-02')?.installed?.command??null;
   });
   if(removed!==null)throw Error('Bay 02 quick-remove failed: '+removed);
-  await page.locator('#unified-garage .unified-swap-toggle').click();
+  // Removing hardware now opens the nearby shelf automatically. Only open
+  // it explicitly on older garage builds which still start collapsed.
+  if (!await page.locator('#unified-garage-shelf.shown').count())
+    await page.locator('#unified-garage .unified-swap-toggle').click();
   await page.locator('#unified-garage .unified-part-card[data-serial="'+fixture.serial+'"]' ).click();
   await page.locator('#unified-garage .part-detail-action').filter({hasText:'INSTALL'}).click();
   const remounted=await page.evaluate(async()=>{

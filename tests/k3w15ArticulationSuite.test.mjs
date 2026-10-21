@@ -126,6 +126,6 @@ test('real leg hierarchy and frame independent root remain authoritative',()=>{
  assert.match(text['index.html'],/id="animation-preview-toggle"/);
  assert.match(text['index.html'],/id="animation-preview-mode"/);
  assert.match(text['index.html'],/id="animation-preview-speed"/);
- assert.match(text['index.html'],/0\.0\.1k\.4q — Interface Clarity/);
+ assert.match(text['index.html'],/0\.0\.1k\.4r — Physical Workshop/);
  assert.doesNotMatch(text['main.js'],/storeMachine\(.*gait/);
 });

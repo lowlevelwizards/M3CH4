@@ -113,14 +113,14 @@ test('mobile UX has a single physical bay navigator and explicit contract/setup/
     const garage=fs.readFileSync(new URL('../garageMountUI.js',import.meta.url),'utf8');
     const ui=fs.readFileSync(new URL('../unifiedGarageUI.js',import.meta.url),'utf8');
     const css=fs.readFileSync(new URL('../unifiedGarageStyles.css',import.meta.url),'utf8');
-    assert.match(html,/0\.0\.1k\.4q/);
-    assert.match(garage,/unifiedGarageUI\.js\?v=k4q/);
+    assert.match(html,/0\.0\.1k\.4r/);
+    assert.match(garage,/unifiedGarageUI\.js\?v=k4r/);
     assert.doesNotMatch(garage,/import '\.\/fieldWorkUI\.js/);
     assert.match(ui,/mode = 'garage'/);
     assert.match(ui,/mode\s*=\s*'contracts'/);
     assert.match(ui,/mode='setup'/);
     assert.match(ui,/return series\?\.phase === 'intermission' \? 'pit'/);
-    assert.match(ui,/const assembly=bayAssembly\(stable,viewedId\)/);
+    assert.match(ui,/const assembly=proposed \|\| bayAssembly\(stable,viewedId\)/);
     assert.match(ui,/arena\.rebuildAssembly\(assembly\)/);
     assert.match(ui,/paintPreviewEdits/);
     assert.match(ui,/clearSortieAssignment\(session\)/);

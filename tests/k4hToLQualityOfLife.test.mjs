@@ -80,7 +80,7 @@ test('real scattergun retains six independent rays with stronger close-range nom
 test('garage, audio and spectator flows retain all expected feedback hooks',()=>{
  const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
  const ui=read('unifiedGarageUI.js'),main=read('main.js'),scene=read('scene.js'),audio=read('audio.js');
- assert.match(ui,/SWAP \/ INVENTORY/);
+ assert.match(ui,/REPLACE/);
  assert.match(ui,/unified-remove-icon/);
  assert.match(ui,/applyIntermissionTriage/);
  assert.match(main,/sortieOutroRemaining = 5/);
