@@ -709,10 +709,7 @@ const observeNext = document.createElement('button');
 observeNext.type = 'button'; observeNext.textContent = '›';
 observePrev.setAttribute('aria-label','Previous surviving ally');
 observeNext.setAttribute('aria-label','Next surviving ally');
-const observeReset=document.createElement('button');observeReset.type='button';observeReset.textContent='⟳';
-observeReset.setAttribute('aria-label','Reset spectator orbit');
-observeReset.addEventListener('click',()=>arena.resetSpectatorOrbit());
-observeOverlay.append(observePrev, observeCaption, observeNext,observeReset);
+observeOverlay.append(observePrev, observeCaption, observeNext);
 document.body.append(observeOverlay);
 let observedAllyId = null;
 function activeAllies() { return friendlySupportActors.filter(actor=>actor.active); }
@@ -1424,13 +1421,11 @@ renderer.domElement.addEventListener('pointermove', event => {
     if (before && after) {
         for (const active of pointers.values())
             active.dragged = true;
-        const panX = after.center.x - before.center.x;
-        const panY = after.center.y - before.center.y;
-        if(inspecting){
-            if(panX||panY)arena.panBy(panX,panY,renderer.domElement.clientHeight);
-            if(before.separation>2&&after.separation>2)arena.zoomBy(after.separation/before.separation);
-        }else if(before.separation>2&&after.separation>2)
-            arena.zoomSpectatorBy(after.separation/before.separation);
+        // Pinch controls distance only; orbit ALWAYS pivots on the machine.
+        if(before.separation>2&&after.separation>2){
+            if(inspecting)arena.zoomBy(after.separation/before.separation);
+            else arena.zoomSpectatorBy(after.separation/before.separation);
+        }
     }
     else if (pointer.dragged) {
         if(inspecting)arena.orbitBy(dx,dy);
@@ -1824,7 +1819,8 @@ function frame(now) {
     }
     recoilFlash = Math.max(0, recoilFlash - frameDt);
     reportFade = Math.max(0, reportFade - frameDt);
-    rangeCrosshair.classList.toggle('confirmed-hit', recoilFlash > 0 || hitConfirmTimer !== null);
+    rangeCrosshair.classList.toggle('confirmed-hit', hitConfirmTimer !== null);
+    rangeCrosshair.classList.toggle('scatter-sight',weaponSpec?.id==='gun-scatter');
     shotReport.classList.toggle('faded', reportFade === 0);
     renderAmmo();
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);
