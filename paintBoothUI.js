@@ -4,7 +4,7 @@
  */
 import { BY_ID, SLOTS } from './components.js';
 import { PAINT_CHANNELS, PAINT_PRESETS, PAINT_VARIANTS,
-    normalizePaint, paintForPart, paintVariant,
+    paintForPart, paintVariant,
     readUserPalettes, storeUserPalette, deleteUserPalette } from './factoryPaint.js';
 import { readTeamLivery, storeTeamLivery, clearTeamLivery } from './crewLivery.js';
 import { repaintSerializedParts } from './stable.js';
@@ -151,6 +151,7 @@ export function createPaintBooth({
         input.type='color';input.value=draft[channel];
         input.setAttribute('aria-label',labels[channel]+' palette pigment');
         const hex=e('span','paint-booth-hex',draft[channel].toUpperCase());
+        input.addEventListener('change',()=>onRefresh());
         input.addEventListener('input',()=>{
             draft[channel]=input.value;hex.textContent=draft[channel].toUpperCase();preview();
             // Recompute variant color strips, without replacing the native color picker.
