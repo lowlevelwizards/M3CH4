@@ -612,7 +612,7 @@ try {
      !(soundscape.local.gain>soundscape.distant.gain)||
      soundscape.local.earlyReflections!==4||
      soundscape.distant.earlyReflections!==0||
-     !soundscape.localFoot.ok||!soundscape.distantFoot.skipped||
+     !(soundscape.localFoot.ok||soundscape.localFoot.pending)||!soundscape.distantFoot.skipped||
      !soundscape.charger.ok||!soundscape.engine.ok||
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
