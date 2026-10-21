@@ -23,7 +23,7 @@ test('home garage is the 3D stage with only one hidden contextual toolbox',()=>{
     assert.match(js,/if \(!identityExpanded\) return;/);
     assert.match(css,/#unified-garage\[data-workspace="garage"\] #unified-garage-dock\{\s*display:none/);
     assert.match(css,/\.tool-open #unified-garage-dock\{display:flex\}/);
-    assert.match(css,/\.workshop-rail \.unified-stations/);
+    assert.match(css,/#unified-garage\[data-workspace="garage"\] \.unified-stations/);
 });
 test('workspace navigation is centralized and leaves gameplay commitments untouched',()=>{
     const js=source('unifiedGarageUI.js');
