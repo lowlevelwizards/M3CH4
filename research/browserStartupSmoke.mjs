@@ -126,6 +126,51 @@ try {
   if(await page.locator('#animation-preview-toggle').getAttribute('aria-pressed')!=='false')
     throw Error('DEV animation inspection did not stop');
   console.log('ARTICULATION LAB: PASS · true leg joints, real bolt movement, damaged pose');
+  // k3w16 / The visible garage soles must sit on the service pad at
+  // Y=.09. Only inspect visible feet of the actual selected rig, not AI rigs
+  // hidden behind the garage or the incomplete staged cab.
+  await page.waitForTimeout(170);
+  const contact=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const {Box3}=await import('three');
+    const scene=activePlayerArena()?.arena?.scene;
+    const feet=[];
+    scene?.updateMatrixWorld(true);
+    scene?.traverse(node=>{
+      if(node.userData?.joint!=='foot')return;
+      let ancestor=node;
+      while(ancestor&&ancestor.visible){ancestor=ancestor.parent;}
+      if(ancestor)return;
+      const bounds=new Box3().setFromObject(node);
+      if(Number.isFinite(bounds.min.y))
+        feet.push({name:node.name,y:bounds.min.y});
+    });
+    return feet;
+  });
+  console.log('GARAGE SOLES:',JSON.stringify(contact));
+  if(contact.length!==2||contact.some(foot=>Math.abs(foot.y-.102)>.045))
+    throw Error('Visible garage soles do not meet service pad: '+JSON.stringify(contact));
+  await page.locator('#animation-preview-toggle').click();
+  await page.locator('#animation-preview-mode').selectOption('strafe-left');
+  await page.waitForTimeout(720);
+  const strafePose=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const hips=[],knees=[];
+    activePlayerArena()?.arena?.scene.traverse(node=>{
+      if(node.userData?.joint==='hip')hips.push(node.rotation.z);
+      if(node.userData?.joint==='knee')knees.push(node.rotation.z);
+    });
+    return {hips,knees};
+  });
+  if(!strafePose.hips.some(n=>Math.abs(n)>.035)||
+     !strafePose.knees.some(n=>Math.abs(n)>.025))
+    throw Error('Side-step did not move both hip and knee joints: '+JSON.stringify(strafePose));
+  await page.locator('#animation-preview-mode').selectOption('strafe-right');
+  await page.waitForTimeout(540);
+  await page.screenshot({path:output+'/strafe-ground-contact-iphone.png'});
+  await page.locator('#animation-preview-toggle').click();
+  console.log('GROUND / STRAFE: PASS · soles planted, side-step knee and hip articulation');
+
   // The first real iPhone audio milestone: DEV -> SOUND TEST BENCH -> one
   // tapped WebAudio audition, without affecting any rig or save data.
   await page.locator('#audio-bench-open').click({ timeout: 12000 });
