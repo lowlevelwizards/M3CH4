@@ -35,7 +35,7 @@ jobs:
           npm test
       - name: Real mesh directional shielding (must pass)
         run: |
-          node research/frameShieldingAudit.mjs --json
+          node research/frameShieldingAudit.mjs --debug
           node research/frameShieldingAudit.mjs --assert
       - name: Serve gallery and game modules
         run: |

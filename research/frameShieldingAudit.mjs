@@ -55,7 +55,11 @@ function measure(assembly, frameId) {
                 const shieldedSlot = shieldedModuleOnRay(intersections, first);
                 const evidentialShield = struck === 'structure' && shieldedSlot === targetSlot;
                 samples.push({ direction, targetSlot, struck,
-                    shieldedSlot, evidentialShield, distance: first?.distance ?? null });
+                    shieldedSlot, evidentialShield, distance: first?.distance ?? null,
+                    aim: aim.toArray(), firstName: first?.object?.name ?? null,
+                    intersections: intersections.slice(0,4).map(h=>({
+                        slot:h.object.userData.slot,name:h.object.name,distance:h.distance,
+                    })) });
             }
         }
     }
@@ -152,7 +156,12 @@ export function formatFrameShieldAudit(results = runFrameShieldAudit()) {
 if (process.argv[1] && import.meta.url === new URL('file://'+fileURLToPath(import.meta.url)).href) {
     const results = runFrameShieldAudit();
     if (process.argv.includes('--assert')) verifyShieldAudit(results);
-    process.stdout.write(process.argv.includes('--json') ? JSON.stringify(results.map(r=>({
+    if (process.argv.includes('--debug')) {
+        process.stdout.write(JSON.stringify(results.map(r=>({
+            frameId:r.frameId,frontMobility:r.samples.filter(s=>
+                s.direction==='front'&&s.targetSlot==='mobility')
+        })),null,2)+'\n');
+    } else process.stdout.write(process.argv.includes('--json') ? JSON.stringify(results.map(r=>({
         frameId:r.frameId,massKg:r.massKg,directions:r.directions,
     })),null,2)+'\n' : formatFrameShieldAudit(results));
 }
