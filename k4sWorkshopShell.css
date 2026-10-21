@@ -125,7 +125,7 @@
  min-height:36px;
 }
 #unified-garage[data-workspace="garage"].replacing #unified-garage-dock{
- top:calc(var(--k4s-header) + 68px);bottom:auto;max-height:140px;
+ top:calc(var(--k4s-header) + 8px);bottom:auto;max-height:91px;
  width:min(275px,31vw);
 }
 #unified-garage[data-workspace="garage"].replacing .unified-modules.replacing{
