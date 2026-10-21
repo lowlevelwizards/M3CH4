@@ -1637,7 +1637,7 @@ export function createArenaScene(initial, targetAssembly) {
                 const material = mesh.material;
                 if (!(material instanceof THREE.MeshStandardMaterial))
                     continue;
-                const illuminated=paintSelectedSlots ? paintSelectedSlots.has(groupSlot) : groupSlot===slot;
+                const illuminated=paintSelectedSlots ? false : groupSlot===slot;
                 material.emissive.setHex(illuminated ? 0xb78b35 : 0);
                 material.emissiveIntensity = illuminated ? (paintSelectedSlots ? 0.14 : 0.30) : 0;
             }
