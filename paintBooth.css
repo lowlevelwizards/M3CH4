@@ -1,0 +1,28 @@
+/* k.4d - tactile, compact, mobile-first paint booth */
+.paint-booth{margin:12px 0 17px;padding:12px;border:1px solid #59615a;background:linear-gradient(145deg,#222927,#171e1d);color:#e3dec9;border-radius:5px;display:grid;gap:11px;box-sizing:border-box}
+.paint-booth-title{font-size:13px;font-weight:800;letter-spacing:.1em;color:#e8dfc5}
+.paint-booth-hint,.paint-booth-context,.paint-booth-foot{font:10px/1.5 ui-monospace,monospace;color:#a7b4ab;margin:0}
+.paint-booth-context{border-left:3px solid #8f9a8f;padding-left:8px}
+.paint-booth-label{font:700 10px ui-monospace,monospace;letter-spacing:.12em;color:#c3c4b2}
+.paint-booth button{cursor:pointer;touch-action:manipulation;border:1px solid #5b6760;background:#2c3531;color:#e2e0cf;border-radius:3px;min-height:35px;font:700 10px ui-monospace,monospace}
+.paint-booth button:focus-visible,.paint-booth input:focus-visible{outline:2px solid #d3b56c;outline-offset:2px}
+.paint-booth-targets{display:flex;gap:5px;flex-wrap:wrap}
+.paint-booth-targets button{padding:8px}
+.paint-booth-targets button.active{border-color:#d6ae60;color:#f7d896;background:#514631}
+.paint-booth-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.paint-booth .paint-booth-preset{display:grid;gap:6px;text-align:left;min-height:58px;padding:7px}
+.paint-booth-swatches{display:flex;gap:2px;height:18px;max-width:100%}
+.paint-booth-swatches i{display:block;flex:1;min-width:0;border:1px solid #0004}
+.paint-booth-channels{display:grid;gap:3px}
+.paint-booth-channel{display:grid;grid-template-columns:minmax(0,1fr) 45px 70px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #ffffff1c;font:700 10px ui-monospace,monospace}
+.paint-booth-picker{width:44px;height:36px;border:1px solid #6a746d;border-radius:2px;padding:2px;background:transparent;box-sizing:border-box;touch-action:manipulation}
+.paint-booth-hex{text-align:right;color:#c3cabc;font-variant-numeric:tabular-nums}
+.paint-booth-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.paint-booth-actions .paint-booth-primary{background:#a99a65;color:#171d1b;border-color:#d7c48a}
+.paint-booth-actions .paint-booth-restore{background:#2a312e}
+.paint-booth-save{display:flex;gap:6px}
+.paint-booth-name{flex:1;min-width:0;padding:8px;background:#151b1a;border:1px solid #65716a;color:#eee7d5;border-radius:3px;font:11px ui-monospace,monospace}
+.paint-booth-save button{padding:0 9px}
+.paint-booth-library{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px;padding:2px 6px;border:1px solid #404d47;font:10px ui-monospace,monospace}
+.paint-booth .paint-booth-delete{width:35px;min-height:30px;font-size:17px;color:#c6ada0}
+@media(min-width:610px){.paint-booth-presets{grid-template-columns:repeat(3,minmax(0,1fr))}}
