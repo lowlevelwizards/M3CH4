@@ -1578,11 +1578,17 @@ function syncInspectorLayout() {
     // The actual canvas bounds (not stale window dimensions) are the camera viewport.
     // This also handles landscape-left / landscape-right and Safari toolbar resizing.
     const rect = renderer.domElement.getBoundingClientRect();
-    const bayDock = document.querySelector('#unified-garage-dock');
-    const inspector = bayDock && !bayDock.closest('.hidden') ? bayDock : inspectionPanel;
-    const panelRight = inspecting ? inspector.getBoundingClientRect().right - rect.left + 12 : 0;
-    arena.setInspectorLayout(panelRight, rect.width, rect.height);
+    const shell=document.querySelector('#unified-garage');
+    const workspace=shell?.dataset.workspace;
+    const bayDock=document.querySelector('#unified-garage-dock');
+    // Free garage framing is centered on the machine. Only reserve camera
+    // space for an actually visible inspector/drawer or the dedicated painter.
+    const reserve = inspecting && bayDock && (
+        workspace==='paint' || (workspace==='garage' && shell.classList.contains('tool-open')));
+    const panelRight=reserve ? bayDock.getBoundingClientRect().right-rect.left+8 : 0;
+    arena.setInspectorLayout(Math.max(0,panelRight),rect.width,rect.height);
 }
+document.addEventListener('m3ch4:workspace-layout',()=>{if(inspecting)syncInspectorLayout();});
 function resize() {
     const bounds = mount.getBoundingClientRect();
     const width = Math.max(1, Math.round(bounds.width));
