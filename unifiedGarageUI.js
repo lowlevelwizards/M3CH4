@@ -22,6 +22,7 @@ import {
 import {
     applyEmergencyFieldPatch, currentIntermissionFieldAction,
     fieldPatchCandidates, fieldWorkCommitment, partLifecycle,
+    triageOptions,triagePreview,applyIntermissionTriage,TRIAGE_BUDGET,
     reconcileFieldPatches, clearFieldWorkAll, clearFieldWorkSeries,
 } from './fieldWork.js';
 import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
@@ -50,6 +51,7 @@ let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selecte
 let identityExpanded = false;
 let paintExpanded = false, paintPreviewEdits = null, paintHighlightSlots = null;
 let swapExpanded = false;
+let triageSelected=new Set();let triageRigId=null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
@@ -120,7 +122,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; swapExpanded=false; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
+    selectedSlot = null; selectedHardwareSerial = null; swapExpanded=false;triageSelected.clear();triageRigId=null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
     dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
@@ -711,33 +713,56 @@ function patchInPit(stable,view,series) {
     const wrap=el('section','unified-field-work');
     const action=currentIntermissionFieldAction(storage,series);
     const committed=fieldWorkCommitment(storage);
-    wrap.append(el('strong','unified-section-name',action?'FIELD WORK · SPENT':'FIELD WORK · ONE ACTION'));
-    if(action) {
+    wrap.append(el('strong','unified-section-name',action?'PIT CREW · COMMITTED':'PIT CREW · TRIAGE'));
+    if(action){
         const owner=rigById(stable,action.rigId);
-        const verified=view.health.find(part=>part.slot===action.slot &&
-            part.serial===action.serial);
-        const condition=verified?'INTEGRITY '+pct(verified.condition)+' · ARMOR '+
-            pct(verified.armorRatio)+' · WEAR '+pct(verified.wear):'SAVE VERIFICATION UNAVAILABLE';
-        wrap.append(el('p','unified-patch-proof',rigName(owner).toUpperCase()+
-            ' · '+SLOT_LABELS[action.slot]+' · '+action.serial+' · '+condition));
-        if(!verified || Math.abs(verified.condition-action.restoredCondition)>.015)
-            wrap.append(el('p','unified-warning','PATCH CONDITION MISMATCH · VERIFY BEFORE DEPLOYMENT'));
-        wrap.append(el('small','unified-warning',rigName(owner).toUpperCase()+' COMMITTED TO ROUND '+series.roundNumber));
-    } else {
-        const choices=fieldPatchCandidates(stable).filter(c=>c.rigId===view.rig.id);
-        if(!choices.length) wrap.append(el('p','unified-muted','NO SINGLE PATCH CAN RESTORE THIS MACHINE TO FIELDABLE.'));
-        for(const c of choices) wrap.append(button('FIELD PATCH '+SLOT_LABELS[c.slot]+' → 22% · COMMIT '+view.name.toUpperCase(),
-            ()=> {
-                const assign=assignment(stable,series.contractId,c.rigId);
-                if(!assign.ok){message(assign.reason,true);return;}
-                const result=applyEmergencyFieldPatch(storage,{seriesId:series.id,rigId:c.rigId,slot:c.slot});
-                message(result.ok?'FIELD PATCH COMPLETE · '+view.name.toUpperCase()+' COMMITTED':result.reason,!result.ok);
-                if(result.ok) {
-                    document.dispatchEvent(new CustomEvent('m3ch4:bay-reconcile-patch',{detail:result.action}));
-                    window.location.reload();
-                }
-            },'unified-service'));
+        const repairs=action.type==='triage'?(action.repairs||[]):[action];
+        wrap.append(el('p','unified-patch-proof',rigName(owner).toUpperCase()+' · '+
+            repairs.map(r=>SLOT_LABELS[r.slot]+' '+pct(r.restoredCondition??action.restoredCondition)).join(' / ')));
+        wrap.append(el('small','unified-warning','COMMITTED TO ROUND '+series.roundNumber));
+        return wrap;
     }
+    if(triageRigId!==viewedId){
+        triageRigId=viewedId;triageSelected.clear();
+        let units=TRIAGE_BUDGET;
+        const candidates=triageOptions(stable,viewedId).sort((a,b)=>
+            (a.condition<=.001?0:1)-(b.condition<=.001?0:1)||a.condition-b.condition);
+        for(const c of candidates)if(c.cost<=units){triageSelected.add(c.slot);units-=c.cost;}
+    }
+    const options=triageOptions(stable,viewedId);
+    if(!options.length){
+        wrap.append(el('small','unified-muted','NO REPAIRABLE CRITICAL SYSTEMS · SEND MACHINE AS IS'));
+        return wrap;
+    }
+    const plan=triagePreview(stable,viewedId,[...triageSelected]);
+    wrap.append(el('div','unified-pit-budget','WORK UNITS · '+plan.cost+' / '+TRIAGE_BUDGET+
+        ' · '+(plan.fieldable?'FIELDABLE AFTER SERVICE':'NOT READY')));
+    for(const candidate of options){
+        const selected=triageSelected.has(candidate.slot);
+        const b=button((selected?'☑ ':'☐ ')+SLOT_LABELS[candidate.slot]+' · '+
+            pct(candidate.condition)+' → 30% · '+candidate.cost+' UNIT'+(candidate.cost===1?'':'S'),()=>{
+            if(selected)triageSelected.delete(candidate.slot);
+            else triageSelected.add(candidate.slot);
+            render();
+        },'unified-triage-choice'+(selected?' active':''));
+        b.setAttribute('aria-pressed',String(selected));wrap.append(b);
+    }
+    wrap.append(el('small','unified-muted','LIMITED LABOR · 18% ARMOR FLOOR ON SERVICED PARTS · NO SHOP REBUILDS'));
+    const commit=button('COMMIT TRIAGE · '+plan.cost+' / '+TRIAGE_BUDGET,()=>{
+        const selected=[...triageSelected];
+        const check=triagePreview(stable,viewedId,selected);
+        if(!check.valid||!check.fieldable){message('TRIAGE MUST RESTORE A FIELDABLE MACHINE',true);return;}
+        const assign=assignment(stable,series.contractId,viewedId);
+        if(!assign.ok){message(assign.reason,true);return;}
+        const result=applyIntermissionTriage(storage,{seriesId:series.id,rigId:viewedId,slots:selected});
+        message(result.ok?'PIT TRIAGE COMPLETE · ROUND '+series.roundNumber+' COMMITTED':result.reason,!result.ok);
+        if(result.ok){
+            soundWorkshop('service');
+            document.dispatchEvent(new CustomEvent('m3ch4:bay-reconcile-patch',{detail:result.action}));
+            window.location.reload();
+        }
+    },'unified-service',!plan.valid||!plan.fieldable||!!committed);
+    wrap.append(commit);
     return wrap;
 }
 function renderPit(stable,view,series) {
@@ -748,7 +773,7 @@ function renderPit(stable,view,series) {
     dock.append(bayHeader(view),summary(view),moduleStation(view));
     const readout=renderStationReadout(view);
     if (readout) dock.append(readout);
-    dock.append(el('small','unified-pit-lock','🔒 PIT · ONE FIELD PATCH · NO PART SWAPS'));
+    dock.append(el('small','unified-pit-lock','🔒 PIT · FOUR WORK UNITS · NO PART SWAPS'));
     dock.append(patchInPit(stable,view,series));
     const committed=fieldWorkCommitment(storage);
     const canGo=view.canDeploy && (!committed || committed.rigId===viewedId);
