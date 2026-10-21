@@ -1,0 +1,65 @@
+name: k4a Industrial Material Identity / Actual Three.js Comparison
+on:
+  pull_request:
+    paths:
+      - 'partMaterialPalette.js'
+      - '*Visual.js'
+      - '*VisualKit.js'
+      - 'scene.js'
+      - 'color-material-gallery.html'
+      - 'colorMaterialGallery.js'
+      - 'research/k4aBrowserComparison.mjs'
+      - 'tests/k4aMaterialRoles.test.mjs'
+      - '.github/workflows/k4a-material-identity-ci.yml'
+  workflow_dispatch:
+jobs:
+  true-before-after:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: after
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || 'main' }}
+          path: before
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare Three.js and browser
+        working-directory: after
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0 playwright
+          npx playwright install --with-deps chromium
+      - name: Verify syntax and full regression suite
+        working-directory: after
+        run: |
+          for f in partMaterialPalette.js weaponVisualKit.js commandVisualKit.js scene.js colorMaterialGallery.js research/k4aBrowserComparison.mjs; do node --check "$f"; done
+          npm test
+      - name: Serve identical gallery over both source revisions
+        run: |
+          cp after/color-material-gallery.html after/colorMaterialGallery.js before/
+          (cd before && python3 -m http.server 8766 --bind 127.0.0.1 >/tmp/k4a-before-http.log 2>&1) &
+          (cd after && python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/k4a-after-http.log 2>&1) &
+          sleep 3
+      - name: Compare real mesh geometry, material instances and 40 rendered sheets
+        working-directory: after
+        run: node research/k4aBrowserComparison.mjs
+      - name: Live game first-frame and garage rebuild smoke
+        working-directory: after
+        run: node research/browserStartupSmoke.mjs
+      - name: Upload actual comparison renders and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k4a-industrial-material-before-after
+          path: after/k4a-comparison-artifacts/
+          if-no-files-found: warn
+      - name: Upload live browser startup capture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k4a-browser-startup
+          path: after/browser-smoke-artifacts/
+          if-no-files-found: warn
