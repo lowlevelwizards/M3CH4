@@ -568,8 +568,9 @@ function renderObjectiveStatus() {
             const widget=ensureZone(point.id);activeIds.add(point.id);
             const {card,fill,who}=widget;
             const owner=point.owner||'neutral';
-            const moving=point.contested?'contested':point.friendly>0?'friendly':
-                point.hostile>0?'hostile':'idle';
+            const moving=point.contested?'contested':
+                point.friendly>0&&point.owner!=='friendly'?'friendly':
+                point.hostile>0&&point.owner!=='hostile'?'hostile':'idle';
             card.dataset.owner=owner;card.dataset.capture=moving;
             card.classList.toggle('contested',!!point.contested);
             const progress=Math.round(Math.min(1,Math.abs(point.influence))*100);
@@ -584,7 +585,9 @@ function renderObjectiveStatus() {
             if(playerCombatActive && Math.hypot(rig.x-point.x,rig.z-point.z)<=sortieObjective.radius)
                 local=point;
         }
-        for(const [id,item]of zoneElements)if(!activeIds.has(id))item.card.remove();
+        for(const [id,item]of zoneElements)if(!activeIds.has(id)){
+            item.card.remove();zoneElements.delete(id);
+        }
         if(local){
             const pct=Math.round(Math.abs(local.influence)*100);
             localCapture.textContent=local.contested?local.id+' CONTESTED':
