@@ -4,11 +4,11 @@
 import { activePlayerArena } from './scene.js';
 import { generatorMount, installedPart, setGeneratorMount, inspectAssembly } from './components.js';
 import { clearSortieAssignment } from './sortieAssignment.js';
-import './acquisitionUI.js?v=k3s2';
+import './acquisitionUI.js?v=k4o';
 import './contractUI.js?v=k3t1';
 import './stableUI.js?v=k3t0';
 import './sortieAssignmentUI.js?v=k3v5p1';
-import './seriesUI.js?v=k3w0';
+import './seriesUI.js?v=k4q';
 import './unifiedGarageUI.js?v=k4q';
 
 const info = document.querySelector('#part-info');
