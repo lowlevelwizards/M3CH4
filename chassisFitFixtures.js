@@ -23,6 +23,8 @@ const MOUNT_FACES = Object.freeze({
     'legs-compact': { socketId: 'mobility', faceNormal: [0, 1, 0], face: 'upper paired-mobility input', forward: [0, 0, -1] },
     'legs-hauler': { socketId: 'mobility', faceNormal: [0, 1, 0], face: 'upper paired-mobility input via H2/U1 adapter', forward: [0, 0, -1] },
     'cab-cyclops': { socketId: 'command', faceNormal: [0, -1, 0], face: 'cab underside', forward: [0, 0, -1] },
+    'cab-utility': { socketId: 'command', faceNormal: [0, -1, 0], face: 'cab underside', forward: [0, 0, -1] },
+    'cab-armored': { socketId: 'command', faceNormal: [0, -1, 0], face: 'cab underside', forward: [0, 0, -1] },
     'power-dynamo': { socketId: 'power', faceNormal: [0, 0, -1], face: 'generator forward mounting plate', forward: [0, 0, -1] },
     'gun-cannon': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
 });
