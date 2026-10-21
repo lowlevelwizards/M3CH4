@@ -3,7 +3,7 @@
  */
 import * as THREE from 'three';
 import { CHASSIS_MATERIALS } from './chassisConceptBuilder.js';
-import { buildPartVisual } from './partVisuals.js';
+import { buildPartVisual } from './partVisuals.js?v=k3x';
 
 const steel=CHASSIS_MATERIALS.iron;
 const bright=CHASSIS_MATERIALS.machined;
@@ -65,12 +65,6 @@ export function buildFitFixture(fixture){
             const x=(i-1.5)*w*.16;
             addBox(root,[w*.055,h*.22,d*.38],[x,h*.345,d*.15],steel,`cooling-fin-${i}`);
         }
-    }else if(fixture.id==='gun-cannon'){
-        addBox(root,[w*.78,h*.72,d*.36],[0,0,d*.25],ochre,'gun-heavy-breech');
-        addBox(root,[w*.20,h*.37,d*.31],[-w*.400,0,d*.25],steel,'trunnion-to-breech-carriage');
-        addBox(root,[w*.78,h*.25,d*.23],[0,-h*.25,d*.21],steel,'gun-recoil-cradle');
-        addCylinder(root,h*.16,d*.64,[0,h*.03,-d*.175],'z',steel,'front-pointing-gun-barrel');
-        addCylinder(root,h*.18,d*.035,[0,h*.03,-d*.47],'z',bright,'muzzle-reinforcement');
     }else throw new Error(`Unsupported fit-test equipment: ${fixture.id}`);
     addMountFace(root,fixture);
     root.traverse(o=>{if(o.isMesh)o.userData.fitFixtureId=fixture.id;});

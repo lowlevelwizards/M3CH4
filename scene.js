@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildPartVisual } from './partVisuals.js';
+import { buildPartVisual } from './partVisuals.js?v=k3x';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
@@ -1197,9 +1197,10 @@ export function createArenaScene(initial, targetAssembly) {
         }
         const mechanism=exterior.partGroups.get('combat')?.userData.weaponMechanism;
         if(mechanism){
-            mechanism.carriage.position.set(0,0,0);
-            mechanism.bolt.position.z=.40;
-            if(mechanism.cassette)mechanism.cassette.position.y=-.31;
+            mechanism.carriage.position.copy(mechanism.rest.carriage);
+            mechanism.bolt.position.copy(mechanism.rest.bolt);
+            if(mechanism.cassette && mechanism.rest.cassette)
+                mechanism.cassette.position.copy(mechanism.rest.cassette);
         }
     }
     function setAnimationPreview(mode='off',speed=3){
@@ -1452,12 +1453,13 @@ export function createArenaScene(initial, targetAssembly) {
                 combat.position.z=combatBase.position.z+(record.recoilKick??0);
                 const mechanism=combat.userData.weaponMechanism;
                 if(mechanism){
-                    mechanism.carriage.position.z=mechanism.baseZ+reload.slide+
+                    const rest=mechanism.rest;
+                    mechanism.carriage.position.z=rest.carriage.z+reload.slide+
                         (record.recoilKick??0)*.35;
-                    mechanism.carriage.position.y=mechanism.baseY+reload.bolt*.14;
-                    mechanism.bolt.position.z=.40+reload.bolt;
-                    if(mechanism.cassette)
-                        mechanism.cassette.position.y=-.31-reload.cassette;
+                    mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14;
+                    mechanism.bolt.position.z=rest.bolt.z+reload.bolt;
+                    if(mechanism.cassette && rest.cassette)
+                        mechanism.cassette.position.y=rest.cassette.y-reload.cassette;
                 }
             }
             const load=Math.min(1,(state.footingLoad??0)*.7+
@@ -2510,6 +2512,10 @@ export function buildExteriorRig(assembly) {
         const sharedVisual = buildPartVisual(def.id, { mode: 'gameplay' });
         if (sharedVisual) {
             group.add(sharedVisual);
+            // Mechanism handles belong to the authored weapon geometry, never
+            // a second universal bolt attached behind this early continue.
+            if (slot === 'combat' && sharedVisual.userData.weaponMechanism)
+                group.userData.weaponMechanism = sharedVisual.userData.weaponMechanism;
             sharedVisual.traverse(node => {
                 if (!node.isMesh) return;
                 node.userData.slot = slot;
@@ -2649,82 +2655,6 @@ export function buildExteriorRig(assembly) {
                 add(plate(.09, .45, .08, m(steel)), 0, .35, .47);
                 break;
             }
-            case 'gun-light': {
-                // Long narrow barrel + open support rail, smaller breech, exposed recoil path.
-                const mount = add(cyl(.27, .27, .43, steel), -.10, .01, .12);
-                mount.rotation.z = Math.PI / 2;
-                add(plate(.62, .42, .73, m(yellow)), 0, .02, .02);
-                add(plate(.45, .13, 1.18, m(teal)), 0, .28, -.39);
-                add(plate(.18, .25, 1.50, m(0x747970)), -.24, -.13, -.51);
-                const barrel = add(cyl(.105, .14, 2.03, brightSteel, 10), 0, -.05, -1.09);
-                barrel.rotation.x = Math.PI / 2;
-                const muzzle = add(cyl(.17, .17, .20, steel), 0, -.05, -2.12);
-                muzzle.rotation.x = Math.PI / 2;
-                // Two opposed slots visibly distinguish the lightweight muzzle brake.
-                add(plate(.30, .035, .12, m(0x181e1d)), 0, .10, -2.12);
-                add(plate(.31, .24, .29, m(0x54574f)), 0, -.01, .49);
-                break;
-            }
-            case 'gun-scatter': {
-                // The first true scatter archetype: broad single choke, welded
-                // reinforcement collars, exposed cycling linkage and a 4-shell
-                // cassette. One physical bore from the middle of this choke is
-                // where every pellet ray actually begins.
-                const trunnion=add(cyl(.36,.36,.58,steel,10),-.10,.01,.20);
-                trunnion.rotation.z=Math.PI/2;
-                add(plate(.93,.61,.72,m(yellow)),0,.04,.01);
-                add(plate(.85,.18,.84,m(0x665a3e)),0,.34,-.07);
-                add(plate(.51,.47,.50,m(teal)),0,-.26,.36);
-                const choke=add(cyl(.325,.385,.85,brightSteel,8),0,-.06,-.62);
-                choke.rotation.x=Math.PI/2;
-                const collar=add(cyl(.38,.38,.19,steel,8),0,-.06,-1.02);
-                collar.rotation.x=Math.PI/2;
-                const throat=add(cyl(.20,.20,.025,0x151c1b,8),0,-.06,-1.124);
-                throat.rotation.x=Math.PI/2;
-                for(const side of [-1,1]) {
-                    add(plate(.13,.20,.76,m(0x83522f)),side*.40,.02,-.55);
-                    add(plate(.12,.075,.64,m(teal)),side*.42,.29,-.27);
-                    add(plate(.12,.10,.63,m(steel)),side*.28,.23,-.58); // exposed barrel brace
-                }
-                add(plate(.28,.15,.57,m(steel)),-.30,-.28,.47);
-                add(plate(.44,.13,.17,m(0x4b4e46)),0,.12,.60);
-                break;
-            }
-            case 'gun-cannon':
-            case 'gun-short': {
-                const short = def.id === 'gun-short';
-                const mount = add(cyl(.35, .35, .51, steel), -.10, .01, .13);
-                mount.rotation.z = Math.PI / 2;
-                add(plate(.81, .55, .85, m(yellow)), 0, .05, -.04);
-                add(plate(.66, .28, .62, m(teal)), 0, .25, .05);
-                const length = short ? .73 : 1.46;
-                const barrel = add(cyl(short ? .20 : .135, short ? .26 : .20, length, brightSteel), 0, -.05, -.45 - length * .25);
-                barrel.rotation.x = Math.PI / 2;
-                const muzzle = add(cyl(short ? .27 : .22, short ? .27 : .22, .12, steel), 0, -.05, -.45 - length * .75);
-                muzzle.rotation.x = Math.PI / 2;
-                add(plate(.66, .46, .37, m(0x5a5b4d)), 0, .05, .53);
-                break;
-            }
-        }
-        if(slot==='combat'){
-            // Simple movable metalwork on the existing weapon assembly. This
-            // is NOT a second weapon/hit volume: each piece is physical mesh,
-            // tagged like the rest and participates in normal shot raycasts.
-            const carriage=new THREE.Group();
-            carriage.name='EXPOSED BOLT / RELOAD CARRIAGE';
-            group.add(carriage);
-            const b=def.id==='gun-short'?.35:def.id==='gun-scatter'?.42:.27;
-            const bolt=add(plate(b,.16,.35,m(brightSteel)),0,.31,.40);
-            carriage.add(bolt);
-            const track=add(plate(b*.45,.05,.56,m(steel)),0,.415,.35);
-            carriage.add(track);
-            let cassette=null;
-            if(def.id==='gun-scatter'){
-                cassette=add(plate(.43,.26,.31,m(0x8c6745)),0,-.31,.33);
-                carriage.add(cassette);
-            }
-            group.userData.weaponMechanism={carriage,bolt,cassette,
-                baseZ:carriage.position.z,baseY:carriage.position.y};
         }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry

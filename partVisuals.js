@@ -1,4 +1,4 @@
-/** Shared M3CH4 mobility and command models. Gameplay and preview use the same authored
+/** Shared M3CH4 mobility, weapon and command models. Gameplay and preview use the same authored
  * geometry for every current mobility family. This remains a deliberately tiny
  * registry, not a procedural generator or a second assembly graph.
  */
@@ -6,6 +6,10 @@ import { fitFixtureFor } from './chassisFitFixtures.js';
 import { buildYardwalkerVisual } from './yardwalkerVisual.js';
 import { buildKestrelVisual } from './kestrelVisual.js';
 import { buildHaulerVisual } from './haulerVisual.js';
+import { buildTrainingCannonVisual } from './trainingCannonVisual.js';
+import { buildStumpCannonVisual } from './stumpCannonVisual.js';
+import { buildNeedleCannonVisual } from './needleCannonVisual.js';
+import { buildScattergunVisual } from './scattergunVisual.js';
 import { buildCyclopsVisual } from './cyclopsVisual.js';
 import { buildVistaVisual } from './vistaVisual.js';
 import { buildHearthVisual } from './hearthVisual.js';
@@ -14,6 +18,10 @@ const BUILDERS = Object.freeze({
     'legs-yard': buildYardwalkerVisual,
     'legs-compact': buildKestrelVisual,
     'legs-hauler': buildHaulerVisual,
+    'gun-cannon': buildTrainingCannonVisual,
+    'gun-short': buildStumpCannonVisual,
+    'gun-light': buildNeedleCannonVisual,
+    'gun-scatter': buildScattergunVisual,
     'cab-cyclops': buildCyclopsVisual,
     'cab-utility': buildVistaVisual,
     'cab-armored': buildHearthVisual,

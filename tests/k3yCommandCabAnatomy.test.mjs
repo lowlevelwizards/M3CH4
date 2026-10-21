@@ -56,7 +56,7 @@ test('only single authored builders service shared registry, legacy cab switch c
     for(const name of ['legs-yard','legs-compact','legs-hauler'])
         assert.ok(registry.includes("'"+name+"':"),name+' mobility overwritten');
     for(const name of ['gun-cannon','gun-short','gun-light','gun-scatter'])
-        assert.ok(scene.includes("case '"+name+"'"),name+' legacy weapon overwritten');
+        assert.ok(registry.includes("'"+name+"':"),name+' new weapon registry overwritten');
 });
 test('command construction uses physical primitive shells; no new special damage rules',()=>{
     const kit=src('commandVisualKit.js');
