@@ -12,7 +12,8 @@ test('unified garage restores the existing 3D component picture gallery instead 
     assert.match(ui,/partThumbnailDataUrl/);
     assert.match(ui,/classList\.add\('unified-part-card'\)/);
     assert.match(ui,/onSelect: \(\) => \{ selectedHardwareSerial = part\.serial; render\(\); \}/);
-    assert.match(ui,/onAction: \(\) => editModule\(slot,here \? null : focused\.serial\)/);
+    assert.match(ui,/onAction: \(\) => editModule\(slot, focused\.serial\)/);
+    assert.match(ui,/if\(!swapExpanded\)return box/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
     assert.match(ui,/elsewhere \? 'BAY '/);
     assert.match(partGrid,/const img = document\.createElement\('img'\)/);
