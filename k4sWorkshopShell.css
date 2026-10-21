@@ -129,7 +129,13 @@
  width:min(275px,31vw);
 }
 #unified-garage[data-workspace="garage"].replacing .unified-modules.replacing{
- gap:7px;
+ gap:0;
+}
+#unified-garage[data-workspace="garage"].replacing:not(.drawer-open) .unified-modules.replacing .rig-part-identity{
+ display:none;
+}
+#unified-garage[data-workspace="garage"].replacing:not(.drawer-open) #unified-garage-dock{
+ max-height:69px;
 }
 #unified-garage[data-workspace="garage"].replacing .garage-part-actions{grid-template-columns:1fr}
 #unified-garage[data-workspace="garage"].drawer-open #unified-garage-dock{
