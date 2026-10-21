@@ -40,7 +40,15 @@ function faceCenter(normal, bounds) {
 export function fitFixtureFor(definitionId) {
     const physical = BY_ID.get(definitionId);
     const face = MOUNT_FACES[definitionId];
-    if (!face || !physical || !['mobility', 'command', 'power', 'combat'].includes(physical.slot)) return null;
+    if (!physical || (physical.slot !== 'structure' && (!face || !['mobility', 'command', 'power', 'combat'].includes(physical.slot)))) return null;
+    if (physical.slot === 'structure') return {
+        id: physical.id, name: physical.name, slot: 'structure',
+        envelope: physical.envelope.slice(), massKg: physical.massKg,
+        loadLimitKg: physical.loadLimitKg, center: physical.center.slice(),
+        standard: physical.accepts, nativeStandard: physical.accepts,
+        sockets: physical.sockets.map(s=>({...s,position:s.position.slice(),rotation:s.rotation.slice()})),
+        construction: 'authored live structural geometry; catalogue sockets unchanged',
+    };
     const envelope = physical.envelope.slice();
     const previewAdapter = PREVIEW_ADAPTERS[definitionId] ?? null;
     return {

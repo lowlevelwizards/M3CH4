@@ -13,8 +13,14 @@ import { buildScattergunVisual } from './scattergunVisual.js';
 import { buildCyclopsVisual } from './cyclopsVisual.js';
 import { buildVistaVisual } from './vistaVisual.js';
 import { buildHearthVisual } from './hearthVisual.js';
+import { buildBruiserFrameVisual } from './bruiserFrameVisual.js';
+import { buildSkeletonFrameVisual } from './skeletonFrameVisual.js';
+import { buildWedgeFrameVisual } from './wedgeFrameVisual.js';
 
 const BUILDERS = Object.freeze({
+    'frame-sr': buildBruiserFrameVisual,
+    'frame-utility': buildSkeletonFrameVisual,
+    'frame-wedge': buildWedgeFrameVisual,
     'legs-yard': buildYardwalkerVisual,
     'legs-compact': buildKestrelVisual,
     'legs-hauler': buildHaulerVisual,

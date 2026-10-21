@@ -1,0 +1,52 @@
+name: k3z Frame Anatomy CI
+on:
+  pull_request:
+    paths:
+      - 'frameVisualKit.js'
+      - '*FrameVisual.js'
+      - 'partVisuals.js'
+      - 'chassisFitFixtures.js'
+      - 'scene.js'
+      - 'sceneAssembly.js'
+      - 'index.html'
+      - 'frame-anatomy.html'
+      - 'frameAnatomyLab.js'
+      - 'tests/k3zFrameAnatomy.test.mjs'
+      - 'research/frameAnatomyBrowserAudit.mjs'
+      - 'research/frameShieldingAudit.mjs'
+      - '.github/workflows/k3z-frame-anatomy-ci.yml'
+  workflow_dispatch:
+jobs:
+  k3z-regression-and-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare exact runtime
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0 playwright
+          npx playwright install --with-deps chromium
+      - name: Validate source and run entire regression suite
+        run: |
+          for f in frameVisualKit.js bruiserFrameVisual.js skeletonFrameVisual.js wedgeFrameVisual.js frameAnatomyLab.js research/frameAnatomyBrowserAudit.mjs; do node --check "$f"; done
+          npm test
+      - name: Real mesh directional shielding (must pass)
+        run: |
+          node research/frameShieldingAudit.mjs --debug
+          node research/frameShieldingAudit.mjs --assert
+      - name: Serve gallery and game modules
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/k3z-http.log 2>&1 &
+          sleep 2
+      - name: Browser screenshots and real shell/assembly audits
+        run: node research/frameAnatomyBrowserAudit.mjs
+      - name: Upload actual Three.js images and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k3z-frame-anatomy-comparisons
+          path: frame-anatomy-artifacts/
+          if-no-files-found: warn

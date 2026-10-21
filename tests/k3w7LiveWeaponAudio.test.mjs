@@ -105,7 +105,7 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/soundReload\(/);
   assert.match(html,/\.\/audio\.js\?v=k3w11/);
   assert.match(html,/\.\/liveWeaponAudio\.js\?v=k3w11/);
-  assert.match(html,/main\.js\?v=k3y/);
-  assert.match(html,/0\.0\.1k\.3y — Command Cab Anatomy Rewrite/);
+  assert.match(html,/main\.js\?v=k3z/);
+  assert.match(html,/0\.0\.1k\.3z — Frame Anatomy Rewrite/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });
