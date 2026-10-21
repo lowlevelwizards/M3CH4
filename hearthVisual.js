@@ -18,7 +18,7 @@ export function buildHearthVisual(fixture){
         frontBottom:.122,frontTop:.269,rearBottom:.241,rearTop:.408,
     },'cream');
     block(face,'deep recessed black vision aperture',[0,.080,-.557],
-        [.873,.075,.017],'recess');
+        [.873,.075,.017],'opticRecess');
     block(face,'narrow protected inner optic strip',[0,.080,-.569],
         [.752,.027,.007],'glass');
     const armor=groupAt(root,'HEARTH / LARGE SIDE CHEEKS');
@@ -30,11 +30,11 @@ export function buildHearthVisual(fixture){
     block(rear,'heavy rear structural cassette',[0,-.09,.467],
         [1.15,.65,.292],'iron');
     chamferBlock(rear,'low protective roof armor',[0,.419,.140],
-        [1.15,.092,.824],'iron',.035);
+        [1.15,.092,.824],'loadSteel',.035);
     block(rear,'small teal service hatch',[0,.472,.252],
         [.442,.029,.355],'teal');
     block(rear,'rear access equipment block',[0,.038,.557],
-        [.570,.286,.095],'bright');
+        [.570,.286,.095],'raw');
     mountCollar(root,fixture.envelope[1],.24);
     return finishCommandVisual(root,fixture,'low sloped crew bunker');
 }

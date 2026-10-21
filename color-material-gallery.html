@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M3CH4 / k.4a true material comparison gallery</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#18221e;color:#eee5cf;font:13px/1.4 system-ui,sans-serif}
+header{padding:11px 16px;background:#252e29;border-bottom:1px solid #52605a}
+h1{font-size:17px;margin:0;letter-spacing:.07em}
+header p{margin:2px 0;color:#bcc7bb}
+#stage{height:475px;position:relative;margin:0;padding:10px}
+#lab-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#tiles{position:relative;height:100%;display:grid;grid-template-columns:repeat(var(--count,4),minmax(0,1fr));gap:9px;pointer-events:none}
+.tile{border:1px solid #5a7164;position:relative;overflow:hidden;border-radius:4px;background:transparent}
+.label{position:absolute;top:0;left:0;right:0;padding:8px;background:#172019e3;font-size:12px;font-weight:750}
+.state{position:absolute;bottom:0;left:0;right:0;padding:5px 8px;background:#172019d6;color:#b2c5b3;font:10px ui-monospace,monospace}
+body.mini #stage{height:136px;padding:4px}body.mini .label{font-size:9px;padding:2px 4px}body.mini .state{display:none}
+</style></head><body><header><h1>M3CH4 / MATERIAL IDENTITY / ACTUAL BUILDER RENDERS</h1><p id="caption">Identical geometry · identical camera · real Three.js material and lighting</p></header>
+<section id="stage"><canvas id="lab-canvas" aria-hidden="true"></canvas><div id="tiles"></div></section>
+<script type="module" src="./colorMaterialGallery.js"></script></body></html>

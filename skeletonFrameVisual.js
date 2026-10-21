@@ -20,9 +20,9 @@ export function buildSkeletonFrameVisual(fixture){
         beam(triangulation,(side<0?'left':'right')+' forward diagonal',
             [x,.16,-.48],[x,-.35,.19],.12,.14,'iron');
         beam(triangulation,(side<0?'left':'right')+' rear diagonal',
-            [x,-.34,.17],[x,.17,.55],.12,.14,'bright');
+            [x,-.34,.17],[x,.17,.55],.12,.14,'loadSteel');
         blockAt(triangulation,(side<0?'left':'right')+' exposed lower runner',
-            [x,-.37,.025],[.13,.14,1.18],'bright');
+            [x,-.37,.025],[.13,.14,1.18],'raw');
     }
     const lower=groupAt(r,'SKELETON / LOWER PAIRED-MOBILITY SADDLE');
     blockAt(lower,'lower transversal drive saddle',[0,-.45,.005],[1.42,.17,.33],'iron');
@@ -38,7 +38,7 @@ export function buildSkeletonFrameVisual(fixture){
             [side*.63,.24,-.49],[side*.29,.08,command[2]],.11,.12,'iron');
     const weapon=groupAt(r,'SKELETON / RIGHT WEAPON OUTRIGGER');
     beam(weapon,'lateral combat cantilever',[.63,.19,-.48],
-        [combat[0]-.09,combat[1],combat[2]],.19,.22,'bright');
+        [combat[0]-.09,combat[1],combat[2]],.19,.22,'raw');
     beam(weapon,'triangular outrigger stay',[.63,-.24,-.29],
         [combat[0]-.14,combat[1],combat[2]+.09],.12,.14,'iron');
     bearing(weapon,'right compact bearing',[combat[0]-.08,combat[1],combat[2]],

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
@@ -32,7 +33,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     if (!definition) return null;
     const condition = Math.max(0, Math.min(1, Number(state.condition) || 0));
     const destroyed = !!state.destroyed || state.status === 'destroyed';
-    const key = `${definitionId}:${destroyed ? 'x' : Math.round(condition * 10)}`;
+    const key = `k4a:${definitionId}:${destroyed ? 'x' : Math.round(condition * 10)}`;
     if (partThumbnailCache.has(key)) return partThumbnailCache.get(key);
     if (!partThumbnailRenderer) {
         partThumbnailRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
@@ -2487,6 +2488,8 @@ export function buildExteriorRig(assembly) {
     const steel = 0x363f41;
     const brightSteel = 0x7b827b;
     const m = (color) => mat(color, .82, .31);
+    // Legacy generator geometry keeps fresh per-rig materials for damage isolation.
+    const pm = key => partMaterial(key).clone();
     for (const slot of SLOTS) {
         const fitted = installedPart(assembly, slot);
         if (!fitted)
@@ -2502,13 +2505,14 @@ export function buildExteriorRig(assembly) {
         const add = (mesh, x = 0, y = 0, z = 0) => {
             mesh.position.set(x, y, z);
             mesh.userData.slot = slot;
+            if (materialRoleOf(mesh.material)) mesh.userData.materialRole = materialRoleOf(mesh.material);
             mesh.castShadow = true; mesh.receiveShadow = true;
             group.add(mesh);
             meshes.push(mesh);
             pickMeshes.push(mesh);
             return mesh;
         };
-        const cyl = (radiusTop, radiusBottom, height, material, sides = 10) => new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, sides), m(material));
+        const cyl = (radiusTop, radiusBottom, height, material, sides = 10) => new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, sides), (material?.isMaterial ? material : m(material)));
         const sharedVisual = buildPartVisual(def.id, { mode: 'gameplay' });
         if (sharedVisual) {
             group.add(sharedVisual);
@@ -2528,32 +2532,32 @@ export function buildExteriorRig(assembly) {
         switch (def.id) {
             case 'power-dynamo': {
                 // Rear-mounted generator/cooling pack: fans and exposed teal radiator fins.
-                add(plate(1.06, .85, .76, m(steel)), 0, 0, 0);
-                add(plate(1.24, .85, .18, m(teal)), 0, -.03, .38);
+                add(plate(1.06, .85, .76, pm('structure')), 0, 0, 0);
+                add(plate(1.24, .85, .18, pm('teal')), 0, -.03, .38);
                 for (let i = -4; i <= 4; i++)
-                    add(box(.064, .63, .085, m(0x1c3537)), i * .12, -.03, .50);
-                const fan = add(cyl(.28, .28, .10, brightSteel, 12), 0, .12, .56);
+                    add(box(.064, .63, .085, pm('darkMechanism')), i * .12, -.03, .50);
+                const fan = add(cyl(.28, .28, .10, pm('machined'), 12), 0, .12, .56);
                 fan.rotation.x = Math.PI / 2;
-                add(box(.43, .08, .08, m(0x283434)), 0, .12, .65);
-                add(box(.08, .43, .08, m(0x283434)), 0, .12, .65);
+                add(box(.43, .08, .08, pm('heatSteel')), 0, .12, .65);
+                add(box(.08, .43, .08, pm('heatSteel')), 0, .12, .65);
                 break;
             }
             case 'power-air': {
                 // Compact power core + tall open radiator stack; geometry explains the exposed tradeoff.
-                add(plate(.93, .60, .74, m(steel)), 0, -.20, -.02);
-                add(plate(1.04, .21, .71, m(yellow)), 0, .10, .00);
+                add(plate(.93, .60, .74, pm('structure')), 0, -.20, -.02);
+                add(plate(1.04, .21, .71, pm('mustard')), 0, .10, .00);
                 for (const side of [-1, 1]) {
-                    add(plate(.10, .75, .66, m(teal)), side * .43, .27, .04);
+                    add(plate(.10, .75, .66, pm('teal')), side * .43, .27, .04);
                     for (let fin = -2; fin <= 2; fin++) {
-                        add(plate(.28, .58, .065, m(0x6a7970)), side * .39, .31, fin * .13);
+                        add(plate(.28, .58, .065, pm('rawSteel')), side * .39, .31, fin * .13);
                     }
                 }
-                const pipe = add(cyl(.09, .09, .55, brightSteel, 8), -.14, .44, -.17);
+                const pipe = add(cyl(.09, .09, .55, pm('machined'), 8), -.14, .44, -.17);
                 pipe.rotation.z = .17;
-                const fan = add(cyl(.24, .24, .10, brightSteel, 10), 0, .35, .38);
+                const fan = add(cyl(.24, .24, .10, pm('machined'), 10), 0, .35, .38);
                 fan.rotation.x = Math.PI / 2;
-                add(plate(.45, .09, .08, m(steel)), 0, .35, .47);
-                add(plate(.09, .45, .08, m(steel)), 0, .35, .47);
+                add(plate(.45, .09, .08, pm('heatSteel')), 0, .35, .47);
+                add(plate(.09, .45, .08, pm('heatSteel')), 0, .35, .47);
                 break;
             }
         }
