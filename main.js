@@ -1269,6 +1269,30 @@ document.addEventListener('m3ch4:bay-service', event => {
     } catch (error) { request.result = { ok:false, reason:error?.message || 'SERVICE FAILED' }; }
 });
 
+/** Workshop and combat share the v8 inventory; never let a stale in-memory
+ * copy undo successful serialized paint edits on the next automatic save. */
+function reconcileLivePaint(){
+    const saved=loadMachine(saveStorage);
+    const painted=new Map(saved.assembly.owned.map(part=>[part.serial,part.paint||null]));
+    for(const part of assembly.owned){
+        if(!painted.has(part.serial))continue;
+        const finish=painted.get(part.serial);
+        if(finish)part.paint={...finish};
+        else delete part.paint;
+    }
+    refreshAssembly(false);
+}
+function refreshFriendlyCrewPaint(){
+    friendlySupportActors.forEach((actor,i)=>{
+        applyFriendlyCrewPaint(actor.assembly,saveStorage,assembly,i+1);
+        arena.repaintCombatant(actor.id);
+    });
+}
+document.addEventListener('m3ch4:paint-committed',()=>{
+    reconcileLivePaint();
+    refreshFriendlyCrewPaint();
+});
+document.addEventListener('m3ch4:team-livery-committed',refreshFriendlyCrewPaint);
 document.addEventListener('m3ch4:inventory-changed', () => {
     refreshAssembly(true);
     renderPartInfo();
