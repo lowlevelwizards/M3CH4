@@ -1253,6 +1253,7 @@ export function createArenaScene(initial, targetAssembly) {
     let azimuth = 0.68;
     let elevation = 0.25;
     let radius = 7.20;
+    let orbitAssist = null; // shortcut-only reveal; manual orbit always wins
     const orbitTarget = new THREE.Vector3(0, 1.85, 0);
     const desiredTarget = orbitTarget.clone();
     let panelRightPx = 0;
@@ -1429,6 +1430,12 @@ export function createArenaScene(initial, targetAssembly) {
             exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
             poseInspectionPreview(dt);
+            // A hidden rear assembly gets a small, eased reveal from its station
+            // shortcut. Never reframe the pivot or fight a manual orbit.
+            if (orbitAssist !== null) {
+                azimuth += (orbitAssist - azimuth) * Math.min(1, dt * 7.5);
+                if (Math.abs(orbitAssist - azimuth) < .003) orbitAssist = null;
+            }
             // Keep the center of the physical machine as the orbit pivot on every frame.
             orbitTarget.copy(desiredTarget);
             const around = new THREE.Vector3(
@@ -1714,7 +1721,14 @@ export function createArenaScene(initial, targetAssembly) {
         // Paint and part selection must not move, zoom or reset the orbit.
         desiredTarget.set(0,1.85,0);
     }
+    function revealPart(slot) {
+        // Model taps have already exposed the part. Only explicit shortcut navigation
+        // may make a gentle camera assist, and only when the rear power pack is hidden.
+        if (slot === 'power' && azimuth > -.6 && azimuth < 1.15)
+            orbitAssist = azimuth + Math.min(.40, 1.35 - azimuth);
+    }
     function orbitBy(dx, dy) {
+        orbitAssist = null;
         azimuth = orbitAzimuthAfterDrag(azimuth, dx);
         elevation = THREE.MathUtils.clamp(elevation + dy * 0.006, -0.18, 1.05);
     }
@@ -1732,6 +1746,7 @@ export function createArenaScene(initial, targetAssembly) {
             radius = THREE.MathUtils.clamp(radius / scale, 4.0, 11.2);
     }
     function resetOrbit() {
+        orbitAssist = null;
         azimuth = 0.68;
         elevation = 0.25;
         radius = 7.20;
@@ -2190,7 +2205,7 @@ export function createArenaScene(initial, targetAssembly) {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
-        orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
+        orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
