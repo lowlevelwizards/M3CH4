@@ -132,8 +132,8 @@ test('updated mobile URLs reference fresh result and machine-status resources',(
     const html=source('index.html');
     const mount=source('garageMountUI.js');
     const series=source('seriesUI.js');
-    assert.match(html,/main\.js\?v=k4r/);
-    assert.match(html,/garageMountUI\.js\?v=k4r/);
+    assert.match(html,/main\.js\?v=k4s1/);
+    assert.match(html,/garageMountUI\.js\?v=k4s1/);
     assert.match(html,/garageBay\.js\?v=k3w0/);
     assert.match(mount,/seriesUI\.js\?v=k4q/);
     assert.match(mount,/acquisitionUI\.js\?v=k4o/);

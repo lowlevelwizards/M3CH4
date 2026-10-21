@@ -16,7 +16,7 @@ test('garage inspection favors selected parts without losing the complete machin
   assert.match(scene, /desiredTarget\.set\(0,1\.85,0\)/);
   assert.doesNotMatch(scene, /radius = Math\.max\(radius, 6\.85\)/);
   assert.match(scene, /framingOffsetWorld\(panelRightPx,viewportWidth,viewportHeight/);
-  assert.match(scene, /radius = 7\.20/);
+  assert.match(scene, /radius = 6\.05/);
 });
 
 test('result page centers its compact accounting block and destructive return is visually secondary', () => {

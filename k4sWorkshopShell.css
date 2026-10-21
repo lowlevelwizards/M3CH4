@@ -1,0 +1,313 @@
+/* M3CH4 k4s.1 — one activity at a time.
+ * This file intentionally comes LAST. Old garage layout declarations remain
+ * available for contract/pit mechanics, but no longer own the garage canvas. */
+#unified-garage{
+ --k4s-amber:#e5bc70;--k4s-ink:#111a16;--k4s-edge:#70806b;
+ --k4s-tool-width:clamp(210px,28vw,330px);
+ --k4s-header:39px;
+ top:max(48px,calc(env(safe-area-inset-top) + 40px));
+ bottom:max(7px,env(safe-area-inset-bottom));
+ left:max(8px,env(safe-area-inset-left));
+ right:max(8px,env(safe-area-inset-right));
+}
+#unified-garage .unified-top{
+ position:absolute;top:0;left:0;right:0;
+ box-sizing:border-box;width:100%;max-width:none;
+ height:var(--k4s-header);min-height:0;
+ display:flex;align-items:center;gap:10px;
+ padding:5px 11px;background:linear-gradient(90deg,#111b17eb,#111b17c9 50%,#111b1790);
+ border:1px solid #78816789;box-shadow:0 3px 14px #0008;
+ pointer-events:auto;
+}
+#unified-garage .unified-title{
+ color:var(--k4s-amber);font-size:12px;letter-spacing:.075em;
+ font-weight:900;max-width:56vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#unified-garage .unified-credits{margin-left:auto;font-size:11px;color:#bfd5b7}
+#unified-garage .workshop-ready,#unified-garage .workshop-unready{
+ font-size:9px;letter-spacing:.06em;white-space:nowrap;color:#a7d4b4;
+}
+#unified-garage .workshop-unready{color:#e0a078}
+#unified-garage .workshop-back{
+ min-height:29px;padding:5px 10px;flex-shrink:0;
+ background:#283025;border:1px solid #857550;
+ color:var(--k4s-amber);font:800 10px ui-monospace,monospace;
+}
+#unified-garage .workshop-rail,
+#unified-garage .workshop-status,
+#unified-garage .workshop-links{display:none;pointer-events:auto}
+#unified-garage[data-workspace="garage"] .workshop-rail{
+ display:block;position:absolute;top:calc(var(--k4s-header) + 10px);left:0;
+ width:49px;z-index:1;
+}
+#unified-garage[data-workspace="garage"] .unified-stations{
+ display:flex;flex-direction:column;gap:7px;
+}
+#unified-garage[data-workspace="garage"] .unified-station{
+ box-sizing:border-box;width:47px;height:46px;min-height:46px;
+ display:flex;align-items:center;justify-content:center;
+ border-radius:5px;padding:3px;background:#17231dc9;
+ border:1px solid #657867a6;color:#a5c7ac;
+ box-shadow:0 3px 9px #0005;position:relative;
+}
+#unified-garage[data-workspace="garage"] .unified-station .rig-station-face{gap:0}
+#unified-garage[data-workspace="garage"] .unified-station .rig-station-label,
+#unified-garage[data-workspace="garage"] .unified-station .rig-condition,
+#unified-garage[data-workspace="garage"] .unified-station .rig-station-empty{display:none}
+#unified-garage[data-workspace="garage"] .unified-station .rig-station-icon{
+ font-size:23px;line-height:1;min-height:0;
+}
+#unified-garage[data-workspace="garage"] .unified-station.selected{
+ background:#44361f;color:#f2cc82;border-color:#e8b862;outline:none;
+}
+#unified-garage[data-workspace="garage"] .unified-station.state-empty:after{
+ content:'+';position:absolute;bottom:1px;right:3px;
+ font:900 12px ui-monospace,monospace;color:#9eac9c;
+}
+#unified-garage[data-workspace="garage"] .unified-station.state-damaged:after,
+#unified-garage[data-workspace="garage"] .unified-station.state-critical:after,
+#unified-garage[data-workspace="garage"] .unified-station.state-disabled:after,
+#unified-garage[data-workspace="garage"] .unified-station.state-destroyed:after{
+ content:'●';position:absolute;bottom:1px;right:3px;
+ font-size:9px;color:#e49c6b;
+}
+#unified-garage[data-workspace="garage"] .workshop-status{
+ position:absolute;top:calc(var(--k4s-header) + 8px);right:0;display:flex;gap:5px;
+}
+#unified-garage .workshop-status-action,
+#unified-garage .workshop-warning-action{
+ padding:5px 8px;min-height:29px;font:800 9px ui-monospace,monospace;
+ background:#111e18ce;color:#b7cbb5;border:1px solid #62736591;
+}
+#unified-garage .workshop-warning-action{color:#edac7c;border-color:#aa7458}
+#unified-garage[data-workspace="garage"] .workshop-links{
+ position:absolute;bottom:0;left:65px;display:flex;align-items:center;
+ gap:6px;z-index:1;max-width:calc(100% - 375px);
+}
+#unified-garage .workshop-link{
+ min-height:35px;min-width:58px;box-sizing:border-box;
+ padding:7px 10px;font:900 9px ui-monospace,monospace;
+ letter-spacing:.04em;color:#d5c6a0;
+ background:#15211bdc;border:1px solid #6a7963b8;
+}
+#unified-garage .workshop-link-contracts{
+ background:#624a24e8;border-color:#d3ad68;color:#f7dc9d;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-dock{
+ display:none;top:auto;bottom:48px;left:59px;right:auto;
+ box-sizing:border-box;width:var(--k4s-tool-width);
+ max-height:min(62vh,315px);min-height:0;padding:9px;gap:7px;
+ background:#111d18f3;border:1px solid #798477a8;
+ border-radius:5px;overflow-y:auto;box-shadow:0 8px 25px #0009;
+}
+#unified-garage[data-workspace="garage"].tool-open #unified-garage-dock{display:flex}
+#unified-garage[data-workspace="garage"] .unified-modules{gap:7px;min-height:0}
+#unified-garage[data-workspace="garage"] .rig-part-identity{
+ display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:27px;
+}
+#unified-garage[data-workspace="garage"] .rig-part-identity .unified-section-name{
+ padding:0;border:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+ color:#e8c17e;font-size:11px;
+}
+#unified-garage[data-workspace="garage"] .unified-close{min-width:30px;min-height:29px;flex:0 0 30px}
+#unified-garage[data-workspace="garage"] .unified-quick-part{min-height:28px;gap:5px}
+#unified-garage[data-workspace="garage"] .unified-quick-part .unified-part-name{
+ font-size:9px;line-height:1.3;max-width:100%;
+}
+#unified-garage[data-workspace="garage"] .unified-modules>.rig-condition{
+ width:42px;height:42px;
+}
+#unified-garage[data-workspace="garage"] .unified-modules>.rig-condition .rig-meter-numbers{
+ left:48px;top:12px;font-size:9px;
+}
+#unified-garage[data-workspace="garage"] .unified-service{min-height:32px}
+#unified-garage[data-workspace="garage"] .garage-part-actions .unified-swap-toggle{
+ min-height:36px;
+}
+#unified-garage[data-workspace="garage"].replacing #unified-garage-dock{
+ top:calc(var(--k4s-header) + 8px);bottom:auto;max-height:91px;
+ width:min(275px,31vw);
+}
+#unified-garage[data-workspace="garage"].replacing .unified-modules.replacing{
+ gap:0;
+}
+#unified-garage[data-workspace="garage"].replacing:not(.drawer-open) .unified-modules.replacing .rig-part-identity{
+ display:none;
+}
+#unified-garage[data-workspace="garage"].replacing:not(.drawer-open) #unified-garage-dock{
+ max-height:69px;
+}
+#unified-garage[data-workspace="garage"].replacing .garage-part-actions{grid-template-columns:1fr}
+#unified-garage[data-workspace="garage"].drawer-open #unified-garage-dock{
+ top:calc(var(--k4s-header) + 7px);bottom:47px;max-height:none;
+ width:clamp(275px,43vw,510px);
+}
+#unified-garage[data-workspace="garage"] .workshop-machine-heading{
+ display:flex;align-items:center;justify-content:space-between;gap:7px;
+}
+#unified-garage[data-workspace="garage"] .workshop-machine-heading strong{
+ font-size:11px;color:#e4bc75;
+}
+#unified-garage[data-workspace="garage"] .workshop-machine-history{
+ color:#b8c7b4;font-size:10px;line-height:1.5;
+}
+#unified-garage[data-workspace="garage"] .unified-identity-form{
+ flex-wrap:wrap;
+}
+#unified-garage[data-workspace="garage"] .unified-identity-form input{flex:1 1 100%}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf{
+ left:65px;right:0;bottom:48px;max-height:min(47vh,215px);
+ padding:6px 9px;gap:5px;background:#111b17ef;
+ border-radius:5px;box-shadow:0 7px 24px #000b;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf.shown{
+ display:flex;flex-direction:column;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .rig-gallery-tabs{
+ display:flex;flex:0 0 auto;min-height:28px;gap:6px;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .rig-gallery-tabs button{
+ flex:1;min-height:27px;font-size:9px;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-gallery{
+ flex:0 0 72px;min-height:0;height:72px;box-sizing:border-box;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-card{
+ height:67px;min-height:0;width:79px;flex:0 0 79px;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-detail{
+ flex:0 0 auto;min-height:39px;height:auto;max-height:59px;
+ box-sizing:border-box;overflow:visible;display:block;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-detail .part-detail-copy{
+ display:flex;align-items:center;flex-wrap:nowrap;gap:7px;min-width:0;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-detail h3{
+ flex:1 1 30%;min-width:0;max-width:40%;font-size:10px;line-height:1.2;
+ overflow-wrap:anywhere;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-detail .part-detail-meta{
+ flex:1 1 20%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px;
+}
+#unified-garage[data-workspace="garage"] #unified-garage-shelf .unified-part-detail .part-detail-action{
+ flex:0 0 auto;max-width:42%;min-height:35px;padding:5px 8px;
+ font-size:9px;white-space:normal;overflow-wrap:anywhere;
+}
+#unified-garage[data-workspace="garage"] .unified-bay-navigation{
+ right:0;bottom:0;min-width:0;width:clamp(205px,30vw,295px);
+ max-width:33vw;height:37px;padding:3px 4px;gap:4px;
+ grid-template-columns:30px minmax(0,1fr) 30px;
+ background:#121d18dd;border:1px solid #6573679b;
+}
+#unified-garage[data-workspace="garage"] .bay-arrow{
+ box-sizing:border-box;width:30px;height:29px;font-size:19px!important;
+}
+#unified-garage[data-workspace="garage"] .bay-index{gap:1px}
+#unified-garage[data-workspace="garage"] .bay-index strong{font-size:10px}
+#unified-garage[data-workspace="garage"] .bay-index span{display:none}
+#unified-garage[data-workspace="garage"] .bay-dots{gap:5px}
+#unified-garage[data-workspace="garage"] .bay-dots button{
+ width:15px;height:15px;font-size:8px;
+}
+/* Other activities are actual workspaces, not content stuffed into the
+   same narrow toolbox. Their internal controls are retained for this build. */
+#unified-garage[data-workspace="paint"] #unified-garage-dock{
+ display:flex;position:absolute;top:calc(var(--k4s-header) + 7px);bottom:0;left:0;right:auto;
+ box-sizing:border-box;width:clamp(300px,44vw,540px);max-height:none;
+ padding:11px;gap:10px;overflow:auto;
+ background:#121b17ef;border:1px solid #718272bd;
+}
+#unified-garage[data-workspace="paint"] .unified-bay-navigation{display:none}
+#unified-garage[data-workspace="paint"] .paint-booth-title{display:none}
+#unified-garage[data-workspace="vendor"] #unified-garage-dock,
+#unified-garage[data-workspace="contracts"] #unified-garage-dock,
+#unified-garage[data-workspace="setup"] #unified-garage-dock,
+#unified-garage[data-workspace="pit"] #unified-garage-dock{
+ display:flex;position:absolute;top:calc(var(--k4s-header) + 7px);bottom:0;
+ box-sizing:border-box;width:min(950px,94vw);max-height:none;
+ left:50%;right:auto;transform:translateX(-50%);
+ padding:15px 18px;gap:12px;overflow-y:auto;
+ background:#111b16f5;border:1px solid #8290739c;
+ border-radius:4px;box-shadow:0 10px 40px #000d;
+}
+#unified-garage[data-workspace="contracts"] .unified-campaign-map{
+ width:min(100%,630px);margin:0 auto;
+}
+#unified-garage[data-workspace="contracts"] .unified-contract-detail{
+ width:min(100%,740px);margin:0 auto;
+}
+#unified-garage[data-workspace="vendor"] .counter-lots{
+ width:min(100%,700px);margin:0 auto;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+}
+#unified-garage[data-workspace="vendor"] .counter-lot-detail{
+ width:min(100%,720px);margin:0 auto;
+}
+#unified-garage[data-workspace="setup"] .unified-stations,
+#unified-garage[data-workspace="pit"] .unified-stations{
+ width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+}
+#unified-garage[data-workspace="setup"] #unified-garage-action,
+#unified-garage[data-workspace="pit"] #unified-garage-action,
+#unified-garage[data-workspace="contracts"] #unified-garage-action{
+ position:absolute;left:50%;transform:translateX(-50%);
+ width:min(950px,94vw);z-index:2;
+ background:#111b17f5;
+}
+#unified-garage[data-workspace="setup"].has-primary #unified-garage-dock,
+#unified-garage[data-workspace="pit"].has-primary #unified-garage-dock,
+#unified-garage[data-workspace="contracts"].has-primary #unified-garage-dock{
+ bottom:56px;
+}
+#unified-garage[data-workspace="setup"] .unified-bay-navigation,
+#unified-garage[data-workspace="pit"] .unified-bay-navigation{
+ bottom:67px;right:4%;z-index:3;
+}
+/* Native overlay/dialog hierarchy remains above our UI. */
+#unified-garage .unified-notice{top:calc(var(--k4s-header) + 5px);right:5px;z-index:8}
+body.inspecting #inspect-reset{
+ min-height:28px;padding:5px 9px;font-size:9px;letter-spacing:.03em;
+ opacity:.75;
+}
+@media(max-height:460px){
+ #unified-garage{--k4s-header:33px;--k4s-tool-width:clamp(192px,27vw,275px)}
+ #unified-garage .unified-top{padding:3px 7px}
+ #unified-garage[data-workspace="garage"] .workshop-rail{top:calc(var(--k4s-header) + 7px)}
+ #unified-garage[data-workspace="garage"] .unified-station{
+  width:42px;height:41px;min-height:41px;
+ }
+ #unified-garage[data-workspace="garage"] .workshop-rail{width:43px}
+ #unified-garage[data-workspace="garage"] .unified-stations{gap:5px}
+ #unified-garage[data-workspace="garage"] #unified-garage-dock{
+  bottom:40px;left:49px;max-height:min(64vh,255px);
+ }
+ #unified-garage[data-workspace="garage"] #unified-garage-shelf{
+  left:49px;bottom:42px;max-height:min(55vh,197px);
+ }
+ #unified-garage[data-workspace="garage"] .workshop-links{
+  left:49px;gap:4px;
+ }
+ #unified-garage .workshop-link{min-height:33px;padding:5px 7px}
+ #unified-garage[data-workspace="garage"] .unified-bay-navigation{height:34px}
+ #unified-garage[data-workspace="paint"] #unified-garage-dock{padding:8px;width:clamp(270px,43vw,440px)}
+ #unified-garage[data-workspace="vendor"] #unified-garage-dock,
+ #unified-garage[data-workspace="contracts"] #unified-garage-dock,
+ #unified-garage[data-workspace="setup"] #unified-garage-dock,
+ #unified-garage[data-workspace="pit"] #unified-garage-dock{padding:9px 12px}
+}
+@media(max-width:690px){
+ #unified-garage[data-workspace="garage"] .workshop-links{max-width:calc(100% - 280px)}
+ #unified-garage .workshop-link{font-size:8px;min-width:49px;padding:5px 6px}
+ #unified-garage[data-workspace="garage"] .unified-bay-navigation{width:195px;max-width:34vw}
+ #unified-garage[data-workspace="vendor"] .counter-lots{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+ }
+}
+
+/* Orbit reset remains available but no longer occupies its own floating bar. */
+body.inspecting #inspect-reset{display:none!important}
+#unified-garage .workshop-reset{
+ width:31px;height:29px;min-height:29px;padding:2px 4px;
+ background:#111e18ce;border:1px solid #62736591;
+ color:#d3be91;font:900 19px/1 ui-monospace,monospace;
+}
