@@ -1201,6 +1201,38 @@ export function createArenaScene(initial, targetAssembly) {
         return colors;
     };
     let pilotColors = captureColors(exterior.pickMeshes);
+    // Empty ports are physical, touchable workshop fixtures, not combat hitboxes.
+    // Markers only represent stations that can currently be approached on the rig.
+    let emptyMountPicks = [];
+    function rebuildEmptyMountPicks(assembly) {
+        emptyMountPicks = [];
+        if (!exterior.root) return;
+        const anchors = new THREE.Group();
+        anchors.name = 'garage-empty-mounts';
+        for (const slot of SLOTS) {
+            if (installedPart(assembly, slot)) continue;
+            if (slot !== 'structure' && !installedPart(assembly, 'structure')) continue;
+            const point = SLOT_CENTERS[slot];
+            const bracket = new THREE.Group();
+            bracket.position.set(point[0],point[1],point[2]);
+            const metal = new THREE.MeshStandardMaterial({color:0x6d7467,roughness:.88,metalness:.28});
+            const signal = new THREE.MeshStandardMaterial({color:0xdaa85b,emissive:0x644016,emissiveIntensity:.36,roughness:.74});
+            const plate = new THREE.Mesh(new THREE.BoxGeometry(.38,.07,.28),metal);
+            bracket.add(plate);
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(.22,.035,.07),signal);
+            bar.position.y=.065;bracket.add(bar);
+            const cross = new THREE.Mesh(new THREE.BoxGeometry(.07,.035,.22),signal.clone());
+            cross.position.y=.067;bracket.add(cross);
+            const hit = new THREE.Mesh(new THREE.BoxGeometry(.62,.42,.58),
+                new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+            hit.userData.slot=slot;
+            bracket.add(hit);
+            emptyMountPicks.push(hit);
+            anchors.add(bracket);
+        }
+        exterior.root.add(anchors);
+    }
+    rebuildEmptyMountPicks(initial);
     const raycaster = new THREE.Raycaster();
     // Mesh raycasts remain responsible for exact module hits. This independent prism
     // certificate makes arena cover authoritative too, so a precision seam or visual
@@ -1409,6 +1441,7 @@ export function createArenaScene(initial, targetAssembly) {
             // Parallel camera translation composes the rig in the FREE viewport
             // to the right of the workshop panel. Never move the orbit pivot
             // toward a selected part or turn the camera away from the rig.
+            camera.up.set(0,1,0);
             camera.lookAt(center);
             const screenRight = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
             const shift = framingOffsetWorld(panelRightPx,viewportWidth,viewportHeight,
@@ -1612,6 +1645,7 @@ export function createArenaScene(initial, targetAssembly) {
         for (const mesh of exterior.pickMeshes)
             mesh.userData.actorId = 'player';
         pilotColors = captureColors(exterior.pickMeshes);
+        rebuildEmptyMountPicks(assembly);
         exterior.root.position.copy(oldRoot.position);
         exterior.root.rotation.copy(oldRoot.rotation);
         exterior.root.visible = inspecting;
@@ -1643,6 +1677,11 @@ export function createArenaScene(initial, targetAssembly) {
         cockpit.userData.utilityCab.visible = command === 'cab-utility';
     }
     let paintSelectedSlots = null;
+    let previewSlot = null;
+    function setPreviewPart(slot=null) {
+        previewSlot = slot;
+        selectPart(selected);
+    }
     function setPaintSelectedSlots(slots=null){
         paintSelectedSlots=Array.isArray(slots)?new Set(slots):null;
         selectPart(selected);
@@ -1655,8 +1694,8 @@ export function createArenaScene(initial, targetAssembly) {
                 if (!(material instanceof THREE.MeshStandardMaterial))
                     continue;
                 const illuminated=paintSelectedSlots ? false : groupSlot===slot;
-                material.emissive.setHex(illuminated ? 0xb78b35 : 0);
-                material.emissiveIntensity = illuminated ? (paintSelectedSlots ? 0.14 : 0.30) : 0;
+                material.emissive.setHex(illuminated ? (previewSlot===slot ? 0x287d76 : 0xb78b35) : 0);
+                material.emissiveIntensity = illuminated ? .30 : 0;
             }
         }
     }
@@ -1696,7 +1735,7 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.updateWorldMatrix(true, true);
         camera.updateMatrixWorld();
         raycaster.setFromCamera(pointer, camera);
-        const first = raycaster.intersectObjects(exterior.pickMeshes, false)[0];
+        const first = raycaster.intersectObjects([...exterior.pickMeshes,...emptyMountPicks], false)[0];
         return first?.object.userData.slot ?? null;
     }
     function setPilotWeapon(spec) {
@@ -2139,7 +2178,7 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
