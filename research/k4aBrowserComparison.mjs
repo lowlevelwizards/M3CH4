@@ -42,7 +42,8 @@ async function requireVisibleMeshes(page,bytes,subject){
   }
   return colors.size;
  },base64);
- if(distinct<12)throw Error('Invisible Three.js render in '+subject+': only '+distinct+' visible center colors');
+ // Thin side-on guns may have only a handful of quantized colors; a covered canvas has 1.
+ if(distinct<5)throw Error('Invisible Three.js render in '+subject+': only '+distinct+' visible center colors');
 }
 async function fingerprint(origin){
  const p=await open(origin);
