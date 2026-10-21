@@ -65,8 +65,8 @@ test('the pit module tile shows internal integrity, while detail verifies the ex
     assert.match(ui,/createStationFace\(item\.slot,item\)/);
     assert.match(ui,/createConditionMeter\(conditionFromPart\(current\)/);
     assert.match(ui,/createConditionMeter\(conditionFromPart\(current\)/);
-    assert.match(ui,/const verified=view\.health\.find/);
-    assert.match(ui,/PATCH CONDITION MISMATCH/);
+    assert.match(ui,/const repairs=action\.type==='triage'/);
+    assert.match(ui,/triagePreview\(stable,viewedId/);
     assert.match(ui,/if\(patch\?\.rigId===viewedId && !selectedSlot\)selectedSlot=patch\.slot/);
 });
 test('the cockpit has exactly one Domination objective readout plus one BO3 header',()=>{
