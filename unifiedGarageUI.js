@@ -493,6 +493,33 @@ function appendIdentityForm(view, stable) {
 
 function renderGarage(stable,machine,view) {
     dock.append(bayHeader(view), summary(view), moduleStation(view));
+    // Repeat servicing is a common garage task: skip the inventory rack and
+    // quote each actual installed serial before offering a one-tap bulk job.
+    const quotes=view.health.filter(item=>item.part&&!item.destroyed)
+        .map(item=>({item,quote:bayModuleQuote(stable,viewedId,item.slot)}))
+        .filter(row=>row.quote?.amount>0);
+    if(quotes.length>=2){
+        const total=quotes.reduce((sum,row)=>sum+row.quote.amount,0);
+        const affordable=total<=machine.economy.credits;
+        const serviceAll=button('SERVICE '+quotes.length+' PARTS · ₡'+total,()=>{
+            const current=data();
+            const fresh=quotes.map(row=>bayModuleQuote(current.stable,viewedId,row.item.slot));
+            const amount=fresh.reduce((sum,q)=>sum+(q?.amount||0),0);
+            if(amount>current.machine.economy.credits){message('NOT ENOUGH CREDITS FOR ALL SERVICE',true);return;}
+            let repaired=0,problem=null;
+            for(const row of quotes){
+                const result=emitEdit('m3ch4:bay-service',{rigId:viewedId,slot:row.item.slot});
+                if(!result.ok){problem=result.reason;break;}
+                repaired++;
+            }
+            message(problem?'SERVICED '+repaired+' · '+problem:'ALL '+repaired+' PARTS SERVICED',!!problem);
+            if(repaired){soundWorkshop('service');previewSignature='';render();}
+        },'unified-service unified-service-all',!affordable);
+        serviceAll.setAttribute('aria-label','Service all '+quotes.length+' damaged parts for '+total+' credits');
+        serviceAll.title=affordable?'SHOP SERVICE · ALL DAMAGED INSTALLED STATIONS':
+            'INSUFFICIENT CREDITS · REPAIR INDIVIDUALLY';
+        dock.append(serviceAll);
+    }
     if(paintExpanded) dock.append(createPaintBooth({
         stable,rigId:viewedId,storage,
         onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
