@@ -25,7 +25,7 @@ import {
 } from './fieldWork.js';
 import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
 import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot, paintBoothCurrentEdits } from './paintBoothUI.js';
-import { contractCrew } from './crewLivery.js';
+
 
 const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
@@ -48,6 +48,7 @@ let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
 let paintExpanded = false, paintPreviewEdits = null, paintHighlightSlots = null;
+let swapExpanded = false;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
@@ -117,7 +118,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
+    selectedSlot = null; selectedHardwareSerial = null; swapExpanded=false; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
     dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
@@ -238,7 +239,7 @@ function moduleStation(view) {
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
             : weakest < .995 ? 'damaged' : 'operational';
         const node = button('', () => {
-            if (selectedSlot !== item.slot) {selectedHardwareSerial = null; rackView='ready';}
+            if (selectedSlot !== item.slot) {selectedHardwareSerial = null; swapExpanded=false; rackView='ready';}
             selectedSlot = item.slot; // Repeated taps always open details.
             dock.scrollTop = 0;
             render();
@@ -263,7 +264,7 @@ function moduleDetails(stable, view, machine) {
     const heading=el('div','rig-part-identity');
     heading.append(el('strong','unified-section-name',stationLabel(slot)+' · PART'));
     heading.append(button('×',()=>{
-        selectedSlot=null;selectedHardwareSerial=null;dock.scrollTop=0;render();
+        selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;dock.scrollTop=0;render();
     },'unified-close'));
     box.append(heading);
     const installed = state?.part;
@@ -301,10 +302,18 @@ function moduleDetails(stable, view, machine) {
         box.append(positions);
     }
     if (installed) {
-        box.append(button('REMOVE PART · ' + installed.serial, () => editModule(slot,null), 'unified-remove'));
+        const quick=el('div','unified-quick-part');
+        quick.append(el('span','unified-part-name',BY_ID.get(installed.definitionId)?.name+' · '+installed.serial));
+        const remove=button('×',()=>editModule(slot,null),'unified-remove-icon');
+        remove.setAttribute('aria-label','Remove '+installed.serial+' from '+stationLabel(slot));
+        remove.title='REMOVE FROM BAY';quick.append(remove);box.append(quick);
+        box.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
         if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
             box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
     }
+    const toggle=button(swapExpanded?'× CLOSE PARTS':'SWAP / INVENTORY ›',()=>{swapExpanded=!swapExpanded;dock.scrollTop=0;render();},'unified-swap-toggle');
+    box.append(toggle);
+    if(!swapExpanded)return box;
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
     // to another rig must remain inspectable but cannot be silently transferred.
@@ -404,11 +413,11 @@ function moduleDetails(stable, view, machine) {
                 Math.round((focused.wear??0)*100)+'%'+
                 (elsewhere?' · BAY '+String(owner.bay).padStart(2,'0'):''),
 
-            actionLabel: here ? 'REMOVE FROM THIS BAY' :
+            actionLabel: here ? null :
                 elsewhere ? 'FITTED · BAY ' + String(owner.bay).padStart(2,'0') :
                 'INSTALL · ' + focused.serial,
             actionDisabled: !!elsewhere,
-            onAction: () => editModule(slot,here ? null : focused.serial),
+            onAction: () => editModule(slot, focused.serial),
         });
         detail.classList.add('unified-part-detail','rig-part-focus');
         const info=detail.querySelector('.part-detail-meta');
@@ -611,14 +620,15 @@ function renderContracts(stable) {
             c.objective.label + ' · RISK ' + c.risk.toUpperCase() + ' · ₡' + c.payout));
         detail.append(el('p','',c.briefing));
         detail.append(el('div','unified-muted','OBJECTIVE · ' + c.objective.description));
-        const crew=contractCrew(c.id);
+        /* Opposing crew palettes belong on the battlefield, not on the job briefing. */
+        /* const crew=contractCrew(c.id);
         const livery=el('div','unified-contract-livery');
         const band=el('div','unified-crew-swatches');
         for(const color of Object.values(crew.colors)){
             const swatch=el('i');swatch.style.background=color;band.append(swatch);
         }
         livery.append(el('small','','OPPOSING CREW · '+crew.name),band);
-        detail.append(livery);
+        detail.append(livery); */
         detail.append(el('div','unified-muted','KNOWN EQUIPMENT · '+c.knownEquipment.join(' / ')));
         detail.append(el('div','unified-muted','SALVAGE · '+c.salvageHint));
         dock.append(detail);
@@ -813,7 +823,7 @@ document.addEventListener('m3ch4:bay-picked',event=>{
         paintPreviewEdits=paintBoothCurrentEdits();previewSignature='';render();return;
     }
     selectedSlot = slot;
-    selectedHardwareSerial = null;
+    selectedHardwareSerial = null;swapExpanded=false;
     dock.scrollTop = 0;
     render();
 });
