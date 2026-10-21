@@ -350,7 +350,9 @@ export function createArenaScene(initial, targetAssembly) {
         return height;
     }
     function recalibratePlayerSoles(){
-        return calibrateExteriorSoles(exterior);
+        const offset=calibrateExteriorSoles(exterior);
+        exterior.root.position.y=offset+(inspecting?GARAGE_PAD_TOP_Y:0);
+        return offset;
     }
     // The moving target is assembled from the SAME definitions and geometry
     // as the player. It has its own installed serials and never inherits player swaps.
