@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {loadMachine,storeMachine,encodeMachine,decodeMachine} from '../persistence.js';
+import {loadStable,repaintSerializedParts,createStableFromMachine,encodeStable,decodeStable} from '../stable.js';
+import {PAINT_PRESETS} from '../factoryPaint.js';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)};};
+test('owner paint survives machine save, stable save and rig switching inventory',()=>{
+    const db=storage(),machine=loadMachine(db);
+    const part=machine.assembly.owned[0],serial=part.serial;
+    assert.equal(storeMachine(db,machine),true);
+    assert.equal(repaintSerializedParts(db,[{serial,paint:PAINT_PRESETS[1].colors}]).ok,true);
+    const restored=loadMachine(db);
+    assert.deepEqual(restored.assembly.owned.find(p=>p.serial===serial).paint,PAINT_PRESETS[1].colors);
+    const stable=loadStable(db).stable;
+    assert.deepEqual(stable.inventory.find(p=>p.serial===serial).paint,PAINT_PRESETS[1].colors);
+    const loaded=decodeStable(encodeStable(stable),restored).stable;
+    assert.deepEqual(loaded.inventory.find(p=>p.serial===serial).paint,PAINT_PRESETS[1].colors);
+    assert.equal(repaintSerializedParts(db,[{serial,paint:null}]).ok,true);
+    assert.equal(loadMachine(db).assembly.owned.find(p=>p.serial===serial).paint,undefined);
+});
+test('invalid palette or serial never changes saved inventory',()=>{
+    const db=storage(),machine=loadMachine(db);
+    assert.equal(storeMachine(db,machine),true);
+    const before=encodeMachine(loadMachine(db));
+    const serial=machine.assembly.owned[0].serial;
+    assert.equal(repaintSerializedParts(db,[{serial,paint:{primary:'#123456'}}]).ok,false);
+    assert.equal(repaintSerializedParts(db,[{serial:'NOT-OWNED',paint:PAINT_PRESETS[0].colors}]).ok,false);
+    assert.equal(repaintSerializedParts(db,[{serial,paint:PAINT_PRESETS[0].colors},{serial,paint:null}]).ok,false);
+    assert.equal(encodeMachine(loadMachine(db)),before);
+});
+test('gameplay rig and garage thumbnail route serial paint into isolated meshes',()=>{
+    const scene=read('scene.js'),ui=read('unifiedGarageUI.js');
+    assert.match(scene,/applyPartFinish\(group,fitted\.definition\.id,fitted\.instance\.paint\)/);
+    assert.match(scene,/JSON\.stringify\(normalizePaint\(state\.paint\)\)/);
+    assert.match(ui,/paint:part\.paint/);
+    assert.match(ui,/paintPreviewEdits/);
+    assert.match(read('mobilityVisualKit.js'),/materialRole=role/);
+    assert.match(read('paintBoothUI.js'),/repaintSerializedParts/);
+});
