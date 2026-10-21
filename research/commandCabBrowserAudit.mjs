@@ -82,6 +82,37 @@ try{
         }
         return combinations;
     });
+    const shielding=await page.evaluate(async()=>{
+        const THREE=await import('three');
+        const {makeTestAssembly,equip}=await import('./components.js');
+        const {buildExteriorRig}=await import('./scene.js');
+        const {shieldedModuleOnRay}=await import('./frameShielding.js');
+        const offsets=[-.4,0,.4], report={};
+        for(const frame of ['frame-sr','frame-utility','frame-wedge']){
+            const a=makeTestAssembly();equip(a,'structure',frame);
+            const rig=buildExteriorRig(a);
+            rig.pickMeshes.forEach(m=>m.userData.actorId='audit');
+            rig.root.updateWorldMatrix(true,true);
+            const bounds=new THREE.Box3().setFromObject(rig.partGroups.get('command'));
+            const center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+            const samples=[];
+            for(const u of offsets)for(const v of offsets){
+                const aim=center.clone().add(new THREE.Vector3(u*size.x,v*size.y,0));
+                const source=aim.clone().add(new THREE.Vector3(0,0,-12));
+                const ray=new THREE.Raycaster(source,aim.clone().sub(source).normalize(),0,25);
+                const hits=ray.intersectObjects(rig.pickMeshes,false), first=hits[0];
+                samples.push({u,v,aim:aim.toArray(),first:first?.object.userData.slot||'miss',
+                    shielded:shieldedModuleOnRay(hits,first)||null,
+                    firstName:first?.object.name||null,
+                    hits:hits.slice(0,5).map(h=>({slot:h.object.userData.slot,name:h.object.name,d:h.distance}))});
+            }
+            report[frame]=samples;
+            rig.root.traverse(n=>n.geometry?.dispose?.());
+        }
+        return report;
+    });
+    writeFileSync(out+'/frame-to-cab-ray-samples.json',JSON.stringify(shielding,null,2));
+    console.log('Measured default Cyclops front shielding:',JSON.stringify(shielding));
     writeFileSync(out+'/measured-nine-combinations.json',JSON.stringify(results,null,2));
     console.log('Nine chassis/cab combinations raycast verified:',results.length);
     console.log(JSON.stringify(results));
