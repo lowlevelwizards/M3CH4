@@ -33,7 +33,44 @@ try {
   await paintAction.click({timeout:12000});
   await page.locator('.paint-booth').waitFor({state:'visible',timeout:12000});
   await page.screenshot({path:output+'/paint-booth.png'});
+  const tiles=page.locator('.paint-booth-target');
+  if(await tiles.count()!==5)throw Error('Visual installed-parts strip does not contain five hardware tiles');
+  if(await page.locator('.paint-booth-variant').count()!==3)
+    throw Error('Expected exactly three livery distribution previews');
+  const crewColors=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const scene=activePlayerArena()?.arena?.scene;
+    if(!scene)throw Error('No arena for crew paint check');
+    const sample={};
+    scene.traverse(mesh=>{
+      if(!mesh.isMesh||!mesh.userData.actorId)return;
+      const id=mesh.userData.actorId;
+      const mats=Array.isArray(mesh.material)?mesh.material:[mesh.material];
+      for(const m of mats)
+        if(!sample[id] && m?.userData?.paintChannel==='primary')sample[id]=m.color.getHexString();
+    });
+    return sample;
+  });
+  if(crewColors['enemy-0']!=='b39a52' || crewColors['enemy-1']!=='534d44' ||
+    crewColors['enemy-2']!=='bcb29b' || crewColors['ally-1']!=='59645c' ||
+    crewColors['ally-2']!=='d0c1a4')
+    throw Error('Crew livery not reaching real combatant materials: '+JSON.stringify(crewColors));
   await page.locator('.paint-booth-preset').filter({hasText:'RACING RED'}).click();
+  await page.locator('.paint-booth-variant').nth(1).click();
+  await page.screenshot({path:output+'/paint-alternate-a.png'});
+  const altPreview=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const sample=[];
+    activePlayerArena()?.arena?.scene?.traverse(mesh=>{
+      if(!mesh.isMesh||mesh.userData.actorId!=='player')return;
+      const mats=Array.isArray(mesh.material)?mesh.material:[mesh.material];
+      for(const m of mats)if(m?.userData?.paintChannel==='primary')sample.push(m.color.getHexString());
+    });
+    return [...new Set(sample)];
+  });
+  if(altPreview.some(color=>color!=='38434a')||!altPreview.length)
+    throw Error('Alternate A did not reverse main and secondary in live 3D: '+altPreview);
+  await page.locator('.paint-booth-variant').first().click();
   const paintedPreview=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');
     const arena=activePlayerArena()?.arena;
@@ -65,7 +102,11 @@ try {
   });
   if(paintedSave.length!==5 || paintedSave.some(p=>p.paint?.primary!=='#a94237'))
     throw Error('Whole-machine paint not saved to installed serials: '+JSON.stringify(paintedSave));
-  await page.locator('.paint-booth-targets button').nth(1).click();
+  await page.locator('.paint-booth-team-action').click();
+  const savedCrew=await page.evaluate(()=>JSON.parse(localStorage.getItem('m3ch4-team-livery-v1')||'null'));
+  if(savedCrew?.primary!=='#a94237')throw Error('Team paint palette not stored');
+  await page.locator('.paint-booth-quick button').filter({hasText:'NONE'}).click();
+  await page.locator('.paint-booth-target').first().click();
   await page.locator('.paint-booth-restore').click();
   const reset=await page.evaluate(async()=>{
     const {loadMachine}=await import('./persistence.js');
@@ -76,7 +117,7 @@ try {
   if(reset.filter(Boolean).length!==4)
     throw Error('Factory reset affected neighboring serials: '+JSON.stringify(reset));
   await page.locator('#unified-garage .unified-top-action').filter({hasText:'PAINT'}).click();
-  console.log('PAINT BOOTH: PASS · live factory/owner surfaces, 5 serials, partial reset');
+  console.log('PAINT BOOTH: PASS · three rig variants, crew materials, multi-select, five serials, team save and partial reset');
 
   // k3w17: the first-ever Scattergun install must not leave a raw
   // number in Mesh.material, and cleanup of any legacy malformed material
