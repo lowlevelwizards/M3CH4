@@ -43,6 +43,10 @@ function edits(){
     const paint=colors();
     return [...selectedSerials].map(serial=>({serial,paint:{...paint}}));
 }
+/** Restore the live candidate coating after inspector-based target toggles. */
+export function paintBoothCurrentEdits(){
+    return selectedSerials.size?edits():null;
+}
 export function clearPaintBoothDraft(){
     selectedRig=null;selectedSerials=new Set();draft=null;variant=0;
 }
