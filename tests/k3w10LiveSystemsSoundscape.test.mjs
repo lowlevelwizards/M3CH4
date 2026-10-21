@@ -118,7 +118,7 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.doesNotMatch(main,/audioSystemsPresets|systems-sound-lab-v1/);
   assert.match(html,/liveSystemsAudio\.js\?v=k3w11/);
   assert.match(html,/liveSystemsEvents\.js\?v=k3w12/);
-  assert.match(html,/main\.js\?v=k3w17/);
+  assert.match(html,/main\.js\?v=k3x/);
   assert.match(html,/audio\.js\?v=k3w11/);
-  assert.match(html,/0\.0\.1k\.3w\.17 — Scattergun Garage Recovery/);
+  assert.match(html,/0\.0\.1k\.3x — Weapon Anatomy Rewrite/);
 });
