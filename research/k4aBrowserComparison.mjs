@@ -91,16 +91,28 @@ async function fingerprint(origin){
 }
 try{
  const [baseline,updated]=await Promise.all([fingerprint(beforeUrl),fingerprint(afterUrl)]);
- const findings={geometryUnchanged:[],mobilityUnchanged:[],recolored:[],roles:[],isolation:true};
+ const findings={geometryUnchanged:[],mobilityRecolored:[],recolored:[],roles:[],isolation:true};
  for(const [id,old] of Object.entries(baseline)){
   const fresh=updated[id];
   if(JSON.stringify(old.hierarchy)!==JSON.stringify(fresh.hierarchy))
     throw Error('Geometry/hierarchy/transforms changed for '+id);
   findings.geometryUnchanged.push(id);
   if(id.startsWith('legs-')){
-   if(JSON.stringify(old.materials)!==JSON.stringify(fresh.materials))
-    throw Error('MOBILITY MATERIALS CHANGED '+id);
-   findings.mobilityUnchanged.push(id);
+   // k.4b intentionally gives the three mobility families their own factory
+   // coating. The legs retain identical physical metal, geometry and PBR.
+   let coated=0;
+   for(let j=0;j<fresh.materials.length;j++){
+    const a=old.materials[j],b=fresh.materials[j];
+    if(a.metalness!==b.metalness||a.roughness!==b.roughness)
+     throw Error('Leg PBR changed '+id+'/'+b.name);
+    if(a.color!==b.color){
+     if(!['primary-paint','secondary-paint','protective-paint','accent'].includes(b.roleFromMaterial))
+      throw Error('Bare leg material painted '+id+'/'+b.name);
+     coated++;
+    }
+   }
+   if(!coated)throw Error('No factory coating on legs '+id);
+   findings.mobilityRecolored.push(id);
   }else{
    if(JSON.stringify(old.materials)===JSON.stringify(fresh.materials))
     throw Error('No meaningful authored surface changes for '+id);
@@ -164,7 +176,7 @@ try{
    writeFileSync(out+'/'+label+'-before.png',left);
    writeFileSync(out+'/'+label+'-after.png',right);
    const pair=await browser.newPage({viewport:{width:2600,height:520},deviceScaleFactor:1});
-   await pair.setContent('<style>body{margin:0;background:#101713;color:#f2dfb4;font:700 17px system-ui}main{display:flex}article{width:1300px}header{height:30px;padding:5px 12px;background:#28342b;box-sizing:border-box}img{width:1300px;height:475px;display:block}</style><main><article><header>BEFORE · MAIN</header><img src="data:image/png;base64,'+left.toString('base64')+'"></article><article><header>AFTER · k.4a</header><img src="data:image/png;base64,'+right.toString('base64')+'"></article></main>');
+   await pair.setContent('<style>body{margin:0;background:#101713;color:#f2dfb4;font:700 17px system-ui}main{display:flex}article{width:1300px}header{height:30px;padding:5px 12px;background:#28342b;box-sizing:border-box}img{width:1300px;height:475px;display:block}</style><main><article><header>BEFORE · MAIN</header><img src="data:image/png;base64,'+left.toString('base64')+'"></article><article><header>AFTER · k.4b–d</header><img src="data:image/png;base64,'+right.toString('base64')+'"></article></main>');
    await pair.screenshot({path:out+'/'+label+'-comparison.png'});
    await pair.close();await before.close();await after.close();
   }
@@ -177,5 +189,5 @@ try{
  }
  if(errors.length)throw Error('Browser page errors: '+errors.join('\n'));
  console.log('K4A MATERIAL AUDIT PASS:',findings.geometryUnchanged.length,
-  'unchanged geometric families, 3 untouched mobility palettes, 12 recolored, no game material leaks.');
+  'unchanged geometric families, 3 factory-coated mobility families, 12 other recolored, no game material leaks.');
 }finally{await browser.close();}

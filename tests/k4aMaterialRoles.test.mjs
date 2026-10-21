@@ -11,7 +11,7 @@ test('physical roles are explicit and future paint never includes optics or mach
  assert.match(read('weaponVisualKit.js'),/mesh\.userData\.materialRole=materialRoleOf/);
  assert.match(read('commandVisualKit.js'),/mesh\.userData\.materialRole=materialRoleOf/);
 });
-test('mobility uses its exact original vocabulary, never inherits non-leg recolors',()=>{
+test('mobility keeps its original geometry grammar while using dedicated factory coatings',()=>{
  const mobility=read('mobilityVisualKit.js');
  assert.doesNotMatch(mobility,/partMaterialPalette|PART_MATERIALS/);
  for(const name of ['yardwalkerVisual.js','kestrelVisual.js','haulerVisual.js'])
@@ -34,4 +34,5 @@ test('comparison suite uses real builders at baseline and updated origins',()=>{
  assert.match(script,/mobilityUnchanged/);
  assert.match(script,/Cross-instance tint leak/);
  assert.match(read('colorMaterialGallery.js'),/inspectAssembly/);
+ assert.match(read('research/k4aBrowserComparison.mjs'),/mobilityRecolored/);
 });

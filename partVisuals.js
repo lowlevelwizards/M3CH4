@@ -3,6 +3,7 @@
  * registry, not a procedural generator or a second assembly graph.
  */
 import { fitFixtureFor } from './chassisFitFixtures.js';
+import { applyPartFinish } from './partFinish.js';
 import { buildYardwalkerVisual } from './yardwalkerVisual.js';
 import { buildKestrelVisual } from './kestrelVisual.js';
 import { buildHaulerVisual } from './haulerVisual.js';
@@ -52,7 +53,9 @@ export function buildPartVisual(definitionId, { mode = 'preview' } = {}) {
     if (!fixture) throw new Error(`Missing catalogue-backed fixture: ${definitionId}`);
     const root = builder(fixture);
     root.userData.definitionId = definitionId;
-    if (mode === 'preview') return root;
+    // Preview models must show their actual individual factory finish too.
+    // Repainting clones only eligible surfaces; the kit's shared templates stay intact.
+    if (mode === 'preview') return applyPartFinish(root, definitionId);
 
     // Selection wireframes are editor-only, not meshes for shots or inspection.
     const outline = root.userData.outline;
