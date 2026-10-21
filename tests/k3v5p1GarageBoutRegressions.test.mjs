@@ -110,10 +110,10 @@ test('the elimination resolver ends Domination when all enemy combat rigs have b
 test('DEV version comes from the actual page build label, not a stale hardcoded string',()=>{
     const html=source('index.html'),main=source('main.js');
     assert.match(html,/<span id="dev-version"><\/span>/);
-    assert.match(html,/0\.0\.1k\.3z — Frame Anatomy Rewrite/);
+    assert.match(html,/0\.0\.1k\.4l — Garage & Combat QoL/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
     assert.match(main,/devVersion\.textContent = document\.title\.split/);
-    assert.match(html,/main\.js\?v=k3z/);
-    assert.match(html,/garageMountUI\.js\?v=k3v6/);
-    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k3v6/);
+    assert.match(html,/main\.js\?v=k4l/);
+    assert.match(html,/garageMountUI\.js\?v=k4h/);
+    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k4h/);
 });
