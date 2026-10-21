@@ -25,6 +25,9 @@ const MOUNT_FACES = Object.freeze({
     'cab-cyclops': { socketId: 'command', faceNormal: [0, -1, 0], face: 'cab underside', forward: [0, 0, -1] },
     'power-dynamo': { socketId: 'power', faceNormal: [0, 0, -1], face: 'generator forward mounting plate', forward: [0, 0, -1] },
     'gun-cannon': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
+    'gun-short': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
+    'gun-light': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
+    'gun-scatter': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
 });
 
 function faceCenter(normal, bounds) {
