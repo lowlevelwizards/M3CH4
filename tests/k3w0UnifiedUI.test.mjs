@@ -62,7 +62,8 @@ test('garage uses same vocabulary and compact selected part + single swipe rack,
     assert.match(ui,/const tabs=el\('div','rig-gallery-tabs'\)/);
     assert.match(ui,/selectedHardwareSerial=focused\.serial/);
     assert.match(ui,/actionDisabled: !!elsewhere/);
-    assert.match(ui,/onAction: \(\) => editModule\(slot,here \? null : focused\.serial\)/);
+    assert.match(ui,/onAction: \(\) => editModule\(slot, focused\.serial\)/);
+    assert.match(ui,/unified-remove-icon/);
     assert.match(ui,/selectBay\(owner\.id\)/);
     assert.match(ui,/arena\.selectPart\(selectedSlot\)/);
     assert.match(css,/scroll-snap-type:x mandatory/);
