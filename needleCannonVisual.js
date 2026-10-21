@@ -3,10 +3,10 @@ import {weaponRoot,group,block,tube,bearing,strut,finishWeapon} from './weaponVi
 export function buildNeedleCannonVisual(fixture){
   const r=weaponRoot(fixture,'open-precision-truss');
   block(r,'NC / small teal equipment receiver',[0,.035,.20],[.39,.30,.42],'teal');
-  block(r,'NC / yellow forward receiver',[0,.01,-.17],[.30,.27,.31],'yellow');
+  block(r,'NC / yellow forward receiver',[0,.01,-.17],[.30,.27,.31],'teal');
   block(r,'NC / slender mustard support rail',[0,-.032,-.73],[.135,.14,.91],'yellow');
   tube(r,'NC / extraordinarily narrow free barrel',[0,-.05,-1.49],.047,1.30,'machined');
-  tube(r,'NC / minimal muzzle sleeve',[0,-.05,-2.118],.087,.083,'steel');
+  tube(r,'NC / minimal muzzle sleeve',[0,-.05,-2.118],.087,.083,'heat');
   tube(r,'NC / black bore mouth',[0,-.05,-2.164],.039,.009,'dark');
   tube(r,'NC / barrel-to-rail coupling',[0,-.05,-1.12],.080,.10,'steel');
   strut(r,'NC / main open long underbrace',[0,-.155,-1.16],[0,-.30,-.03],.065,.065,'steel');

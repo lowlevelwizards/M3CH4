@@ -6,7 +6,7 @@ export function buildVistaVisual(fixture){
     const root=new THREE.Group();root.name='fit-fixture:cab-utility';
     const tub=groupAt(root,'VISTA / LOWER OPERATOR TUB');
     chamferBlock(tub,'yellow waist sill',[0,-.397,-.020],[1.00,.247,.93],'ochre',.065);
-    block(tub,'dark raised operator interior',[0,.015,.09],[.72,.755,.65],'iron');
+    block(tub,'dark raised operator interior',[0,.015,.09],[.72,.755,.65],'heat');
     const windows=groupAt(root,'VISTA / OPEN GREENHOUSE');
     // One continuous sloping front window, not two humanoid eye panels.
     pitchedBlock(windows,'single high windscreen',[0,.061,-.357],

@@ -6,7 +6,7 @@ export function buildCyclopsVisual(fixture){
     const body=groupAt(root,'CYCLOPS / PILOT CELL');
     chamferBlock(body,'dark occupied operator tub',[0,-.055,.080],[.96,.67,.82],'iron',.085);
     chamferBlock(body,'mustard central outer casing',[0,-.035,-.055],[.82,.58,.68],'ochre',.10);
-    block(body,'steel lower pressure sill',[0,-.319,.045],[.88,.105,.68],'bright');
+    block(body,'steel lower pressure sill',[0,-.319,.045],[.88,.105,.68],'raw');
     const optics=groupAt(root,'CYCLOPS / OPTIC ASSEMBLY');
     chamferBlock(optics,'square structural optical carrier',[-.06,.072,-.427],[.57,.55,.132],'iron',.085);
     block(optics,'recessed square optical well',[-.06,.072,-.500],[.451,.43,.012],'recess');
@@ -19,7 +19,7 @@ export function buildCyclopsVisual(fixture){
     chamferBlock(cheeks,'left compact guard',[-.508,-.075,.065],[.142,.445,.49],'cream',.16);
     const rear=groupAt(root,'CYCLOPS / REAR MACHINERY');
     chamferBlock(rear,'teal rear service enclosure',[0,-.013,.400],[.69,.425,.29],'teal',.07);
-    block(rear,'low roof electronics housing',[.16,.355,.177],[.32,.13,.235],'iron');
+    block(rear,'low roof electronics housing',[.16,.355,.177],[.32,.13,.235],'loadSteel');
     block(rear,'roof equipment cover',[.16,.421,.177],[.28,.014,.22],'teal');
     // A tiny welded carrying handle lies inside the specified envelope.
     beamBetween(rear,'rear lift handle left',[-.20,.318,.38],[-.20,.420,.38],.026,.035,'iron');

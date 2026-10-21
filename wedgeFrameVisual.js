@@ -17,7 +17,7 @@ export function buildWedgeFrameVisual(fixture){
     shell(nose,'blunt lower nose strengthener',[0,-.31,-.57],{
         frontWidth:1.14,rearWidth:1.32,depth:.57,
         frontBottom:-.09,frontTop:.04,rearBottom:-.09,rearTop:.13,
-    },'bright');
+    },'raw');
     const sides=groupAt(r,'WEDGE / STRESSED SIDEWALLS');
     for(const side of [-1,1]){
         shell(sides,(side<0?'left':'right')+' thick shell sidewall',
@@ -43,7 +43,7 @@ export function buildWedgeFrameVisual(fixture){
     blockAt(mounts,'teal rear power fitting',[power[0],power[1]-.12,.80],
         [.63,.25,.19],'teal');
     blockAt(mounts,'power contact structural return',[0,power[1]-.12,.53],
-        [.44,.26,.40],'bright');
+        [.44,.26,.40],'loadSteel');
     for(const side of [-1,1]){
         bearing(mounts,(side<0?'left':'right')+' integrated wall pivot',
             [side*.985,.17,-.54],.245,.15,'iron','x',10);

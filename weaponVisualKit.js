@@ -3,18 +3,21 @@
  * Meshes and damage-isolated materials are owned by buildPartVisual gameplay mode.
  */
 import * as THREE from 'three';
+import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 
-const surface=(color,metalness=.22)=>new THREE.MeshStandardMaterial({
-  color,metalness,roughness:.81,flatShading:true,
-});
+// Builder tones retain their names; physical variants are explicitly chosen per mesh.
 export const WEAPON_MATERIALS=Object.freeze({
-  yellow:surface(0xb28a39),teal:surface(0x417f81),
-  steel:surface(0x363f41,.32),machined:surface(0x7b827b,.40),
-  dark:surface(0x171c1c,.18),cream:surface(0xd0c6ad,.15),
-  shells:surface(0x9a5136,.19),olive:surface(0x62675e,.22),
+  yellow:partMaterial('mustard'),wornYellow:partMaterial('wornMustard'),
+  teal:partMaterial('teal'),steel:partMaterial('structure'),
+  warmSteel:partMaterial('loadSteel'),machined:partMaterial('machined'),
+  raw:partMaterial('rawSteel'),dark:partMaterial('darkMechanism'),
+  heat:partMaterial('heatSteel'),cream:partMaterial('cream'),
+  shells:partMaterial('oxide'),olive:partMaterial('olive'),
 });
 const put=(parent,name,mesh,at)=>{
-  mesh.name=name;mesh.position.set(...at);parent.add(mesh);return mesh;
+  mesh.name=name;mesh.position.set(...at);
+  mesh.userData.materialRole=materialRoleOf(mesh.material);
+  parent.add(mesh);return mesh;
 };
 export function weaponRoot(fixture,family){
   if(fixture?.slot!=='combat'||!fixture.envelope?.every(n=>n>0&&Number.isFinite(n)))

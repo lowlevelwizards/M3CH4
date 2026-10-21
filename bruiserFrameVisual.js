@@ -8,7 +8,7 @@ export function buildBruiserFrameVisual(fixture){
     chamfer(core,'main dark welded frame',[0,-.045,.055],[1.08,.58,.94],'iron',.10);
     chamfer(core,'cream front central sacrificial shield',[0,-.045,-.477],
         [.62,.56,.16],'cream',.14);
-    blockAt(core,'front-to-belly steel rib',[0,-.35,-.33],[.42,.32,.37],'iron');
+    blockAt(core,'front-to-belly steel rib',[0,-.35,-.33],[.42,.32,.37],'loadSteel');
     const shoulder=groupAt(r,'BRUISER / TRANSVERSE SHOULDERS');
     blockAt(shoulder,'continuous mustard shoulder girder',[0,.22,.015],[1.53,.25,.55],'ochre');
     for(const side of [-1,1]){
@@ -22,7 +22,7 @@ export function buildBruiserFrameVisual(fixture){
             [side*1.067,.19,-.23],.110,.018,'recess','x',10);
     }
     const lower=groupAt(r,'BRUISER / LOWER LOAD BRIDGE');
-    blockAt(lower,'reinforced lower transverse bridge',[0,-.38,.11],[1.42,.19,.46],'iron');
+    blockAt(lower,'reinforced lower transverse bridge',[0,-.38,.11],[1.42,.19,.46],'loadSteel');
     // Fabricated forward load lip: tied through the belly rib and load nodes,
     // rather than a hidden hit proxy. This is the heavy frame's vulnerable
     // front-of-hip steel bridge, absent from the Skeleton's open framework.
@@ -49,7 +49,7 @@ export function buildBruiserFrameVisual(fixture){
         [.36,.025,.34],'bright');
     beam(fittings,'front command deck support',[0,-.01,-.31],[0,.10,command[2]],.32,.22,'iron');
     blockAt(fittings,'rear generator backplate',[power[0],power[1]-.08,.49],
-        [.70,.32,.17],'bright');
+        [.70,.32,.17],'raw');
     beam(fittings,'rear generator load path',[0,-.05,.34],[power[0],power[1]-.07,.50],.29,.21,'iron');
     beam(fittings,'right combat transfer stay',[.71,.19,-.19],
         [combat[0]-.12,combat[1],combat[2]+.055],.20,.23,'iron');

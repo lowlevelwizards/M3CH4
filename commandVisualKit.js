@@ -3,18 +3,18 @@
  * Every solid is real pickable Three geometry; no invisible hit shells.
  */
 import * as THREE from 'three';
+import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 
-const material=(hex,metalness=.18,roughness=.79)=>new THREE.MeshStandardMaterial({
-    color:hex, metalness, roughness, flatShading:true,
-});
 export const COMMAND_MATERIALS=Object.freeze({
-    ochre:material(0xb28a39), teal:material(0x417f81),
-    iron:material(0x363f41,.29), bright:material(0x7b827b,.38),
-    cream:material(0xd0c6ad), glass:material(0x182b2e,.07,.50),
-    optic:material(0x3f898c,.19,.44), rust:material(0x9a5136),
-    recess:material(0x121d1e,.15,.65),
+    ochre:partMaterial('mustard'),wornOchre:partMaterial('wornMustard'),
+    teal:partMaterial('teal'),iron:partMaterial('structure'),
+    loadSteel:partMaterial('loadSteel'),bright:partMaterial('machined'),
+    raw:partMaterial('rawSteel'),heat:partMaterial('heatSteel'),
+    cream:partMaterial('cream'),olive:partMaterial('olive'),
+    glass:partMaterial('glazing'),optic:partMaterial('optic'),
+    rust:partMaterial('oxide'),recess:partMaterial('opticalRecess'),
 });
-const gray=material(0x999999,.02,.95);
+const gray=new THREE.MeshStandardMaterial({color:0x999999,metalness:.02,roughness:.95,flatShading:true});
 const outlineMaterial=new THREE.LineBasicMaterial({color:0xe6b249,opacity:.85,transparent:true});
 
 export function groupAt(parent,name){
@@ -22,7 +22,9 @@ export function groupAt(parent,name){
 }
 function put(parent,name,geometry,tone,xyz){
     const mesh=new THREE.Mesh(geometry,COMMAND_MATERIALS[tone]);
-    mesh.name=name;mesh.position.set(...xyz);parent.add(mesh);return mesh;
+    mesh.name=name;mesh.position.set(...xyz);
+    mesh.userData.materialRole=materialRoleOf(mesh.material);
+    parent.add(mesh);return mesh;
 }
 export function block(parent,name,xyz,size,tone='iron'){
     if(size.some(v=>!Number.isFinite(v)||v<=0))throw Error('Invalid block dimensions '+name);
