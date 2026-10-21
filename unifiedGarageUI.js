@@ -897,7 +897,7 @@ function render() {
     shell.dataset.mode=state;
     shell.classList.toggle('has-selection',!!selectedSlot && !paintExpanded && state==='garage');
     shell.classList.toggle('painting',paintExpanded && state==='garage');
-    shelf.classList.toggle('shown',state==='garage' && swapExpanded && !drawerExpanded && !!selectedSlot);
+    shelf.classList.toggle('shown',state==='garage' && !paintExpanded && swapExpanded && !drawerExpanded && !!selectedSlot);
 }
 function queueRender() {
     if(renderScheduled)return;
