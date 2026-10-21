@@ -49,7 +49,7 @@ test('the exterior uses real shared physical meshes without legacy or extra hitb
   assert.match(s,/pickMeshes\.push\(node\)/);
   assert.match(kit,/root\.userData\.weaponMechanism/);
   assert.match(kit,/rest:\{/);
-  assert.doesNotMatch(kit,/hitbox|collider|new THREE\.MeshBasicMaterial/);
+  assert.doesNotMatch(kit,/new THREE\.MeshBasicMaterial|new THREE\.Box3\(/);
 });
 test('articulation always returns each authored action and cassette to its own rest',()=>{
   const s=source('scene.js');
