@@ -84,6 +84,10 @@ function injectStyles() {
 }
 `;
     document.head.append(style);
+    // One terminal report stylesheet overrides all prior prototype layouts.
+    const clarity=document.createElement('link');
+    clarity.rel='stylesheet';clarity.href='./reportClarity.css?v=k4o';
+    document.head.append(clarity);
 }
 
 function thumbnail(entry) {
@@ -109,80 +113,65 @@ function statTile(label, value, note) {
 
 function renderScore(result) {
     scorePage.replaceChildren();
-    const title = document.createElement('div'); title.className = 'debrief-page-title'; title.textContent = '02 / SCORE';
-    scorePage.append(title);
-    if (!result || sheet.classList.contains('hidden')) return;
-    const standings = result.score.standings ?? [];
-    const player = standings.find(row => row.id === 'player');
-    const rank = Math.max(1, standings.findIndex(row => row.id === 'player') + 1);
-    const layout = document.createElement('div'); layout.className = 'score-layout';
-
-    const personal = document.createElement('section'); personal.className = 'score-card score-personal';
-    const personalTitle = document.createElement('h2');
-    personalTitle.textContent = result.terminal === false ? 'ROUND ' + result.round.round + ' SCORE' : 'YOUR BOUT';
-    const personalKick = document.createElement('div'); personalKick.className = 'score-kicker';
-    personalKick.textContent = player
-        ? `RANK ${rank}/${standings.length}${result.score.mvp?.id === 'player' ? ' · MVP' : ''} · ${player.survived ? 'RETURNED TO BAY' : 'MISSION KILLED'}`
-        : 'NO PLAYER SCORE RECORDED';
-    personal.append(personalTitle, personalKick);
-    if (player) {
-        const grid = document.createElement('div'); grid.className = 'score-stat-grid';
-        grid.append(
-            statTile('TOTAL SCORE', Math.round(player.totalScore), 'combat + result + survival'),
-            statTile('COMBAT SCORE', Math.round(player.combatScore), 'direct fighting contribution'),
-            statTile('MISSION KILLS', player.missionKills, 'rigs made combat-ineffective'),
-            statTile('DISABLES', player.disables, 'individual modules disabled'),
-            statTile('ASSISTS', player.assists, 'meaningful shared takedowns'),
-            statTile('BREACHES', player.breaches, 'armor sections opened'),
-            statTile('INTERNAL DMG', `${Math.round(player.internalPercent)}%`, 'integrity removed across targets'),
-            statTile('ARMOR STRIPPED', `${Math.round(player.armorPercent)}%`, 'armor removed across targets'),
-        );
-        personal.append(grid);
-        const explain = document.createElement('div'); explain.className = 'score-explain';
-        const draftRank = (result.score.draftOrder ?? []).indexOf('player');
-        explain.textContent = result.terminal === false
-            ? 'ROUND SCORE · CONTRACT SALVAGE AND PAYOUT SETTLE AFTER THE BO3 SERIES.'
-            : draftRank >= 0
-                ? `SALVAGE PRIORITY #${draftRank + 1} · score and participation determine claim order; destroying parts does not award bonus score.`
-                : 'LOW PARTICIPATION CAN DROP A PILOT BEHIND QUALIFIED TEAMMATES IN SALVAGE ORDER.';
-        personal.append(explain);
+    const make=(tag,cls,content)=>{
+        const node=document.createElement(tag);if(cls)node.className=cls;
+        if(content!==undefined)node.textContent=String(content);
+        return node;
+    };
+    scorePage.append(make('div','debrief-page-title','02 / SCORE'));
+    if(!result||sheet.classList.contains('hidden'))return;
+    const standings=result.score?.standings??[];
+    const player=standings.find(row=>row.id==='player');
+    const rank=standings.findIndex(row=>row.id==='player')+1;
+    const root=make('section','k4o-score');
+    const head=make('div','k4o-score-head');
+    const heading=make('div','k4o-score-heading');
+    heading.append(make('strong','',result.terminal===false?'ROUND SCORE':'MATCH SCORE'),
+        make('small','',result.victory?'TEAM VICTORY':'TEAM DEFEAT'));
+    const match=make('div','k4o-score-match');
+    match.append(make('small','','MATCH'),
+        make('strong','',result.series
+            ?result.series.playerWins+' – '+result.series.enemyWins
+            :result.victory?'WON':'LOST'));
+    head.append(heading,match);
+    root.append(head);
+    const highlights=make('div','k4o-highlights');
+    for(const [label,value] of [
+        ['YOUR SCORE',Math.round(player?.totalScore??0)],
+        ['K / A / DIS',[(player?.missionKills??0),(player?.assists??0),
+            (player?.disables??0)].join(' / ')],
+        ['RANK',rank?rank+' / '+standings.length:'—']
+    ]){
+        const tile=make('div','k4o-highlight');
+        tile.append(make('span','',label),make('strong','',value));highlights.append(tile);
     }
-
-    const match = document.createElement('section'); match.className = 'score-card score-match';
-    const matchTitle = document.createElement('h2');
-    matchTitle.textContent = result.terminal === false ? 'ROUND RESULT · BO3 IN PROGRESS' : 'FIELD RESULT';
-    const matchKick = document.createElement('div'); matchKick.className = 'score-kicker';
-    matchKick.textContent = result.victory ? 'FRIENDLY TEAM CONTROLS THE FIELD' : 'HOSTILE TEAM CONTROLS THE FIELD';
-    const meta = document.createElement('div'); meta.className = 'score-match-meta';
-    const mvp = document.createElement('div'); mvp.innerHTML = `<span>MVP</span><b>${result.score.mvp?.label ?? '—'} · ${Math.round(result.score.mvp?.combatScore ?? 0)}</b>`;
-    const preservation = document.createElement('div');
-    preservation.innerHTML = `<span>${result.terminal === false ? 'MATCH SCORE' : 'WRECK PRESERVATION'}</span><b>${result.terminal === false
-        ? result.series.playerWins + ' — ' + result.series.enemyWins
-        : result.victory ? result.wreckPreservation + '%' : '—'}</b>`;
-    meta.append(mvp, preservation);
-    const table = document.createElement('div'); table.className = 'score-standings';
-    standings.forEach((row, index) => {
-        const item = document.createElement('div');
-        item.className = `score-standing${row.lowParticipation ? ' low' : ''}${row.id === result.score.mvp?.id ? ' mvp' : ''}`;
-        const rankEl = document.createElement('b'); rankEl.textContent = String(index + 1);
-        const name = document.createElement('strong'); name.textContent = row.label;
-        const score = document.createElement('b'); score.textContent = String(Math.round(row.totalScore));
-        const stats = document.createElement('small');
-        stats.textContent = `${row.missionKills}K · ${row.assists}A · ${row.disables}DIS · ${row.survived ? 'RTB' : 'OUT'}${row.lowParticipation ? ' · LOW' : ''}`;
-        item.append(rankEl, name, score, stats); table.append(item);
+    root.append(highlights);
+    const table=make('div','k4o-standings');
+    const rowHead=make('div','k4o-stand-head');
+    rowHead.append(make('span','','PILOT'),make('span','','K / A / DIS'),make('span','','PTS'));
+    table.append(rowHead);
+    standings.forEach((row,index)=>{
+        const line=make('div','k4o-standing'+(row.id==='player'?' player':'')+
+            (row.id===result.score?.mvp?.id?' mvp':''));
+        const name=make('span','k4o-pilot',(index+1)+'. '+row.label);
+        const stats=make('span','k4o-stats',
+            row.missionKills+' / '+row.assists+' / '+row.disables);
+        const points=make('strong','',Math.round(row.totalScore));
+        line.title=row.label+' · '+(row.survived?'RETURNED':'OUT')+
+            (row.lowParticipation?' · LOW PARTICIPATION':'');
+        line.setAttribute('aria-label',line.title+' · '+stats.textContent+
+            ' kills assists disables · '+points.textContent+' points');
+        line.append(name,stats,points);table.append(line);
     });
-    match.append(matchTitle, matchKick, meta, table);
-    if (result.victory && result.terminal !== false) {
-        const order = document.createElement('div'); order.className = 'draft-order';
-        const orderIds = result.score.draftOrder ?? [];
-        const numbered = orderIds.map((id, index) => `${index + 1}. ${actorLabel(result, id)}`).join('  →  ');
-        order.innerHTML = `<b>CLAIM ORDER</b> · ${numbered}<br><small>Higher bout score / participation drafts first. Each pilot may recover one eligible component.</small>`;
-        match.append(order);
+    root.append(table);
+    if(result.terminal!==false && result.victory){
+        const n=(result.score?.draftOrder??[]).indexOf('player');
+        root.append(make('div','k4o-foot',n>=0?'SALVAGE PICK #'+(n+1):'TEAM SALVAGE'));
+    }else if(result.terminal===false){
+        root.append(make('div','k4o-foot','PAYOUT AFTER MATCH'));
     }
-    layout.append(personal, match);
-    scorePage.append(layout);
+    scorePage.append(root);
 }
-
 function isClaimable(result, entry) {
     return currentDrafter(result.draft) === 'player' && !entry.destroyed && !entry.claimedBy &&
         playerClaimChoices(result.draft).some(choice => choice.id === entry.id);
