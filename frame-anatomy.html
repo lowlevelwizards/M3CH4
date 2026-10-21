@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1d2924"><title>M3CH4 k.3z / Live Frame Anatomy Lab</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<style>
+:root{color-scheme:dark;font:13px/1.42 system-ui,sans-serif;background:#17221e;color:#f0ecd9}
+*{box-sizing:border-box}body{margin:0}header{display:flex;justify-content:space-between;padding:12px;gap:15px;background:#26342b;border-bottom:1px solid #546d5d}
+h1{font-size:16px;letter-spacing:.075em;margin:0}small{font-size:11px;color:#b9c9b9}a{color:#eac47f}
+main{max-width:1280px;margin:auto}p{margin:8px 12px;color:#c2d3c7}
+nav{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 5px}
+button,label{font:inherit;color:#f2ead8;background:#36453b;border:1px solid #78877a;border-radius:5px;padding:8px 11px;cursor:pointer;min-height:38px}
+button[aria-pressed="true"]{background:#775f36;border-color:#e6c075}
+label{display:flex;gap:6px;align-items:center}input{accent-color:#e3be66}
+#stage{height:460px;position:relative}#lab-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#tiles{pointer-events:none;position:relative;height:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 7px}
+.tile{position:relative;border:1px solid #62776a;min-width:0;overflow:hidden;border-radius:5px}
+.name,.sub{position:absolute;left:7px;right:7px;padding:5px 8px;background:#16251fdc}
+.name{top:7px;font-weight:800;letter-spacing:.055em}.sub{bottom:7px;font-size:10px;color:#c2d1be}
+#status{font:11px ui-monospace,monospace;white-space:pre-wrap;margin:10px 12px;color:#c9d7c4}
+footer{padding:12px;color:#bdcbbb;font-size:11px}
+@media(max-width:750px){#stage{height:960px}#tiles{grid-template-columns:1fr;grid-template-rows:repeat(3,minmax(0,1fr))}}
+</style></head><body>
+<header><div><h1>M3CH4 / LIVE STRUCTURAL FRAME LAB</h1><small>k.3z · installed builders · shared physical raycast geometry</small></div><a href="./index.html">GAME →</a></header>
+<main><p>Bare frames and complete equipped rigs use the same real Three.js geometry. +X is machine right; -Z faces front. Matrix mode pairs each frame with all three live leg assemblies. All frames retain their actual socket graph.</p>
+<nav aria-label="Frame inspection controls">
+<button data-mode="bare" aria-pressed="true">BARE FRAMES</button>
+<button data-mode="assembled" aria-pressed="false">MATCHED COMPLETE RIGS</button>
+<button data-mode="matrix" aria-pressed="false">9-WAY LEG MATRIX</button>
+<button data-view="quarter" aria-pressed="true">3/4</button>
+<button data-view="front" aria-pressed="false">FRONT</button>
+<button data-view="side" aria-pressed="false">SIDE</button>
+<button data-view="top" aria-pressed="false">TOP</button>
+<label><input id="gray" type="checkbox"> Uniform gray</label>
+<label><input id="envelopes" type="checkbox"> Nominal bounds</label>
+</nav>
+<div id="status" role="status">Preparing actual frame geometry…</div>
+<div id="stage"><canvas id="lab-canvas" aria-hidden="true"></canvas><div id="tiles">
+<div class="tile" data-frame="frame-sr"><div class="name">SR-01 BRUISER</div><div class="sub">Welded core · broad shoulders · exposed side bearings</div></div>
+<div class="tile" data-frame="frame-utility"><div class="name">U-2 SKELETON</div><div class="sub">Long rails · open truss · offset weapon carrier</div></div>
+<div class="tile" data-frame="frame-wedge"><div class="name">W-3 WEDGE</div><div class="sub">Stressed shell · cream nose · integrated side cheeks</div></div>
+</div></div>
+<footer>Gray is a nonphysical scene material override. Gallery never saves an assembly. Fit-only combinations are not declared deployable: inspect garage validation in-game. Real screenshot generation and numerical ray checks run in the frame anatomy CI audit.</footer>
+</main><script type="module" src="./frameAnatomyLab.js?v=k3z"></script>
+</body></html>
