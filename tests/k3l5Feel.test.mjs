@@ -22,7 +22,7 @@ test('starter projectile weapons have deliberate physical recoil', () => {
 test('debrief communicates draft order and the current salvage turn', () => {
     const source = fs.readFileSync(new URL('../acquisitionUI.js', import.meta.url), 'utf8');
     assert.match(source, /CLAIM ORDER/);
-    assert.match(source, /Higher bout score \/ participation drafts first/);
+    assert.match(source, /SALVAGE PICK/);
     assert.match(source, /PICK 1 RECOVERABLE PART/);
 });
 
