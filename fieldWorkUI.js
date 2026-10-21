@@ -90,6 +90,12 @@ function applyCommitmentLock() {
 }
 
 function renderFieldWork() {
+    // Unified pit is now the only visible interaction authority. The legacy
+    // inspector remains import-compatible for old save/series listeners.
+    if(document.querySelector('#unified-garage')){
+        inspectionPanel.querySelector(':scope > .field-work-panel')?.remove();
+        return;
+    }
     const series = activeIntermission();
     const existing = inspectionPanel.querySelector(':scope > .field-work-panel');
     if (!series) {
