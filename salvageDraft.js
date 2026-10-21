@@ -9,6 +9,7 @@ import { installedPart, SLOTS } from './components.js';
 import { salvageCondition, salvageRecoveryFee } from './acquisition.js';
 import { partFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
+import { normalizePaint } from './factoryPaint.js';
 
 export const SCRAPYARD_CHARTER = Object.freeze({
     id: 'scrapyard-sanctioned-v1',
@@ -41,6 +42,7 @@ export function wreckManifest(actor) {
             slot,
             definitionId: fitted.definition.id,
             sourceSerial: fitted.instance.serial,
+            ...(normalizePaint(fitted.instance.paint)?{paint:normalizePaint(fitted.instance.paint)}:{}),
             name: fitted.definition.name,
             condition,
             status,
@@ -177,5 +179,6 @@ export function claimToRecoveryOffer(entry) {
         condition: entry.condition,
         recoveryFee: entry.recoveryFee,
         preserveSourceSerial: true,
+        ...(normalizePaint(entry.paint)?{paint:normalizePaint(entry.paint)}:{}),
     };
 }
