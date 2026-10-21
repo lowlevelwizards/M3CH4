@@ -8,8 +8,7 @@ import { contractById } from './contracts.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
 import { bayHealth, bayModuleQuote, SLOT_LABELS } from './garageBay.js';
-import { createConditionMeter } from './uiMeters.js';
-import { conditionFromPart, stationLabel } from './uiLanguage.js';
+
 import { activePlayerArena, partThumbnailDataUrl } from './scene.js';
 import {
     beginSortieAssignment, clearSortieAssignment, loadSortieAssignment,
@@ -32,7 +31,7 @@ if (!inspectionPanel || !fieldStatus || !assemblyToggle || !debriefSheet || !deb
 
 const styleLink = document.createElement('link');
 styleLink.rel = 'stylesheet';
-styleLink.href = './seriesStyles.css?v=k3s2';
+styleLink.href = './seriesStyles.css?v=k4q';
 document.head.append(styleLink);
 
 let localStorageRef = null;
@@ -190,42 +189,6 @@ function readinessText(stable, rigId) {
     if (readiness.disabled.length) return `OUT · DISABLED ${readiness.disabled.join(' / ').toUpperCase()}`;
     if (readiness.missing.length) return `OUT · MISSING ${readiness.missing.join(' / ').toUpperCase()}`;
     return 'OUT · NOT FIELDABLE';
-}
-
-function appendDebriefRow(label, value, kind = '', reading = null, serviceQuote = null) {
-    const row = document.createElement('div');
-    row.className = `debrief-row ${kind}`.trim();
-    const name = document.createElement('span'); name.textContent = label;
-    const amount = document.createElement('strong'); amount.textContent = value;
-    if (reading?.serial) {
-        row.classList.add('rig-condition-row');
-        row.append(name,createConditionMeter(conditionFromPart(reading),{compact:true,slot:reading.slot}));
-        if(serviceQuote?.amount>0){
-            const cost=document.createElement('small');
-            cost.className='rig-repair-estimate';
-            cost.textContent='₡'+serviceQuote.amount;
-            cost.title='SHOP REPAIR ESTIMATE · NOT AVAILABLE DURING BO3 PIT';
-            row.append(cost);
-        }
-        amount.setAttribute('aria-label',value);
-        amount.classList.add('rig-condition-alt');
-        // Exact percentages remain inspectable via the accessible row and title.
-        row.title=value;
-        row.tabIndex=0;
-        row.setAttribute('role','button');
-        row.setAttribute('aria-expanded','false');
-        row.setAttribute('aria-label',label+' · '+value+' · tap for readings');
-        const toggle=()=>{
-            row.classList.toggle('expanded');
-            row.setAttribute('aria-expanded',String(row.classList.contains('expanded')));
-        };
-        row.addEventListener('click',toggle);
-        row.addEventListener('keydown',event=>{
-            if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}
-        });
-    } else row.append(name);
-    row.append(amount);
-    debriefLines.append(row);
 }
 
 function renderRoundIntermission(series, round) {
