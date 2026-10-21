@@ -18,6 +18,7 @@ const C = {
 };
 
 const partThumbnailCache = new Map();
+const rigThumbnailCache = new Map();
 let partThumbnailRenderer = null;
 function disposePreviewObject(root) {
     root.traverse(object => {
@@ -79,6 +80,47 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     const url = partThumbnailRenderer.domElement.toDataURL('image/png');
     partThumbnailCache.set(key, url);
     disposePreviewObject(exterior.root);
+    return url;
+}
+/** Tiny cached three-quarter image of an actual five-part assembly, used by
+ * the three paint distributions. No gameplay rig, camera or state is mutated. */
+export function rigThumbnailDataUrl(assembly){
+    if(typeof document==='undefined'||!assembly)return null;
+    const key=JSON.stringify({
+        installed:assembly.installed,
+        paint:(assembly.owned||[]).filter(p=>Object.values(assembly.installed||{}).includes(p.serial))
+            .map(p=>[p.serial,p.definitionId,normalizePaint(p.paint)]),
+    });
+    if(rigThumbnailCache.has(key))return rigThumbnailCache.get(key);
+    // Keep browser cache bounded when people tune pigments continuously.
+    if(rigThumbnailCache.size>=45)rigThumbnailCache.clear();
+    if(!partThumbnailRenderer){
+        partThumbnailRenderer=new THREE.WebGLRenderer({antialias:false,alpha:true,
+            preserveDrawingBuffer:true,powerPreference:'low-power'});
+        partThumbnailRenderer.outputColorSpace=THREE.SRGBColorSpace;
+        partThumbnailRenderer.toneMapping=THREE.ACESFilmicToneMapping;
+        partThumbnailRenderer.toneMappingExposure=1.18;
+        partThumbnailRenderer.setSize(96,72,false);
+        partThumbnailRenderer.setPixelRatio(1);
+    }
+    const visual=buildExteriorRig(assembly);
+    const stage=new THREE.Scene();
+    stage.background=new THREE.Color(0x0b100e);
+    stage.add(visual.root);
+    stage.add(new THREE.HemisphereLight(0xa6b9ad,0x201c18,.8));
+    const light=new THREE.DirectionalLight(0xffd49a,2.5);light.position.set(-4,6,5);stage.add(light);
+    const rim=new THREE.DirectionalLight(0x78aaa5,1.1);rim.position.set(4,2,-5);stage.add(rim);
+    const box=new THREE.Box3().setFromObject(visual.root);
+    const sphere=box.getBoundingSphere(new THREE.Sphere());
+    visual.root.position.sub(sphere.center);
+    const radius=Math.max(.35,sphere.radius);
+    const camera=new THREE.PerspectiveCamera(36,96/72,.03,60);
+    camera.position.set(radius*1.55,radius*.86,radius*2.4);
+    camera.lookAt(0,0,0);
+    partThumbnailRenderer.render(stage,camera);
+    const url=partThumbnailRenderer.domElement.toDataURL('image/png');
+    rigThumbnailCache.set(key,url);
+    disposePreviewObject(visual.root);
     return url;
 }
 export function createArenaScene(initial, targetAssembly) {
@@ -454,6 +496,26 @@ export function createArenaScene(initial, targetAssembly) {
         };
         squadCombatants.set(id, record);
         return record;
+    }
+    /** Update installed coating on an already spawned ally without rebuilding
+     * its rig, physics, pose or serialized hardware. Usually called in garage. */
+    function repaintCombatant(id){
+        const record=squadCombatants.get(id);
+        if(!record)return false;
+        for(const [slot,group] of record.exterior.partGroups){
+            const paint=normalizePaint(installedPart(record.assembly,slot)?.instance?.paint);
+            if(!paint)continue;
+            group.traverse(node=>{
+                if(!node.isMesh||!node.material)return;
+                const items=Array.isArray(node.material)?node.material:[node.material];
+                for(const material of items){
+                    const channel=material?.userData?.paintChannel;
+                    if(channel && paint[channel])material.color.set(paint[channel]);
+                }
+            });
+        }
+        record.colors=colorsFor(record.exterior);
+        return true;
     }
     function setCombatantActive(id, active) {
         const record = squadCombatants.get(id);
@@ -1563,6 +1625,11 @@ export function createArenaScene(initial, targetAssembly) {
         cockpit.userData.armoredCab.visible = command === 'cab-armored';
         cockpit.userData.utilityCab.visible = command === 'cab-utility';
     }
+    let paintSelectedSlots = null;
+    function setPaintSelectedSlots(slots=null){
+        paintSelectedSlots=Array.isArray(slots)?new Set(slots):null;
+        selectPart(selected);
+    }
     function selectPart(slot) {
         selected = slot;
         for (const [groupSlot, meshes] of exterior.partMeshes) {
@@ -1570,8 +1637,9 @@ export function createArenaScene(initial, targetAssembly) {
                 const material = mesh.material;
                 if (!(material instanceof THREE.MeshStandardMaterial))
                     continue;
-                material.emissive.setHex(groupSlot === slot ? 0xb78b35 : 0);
-                material.emissiveIntensity = groupSlot === slot ? 0.30 : 0;
+                const illuminated=paintSelectedSlots ? paintSelectedSlots.has(groupSlot) : groupSlot===slot;
+                material.emissive.setHex(illuminated ? 0xb78b35 : 0);
+                material.emissiveIntensity = illuminated ? (paintSelectedSlots ? 0.14 : 0.30) : 0;
             }
         }
     }
@@ -2063,12 +2131,12 @@ export function createArenaScene(initial, targetAssembly) {
     selectPart(selected);
     return {
         scene, camera, cockpit, debugColliders,
-        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, focusPart,
+        updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
-        addCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
-        updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl,
+        addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
+        updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
     };
 }
 function mat(color, roughness = 0.82, metalness = 0.18) {

@@ -24,7 +24,8 @@ import {
     reconcileFieldPatches, clearFieldWorkAll, clearFieldWorkSeries,
 } from './fieldWork.js';
 import { BAY_IDS, BAY_SLOTS, SLOT_LABELS, bayAssembly, bayHealth, bayStatus, bayModuleQuote, bayGeneratorMount } from './garageBay.js';
-import { createPaintBooth, clearPaintBoothDraft } from './paintBoothUI.js';
+import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot, paintBoothCurrentEdits } from './paintBoothUI.js';
+import { contractCrew } from './crewLivery.js';
 
 const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
@@ -46,7 +47,7 @@ try { session = window.sessionStorage; } catch { /* display a blocking action me
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
-let paintExpanded = false, paintPreviewEdits = null;
+let paintExpanded = false, paintPreviewEdits = null, paintHighlightSlots = null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
@@ -116,7 +117,7 @@ function selectBay(id) {
     }
     viewedId = id;
     try { session?.setItem(key, id); } catch { /* local browsing remains possible */ }
-    selectedSlot = null; selectedHardwareSerial = null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null; clearPaintBoothDraft();
+    selectedSlot = null; selectedHardwareSerial = null; rackView='ready'; identityExpanded = false; previewSignature = ''; paintPreviewEdits=null;paintHighlightSlots=null; clearPaintBoothDraft();
     dock.scrollTop = 0; // New machine must never inherit the previous bay's gallery scroll.
     if (mode === 'setup') assignment(loadStable(storage).stable, selectedJobId, id);
     else if (actualMode(loadSeries(storage)) === 'pit') assignment(loadStable(storage).stable, loadSeries(storage).contractId, id);
@@ -153,6 +154,7 @@ function preview(stable, series) {
         arena.selectPart(selectedSlot);
         arena.focusPart(selectedSlot);
     }
+    arena.setPaintSelectedSlots?.(paintExpanded?paintHighlightSlots:null);
 }
 function navRender(stable, currentMode) {
     navigator.replaceChildren();
@@ -182,6 +184,7 @@ function renderTop(currentMode, series, machine) {
     if (currentMode === 'garage') {
         const paint=button(paintExpanded?'× PAINT':'PAINT ›',()=>{
             paintExpanded=!paintExpanded;paintPreviewEdits=null;previewSignature='';
+            if(!paintExpanded){paintHighlightSlots=null;activePlayerArena()?.arena.setPaintSelectedSlots?.(null);}
             if(!paintExpanded)clearPaintBoothDraft();
             dock.scrollTop=0;render();
         },'unified-top-action');
@@ -481,8 +484,18 @@ function renderGarage(stable,machine,view) {
         stable,rigId:viewedId,storage,
         onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
         onRefresh:()=>render(),
-        onSaved:()=>{paintPreviewEdits=null;previewSignature='';render();},
+        onSaved:()=>{
+            document.dispatchEvent(new CustomEvent('m3ch4:paint-committed'));
+            paintPreviewEdits=null;previewSignature='';render();
+        },
+        onTeamSaved:()=>document.dispatchEvent(new CustomEvent('m3ch4:team-livery-committed')),
         onMessage:message,
+        thumbnailFor:(id,state)=>activePlayerArena()?.arena.partThumbnailDataUrl?.(id,state),
+        rigThumbnailFor:assembly=>activePlayerArena()?.arena.rigThumbnailDataUrl?.(assembly),
+        onSelection:slots=>{
+            paintHighlightSlots=slots;
+            activePlayerArena()?.arena.setPaintSelectedSlots?.(slots);
+        },
     }));
     else if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
     else dock.append(el('p','unified-muted','SELECT STATION  ·  ⬡  ⋀  ϟ  ◉  ✦'));
@@ -598,6 +611,14 @@ function renderContracts(stable) {
             c.objective.label + ' · RISK ' + c.risk.toUpperCase() + ' · ₡' + c.payout));
         detail.append(el('p','',c.briefing));
         detail.append(el('div','unified-muted','OBJECTIVE · ' + c.objective.description));
+        const crew=contractCrew(c.id);
+        const livery=el('div','unified-contract-livery');
+        const band=el('div','unified-crew-swatches');
+        for(const color of Object.values(crew.colors)){
+            const swatch=el('i');swatch.style.background=color;band.append(swatch);
+        }
+        livery.append(el('small','','OPPOSING CREW · '+crew.name),band);
+        detail.append(livery);
         detail.append(el('div','unified-muted','KNOWN EQUIPMENT · '+c.knownEquipment.join(' / ')));
         detail.append(el('div','unified-muted','SALVAGE · '+c.salvageHint));
         dock.append(detail);
@@ -788,6 +809,9 @@ document.addEventListener('m3ch4:bay-picked',event=>{
     if(actualMode(loadSeries(storage))!=='garage')return;
     const slot=event.detail?.slot;
     if (!slot) return;
+    if(paintExpanded && togglePaintBoothSlot(loadStable(storage).stable,viewedId,slot)){
+        paintPreviewEdits=paintBoothCurrentEdits();previewSignature='';render();return;
+    }
     selectedSlot = slot;
     selectedHardwareSerial = null;
     dock.scrollTop = 0;

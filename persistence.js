@@ -5,6 +5,7 @@
  */
 import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
 import { normalizePaint, USER_PALETTES_KEY } from './factoryPaint.js';
+import { TEAM_LIVERY_KEY } from './crewLivery.js';
 import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
 import { createTargetCondition } from './combat.js';
@@ -330,7 +331,7 @@ export function storeMachine(storage, state) {
 export function clearMachineSave(storage) {
     if (!storage) return false;
     try {
-        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY, CAMPAIGN_STORAGE_KEY, USER_PALETTES_KEY])
+        for (const key of [MACHINE_SAVE_V8_KEY, MACHINE_SAVE_V7_KEY, MACHINE_SAVE_V6_KEY, MACHINE_SAVE_V5_KEY, MACHINE_SAVE_V4_KEY, MACHINE_SAVE_V3_KEY, MACHINE_SAVE_KEY, CAMPAIGN_STORAGE_KEY, USER_PALETTES_KEY, TEAM_LIVERY_KEY])
             storage.removeItem(key);
         return true;
     } catch {
