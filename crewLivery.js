@@ -3,7 +3,7 @@
  * rewritten by this module. Salvage retains an opponent's applied finish.
  */
 import { SLOTS, installedPart } from './components.js';
-import { normalizePaint, PAINT_PRESETS, paintVariant } from './factoryPaint.js';
+import { factoryFinishFor, normalizePaint, paintVariant } from './factoryPaint.js';
 
 export const TEAM_LIVERY_KEY='m3ch4-team-livery-v1';
 const crew=(name,primary,secondary,armor,accent)=>Object.freeze({
@@ -44,7 +44,7 @@ export function friendlyPalette(storage,playerAssembly){
         const paint=normalizePaint(installedPart(playerAssembly,slot)?.instance?.paint);
         if(paint)return paint;
     }
-    return PAINT_PRESETS[0].colors;
+    return factoryFinishFor(installedPart(playerAssembly,'structure')?.definition?.id);
 }
 /** Each contract fields one recognizable team, not one paint job for each
  * loadout recipe. 0/1/2 are the lead and two support positions, repeatably. */
