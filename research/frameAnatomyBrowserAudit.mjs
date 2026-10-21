@@ -82,7 +82,7 @@ try{
                 throw Error('Skeleton has fake solid core');
             const bound=new THREE.Box3().setFromObject(fresh,true);
             // Genuine void: a center-front ray passes between the Skeleton upper and lower rails.
-            rays.set(new THREE.Vector3(0,0,-6),new THREE.Vector3(0,0,1));
+            rays.set(new THREE.Vector3(0,-.1,-6),new THREE.Vector3(0,0,1));
             rays.far=12;
             const first=rays.intersectObjects(fresh.children,true).filter(h=>h.object.isMesh);
             if(id==='frame-utility'&&first.length!==0)

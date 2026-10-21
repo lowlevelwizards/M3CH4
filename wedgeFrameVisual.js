@@ -33,9 +33,9 @@ export function buildWedgeFrameVisual(fixture){
         // A strong high-side forward shoulder lip catches real shallow-angle
         // frontal hits, while the exposed central cab remains hittable.
         shell(sides,(side<0?'left':'right')+' forward protective shell return',
-            [side*.51,.28,-.69],{
-                frontWidth:.18,rearWidth:.26,depth:.40,
-                frontBottom:-.18,frontTop:.045,rearBottom:-.24,rearTop:.38,
+            [side*.505,.45,-1.02],{
+                frontWidth:.18,rearWidth:.26,depth:.53,
+                frontBottom:-.20,frontTop:.29,rearBottom:-.40,rearTop:.13,
             },'ochre');
     }
     const mounts=groupAt(r,'WEDGE / INTEGRATED BEARINGS AND REAR BULKHEAD');

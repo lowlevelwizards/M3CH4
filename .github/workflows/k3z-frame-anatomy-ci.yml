@@ -34,7 +34,9 @@ jobs:
           for f in frameVisualKit.js bruiserFrameVisual.js skeletonFrameVisual.js wedgeFrameVisual.js frameAnatomyLab.js research/frameAnatomyBrowserAudit.mjs; do node --check "$f"; done
           npm test
       - name: Real mesh directional shielding (must pass)
-        run: node research/frameShieldingAudit.mjs --assert
+        run: |
+          node research/frameShieldingAudit.mjs --json
+          node research/frameShieldingAudit.mjs --assert
       - name: Serve gallery and game modules
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/k3z-http.log 2>&1 &
