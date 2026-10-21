@@ -303,3 +303,11 @@ body.inspecting #inspect-reset{
   grid-template-columns:repeat(2,minmax(0,1fr));
  }
 }
+
+/* Orbit reset remains available but no longer occupies its own floating bar. */
+body.inspecting #inspect-reset{display:none!important}
+#unified-garage .workshop-reset{
+ width:31px;height:29px;min-height:29px;padding:2px 4px;
+ background:#111e18ce;border:1px solid #62736591;
+ color:#d3be91;font:900 19px/1 ui-monospace,monospace;
+}
