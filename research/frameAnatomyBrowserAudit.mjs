@@ -119,14 +119,38 @@ try{
                 if(!(rig.partMeshes.get('command')||[]).length)
                     throw Error('Command lost in rig '+id+'/'+cab);
             }
+            // Inspect every current weapon, including Stump's heavy breech,
+            // Needle's long nose and the S-6 wide scatter assembly. These are
+            // the shipped visible meshes, never stand-in clearance proxies.
+            const weapons=[];
+            for(const weapon of ['gun-cannon','gun-short','gun-light','gun-scatter']){
+                const a=makeTestAssembly();equip(a,'structure',id);equip(a,'combat',weapon);
+                const verdict=inspectAssembly(a),rig=buildExteriorRig(a);
+                const combatMeshes=rig.partMeshes.get('combat')||[];
+                const structureMeshes=rig.partMeshes.get('structure')||[];
+                if(!verdict.ready||combatMeshes.length<3||structureMeshes.length<12)
+                    throw Error('Invalid equipped combat geometry '+id+'/'+weapon);
+                if(combatMeshes.some(m=>m.userData.slot!=='combat'||
+                    !rig.pickMeshes.includes(m)))throw Error('Weapon mesh tags missing '+id+'/'+weapon);
+                rig.root.updateWorldMatrix(true,true);
+                const combatBounds=new THREE.Box3(),frameBounds=new THREE.Box3();
+                for(const mesh of combatMeshes)combatBounds.expandByObject(mesh,true);
+                for(const mesh of structureMeshes)frameBounds.expandByObject(mesh,true);
+                if(combatBounds.isEmpty()||frameBounds.isEmpty())throw Error('Absent weapon bounds');
+                const intersection=combatBounds.clone().intersect(frameBounds);
+                weapons.push({weapon,deployable:verdict.ready,meshes:combatMeshes.length,
+                    combatBounds:{min:combatBounds.min.toArray(),max:combatBounds.max.toArray()},
+                    frameAabbOverlap:intersection.isEmpty()?[0,0,0]:
+                        intersection.getSize(new THREE.Vector3()).toArray()});
+            }
             records.push({id,bodyMass:fixture.massKg,meshCount:materialsA.length,
                 bounds:{min:bound.min.toArray(),max:bound.max.toArray()},
                 named,socketPoints:fixture.sockets.map(s=>({id:s.id,position:s.position})),
-                frontCenterFirst:first[0]?.object.name||'void',combinations});
+                frontCenterFirst:first[0]?.object.name||'void',combinations,weapons});
         }
         return records;
     });
     writeFileSync(out+'/geometry-and-nine-assembly-audit.json',JSON.stringify(measurements,null,2));
-    console.log('Three real frame kits, nine mobility combinations, nine cab combinations audited.');
+    console.log('Three real frame kits, nine mobility, nine cab, and twelve weapon installations audited.');
     if(errors.length)throw Error('Browser startup/console errors: '+errors.join('\n'));
 }finally{await browser.close();}
