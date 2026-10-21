@@ -32,12 +32,15 @@ import { createPaintBooth, clearPaintBoothDraft, togglePaintBoothSlot, paintBoot
 const key = 'm3ch4-viewed-bay-v1';
 const shell = document.createElement('section');
 shell.id = 'unified-garage';
-shell.setAttribute('aria-label','Garage and contract operations');
-shell.innerHTML = '<div class="unified-top"></div><div id="unified-garage-dock"></div><div id="unified-garage-shelf" aria-label="Compatible workshop parts"></div><div id="unified-garage-action"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
+shell.setAttribute('aria-label','M3CH4 workspaces');
+shell.innerHTML = '<div class="unified-top"></div><div class="workshop-rail" aria-label="Rig stations"></div><div class="workshop-status"></div><nav class="workshop-links" aria-label="Workspaces"></nav><div id="unified-garage-dock"></div><div id="unified-garage-shelf" aria-label="Compatible workshop parts"></div><div id="unified-garage-action"></div><div class="unified-bay-navigation"></div><div class="unified-notice" role="status" aria-live="polite"></div>';
 document.body.append(shell);
 installPartGridStyles();
 const top = shell.querySelector('.unified-top');
 const dock = shell.querySelector('#unified-garage-dock');
+const rail = shell.querySelector('.workshop-rail');
+const statusBar = shell.querySelector('.workshop-status');
+const quickLinks = shell.querySelector('.workshop-links');
 const shelf = shell.querySelector('#unified-garage-shelf');
 const actionBar = shell.querySelector('#unified-garage-action');
 const navigator = shell.querySelector('.unified-bay-navigation');
@@ -98,6 +101,42 @@ function data() {
         view:bayStatus(stable, viewedId) };
 }
 function actualMode(series) { return series?.phase === 'intermission' ? 'pit' : mode; }
+/** One navigation authority for ordinary workspaces. Never deploy, move
+ * serialized hardware, or release a pending assignment by navigating. */
+function openWorkspace(target) {
+    if (actualMode(loadSeries(storage)) === 'pit') return;
+    if (target === 'paint') {
+        mode='garage'; paintExpanded=true;
+        selectedSlot=null; selectedHardwareSerial=null;
+        swapExpanded=false;drawerExpanded=false;detailsExpanded=false;
+    } else {
+        if (paintExpanded) {
+            paintExpanded=false;paintPreviewEdits=null;paintHighlightSlots=null;
+            clearPaintBoothDraft();activePlayerArena()?.arena.setPaintSelectedSlots?.(null);
+        }
+        mode=target;
+        selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;
+        drawerExpanded=false;detailsExpanded=false;identityExpanded=false;
+        if (target==='vendor') selectedLotSerial=null;
+        if (target==='contracts') {
+            const pending=loadSortieAssignment(session);
+            selectedJobId=pending?.phase==='pending'?pending.contractId:null;
+        }
+    }
+    previewSignature='';dock.scrollTop=0;render();
+}
+function goBack() {
+    const state=actualMode(loadSeries(storage));
+    if (state==='pit') return;
+    if (paintExpanded || state==='vendor') {openWorkspace('garage');return;}
+    if (state==='setup') {mode='contracts';render();return;}
+    if (state==='contracts' && selectedJobId) {selectedJobId=null;render();return;}
+    if (state==='contracts') {openWorkspace('garage');return;}
+    if (selectedSlot || identityExpanded) {
+        selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;
+        drawerExpanded=false;identityExpanded=false;previewSignature='';render();
+    }
+}
 function assignment(stable, jobId, preferredRigId = viewedId) {
     const current = loadSortieAssignment(session);
     if (!session || !jobId) return { ok:false, reason:'SORTIE STORAGE UNAVAILABLE' };
@@ -171,8 +210,8 @@ function preview(stable, series) {
 }
 function navRender(stable, currentMode) {
     navigator.replaceChildren();
-    navigator.classList.toggle('hidden', currentMode === 'contracts' || currentMode === 'vendor');
-    if (currentMode === 'contracts' || currentMode === 'vendor') return;
+    navigator.classList.toggle('hidden', currentMode === 'contracts' || currentMode === 'vendor' || paintExpanded);
+    if (currentMode === 'contracts' || currentMode === 'vendor' || paintExpanded) return;
     const view = bayStatus(stable, viewedId);
     navigator.append(button('‹', () => stepBay(-1), 'bay-arrow', viewedId === BAY_IDS[0]));
     const label = el('div','bay-index');
@@ -189,40 +228,46 @@ function navRender(stable, currentMode) {
 }
 function renderTop(currentMode, series, machine) {
     top.replaceChildren();
-    const title = el('strong','unified-title', currentMode === 'pit' ? 'INTERMISSION · PIT' :
-        currentMode === 'setup' ? 'SORTIE SETUP' : currentMode === 'contracts' ? 'SCRAPYARD CIRCUIT' :
-        currentMode === 'vendor' ? 'PARTS COUNTER' : 'GARAGE');
-    const balance = el('small','unified-credits','₡' + Number(machine.economy?.credits ?? 0).toLocaleString());
-    const actions = el('div','unified-head-actions');
-    if (currentMode === 'garage') {
-        const paint=button(paintExpanded?'× PAINT':'PAINT ›',()=>{
-            paintExpanded=!paintExpanded;paintPreviewEdits=null;previewSignature='';
-            if(!paintExpanded){paintHighlightSlots=null;activePlayerArena()?.arena.setPaintSelectedSlots?.(null);}
-            if(!paintExpanded)clearPaintBoothDraft();
-            dock.scrollTop=0;render();
-        },'unified-top-action');
-        paint.setAttribute('aria-pressed',String(paintExpanded));actions.append(paint);
-        actions.append(button('COUNTER ›',()=>{mode='vendor';dock.scrollTop=0;render();},'unified-top-action'));
-        actions.append(button('JOBS ›',()=>{selectedJobId=null;mode='contracts';dock.scrollTop=0;render();},'unified-top-action'));
+    const workspace = currentMode==='garage' && paintExpanded ? 'paint' : currentMode;
+    const heading = workspace==='garage' ? rigName(rigById(loadStable(storage).stable,viewedId)).toUpperCase() :
+        workspace==='paint'?'PAINT BOOTH':workspace==='vendor'?'PARTS COUNTER':
+        workspace==='contracts'?'SCRAPYARD CIRCUIT':workspace==='setup'?'SORTIE SETUP':'ROUND PIT';
+    if(workspace!=='garage' && workspace!=='pit') {
+        const back=button('‹ BACK',goBack,'workshop-back');
+        back.setAttribute('aria-label','Back from '+heading);
+        top.append(back);
     }
-    if (currentMode === 'vendor') actions.append(button('‹ GARAGE',()=>{
-        mode='garage';selectedLotSerial=null;dock.scrollTop=0;render();
-    },'unified-top-action'));
-    if (currentMode === 'contracts') actions.append(button(selectedJobId ? '‹ ALL JOBS' : '‹ GARAGE', () => {
-        if (selectedJobId) selectedJobId = null;
-        else mode = 'garage';
-        dock.scrollTop = 0; render();
-    }, 'unified-top-action'));
-    if (currentMode === 'setup') actions.append(button('BACK TO JOBS', () => {
-        cancelSortieAssignment(session); mode='contracts'; dock.scrollTop = 0; render();
-    },'unified-top-action'));
-    if (currentMode === 'pit') {
-        const contract = contractById(series.contractId);
-        const match = el('small','unified-match',contract.name.toUpperCase() + ' · ROUND ' + series.roundNumber
-            + ' · YOU ' + series.playerWins + ' — ' + series.enemyWins + ' HOSTILE');
-        actions.append(match);
+    top.append(el('strong','unified-title',heading));
+    if(workspace==='garage') {
+        const view=bayStatus(loadStable(storage).stable,viewedId);
+        const ready=el('small',view.canDeploy?'workshop-ready':'workshop-unready',view.canDeploy?'● READY':'● '+view.state);
+        top.append(ready);
     }
-    top.append(title, balance, actions);
+    if(workspace==='pit' && series) {
+        const contract=contractById(series.contractId);
+        top.append(el('small','unified-match',contract.name.toUpperCase()+
+            ' · R'+series.roundNumber+' · '+series.playerWins+'–'+series.enemyWins));
+    }
+    const balance=el('small','unified-credits','₡'+Number(machine.economy?.credits??0).toLocaleString());
+    top.append(balance);
+}
+function renderWorkshopChrome(stable, view) {
+    rail.append(moduleStation(view));
+    statusBar.append(button('◷ '+(view.rig.commissioned?'HISTORY':'COMMISSION'),()=>{
+        identityExpanded=!identityExpanded;
+        selectedSlot=null;swapExpanded=false;drawerExpanded=false;render();
+    },'workshop-status-action'));
+    if(!view.canDeploy) {
+        const reason=button('! '+(view.readiness?.missing?.length?'INCOMPLETE':'CHECK RIG'),()=>{
+            identityExpanded=true;selectedSlot=null;render();
+        },'workshop-warning-action');
+        reason.title=view.reason||'Inspect machine readiness';statusBar.append(reason);
+    }
+    for(const [target,label] of [['paint','PAINT'],['vendor','PARTS'],['contracts','CONTRACTS  ›']]){
+        const item=button(label,()=>openWorkspace(target),'workshop-link workshop-link-'+target);
+        item.setAttribute('aria-label','Open '+(target==='vendor'?'Parts Counter':target==='contracts'?'Contract Board':'Paint Booth'));
+        quickLinks.append(item);
+    }
 }
 function bayHeader(view) {
     const title = el('div','unified-panel-heading');
@@ -276,6 +321,8 @@ function emitEdit(type, info) {
 function moduleDetails(stable, view, machine) {
     const slot = selectedSlot;
     const box = el('section','unified-modules');
+    box.classList.toggle('replacing',swapExpanded);
+    box.classList.toggle('drawer-open',drawerExpanded);
     const state = view.health.find(s => s.slot === slot);
     const heading=el('div','rig-part-identity');
     heading.append(el('strong','unified-section-name',
@@ -288,7 +335,7 @@ function moduleDetails(stable, view, machine) {
     // Accessible details live on the selected part card, not repeated as a
     // paragraph above the rack; normal garage use needs no prose to read.
     box.dataset.station=slot;
-    if (installed) {
+    if (installed && !swapExpanded) {
         // Optional service action remains real and serial-authoritative.
         box.dataset.integrity=String(Math.round(state.condition*100));
         box.dataset.armor=String(Math.round(state.armorRatio*100));
@@ -304,7 +351,7 @@ function moduleDetails(stable, view, machine) {
                 },'unified-service',!affordable));
         }
     }
-    if (installed && slot === 'power' && detailsExpanded) {
+    if (installed && slot === 'power' && detailsExpanded && !swapExpanded) {
         const currentMount = bayGeneratorMount(stable, viewedId);
         const positions = el('section','unified-mount-options');
         positions.append(el('div','unified-section-name','PHYSICAL GENERATOR MOUNT'));
@@ -317,7 +364,7 @@ function moduleDetails(stable, view, machine) {
         }
         box.append(positions);
     }
-    if (installed) {
+    if (installed && !swapExpanded) {
         const quick=el('div','unified-quick-part');
         quick.append(el('span','unified-part-name',BY_ID.get(installed.definitionId)?.name+' · '+installed.serial));
         const remove=button('REMOVE',()=>editModule(slot,null),'unified-remove-icon');
@@ -327,18 +374,18 @@ function moduleDetails(stable, view, machine) {
         if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
             box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
     }
-    if (!installed) box.append(el('small','garage-empty-label','EMPTY SOCKET · SELECT A PART BELOW'));
+    if (!installed && !swapExpanded) box.append(el('small','garage-empty-label','EMPTY SOCKET · CHOOSE A PART'));
     const actions=el('div','garage-part-actions');
-    const toggle=button(swapExpanded?'CLOSE SHELF':'REPLACE',()=>{
+    const toggle=button(swapExpanded?'‹ INSPECT':installed?'REPLACE':'INSTALL',()=>{
         swapExpanded=!swapExpanded;drawerExpanded=false;selectedHardwareSerial=null;
         rackView='ready';dock.scrollTop=0;render();
     },'unified-swap-toggle');
     actions.append(toggle);
-    if (installed) actions.append(button(detailsExpanded?'LESS':'DETAILS',()=>{
+    if (installed && !swapExpanded) actions.append(button(detailsExpanded?'LESS':'DETAILS',()=>{
         detailsExpanded=!detailsExpanded;render();
     },'unified-secondary'));
     box.append(actions);
-    if (installed && detailsExpanded) {
+    if (installed && detailsExpanded && !swapExpanded) {
         const def=BY_ID.get(installed.definitionId);
         box.append(el('div','garage-spec-line',def?.massKg+' KG · '+Math.abs(def?.powerKw||0)+' KW'));
         if (def?.description) box.append(el('p','garage-part-description',def.description));
@@ -405,7 +452,7 @@ function moduleDetails(stable, view, machine) {
     };
     addTab('ready','STORED / HERE',available.length);
     addTab('other','OTHER BAYS',elsewhereParts.length);
-    box.append(tabs);
+    (drawerExpanded?box:shelf).append(tabs);
     const visibleParts=rackView==='other'?elsewhereParts:available;
     if (selectedHardwareSerial && !visibleParts.some(part=>part.serial===selectedHardwareSerial))
         selectedHardwareSerial=null;
@@ -530,72 +577,61 @@ function appendIdentityForm(view, stable) {
 }
 
 function renderGarage(stable,machine,view) {
-    dock.append(bayHeader(view), summary(view), moduleStation(view));
-    // Repeat servicing is a common garage task: skip the inventory rack and
-    // quote each actual installed serial before offering a one-tap bulk job.
+    if(paintExpanded) {
+        dock.append(createPaintBooth({
+            stable,rigId:viewedId,storage,
+            onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
+            onRefresh:()=>render(),
+            onSaved:()=>{
+                soundWorkshop('paint');
+                document.dispatchEvent(new CustomEvent('m3ch4:paint-committed'));
+                paintPreviewEdits=null;previewSignature='';render();
+            },
+            onTeamSaved:()=>document.dispatchEvent(new CustomEvent('m3ch4:team-livery-committed')),
+            onMessage:message,
+            thumbnailFor:(id,state)=>activePlayerArena()?.arena.partThumbnailDataUrl?.(id,state),
+            rigThumbnailFor:assembly=>activePlayerArena()?.arena.rigThumbnailDataUrl?.(assembly),
+            onSelection:slots=>{
+                paintHighlightSlots=slots;
+                activePlayerArena()?.arena.setPaintSelectedSlots?.(slots);
+            },
+        }));
+        return;
+    }
+    if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
+    if (!identityExpanded) return;
+    const title=el('div','workshop-machine-heading');
+    title.append(el('strong','',view.name.toUpperCase()),
+        button('×',()=>{identityExpanded=false;render();},'unified-close'));
+    dock.append(title,summary(view));
     const quotes=view.health.filter(item=>item.part&&!item.destroyed)
         .map(item=>({item,quote:bayModuleQuote(stable,viewedId,item.slot)}))
         .filter(row=>row.quote?.amount>0);
     if(quotes.length>=2){
         const total=quotes.reduce((sum,row)=>sum+row.quote.amount,0);
-        const affordable=total<=machine.economy.credits;
-        const serviceAll=button('SERVICE '+quotes.length+' PARTS · ₡'+total,()=>{
+        const serviceAll=button('REPAIR '+quotes.length+' PARTS · ₡'+total,()=>{
             const current=data();
             const fresh=quotes.map(row=>bayModuleQuote(current.stable,viewedId,row.item.slot));
             const amount=fresh.reduce((sum,q)=>sum+(q?.amount||0),0);
-            if(amount>current.machine.economy.credits){message('NOT ENOUGH CREDITS FOR ALL SERVICE',true);return;}
+            if(amount>current.machine.economy.credits){message('NOT ENOUGH CREDITS',true);return;}
             let repaired=0,problem=null;
             for(const row of quotes){
                 const result=emitEdit('m3ch4:bay-service',{rigId:viewedId,slot:row.item.slot});
                 if(!result.ok){problem=result.reason;break;}
                 repaired++;
             }
-            message(problem?'SERVICED '+repaired+' · '+problem:'ALL '+repaired+' PARTS SERVICED',!!problem);
+            message(problem?'SERVICED '+repaired+' · '+problem:'SERVICED '+repaired+' PARTS',!!problem);
             if(repaired){soundWorkshop('service');previewSignature='';render();}
-        },'unified-service unified-service-all',!affordable);
-        serviceAll.setAttribute('aria-label','Service all '+quotes.length+' damaged parts for '+total+' credits');
-        serviceAll.title=affordable?'SHOP SERVICE · ALL DAMAGED INSTALLED STATIONS':
-            'INSUFFICIENT CREDITS · REPAIR INDIVIDUALLY';
+        },'unified-service unified-service-all',total>machine.economy.credits);
         dock.append(serviceAll);
     }
-    if(paintExpanded) dock.append(createPaintBooth({
-        stable,rigId:viewedId,storage,
-        onPreview:edits=>{paintPreviewEdits=edits;previewSignature='';preview(stable,loadSeries(storage));},
-        onRefresh:()=>render(),
-        onSaved:()=>{
-            soundWorkshop('paint');
-            document.dispatchEvent(new CustomEvent('m3ch4:paint-committed'));
-            paintPreviewEdits=null;previewSignature='';render();
-        },
-        onTeamSaved:()=>document.dispatchEvent(new CustomEvent('m3ch4:team-livery-committed')),
-        onMessage:message,
-        thumbnailFor:(id,state)=>activePlayerArena()?.arena.partThumbnailDataUrl?.(id,state),
-        rigThumbnailFor:assembly=>activePlayerArena()?.arena.rigThumbnailDataUrl?.(assembly),
-        onSelection:slots=>{
-            paintHighlightSlots=slots;
-            activePlayerArena()?.arena.setPaintSelectedSlots?.(slots);
-        },
-    }));
-    else if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
-    else dock.append(el('p','unified-muted','TAP THE MECH OR A STATION ABOVE'));
-    const completed = view.health.filter(item => !!item.serial).length;
-    const identity = el('div','unified-identity-summary');
-    if (!view.rig.commissioned) {
-        identity.append(el('small','',completed + ' / 5 STATIONS INSTALLED'));
-        if (view.readiness.fieldable) {
-            identity.append(button('NAME & COMMISSION MACHINE',()=>{
-                identityExpanded = true; render();
-            },'unified-secondary'));
-        }
-    } else {
-        identity.append(el('small','',view.rig.career.deployments + ' DEPLOYMENTS · ' +
-            view.rig.career.roundWins + ' ROUND WINS · ' +
-            (view.rig.career.fieldServices||0) + ' FIELD PATCHES'));
-        identity.append(button(identityExpanded ? 'CLOSE DETAILS' : 'MACHINE DETAILS / RENAME',
-            ()=>{identityExpanded = !identityExpanded;render();},'unified-secondary'));
-    }
-    dock.append(identity);
-    if (identityExpanded) dock.append(appendIdentityForm(view,stable));
+    const completed=view.health.filter(item=>!!item.serial).length;
+    const history=el('div','workshop-machine-history');
+    history.append(el('small','',completed+' / 5 STATIONS · '+
+        view.rig.career.deployments+' DEPLOYMENTS · '+
+        view.rig.career.roundWins+' WINS · '+
+        (view.rig.career.fieldServices||0)+' FIELD PATCHES'));
+    dock.append(history,appendIdentityForm(view,stable));
 }
 function renderCounter(machine) {
     const campaign=loadCampaign(storage);
@@ -879,6 +915,7 @@ function render() {
     actionBar.replaceChildren();
     dock.replaceChildren();
     shelf.replaceChildren();
+    rail.replaceChildren();statusBar.replaceChildren();quickLinks.replaceChildren();
     const selling=state==='vendor';
     const arena=activePlayerArena()?.arena;
     if(selling!==vendorShowing) {
@@ -886,7 +923,10 @@ function render() {
         vendorShowing=selling;
         previewSignature='';
     }
-    if(state==='garage')renderGarage(stable,machine,view);
+    if(state==='garage') {
+        if(!paintExpanded)renderWorkshopChrome(stable,view);
+        renderGarage(stable,machine,view);
+    }
     else if(state==='contracts')renderContracts(stable);
     else if(state==='setup')renderSetup(stable,view);
     else if(state==='pit')renderPit(stable,view,series);
@@ -896,6 +936,11 @@ function render() {
     dock.scrollTop = previousScroll;
     shell.classList.toggle('has-primary',actionBar.childElementCount>0);
     shell.dataset.mode=state;
+    shell.dataset.workspace=state==='garage' && paintExpanded?'paint':state;
+    shell.classList.toggle('tool-open',state==='garage'&&!paintExpanded&&(!!selectedSlot||identityExpanded));
+    shell.classList.toggle('replacing',state==='garage'&&!paintExpanded&&!!selectedSlot&&swapExpanded);
+    shell.classList.toggle('drawer-open',state==='garage'&&!paintExpanded&&drawerExpanded);
+    document.dispatchEvent(new CustomEvent('m3ch4:workspace-layout',{detail:{workspace:shell.dataset.workspace}}));
     shell.classList.toggle('has-selection',!!selectedSlot && !paintExpanded && state==='garage');
     shell.classList.toggle('painting',paintExpanded && state==='garage');
     shelf.classList.toggle('shown',state==='garage' && !paintExpanded && swapExpanded && !drawerExpanded && !!selectedSlot);
