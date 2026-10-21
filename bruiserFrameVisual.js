@@ -13,7 +13,7 @@ export function buildBruiserFrameVisual(fixture){
     blockAt(shoulder,'continuous mustard shoulder girder',[0,.22,.015],[1.53,.25,.55],'ochre');
     for(const side of [-1,1]){
         chamfer(shoulder,(side<0?'left':'right')+' heavy shoulder housing',
-            [side*.70,.18,-.055],[.40,.48,.69],'ochre',.15);
+            [side*.70,.105,-.055],[.40,.69,.69],'ochre',.15);
         bearing(shoulder,(side<0?'left':'right')+' outboard trunnion race',
             [side*.945,.19,-.23],.265,.18,'iron','x',10);
         bearing(shoulder,(side<0?'left':'right')+' machined bearing face',
