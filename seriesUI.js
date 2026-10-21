@@ -260,7 +260,8 @@ function renderRoundIntermission(series, round) {
 }
 function decorateTerminalDebrief(series) {
     if (!series || series.phase !== 'complete') return;
-    debriefSheet.classList.remove('bo3-round-debrief');
+    debriefSheet.classList.remove('bo3-round-debrief','k4n-condition-debrief');
+    debriefLines.className='debrief-lines';
     debriefGarage.textContent = 'RETURN TO GARAGE';
     if (series.completionReason === 'no-fieldable-machines') {
         debriefTitle.textContent = 'CONTRACT LOST';
