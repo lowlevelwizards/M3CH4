@@ -665,3 +665,6 @@ body.observing-allies #target-panel { display:none!important; }
 #center-crosshair.destroy-hit{--reticle-tint:#fff0cf;filter:drop-shadow(0 0 10px #f36c45);transform:translate(-50%,-50%) scale(1.35)}
 #center-crosshair.blocked-hit{--reticle-tint:#8caca5;filter:none;opacity:.62;transform:translate(-50%,-50%) scale(.8)}
 #center-crosshair.friendly-hit{--reticle-tint:#70c9a9;filter:none}
+
+.hit-confirm.destroyed{color:#ffe3bf;font-size:9px;text-shadow:0 0 8px #b64c30}
+.hit-confirm.blocked{color:#a2b4ac;letter-spacing:.04em}
