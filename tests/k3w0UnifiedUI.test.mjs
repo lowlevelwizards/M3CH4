@@ -92,9 +92,9 @@ test('intermission reports compact truthful dual gauges and reveal detailed read
 });
 test('bundled entry and mobile versions include exact changed assets and no new save contract',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.3w\.16 — Foot Contact & Lateral Gait/);
+    assert.match(html,/0\.0\.1k\.3w\.17 — Scattergun Garage Recovery/);
     assert.match(html,/uiRedesign\.css\?v=k3w0/);
-    assert.match(html,/main\.js\?v=k3w16/);
+    assert.match(html,/main\.js\?v=k3w17/);
     assert.match(html,/garageMountUI\.js\?v=k3v6/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);

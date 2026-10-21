@@ -105,7 +105,7 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/soundReload\(/);
   assert.match(html,/\.\/audio\.js\?v=k3w11/);
   assert.match(html,/\.\/liveWeaponAudio\.js\?v=k3w11/);
-  assert.match(html,/main\.js\?v=k3w16/);
-  assert.match(html,/0\.0\.1k\.3w\.16 — Foot Contact & Lateral Gait/);
+  assert.match(html,/main\.js\?v=k3w17/);
+  assert.match(html,/0\.0\.1k\.3w\.17 — Scattergun Garage Recovery/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });

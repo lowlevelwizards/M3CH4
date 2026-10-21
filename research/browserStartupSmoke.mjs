@@ -27,6 +27,60 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
+  // k3w17: the first-ever Scattergun install must not leave a raw
+  // number in Mesh.material, and cleanup of any legacy malformed material
+  // must never turn a legitimate garage part-swap into a fatal overlay.
+  const weaponSwaps=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const {makeTestAssembly,equipSerial}=await import('./components.js');
+    const {Mesh,BoxGeometry}=await import('three');
+    const live=activePlayerArena();
+    if(!live?.arena||!live?.assembly)throw Error('Player garage scene is unavailable');
+    const arena=live.arena,scratch=makeTestAssembly(),original=live.assembly;
+    const installed=[];
+    const audit=()=>{
+      const bad=[];
+      arena.scene.traverse(node=>{
+        if(!node.isMesh||node.userData.actorId!=='player')return;
+        const materials=Array.isArray(node.material)?node.material:[node.material];
+        if(materials.some(material=>!material?.isMaterial))
+          bad.push({name:node.name,materials:materials.map(m=>typeof m)});
+      });
+      return bad;
+    };
+    try {
+      arena.rebuildAssembly(scratch);
+      // Exercise the exact historical failure: dispose() on a raw integer.
+      // The injected old mesh is never rendered, saved or used for hit tests.
+      const structure=[];
+      arena.scene.traverse(node=>{
+        if(node.type==='Group'&&node.name.startsWith('structure: ')&&
+          node.children.some(child=>child.userData?.actorId==='player'))
+          structure.push(node);
+      });
+      if(!structure.length)throw Error('Could not find player exterior');
+      const malformed=new Mesh(new BoxGeometry(.02,.02,.02),0x777777);
+      structure[0].parent.add(malformed);
+      for(const weaponId of ['gun-scatter','gun-cannon','gun-short','gun-light','gun-scatter','gun-cannon']){
+        const part=scratch.owned.find(p=>p.definitionId===weaponId);
+        if(!part)throw Error('No owned part for '+weaponId);
+        equipSerial(scratch,'combat',part.serial);
+        arena.rebuildAssembly(scratch);
+        const bad=audit();
+        if(bad.length)throw Error('Malformed fitted materials after '+weaponId+': '+JSON.stringify(bad));
+        installed.push(weaponId);
+      }
+    }finally{
+      arena.rebuildAssembly(original);
+    }
+    return {installed,invalidMaterials:audit()};
+  });
+  if(weaponSwaps.installed.length!==6||weaponSwaps.invalidMaterials.length)
+    throw Error('First Scattergun equip/garage teardown regression: '+JSON.stringify(weaponSwaps));
+  const swapDiagnostic=await page.locator('#startup-diagnostic-detail').textContent().catch(()=>null);
+  if(swapDiagnostic)throw Error('Error overlay after Scattergun mounting: '+swapDiagnostic);
+  console.log('SCATTERGUN SWAP: PASS · all four guns, first install, bad legacy material teardown');
+
   // Reproduce the iPhone user's second failure: a staged cab is installed in
   // Rig 02 with no frame. It may be inspected and quoted before commissioning.
   const fixture = await page.evaluate(async () => {
