@@ -519,8 +519,30 @@ function resolveActorTarget(actor) {
 }
 const dominationHud=document.createElement('div');
 dominationHud.id='domination-hud';
-dominationHud.setAttribute('aria-label','Three point Domination score and control');
+dominationHud.setAttribute('role','status');
+dominationHud.setAttribute('aria-label','Domination score and zones');
 objectiveStatus.insertAdjacentElement('afterend',dominationHud);
+// A single, state-driven HUD owns score, objective symbols, capture direction,
+// and local contested state. The round series pill nests into this HUD below.
+const objectiveBand=document.createElement('div');objectiveBand.className='k4p-band';
+const ourScore=document.createElement('strong');ourScore.className='k4p-score friendly';
+const zones=document.createElement('div');zones.className='k4p-zones';
+const theirScore=document.createElement('strong');theirScore.className='k4p-score hostile';
+const localCapture=document.createElement('div');localCapture.className='k4p-local hidden';
+const zoneElements=new Map();
+objectiveBand.append(ourScore,zones,theirScore);
+dominationHud.append(objectiveBand,localCapture);
+function ensureZone(id){
+    if(zoneElements.has(id))return zoneElements.get(id);
+    const card=document.createElement('div');card.className='k4p-zone';
+    const letter=document.createElement('strong');letter.textContent=id;
+    const meter=document.createElement('div');meter.className='k4p-meter';
+    const fill=document.createElement('i');meter.append(fill);
+    const who=document.createElement('small');
+    card.append(letter,meter,who);zones.append(card);
+    const zone={card,letter,fill,who};zoneElements.set(id,zone);
+    return zone;
+}
 function renderObjectiveStatus() {
     const text = objectiveStatusText(sortieObjective).replace(/^OBJ\\s*·\\s*/,'◆ ').replace('BREAK HOSTILE TEAM','BREAK FOES');
     if (objectiveStatus.textContent !== text) objectiveStatus.textContent = text;
@@ -529,12 +551,51 @@ function renderObjectiveStatus() {
     const domActive=sortieObjective?.type==='domination'&&!inspecting;
     dominationHud.classList.toggle('hidden',!domActive);
     document.body.classList.toggle('domination-active',!!domActive);
-    if (domActive && dom) {
-        const points=dom.points.map(p=>p.id+(p.contested?'!':p.owner==='friendly'?'▲':
-            p.owner==='hostile'?'▼':'·')+Math.round(Math.abs(p.influence)*100)+'%').join('  ');
-        const score='DOM  '+Math.floor(sortieObjective.friendlyProgress)+' — '+
-            Math.floor(sortieObjective.hostileProgress)+' / '+dom.scoreToWin+'  ·  '+points;
-        if(dominationHud.textContent!==score)dominationHud.textContent=score;
+    // Only one top-of-viewport status system may be visible at a time.
+    const matchHud=document.getElementById('bo3-combat-hud');
+    if(matchHud){
+        if(domActive && matchHud.parentElement!==dominationHud)dominationHud.append(matchHud);
+        else if(!domActive && matchHud.parentElement===dominationHud)document.body.append(matchHud);
+    }
+    if(domActive && dom){
+        ourScore.textContent=Math.floor(sortieObjective.friendlyProgress);
+        theirScore.textContent=Math.floor(sortieObjective.hostileProgress);
+        ourScore.title='Friendly · '+Math.floor(sortieObjective.friendlyProgress)+' of '+dom.scoreToWin;
+        theirScore.title='Hostile · '+Math.floor(sortieObjective.hostileProgress)+' of '+dom.scoreToWin;
+        const activeIds=new Set();
+        let local=null;
+        for(const point of dom.points){
+            const widget=ensureZone(point.id);activeIds.add(point.id);
+            const {card,fill,who}=widget;
+            const owner=point.owner||'neutral';
+            const moving=point.contested?'contested':point.friendly>0?'friendly':
+                point.hostile>0?'hostile':'idle';
+            card.dataset.owner=owner;card.dataset.capture=moving;
+            card.classList.toggle('contested',!!point.contested);
+            const progress=Math.round(Math.min(1,Math.abs(point.influence))*100);
+            fill.style.width=progress+'%';
+            who.textContent=point.contested?'!':moving==='friendly'?'↑'+point.friendly:
+                moving==='hostile'?'↓'+point.hostile:'';
+            card.title=point.id+' · '+(point.contested?'CONTESTED':
+                owner==='friendly'?'FRIENDLY CONTROL':
+                owner==='hostile'?'HOSTILE CONTROL':'NEUTRAL')+
+                ' · '+(point.friendly||0)+' friendly, '+(point.hostile||0)+' hostile · '+progress+'%';
+            card.setAttribute('aria-label',card.title);
+            if(playerCombatActive && Math.hypot(rig.x-point.x,rig.z-point.z)<=sortieObjective.radius)
+                local=point;
+        }
+        for(const [id,item]of zoneElements)if(!activeIds.has(id))item.card.remove();
+        if(local){
+            const pct=Math.round(Math.abs(local.influence)*100);
+            localCapture.textContent=local.contested?local.id+' CONTESTED':
+                local.friendly>0&&local.owner!=='friendly'?'CAPTURING '+local.id+' · '+pct+'%':
+                local.hostile>0?'DEFEND '+local.id:'DEFEND '+local.id;
+            localCapture.classList.remove('hidden');
+            localCapture.classList.toggle('contested',!!local.contested);
+        }else{localCapture.classList.add('hidden');localCapture.textContent='';}
+        dominationHud.setAttribute('aria-label','Friendly '+ourScore.textContent+
+            ', hostile '+theirScore.textContent+'; '+dom.points.map(p=>p.id+' '+
+            (p.contested?'contested':p.owner||'neutral')).join(', '));
     }
     arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 }
