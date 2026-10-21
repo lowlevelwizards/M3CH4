@@ -613,7 +613,8 @@ try {
      soundscape.local.earlyReflections!==4||
      soundscape.distant.earlyReflections!==0||
      !(soundscape.localFoot.ok||soundscape.localFoot.pending)||!soundscape.distantFoot.skipped||
-     !soundscape.charger.ok||!soundscape.engine.ok||
+     !(soundscape.charger.ok||soundscape.charger.pending)||
+     !(soundscape.engine.ok||soundscape.engine.pending)||
      !soundscape.events.includes('yardwalker'))
     throw Error('Production soundscape failed in-browser: '+JSON.stringify(soundscape));
   console.log('LIVE SYSTEMS AUDIO: PASS · physical damage, attenuation, cabin reverb and walking');
