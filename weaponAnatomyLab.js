@@ -51,7 +51,9 @@ function redraw(){
     renderer.clear(true,true,true);
     for(const m of models)m.holder.visible=false;
     const m=models[i];m.holder.visible=true;
-    const aspect=width/height,halfY=1.55,halfX=halfY*aspect;
+    // Keep the extra-long Needle muzzle in frame even in narrow four-column
+    // desktop tiles; preserve identical world scale for all four machines.
+    const aspect=width/height,halfX=Math.max(1.72,1.55*aspect),halfY=halfX/aspect;
     const camera=new THREE.OrthographicCamera(-halfX,halfX,halfY,-halfY,.05,30);
     camera.position.set(...views[active]);
     camera.lookAt(0,0,-.63);
