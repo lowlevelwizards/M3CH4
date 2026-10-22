@@ -502,7 +502,8 @@ export function olympicsMarkdown(report){
       if(!event?.n)continue;
       s.push('- **'+name+'**: '+(event.passRate*100).toFixed(1)+'% pass; '+
         event.meanScore+'/100; '+event.meanCollisions+' collisions; '+
-        event.meanLoop+'s unproductive motion');
+        event.meanLoop+'s unproductive motion; '+
+        event.meanCorridorQueue+'s queued');
     }
   }
   s.push('','## Evaluation rules and limitations','',
