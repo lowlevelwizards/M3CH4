@@ -11,6 +11,7 @@ import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './eco
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
+import {storeSurfaceEvents} from './partServiceJournal.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
@@ -2181,6 +2182,12 @@ function finishSortie(victory, reason) {
     // machine careers. The old ordering evaluated the previous saved condition.
     syncOwnedWeaponCondition();
     persistMachine();
+    // Commit actual observed local-surface impacts at the same sortie checkpoint
+    // as combat condition. Includes opponents: an acquired salvage serial can
+    // inherit scars recorded while it fought against the player.
+    const physicalEvents=arena.drainSurfaceEvents();
+    if(physicalEvents.length)storeSurfaceEvents(physicalEvents)
+        .catch(error=>console.warn('SURFACE HISTORY UNAVAILABLE:',error?.message||error));
     const resolvedResult = publishBoutResult({
         victory, reason, winningTeam, score, wrecks, draft,
         charter: SCRAPYARD_CHARTER,
