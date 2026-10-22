@@ -14,7 +14,7 @@ export function queuedServiceRecords(storage) {
   }catch{return [];}
 }
 export function queueServiceRecord(storage,{serial,mode,eventId,timestamp=Date.now()}={}) {
-  if(!safe(serial)||!safe(eventId)||!modes.has(mode))return false;
+  if(!safe(serial)||typeof eventId!=='string'||eventId.length<1||eventId.length>140||!modes.has(mode))return false;
   const list=queuedServiceRecords(storage);
   if(!list.some(e=>e.eventId===eventId))
     list.push({eventId,serial,mode,timestamp:Number.isFinite(timestamp)?timestamp:Date.now()});
