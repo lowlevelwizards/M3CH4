@@ -33,10 +33,12 @@ try {
     workspace:document.querySelector('#unified-garage')?.dataset.workspace,
     rail:document.querySelectorAll('#unified-garage .workshop-rail .unified-station').length,
     dockDisplay:getComputedStyle(document.querySelector('#unified-garage-dock')).display,
-    links:[...document.querySelectorAll('#unified-garage .workshop-links button')].map(x=>x.textContent),
+    links:[...document.querySelectorAll('#unified-garage .workshop-top-links button')].map(x=>x.textContent),
+    deploy:document.querySelector('#unified-garage .workshop-deploy')?.textContent,
+    bay:document.querySelector('#unified-garage .unified-bay-navigation')?.getBoundingClientRect().left,
   }));
   if(workshop.workspace!=='garage'||workshop.rail!==5||workshop.dockDisplay!=='none'||
-     workshop.links.length!==3)
+     workshop.links.length!==3||workshop.deploy!=='SELECT JOB')
     throw Error('k4s.1 default workshop still behaves as a permanent panel: '+JSON.stringify(workshop));
   console.log('WORKSHOP SHELL: PASS · five shortcuts, hidden inspector, distinct workspaces');
   await page.screenshot({path:output+'/k4s1-open-garage.png'});
@@ -59,7 +61,7 @@ try {
   console.log('GARAGE CAMERA: PASS · reset frame stays in the open viewport');
   // k.4d: exercise the real garage controls, live Three.js preview, serial save,
   // reset to factory and the two-direction UI-to-renderer integration.
-  const paintAction=page.locator('#unified-garage .workshop-link-paint');
+  const paintAction=page.locator('#unified-garage .workshop-top-link').filter({hasText:'PAINT'});
   await paintAction.click({timeout:12000});
   await page.locator('.paint-booth').waitFor({state:'visible',timeout:12000});
   await page.screenshot({path:output+'/paint-booth.png'});
@@ -186,13 +188,18 @@ try {
   await page.locator('#unified-garage .workshop-back').click();
   if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='garage')
     throw Error('Paint Back did not return to the workshop');
-  await page.locator('#unified-garage .workshop-link-contracts').click();
+  await page.locator('#unified-garage .workshop-deploy').click();
   if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='contracts')
     throw Error('Contract board did not become its own workspace');
   await page.locator('#unified-garage .workshop-back').click();
-  await page.locator('#unified-garage .workshop-link-vendor').click();
+  await page.locator('#unified-garage .workshop-top-link').filter({hasText:'VENDORS'}).click();
   if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='vendor')
     throw Error('Parts Counter did not become its own workspace');
+  await page.locator('#unified-garage .workshop-back').click();
+  await page.locator('#unified-garage .workshop-top-link').filter({hasText:'INVENTORY'}).click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='inventory'||
+     await page.locator('#unified-garage .inventory-filters button').count()<3)
+    throw Error('Owned inventory did not open as a separate filterable stockroom');
   await page.locator('#unified-garage .workshop-back').click();
   console.log('PAINT BOOTH: PASS · three rig variants, crew materials, multi-select, five serials, team save and partial reset');
 

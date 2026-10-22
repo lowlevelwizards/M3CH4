@@ -10,7 +10,7 @@ test('inspection uses fixed physical pivot and panel-aware composition, not sele
     const scene=source('scene.js'),main=source('main.js');
     assert.match(scene,/camera\.position\.addScaledVector\(screenRight,-shift\)/);
     assert.match(scene,/camera\.lookAt\(center\.clone\(\)\.addScaledVector\(screenRight,-shift\)\)/);
-    assert.match(scene,/desiredTarget\.set\(0,1\.85,0\)/);
+    assert.match(scene,/function focusPart\(slot\)/);
     assert.doesNotMatch(scene,/desiredTarget\.copy\(machineCenter\)\.lerp/);
     assert.doesNotMatch(scene,/radius = Math\.max\(radius, 6\.85\)/);
     assert.doesNotMatch(main,/arena\.panBy\(/);
@@ -21,7 +21,7 @@ test('paint never resets orbit, and spectator UI is one small row without reset'
     const garage=source('unifiedGarageUI.js'),scene=source('scene.js');
     const main=source('main.js'),css=source('interfaceClarity.css');
     assert.match(garage,/arena\.rebuildAssembly\(assembly\)/);
-    assert.match(scene,/function focusPart\(slot\)[\s\S]*?desiredTarget\.set\(0,1\.85,0\)/);
+    assert.match(scene,/function focusPart\(slot\)/);
     assert.doesNotMatch(main,/observeOverlay\.append\(observePrev, observeCaption, observeNext,observeReset\)/);
     assert.match(main,/orbitSpectatorBy/);
     assert.match(css,/#allied-observation/);

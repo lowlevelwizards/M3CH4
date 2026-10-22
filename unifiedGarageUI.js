@@ -58,6 +58,7 @@ let swapExpanded = false, drawerExpanded = false, detailsExpanded = false;
 let triageSelected=new Set();let triageRigId=null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
+let inventoryFilter='all',inventorySort='station',inventorySerial=null;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
@@ -118,6 +119,7 @@ function openWorkspace(target) {
         selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;
         drawerExpanded=false;detailsExpanded=false;identityExpanded=false;
         if (target==='vendor') selectedLotSerial=null;
+        if (target==='inventory') inventorySerial=null;
         if (target==='contracts') {
             const pending=loadSortieAssignment(session);
             selectedJobId=pending?.phase==='pending'?pending.contractId:null;
@@ -128,7 +130,7 @@ function openWorkspace(target) {
 function goBack() {
     const state=actualMode(loadSeries(storage));
     if (state==='pit') return;
-    if (paintExpanded || state==='vendor') {openWorkspace('garage');return;}
+    if (paintExpanded || state==='vendor' || state==='inventory') {openWorkspace('garage');return;}
     if (state==='setup') {mode='contracts';render();return;}
     if (state==='contracts' && selectedJobId) {selectedJobId=null;render();return;}
     if (state==='contracts') {openWorkspace('garage');return;}
@@ -210,8 +212,8 @@ function preview(stable, series) {
 }
 function navRender(stable, currentMode) {
     navigator.replaceChildren();
-    navigator.classList.toggle('hidden', currentMode === 'contracts' || currentMode === 'vendor' || paintExpanded);
-    if (currentMode === 'contracts' || currentMode === 'vendor' || paintExpanded) return;
+    navigator.classList.toggle('hidden', !['garage','setup','pit'].includes(currentMode) || paintExpanded);
+    if (!['garage','setup','pit'].includes(currentMode) || paintExpanded) return;
     const view = bayStatus(stable, viewedId);
     navigator.append(button('‹', () => stepBay(-1), 'bay-arrow', viewedId === BAY_IDS[0]));
     const label = el('div','bay-index');
@@ -226,61 +228,72 @@ function navRender(stable, currentMode) {
     label.append(dots);
     navigator.append(label,button('›', () => stepBay(1), 'bay-arrow', viewedId === BAY_IDS[2]));
 }
-function renderTop(currentMode, series, machine) {
+function renderTop(currentMode,series,machine) {
     top.replaceChildren();
-    const workspace = currentMode==='garage' && paintExpanded ? 'paint' : currentMode;
-    const heading = workspace==='garage' ? rigName(rigById(loadStable(storage).stable,viewedId)).toUpperCase() :
-        workspace==='paint'?'PAINT BOOTH':workspace==='vendor'?'PARTS COUNTER':
-        workspace==='contracts'?'SCRAPYARD CIRCUIT':workspace==='setup'?'SORTIE SETUP':'ROUND PIT';
-    if(workspace!=='garage' && workspace!=='pit') {
+    const workspace=currentMode==='garage'&&paintExpanded?'paint':currentMode;
+    const name=rigName(rigById(loadStable(storage).stable,viewedId)).toUpperCase();
+    const heading=workspace==='garage'?name:
+        workspace==='paint'?'PAINT BOOTH':workspace==='vendor'?'VENDORS':
+        workspace==='inventory'?'INVENTORY':workspace==='contracts'?'SCRAPYARD CIRCUIT':
+        workspace==='setup'?'SORTIE SETUP':'ROUND PIT';
+    if(workspace!=='garage'&&workspace!=='pit'){
         const back=button('‹ BACK',goBack,'workshop-back');
-        back.setAttribute('aria-label','Back from '+heading);
-        top.append(back);
+        back.setAttribute('aria-label','Back from '+heading);top.append(back);
     }
     top.append(el('strong','unified-title',heading));
     if(workspace==='garage') {
-        const view=bayStatus(loadStable(storage).stable,viewedId);
-        const ready=el('small',view.canDeploy?'workshop-ready':'workshop-unready',view.canDeploy?'● READY':'● '+view.state);
-        top.append(ready);
+        const rename=button('✎',()=>{
+            identityExpanded=true;selectedSlot=null;swapExpanded=false;render();
+            const input=dock.querySelector('.unified-identity-form input');
+            input?.focus();input?.select();
+        },'workshop-rename');
+        rename.setAttribute('aria-label','Rename '+name);
+        rename.title='Edit rig name';
+        top.append(rename);
+        const actions=el('nav','workshop-top-links');
+        for(const [id,label] of [['paint','PAINT'],['vendor','VENDORS'],['inventory','INVENTORY']]){
+            const b=button(label,()=>openWorkspace(id),'workshop-top-link');
+            b.setAttribute('aria-label','Open '+label.toLowerCase());
+            actions.append(b);
+        }
+        top.append(actions);
     }
-    if(workspace==='pit' && series) {
-        const contract=contractById(series.contractId);
-        top.append(el('small','unified-match',contract.name.toUpperCase()+
-            ' · R'+series.roundNumber+' · '+series.playerWins+'–'+series.enemyWins));
+    if(workspace==='pit'&&series) {
+        const c=contractById(series.contractId);
+        top.append(el('small','unified-match',c.name.toUpperCase()+' · R'+series.roundNumber+
+            ' · '+series.playerWins+'–'+series.enemyWins));
     }
-    const balance=el('small','unified-credits','₡'+Number(machine.economy?.credits??0).toLocaleString());
-    top.append(balance);
+    top.append(el('small','unified-credits','₡'+Number(machine.economy?.credits??0).toLocaleString()));
 }
-function renderWorkshopChrome(stable, view) {
+function renderWorkshopChrome(stable,view) {
     rail.append(moduleStation(view));
     const reset=button('↺',()=>document.querySelector('#inspect-reset')?.click(),'workshop-reset');
-    reset.title='Reset camera orbit';
     reset.setAttribute('aria-label','Reset garage camera orbit');
-    statusBar.append(reset);
-    statusBar.append(button('◷ '+(view.rig.commissioned?'HISTORY':'COMMISSION'),()=>{
-        identityExpanded=!identityExpanded;
-        selectedSlot=null;swapExpanded=false;drawerExpanded=false;render();
+    reset.title='Reset camera';statusBar.append(reset);
+    statusBar.append(button('◷ HISTORY',()=>{
+        identityExpanded=!identityExpanded;selectedSlot=null;
+        swapExpanded=false;drawerExpanded=false;render();
     },'workshop-status-action'));
-    if(!view.canDeploy) {
-        const reason=button('! '+(view.readiness?.missing?.length?'INCOMPLETE':'CHECK RIG'),()=>{
-            identityExpanded=true;selectedSlot=null;render();
-        },'workshop-warning-action');
-        reason.title=view.reason||'Inspect machine readiness';statusBar.append(reason);
-    }
     const pending=loadSortieAssignment(session);
-    const hasPending=pending?.phase==='pending'&&!loadSeries(storage);
-    const links=[['paint','PAINT'],['vendor','PARTS'],
-        hasPending?['resume','RESUME SORTIE ›']:['contracts','CONTRACTS  ›']];
-    for(const [target,label] of links){
-        const item=button(label,()=>{
-            if(target!=='resume'){openWorkspace(target);return;}
-            selectedJobId=pending.contractId;mode='setup';
-            paintExpanded=false;identityExpanded=false;
-            selectedSlot=null;previewSignature='';render();
-        },'workshop-link workshop-link-'+target);
-        item.setAttribute('aria-label','Open '+(target==='vendor'?'Parts Counter':target==='contracts'?'Contract Board':'Paint Booth'));
-        quickLinks.append(item);
+    const job=pending?.phase==='pending'&&!loadSeries(storage)?pending.contractId:null;
+    const bottom=el('div','workshop-action-lane');
+    const info=el('div','workshop-readiness '+(view.canDeploy?'ready':'blocked'));
+    info.append(el('strong','',view.canDeploy?'● READY':'● '+view.state));
+    if(job) {
+        const contract=contractById(job);
+        info.append(button('JOB · '+(contract?.name.toUpperCase()||job)+' ✎',()=>{
+            selectedJobId=job;mode='contracts';render();
+        },'workshop-job-change'));
+    } else if(!view.canDeploy){
+        info.append(el('small','',view.reason||'CHECK PARTS'));
     }
+    const primary=button(job?'DEPLOY':'SELECT JOB',()=>{
+        if(!job) {openWorkspace('contracts');return;}
+        selectedJobId=job;mode='setup';render();
+    },'workshop-deploy');
+    primary.setAttribute('aria-label',job?'Open sortie preparation':'Select a contract');
+    bottom.append(info,primary);
+    quickLinks.append(bottom);
 }
 function bayHeader(view) {
     const title = el('div','unified-panel-heading');
@@ -339,8 +352,11 @@ function moduleDetails(stable, view, machine) {
     box.classList.toggle('drawer-open',drawerExpanded);
     const state = view.health.find(s => s.slot === slot);
     const heading=el('div','rig-part-identity');
-    heading.append(el('strong','unified-section-name',
-        state?.part ? (BY_ID.get(state.part.definitionId)?.name || stationLabel(slot)) : stationLabel(slot)+' · EMPTY MOUNT'));
+    const partName=state?.part?BY_ID.get(state.part.definitionId)?.name||stationLabel(slot):stationLabel(slot)+' · EMPTY MOUNT';
+    const identity=el('div','workshop-part-heading');
+    identity.append(el('strong','unified-section-name',partName));
+    if(state?.serial)identity.append(el('small','workshop-part-serial',state.serial));
+    heading.append(identity);
     heading.append(button('×',()=>{
         selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;drawerExpanded=false;detailsExpanded=false;dock.scrollTop=0;render();
     },'unified-close'));
@@ -365,7 +381,7 @@ function moduleDetails(stable, view, machine) {
                 },'unified-service',!affordable));
         }
     }
-    if (installed && slot === 'power' && detailsExpanded && !swapExpanded) {
+    if (installed && slot === 'power' && !swapExpanded) {
         const currentMount = bayGeneratorMount(stable, viewedId);
         const positions = el('section','unified-mount-options');
         positions.append(el('div','unified-section-name','PHYSICAL GENERATOR MOUNT'));
@@ -379,31 +395,38 @@ function moduleDetails(stable, view, machine) {
         box.append(positions);
     }
     if (installed && !swapExpanded) {
-        const quick=el('div','unified-quick-part');
-        quick.append(el('span','unified-part-name',BY_ID.get(installed.definitionId)?.name+' · '+installed.serial));
-        const remove=button('REMOVE',()=>editModule(slot,null),'unified-remove-icon');
-        remove.setAttribute('aria-label','Remove '+installed.serial+' from '+stationLabel(slot));
-        remove.title='REMOVE FROM BAY';quick.append(remove);box.append(quick);
-        box.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
-        if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
-            box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
+        const def=BY_ID.get(installed.definitionId);
+        const picture=activePlayerArena()?.arena.partThumbnailDataUrl?.(installed.definitionId,{
+            condition:state.condition,destroyed:state.destroyed,paint:installed.paint,
+        });
+        const body=el('div','workshop-inspector-body');
+        const image=el('div','workshop-part-preview');
+        if(picture) {
+            const img=el('img');img.src=picture;img.alt=def?.name+' 3D model';
+            img.draggable=false;image.append(img);
+        } else image.append(el('span','',stationGlyph(slot)));
+        body.append(image);
+        const readout=el('div','workshop-part-readout');
+        readout.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
+        readout.append(el('div','garage-spec-line',
+            (def?.massKg??0)+' KG · '+Math.abs(def?.powerKw||0)+' KW'));
+        body.append(readout);
+        box.append(body);
+        if(def?.description)box.append(el('p','garage-part-description',def.description));
+        if(slot==='structure'&&Object.keys(view.rig.installed).some(key=>key!=='structure'))
+            box.append(el('small','unified-owner-note','REMOVE ATTACHED PARTS BEFORE THE FRAME.'));
     }
-    if (!installed && !swapExpanded) box.append(el('small','garage-empty-label','EMPTY SOCKET · CHOOSE A PART'));
+    if(!installed&&!swapExpanded)box.append(el('small','garage-empty-label','EMPTY SOCKET · CHOOSE A PART'));
     const actions=el('div','garage-part-actions');
-    const toggle=button(swapExpanded?'‹ INSPECT':installed?'REPLACE':'INSTALL',()=>{
+    actions.append(button(swapExpanded?'‹ INSPECT':installed?'REPLACE':'INSTALL',()=>{
         swapExpanded=!swapExpanded;drawerExpanded=false;selectedHardwareSerial=null;
         rackView='ready';dock.scrollTop=0;render();
-    },'unified-swap-toggle');
-    actions.append(toggle);
-    if (installed && !swapExpanded) actions.append(button(detailsExpanded?'LESS':'DETAILS',()=>{
-        detailsExpanded=!detailsExpanded;render();
-    },'unified-secondary'));
-    box.append(actions);
-    if (installed && detailsExpanded && !swapExpanded) {
-        const def=BY_ID.get(installed.definitionId);
-        box.append(el('div','garage-spec-line',def?.massKg+' KG · '+Math.abs(def?.powerKw||0)+' KW'));
-        if (def?.description) box.append(el('p','garage-part-description',def.description));
+    },'unified-swap-toggle'));
+    if(installed&&!swapExpanded) {
+        const remove=button('REMOVE',()=>editModule(slot,null),'unified-remove-icon');
+        remove.setAttribute('aria-label','Remove '+installed.serial);actions.append(remove);
     }
+    box.append(actions);
     if(!swapExpanded)return box;
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
@@ -647,71 +670,131 @@ function renderGarage(stable,machine,view) {
         (view.rig.career.fieldServices||0)+' FIELD PATCHES'));
     dock.append(history,appendIdentityForm(view,stable));
 }
+/** Read-only stockroom: the serialized stable remains the inventory authority. */
+function renderInventory(stable) {
+    const wrap=el('section','owned-inventory');
+    const counts={all:stable.inventory.length,stored:0,equipped:0};
+    const entries=stable.inventory.map(part=>{
+        const def=BY_ID.get(part.definitionId);
+        const owner=stable.rigs.find(r=>Object.values(r.installed).includes(part.serial));
+        const current=owner?bayHealth(stable,owner.id).find(x=>x.serial===part.serial):null;
+        const entry={part,def,owner,condition:current?.condition??part.condition,
+            armorRatio:current?.armorRatio??1};
+        counts[owner?'equipped':'stored']++;
+        return entry;
+    }).filter(x=>!!x.def);
+    const header=el('header','inventory-heading');
+    header.append(el('strong','',counts.all+' SERIALIZED PARTS'));
+    header.append(el('small','',counts.stored+' STORED · '+counts.equipped+' EQUIPPED'));
+    wrap.append(header);
+    const controls=el('div','inventory-filters');
+    for(const [id,label] of [['all','ALL'],['stored','STORED'],['equipped','EQUIPPED']]) {
+        const b=button(label+' '+counts[id],()=>{inventoryFilter=id;inventorySerial=null;render();},
+            'inventory-filter'+(inventoryFilter===id?' active':''));
+        b.setAttribute('aria-pressed',String(inventoryFilter===id));
+        controls.append(b);
+    }
+    controls.append(button(inventorySort==='station'?'SORT · TYPE':'SORT · CONDITION',()=>{
+        inventorySort=inventorySort==='station'?'condition':'station';render();
+    },'inventory-sort'));
+    wrap.append(controls);
+    const filtered=entries.filter(item=>inventoryFilter==='all'||
+        (inventoryFilter==='equipped'&&item.owner)||
+        (inventoryFilter==='stored'&&!item.owner));
+    filtered.sort((a,b)=>inventorySort==='station'
+        ?BAY_SLOTS.indexOf(a.def.slot)-BAY_SLOTS.indexOf(b.def.slot)||
+            a.def.name.localeCompare(b.def.name)||a.part.serial.localeCompare(b.part.serial)
+        :a.condition-b.condition||a.part.serial.localeCompare(b.part.serial));
+    const gallery=el('div','inventory-grid part-grid');
+    for(const item of filtered){
+        const p=item.part;
+        const card=createPartCard({
+            entry:{id:'owned:'+p.serial,sourceSerial:p.serial,name:item.def.name,
+                slot:item.def.slot,condition:item.condition,destroyed:p.destroyed},
+            thumbnailUrl:activePlayerArena()?.arena.partThumbnailDataUrl?.(p.definitionId,p),
+            value:partCreditValue(item.def,item.condition,{wear:p.wear,destroyed:p.destroyed}),
+            selected:inventorySerial===p.serial,
+            source:item.owner?'BAY '+String(item.owner.bay).padStart(2,'0'):'STORED',
+            onSelect:()=>{inventorySerial=p.serial;render();},
+        });
+        card.classList.add('inventory-card');gallery.append(card);
+    }
+    wrap.append(gallery);
+    const selected=entries.find(item=>item.part.serial===inventorySerial);
+    if(selected){
+        const p=selected.part,slot=selected.def.slot;
+        const panel=el('section','inventory-detail');
+        panel.append(el('strong','',selected.def.name),
+            el('small','',p.serial+' · '+stationLabel(slot)));
+        const preview=activePlayerArena()?.arena.partThumbnailDataUrl?.(p.definitionId,p);
+        if(preview){const img=el('img','inventory-preview');img.src=preview;img.alt=selected.def.name;panel.append(img);}
+        panel.append(createConditionMeter({
+            serial:p.serial,condition:selected.condition,armorRatio:selected.armorRatio,
+            wear:p.wear,destroyed:p.destroyed,
+        },{showNumbers:true,slot}));
+        panel.append(el('p','',selected.owner
+            ?'INSTALLED · '+rigName(selected.owner)+' · BAY '+selected.owner.bay
+            :'IN STORAGE · READY FOR A COMPATIBLE MOUNT'));
+        panel.append(el('small','',selected.def.massKg+' KG · '+(selected.def.powerKw||0)+' KW · WEAR '+pct(p.wear)));
+        panel.append(button(selected.owner?'INSPECT IN BAY':'FIT TO A RIG',()=>{
+            const owner=selected.owner;
+            if(owner){
+                viewedId=owner.id;
+                try{session?.setItem(key,viewedId);}catch{/* Viewing remains local. */}
+            }
+            openWorkspace('garage');
+            selectedSlot=slot;swapExpanded=!owner;
+            selectedHardwareSerial=owner?null:p.serial;
+            rackView='ready';identityExpanded=false;
+            previewSignature='';render();
+        },'inventory-view-bay'));
+        wrap.append(panel);
+    } else if(!filtered.length){
+        wrap.append(el('p','unified-muted','NO PARTS IN THIS GROUP'));
+    }
+    dock.append(wrap);
+}
 function renderCounter(machine) {
     const campaign=loadCampaign(storage);
     const {stock,persisted}=loadCounter(storage,campaign.sorties);
     const offers=stock.offers;
-    const viewing=offers.find(item=>item.serial===selectedLotSerial);
-    if(!viewing) selectedLotSerial=(offers.find(item=>!item.sold)||offers[0]).serial;
-    const chosen=offers.find(item=>item.serial===selectedLotSerial);
-    const heading=el('section','counter-intro');
-    heading.append(el('strong','','THE BACKLOT PARTS COUNTER'));
-    heading.append(el('p','','FOUR AS-IS LOTS. NO GUARANTEES. NO REFUNDS.'));
-    heading.append(el('small','',
-        'NEW STOCK AFTER YOUR NEXT COMPLETED CONTRACT · LOT '+String(campaign.sorties+1).padStart(2,'0')));
-    dock.append(heading);
-    const tiles=el('section','counter-lots part-grid');
     const arena=activePlayerArena()?.arena;
-    for (const offer of offers) {
-        const def=BY_ID.get(offer.definitionId);
-        const card=createPartCard({
-            entry:{id:offer.id,sourceSerial:offer.serial,definitionId:offer.definitionId,
-                name:def.name,slot:def.slot,condition:offer.condition,
-                destroyed:false},
-            thumbnailUrl:arena?.partThumbnailDataUrl?.(offer.definitionId,offer)??null,
-            value:offer.price,source:offer.sold?'SOLD':'AS-IS',
-            selected:offer.serial===selectedLotSerial,claimed:offer.sold,
-            onSelect:()=>{selectedLotSerial=offer.serial;render();},
-        });
-        card.classList.add('counter-lot');
-        card.setAttribute('aria-label',def.name+' · '+offer.serial+' · '+
-            Math.round(offer.condition*100)+' percent · ₡'+offer.price+
-            (offer.sold?' · sold':' · for sale'));
-        tiles.append(card);
-    }
-    dock.append(tiles);
-    const def=BY_ID.get(chosen.definitionId);
-    const yardValue=partCreditValue(def,chosen.condition,{wear:chosen.wear});
-    const details=createPartDetail({
-        entry:{id:chosen.id,sourceSerial:chosen.serial,name:def.name,
-            definitionId:def.id,slot:def.slot,condition:chosen.condition},
-        thumbnailUrl:arena?.partThumbnailDataUrl?.(chosen.definitionId,chosen)??null,
-        value:chosen.price,
-        meta:'CONDITION '+pct(chosen.condition)+' · WEAR '+pct(chosen.wear)+
-            '\nPRIOR REPAIRS '+chosen.repairs+' · YARD VALUE ≈ ₡'+yardValue+
-            '\nASKING ₡'+chosen.price+' · SOLD AS-IS'+
-            (chosen.sold?'\nSOLD · EMPTY TABLE SLOT':''),
-        actionLabel:chosen.sold?'SOLD OUT':!persisted?'COUNTER UNAVAILABLE':
-            machine.economy.credits<chosen.price?
-                'NEED ₡'+(chosen.price-machine.economy.credits)+' MORE':
-                'BUY SERIAL '+chosen.serial+' · ₡'+chosen.price,
-        actionDisabled:chosen.sold||!persisted||machine.economy.credits<chosen.price,
-        onAction:()=>{
+    const chosen=offers.find(p=>p.serial===selectedLotSerial);
+    const placard=el('div','vendor-placard');
+    placard.append(el('strong','','BACKLOT COUNTER'),
+        el('small','','AS-IS HARDWARE · LOT '+String(campaign.sorties+1).padStart(2,'0')));
+    dock.append(placard);
+    const hint=el('p','vendor-hint',chosen?'TAP ANOTHER PART TO INSPECT':'TAP A PART ON THE COUNTER TO INSPECT');
+    dock.append(hint);
+    if(chosen) {
+        const def=BY_ID.get(chosen.definitionId);
+        const detail=el('section','vendor-inspector');
+        const heading=el('div','vendor-inspector-heading');
+        heading.append(el('strong','',def.name),button('×',()=>{
+            selectedLotSerial=null;render();
+        },'vendor-close'));
+        detail.append(heading,el('small','vendor-serial',chosen.serial));
+        const info=el('div','vendor-inspector-info');
+        info.append(createConditionMeter({
+            serial:chosen.serial,condition:chosen.condition,armorRatio:1,
+            wear:chosen.wear,destroyed:false,
+        },{compact:true}));
+        info.append(el('span','',
+            pct(chosen.condition)+' CONDITION · '+pct(chosen.wear)+' WEAR · '+
+            chosen.repairs+' REPAIRS'));
+        detail.append(info);
+        detail.append(el('div','vendor-price','₡'+chosen.price.toLocaleString()));
+        const action=button(chosen.sold?'SOLD':!persisted?'UNAVAILABLE':
+            machine.economy.credits<chosen.price?'NEED ₡'+(chosen.price-machine.economy.credits):
+            'BUY',()=>{
             const result=emitEdit('m3ch4:counter-buy',{serial:chosen.serial});
-            message(result.ok?
-                'PURCHASED '+chosen.serial+' · STORED IN PARTS RACK':result.reason,!result.ok);
-            if(result.ok) {vendorTableSignature='';render();}
-        },
-    });
-    details.classList.add('counter-lot-detail');
-    const asking=details.querySelector('.part-detail-value');
-    if(asking) asking.textContent='ASKING PRICE · ₡'+chosen.price.toLocaleString();
-    dock.append(details);
-    dock.append(el('p','unified-muted',
-        stock.offers.every(lot=>lot.sold)
-            ? 'SOLD OUT. NEW LOTS AFTER YOUR NEXT COMPLETED CONTRACT.'
-            : 'SOME PARTS COST MORE TO REPAIR THAN THEY ARE WORTH. INSPECT BEFORE BUYING.'));
-    const visualKey=stock.cycle+':'+offers.map(offer=>offer.serial+':'+offer.sold).join('|');
+            message(result.ok?'PURCHASED '+def.name+' · STORED':result.reason,!result.ok);
+            if(result.ok){selectedLotSerial=null;vendorTableSignature='';render();}
+        },'vendor-buy',chosen.sold||!persisted||machine.economy.credits<chosen.price);
+        detail.append(action);
+        dock.append(detail);
+    }
+    const visualKey=stock.cycle+':'+offers.map(p=>p.serial+':'+p.sold).join('|');
     if(arena) {
         if(visualKey!==vendorTableSignature){
             arena.setVendorStock(offers);
@@ -724,9 +807,9 @@ function takeContract(stable,jobId) {
     const result=beginSortieAssignment(session,jobId);
     if (!result.ok) {message(result.reason,true);return;}
     selectedJobId = jobId;
-    mode='setup';
     assignment(stable,jobId,viewedId);
-    dock.scrollTop=0;render();
+    // Choosing a job returns to workshop, deployment commits in sortie setup.
+    mode='garage';dock.scrollTop=0;render();
 }
 function renderContracts(stable) {
     const campaign=loadCampaign();
@@ -793,9 +876,7 @@ function renderContracts(stable) {
         if(!node.required)choice.append(el('small','node-optional','OPTIONAL'));
         list.append(choice);
     }
-    dock.append(el('p','unified-muted','SCRAPYARD CIRCUIT · CONNECTED JOBS · TAP A NODE TO OPEN ITS BRIEFING.'));
     dock.append(list);
-    dock.append(el('p','unified-muted','SOLID CONNECTIONS MARK UNLOCKED PATHS. OPTIONAL JOBS DO NOT BLOCK THE CIRCUIT.'));
 }
 function renderStationReadout(view) {
     if (!selectedSlot) return null;
@@ -948,6 +1029,7 @@ function render() {
     else if(state==='setup')renderSetup(stable,view);
     else if(state==='pit')renderPit(stable,view,series);
     else if(state==='vendor')renderCounter(machine);
+    else if(state==='inventory')renderInventory(stable);
     navRender(stable,state);
     if (!selling) preview(stable,series);
     dock.scrollTop = previousScroll;

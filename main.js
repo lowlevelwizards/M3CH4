@@ -1581,10 +1581,10 @@ function syncInspectorLayout() {
     const shell=document.querySelector('#unified-garage');
     const workspace=shell?.dataset.workspace;
     const bayDock=document.querySelector('#unified-garage-dock');
-    // Free garage framing is centered on the machine. Only reserve camera
-    // space for an actually visible inspector/drawer or the dedicated painter.
-    const reserve = inspecting && bayDock && (
-        workspace==='paint' || (workspace==='garage' && shell.classList.contains('tool-open')));
+    // Contextual garage toolboxes float OVER the scene rather than pushing the
+    // camera. Closing an inspector must never appear to reset orbit or aim.
+    // Only the dedicated paint editor reserves an actual side column.
+    const reserve=inspecting && !!bayDock && workspace==='paint';
     const panelRight=reserve ? bayDock.getBoundingClientRect().right-rect.left+8 : 0;
     arena.setInspectorLayout(Math.max(0,panelRight),rect.width,rect.height);
 }

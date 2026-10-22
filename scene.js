@@ -233,12 +233,13 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(vendorRoot);
     const vendorPicks=[],vendorPads=new Map();
     let vendorEnabled=false;
+    let savedWorkshopOrbit=null;
     function clearVendorTable() {
         vendorRoot.traverse(object=>{
             if(!object.isMesh)return;
             object.geometry?.dispose?.();
             const mats=Array.isArray(object.material)?object.material:[object.material];
-            mats.forEach(mat=>mat?.dispose?.());
+            mats.forEach(mat=>{mat?.map?.dispose?.();mat?.dispose?.();});
         });
         vendorRoot.clear();vendorPicks.length=0;vendorPads.clear();
     }
@@ -250,6 +251,31 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function setVendorStock(offers=[]) {
         clearVendorTable();
+        // A seller's stall, not the garage with a shop window: dark boarded
+        // floor, distinct back wall, side uprights, overhead lamps and sign.
+        vendorBox(13.0,.13,8.8,0x4a4435,0,-.08,.25);
+        vendorBox(12.8,4.4,.18,0x242b25,0,2.12,3.4);
+        for(const x of [-6.3,6.3]){
+            vendorBox(.27,4.7,.33,0x574932,x,2.25,1.1);
+            vendorBox(.4,.22,7.2,0x433b2d,x,4.4,.2);
+        }
+        vendorBox(12.6,.17,.35,0x6f5837,0,4.3,2.75);
+        vendorBox(4.5,.95,.16,0x6e5536,0,3.5,3.06);
+        const signCanvas=document.createElement('canvas');
+        signCanvas.width=512;signCanvas.height=128;
+        const paint=signCanvas.getContext('2d');
+        if(paint){
+            paint.fillStyle='#243229';paint.fillRect(0,0,512,128);
+            paint.fillStyle='#d5b474';paint.font='bold 54px monospace';
+            paint.textAlign='center';paint.fillText('BACKLOT',256,65);
+            paint.font='bold 25px monospace';paint.fillText('SALVAGE  /  AS-IS',256,105);
+            const texture=new THREE.CanvasTexture(signCanvas);
+            texture.colorSpace=THREE.SRGBColorSpace;
+            const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.14,.87),
+                new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
+            sign.position.set(0,3.50,2.94);sign.rotation.y=Math.PI;
+            vendorRoot.add(sign);
+        }
         vendorBox(10.0,.18,2.65,0x654632,0,.75,0);
         vendorBox(9.9,.065,2.6,0x967647,0,.865,0);
         for(const x of [-4.3,4.3])for(const z of [-.98,.98])
@@ -289,14 +315,25 @@ export function createArenaScene(initial, targetAssembly) {
         vendorRoot.visible=inspecting&&vendorEnabled;
     }
     function setVendorMode(enabled) {
-        vendorEnabled=!!enabled;
+        enabled=!!enabled;
+        if(enabled===vendorEnabled)return;
+        vendorEnabled=enabled;
         vendorRoot.visible=inspecting&&vendorEnabled;
         exterior.root.visible=inspecting&&!vendorEnabled;
         stagingFixtures.visible=inspecting&&!vendorEnabled;
         if(vendorEnabled) {
-            desiredTarget.set(0,1.30,0);
-            radius=Math.max(radius,9.6);
-        } else focusPart(null);
+            // A separate tabletop viewing station: don't overwrite the player's
+            // garage orbit, so returning to the rig is spatially continuous.
+            savedWorkshopOrbit={azimuth,elevation,radius,target:desiredTarget.clone()};
+            azimuth=.02;elevation=.32;radius=8.4;
+            desiredTarget.set(0,1.45,0);orbitAssist=null;
+        } else if(savedWorkshopOrbit) {
+            azimuth=savedWorkshopOrbit.azimuth;
+            elevation=savedWorkshopOrbit.elevation;
+            radius=savedWorkshopOrbit.radius;
+            desiredTarget.copy(savedWorkshopOrbit.target);
+            savedWorkshopOrbit=null;orbitAssist=null;
+        }
     }
     function selectVendorLot(serial) {
         for(const [id,pad] of vendorPads)
@@ -1717,9 +1754,8 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function focusPart(slot) {
-        // A selected station is an inspector state, NOT a camera focus target.
-        // Paint and part selection must not move, zoom or reset the orbit.
-        desiredTarget.set(0,1.85,0);
+        // No orbit or pivot changes on inspector selection, deselection or
+        // temporary preview; the player's manually chosen view persists.
     }
     function revealPart(slot) {
         // Model taps have already exposed the part. Only explicit shortcut navigation
