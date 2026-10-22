@@ -15,7 +15,8 @@ import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawT
 import { createArenaScene } from './scene.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
-import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
+import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot, setActiveWeaponLoad } from './powerDynamics.js';
+import { createThermalCombat, coolThermalCombat, cutContact } from './thermalCombat.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
@@ -489,6 +490,7 @@ let aiAssaultMemory={friendly:{},hostile:{}};
 const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
+const thermalCombat=createThermalCombat();
 let fireHeld = false;
 let firePointerId = null;
 let fireLastX = 0;
@@ -1661,6 +1663,10 @@ function frame(now) {
                 const yawBefore = rig.yaw;
                 const wasBraced = rig.braced;
                 const powerWasReady=playerPower.weaponReady;
+                setActiveWeaponLoad(playerPower,
+                    weaponSpec?.fireMode==='continuous'&&fireHeld&&playerCombatActive&&
+                    (weaponState?.action?.ventLeft??0)<=0&&output.weaponOperational
+                        ? weaponSpec.activeKw : 0);
                 advancePowerSystem(playerPower, assembly, rig, FIXED_DT,
                     playerCondition.parts.power.integrity / Math.max(1, playerCondition.parts.power.maxIntegrity));
                 if(!powerWasReady&&playerPower.weaponReady)
@@ -1743,6 +1749,11 @@ function frame(now) {
                 const actorOutput=hostileOutput(actor.condition,actor.behavior);
                 const canManeuver=actorOutput.structure>.05&&actorOutput.command>.05&&
                     actorOutput.power>.12&&actorOutput.mobility>.05;
+                setActiveWeaponLoad(actor.powerSystem,
+                    actor.weaponSpec?.fireMode==='continuous'&&target&&
+                    Math.hypot(target.rig.x-actor.rig.x,target.rig.z-actor.rig.z)<=actor.weaponSpec.rangeMeters&&
+                    actor.motion?.awareness?.lineOfSight!==false&&
+                    (actor.weaponState?.action?.ventLeft??0)<=0 ? actor.weaponSpec.activeKw : 0);
                 advancePowerSystem(actor.powerSystem, actor.assembly, actor.rig, FIXED_DT, actorOutput.power);
                 const actorConfig=aiLocomotionConfig(actor);
                 const recovery=aiWeaponRecoveryDirective(actor,target);
@@ -1877,6 +1888,7 @@ function frame(now) {
             }
             // Flight and explosion outcomes are authoritative only when the
             // projectile physically arrives, never at the instant of launch.
+            coolThermalCombat(thermalCombat,FIXED_DT);
             for(const blast of arena.advanceRockets(FIXED_DT)) {
                 for(const {contact,damage} of blast.contacts) {
                     if(testEnded)break;
@@ -2097,6 +2109,7 @@ function renderAmmo() {
         fieldService.held ? ' · FIELD SERVICE' :
         failure === 'faulted' ? ' · FAULTED' :
         !playerPower.weaponReady ? ' · PWR SAG' :
+        weaponSpec?.fireMode==='continuous'&&(weaponState?.action?.ventLeft??0)>0 ? ' · VENT' :
         output.weapon < .95 ? ' · DAMAGED' : '';
     weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${suffix}` : 'NO WEAPON';
     const servicePercent = Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100);
@@ -2351,6 +2364,8 @@ function attemptAiFire(actor, target, shotIndex) {
         Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius &&
         (p.contested||p.owner===actor.team));
     if(!shouldAttemptTacticalShot(actor,target,{urgent:pointUnderThreat}))return;
+    if(actor.weaponSpec.fireMode==='continuous'&&
+        Math.hypot(actor.rig.x-target.rig.x,actor.rig.z-target.rig.z)>actor.weaponSpec.rangeMeters)return;
     // A real trigger pull consumes ammunition BEFORE resolving the raycast.
     // Cover impacts, misses and friendly obstruction are still fired rounds.
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
@@ -2359,10 +2374,10 @@ function attemptAiFire(actor, target, shotIndex) {
     // can still slow mechanical cycling, but no arbitrary AI trigger clamp.
     actor.weaponState.cooldown *= 1+
         (1-actorOutput.weapon)*.65+(1-actorOutput.power)*.45;
-    registerPowerShot(actor.powerSystem, actor.assembly);
+    if(actor.weaponSpec.fireMode!=='continuous')registerPowerShot(actor.powerSystem, actor.assembly);
     // Listen from the player's position, not at the same volume from every
     // opponent across the map. One sound per consumed round, not per pellet.
-    soundWeaponShot(actor.weaponSpec.id,{
+    if(actor.weaponSpec.fireMode!=='continuous'||consumed%3===1)soundWeaponShot(actor.weaponSpec.id,{
         shotIndex:consumed,
         distance:Math.hypot(actor.rig.x-rig.x,actor.rig.z-rig.z),
         cockpit:false,
@@ -2379,6 +2394,15 @@ function attemptAiFire(actor, target, shotIndex) {
     const aimSlot=tacticalAimSlot(hostileAimSlot(shotIndex,actor.behavior.aimPriority),{
         targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
         contesting,visibleService:!!target.fieldService?.held});
+    if(actor.weaponSpec.fireMode==='continuous') {
+        const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
+        if(contact?.slot&&contact.actorId&&contact.distance<=actor.weaponSpec.rangeMeters) {
+            const thermal=cutContact(thermalCombat,contact.actorId+'/'+contact.slot,
+                FIXED_DT,actor.weaponSpec.damage);
+            resolveAiShotContact(actor,target,contact,thermal.damage);
+        }
+        return;
+    }
     if(actor.weaponSpec.fireMode==='projectile') {
         const aim=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
         arena.launchRocket({ownerId:actor.id,muzzle:aim.muzzle,point:aim.point,
@@ -2477,7 +2501,7 @@ function attemptFire() {
         return;
     }
     weaponState.cooldown *= weaponCycleMultiplier(output);
-    registerPowerShot(playerPower, assembly);
+    if(weaponSpec.fireMode!=='continuous')registerPowerShot(playerPower, assembly);
     // One trigger pull consumes exactly one shell; each actual pellet
     // traverses the ordinary camera→muzzle raycaster and first real hit.
     const degradedSpread=weaponSpreadMultiplier(output);
@@ -2503,6 +2527,17 @@ function attemptFire() {
             .map(entry=>entry.contact)
         : [arena.traceShot(baseX,baseY,weaponSpec.muzzleZ,weaponSpec.fireMode==='charged')];
     const center=contacts[0];
+    if(weaponSpec.fireMode==='continuous') {
+        if(center?.slot&&center.actorId&&center.distance<=weaponSpec.rangeMeters) {
+            const thermal=cutContact(thermalCombat,center.actorId+'/'+center.slot,
+                FIXED_DT,weaponSpec.damage);
+            resolvePlayerShotContact(center,thermal.damage,false,true);
+        }
+        shotsFired++;sortieRoundsFired++;
+        if(shot%3===1)soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
+        renderAmmo();
+        return;
+    }
     warnNearbyAiFromShot(FRIENDLY_TEAM,center);
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
