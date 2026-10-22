@@ -18,7 +18,7 @@ const stationaryRig=()=>({x:0,z:0,yaw:0,vx:0,vz:0,yawRate:0,impact:0});
 
 test('Olympic registry has nine unique auditable situations',()=>{
   assert.equal(OLYMPIC_EVENTS.length,9);
-  assert.equal(new Set(EVENT_IDS).size,8);
+  assert.equal(new Set(EVENT_IDS).size,9);
   assert.ok(['mobility','awareness','combat','coordination','survival']
     .every(group=>OLYMPIC_EVENTS.some(e=>e.group===group)));
 });
