@@ -3,7 +3,7 @@ import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
-import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
+import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4y2';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
