@@ -11,7 +11,7 @@ import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './eco
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
-import {storeSurfaceEvents} from './partServiceJournal.js';
+import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
@@ -407,6 +407,11 @@ hudRenderer.domElement.setAttribute('aria-hidden', 'true');
 hudRenderer.domElement.style.pointerEvents = 'none';
 mount.appendChild(hudRenderer.domElement);
 const arena = createArenaScene(assembly, targetAssembly);
+// Load scar positions for only the mounted serialized parts; older saves remain
+// valid without a history database. No artwork is stored in the machine save.
+Promise.all([...new Set(Object.values(assembly.installed||{}))].map(readSurfaceEvents))
+    .then(perSerial=>arena.restoreSurfaceMarks(perSerial.flat()))
+    .catch(error=>console.warn('SURFACE HISTORY READ UNAVAILABLE:',error?.message||error));
 for (const actor of supportActors)
     arena.addCombatant(actor.id, actor.assembly, actor.team, actor.spawn);
 arena.updateTargetDamage(targetCondition);
