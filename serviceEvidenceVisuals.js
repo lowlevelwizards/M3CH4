@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 const plates=new Map();
 function stampTexture(count) {
-  const key=Math.max(1,Math.min(99,Math.floor(count)));
+  const key=count>99?'99+':Math.max(1,Math.floor(count));
   if(plates.has(key))return plates.get(key);
   const c=document.createElement('canvas');c.width=64;c.height=32;
   const g=c.getContext('2d');
@@ -16,7 +16,7 @@ function stampTexture(count) {
   g.fillStyle='#c5b18a';g.font='bold 10px monospace';
   g.fillText('SERVICE',7,13);
   g.fillStyle='#e0b36d';g.font='bold 12px monospace';
-  g.fillText('R-'+String(key).padStart(2,'0'),17,26);
+  g.fillText('R-'+(key==='99+'?'99+':String(key).padStart(2,'0')),15,26);
   g.fillStyle='#576156';g.fillRect(4,4,3,3);g.fillRect(57,25,3,3);
   const map=new THREE.CanvasTexture(c);
   map.colorSpace=THREE.SRGBColorSpace;
@@ -25,7 +25,7 @@ function stampTexture(count) {
 }
 export function serviceStampCount(part) {
   const repairs=Number(part?.repairs);
-  return Number.isSafeInteger(repairs)&&repairs>0?Math.min(99,repairs):0;
+  return Number.isSafeInteger(repairs)&&repairs>0?repairs:0;
 }
 export function addPhysicalServiceStamp(root,part) {
   const repairs=serviceStampCount(part);
