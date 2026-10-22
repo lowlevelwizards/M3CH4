@@ -2171,6 +2171,25 @@ export function createArenaScene(initial, targetAssembly) {
         combinerHud.visible=false;
         return true;
     }
+    /** Screen anchors for the actual running Three.js winners. UI nameplates
+     * follow their individual machine feet, not arbitrary equal-width columns.
+     * Returns percentages of the game's full viewport, with a safe fallback.
+     */
+    function victoryNameplateAnchors(){
+        const stage=victoryStage;
+        if(!stage)return [];
+        stage.root.updateWorldMatrix(true,true);
+        camera.updateMatrixWorld();
+        return stage.machines.map(entry=>{
+            const base=entry.visual.root.localToWorld(new THREE.Vector3(0,-.34,.48));
+            const projected=base.project(camera);
+            return {
+                x:THREE.MathUtils.clamp((projected.x*.5+.5)*100,13,87),
+                y:THREE.MathUtils.clamp((1-(projected.y*.5+.5))*100,53,84),
+                visible:projected.z>=-1&&projected.z<=1,
+            };
+        });
+    }
     function restoreSurfaceMarks(events) {
         for(const event of events||[]) {
             if(!event?.eventId||!event?.serial)continue;
@@ -2779,7 +2798,7 @@ export function createArenaScene(initial, targetAssembly) {
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
-        beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,setPitPresentation,
+        beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,victoryNameplateAnchors,setPitPresentation,
         traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
