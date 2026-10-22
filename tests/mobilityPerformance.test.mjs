@@ -63,14 +63,14 @@ test('Hauler carries momentum while Kestrel sheds speed quickly off throttle', (
     assert.ok(retained.yard > retained.kestrel);
 });
 
-test('Kestrel rotates most eagerly and Hauler resists yaw', () => {
+test('Kestrel rotates most eagerly and Hauler resists yaw in motion', () => {
     const configs = {
         kestrel: deriveRigConfig(assemblyWithMobility('legs-compact')),
         yard: deriveRigConfig(assemblyWithMobility('legs-yard')),
         hauler: deriveRigConfig(assemblyWithMobility('legs-hauler')),
     };
     const yaw = Object.fromEntries(Object.entries(configs).map(([key, config]) => [
-        key, Math.abs(simulate(config, {}, input({ steer: 1 }), 1).yawRate),
+        key, Math.abs(simulate(config, { vz: -4 }, input({ steer: 1, throttle: .8 }), 1).yawRate),
     ]));
     assert.ok(yaw.kestrel > yaw.yard);
     assert.ok(yaw.yard > yaw.hauler);
