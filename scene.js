@@ -1899,6 +1899,8 @@ export function createArenaScene(initial, targetAssembly) {
         const old=victoryStage;victoryStage=null;
         old.scars.clear();
         scene.remove(old.root);
+        camera.fov=old.cameraFov;
+        camera.updateProjectionMatrix();
         for(const entry of old.machines)disposePreviewObject(entry.visual.root);
         old.root.traverse(node=>{
             if(node.isMesh && !old.machines.some(e=>e.visual.root===node)) {
@@ -1949,6 +1951,14 @@ export function createArenaScene(initial, targetAssembly) {
           root.add(visual.root);
           for(const event of knownSurfaceEvents.values())
             scars.apply(visual,event);
+          const shadow=new THREE.Mesh(new THREE.CircleGeometry(.9,16),
+            new THREE.MeshBasicMaterial({color:0x050c09,transparent:true,
+              opacity:.48,depthWrite:false,side:THREE.DoubleSide}));
+          shadow.rotation.x=-Math.PI/2;
+          shadow.scale.set(1.32,.78,1);
+          shadow.position.set(x,.006,-3.8);
+          shadow.userData.victoryFixture=true;
+          root.add(shadow);
           const record={
             id:'parade-'+i,assembly:winner.assembly,exterior:visual,
             active:true,wrecked:false,cleared:false,
@@ -1969,11 +1979,12 @@ export function createArenaScene(initial, targetAssembly) {
               material.color.multiplyScalar(Math.max(.48,1-severity*.44));
             }
           }
-          machines.push({record,visual,x,operational,phase:i*.32});
+          machines.push({record,visual,x,operational,phase:i*.32,shadow});
         }
         if(!machines.length){scars.clear();return false;}
         scene.add(root);
-        victoryStage={root,machines,scars,elapsed:0};
+        victoryStage={root,machines,scars,elapsed:0,cameraFov:camera.fov};
+        camera.fov=52;camera.updateProjectionMatrix();
         cockpit.visible=false;
         combinerHud.visible=false;
         return true;
@@ -1990,6 +2001,7 @@ export function createArenaScene(initial, targetAssembly) {
           const moving=entry.operational&&t<1;
           const gait=moving?Math.min(1,Math.sin(t*Math.PI)*1.35):0;
           const z=-3.8+eased*3.9;
+          entry.shadow.position.z=z;
           poseCombatantExterior(entry.record,{
             x:entry.x,z,yaw:Math.PI,
             vx:0,vz:moving?1.7:0,
@@ -2009,7 +2021,7 @@ export function createArenaScene(initial, targetAssembly) {
           }
         }
         camera.position.set(stage.root.position.x,3.05,
-          stage.root.position.z+THREE.MathUtils.lerp(11.4,9.6,
+          stage.root.position.z+THREE.MathUtils.lerp(10.4,8.6,
             THREE.MathUtils.clamp(elapsed/4.2,0,1)));
         camera.lookAt(stage.root.position.x,1.68,stage.root.position.z-.85);
         cockpit.visible=false;
