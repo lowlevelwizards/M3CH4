@@ -40,7 +40,7 @@ test('workshop service without a surface anchor remains valid data, never a draw
   assert.equal(record.localNormal, null);
   const renderer = source('surfaceDamageRenderer.js');
   assert.match(renderer, /if\(!event\.localPoint\|\|!event\.localNormal\)/);
-  assert.match(renderer, /validVector\(point\).*validVector\(normal\)/);
+  assert.match(renderer, /validVector\(point\).*validVector\(surfaceNormal\)/);
 });
 
 test('captured drive and look release even when their original element misses pointerup', () => {
