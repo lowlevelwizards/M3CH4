@@ -2,7 +2,11 @@ name: k4v.2 Traffic Holdout and 3v3
 on:
   push:
     branches: [k4v-ai-tournament-laboratory]
-    paths: [.github/workflows/k4v2-traffic-holdout.yml]
+    paths:
+      - .github/workflows/k4v2-traffic-holdout.yml
+      - ai/trafficCoordination.js
+      - research/trafficDominationCompare.mjs
+      - tests/k4v2Traffic.test.mjs
   workflow_dispatch:
     inputs:
       seed:
@@ -12,14 +16,14 @@ on:
       pairs:
         description: 'Mirrored seed pairs for 3v3'
         required: true
-        default: '12'
+        default: '24'
 jobs:
   holdout:
     runs-on: ubuntu-latest
     timeout-minutes: 85
     env:
       SEED: ${{ github.event.inputs.seed || '77001' }}
-      PAIRS: ${{ github.event.inputs.pairs || '12' }}
+      PAIRS: ${{ github.event.inputs.pairs || '24' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
