@@ -21,6 +21,12 @@ export function buildHearthVisual(fixture){
         [.873,.075,.017],'opticRecess');
     block(face,'narrow protected inner optic strip',[0,.080,-.569],
         [.752,.027,.007],'glass');
+    // Small armored vision-gap end stops remain entirely inside the real
+    // cab envelope; the central optical slit remains open and hittable.
+    for(const sign of [-1,1]){
+        chamferBlock(face,sign<0?'left brow end stop':'right brow end stop',
+            [sign*.495,.085,-.525],[.105,.11,.115],'ochre',.12);
+    }
     const armor=groupAt(root,'HEARTH / LARGE SIDE CHEEKS');
     for(const sign of [-1,1]){
         chamferBlock(armor,sign<0?'left armored cheek':'right armored cheek',
