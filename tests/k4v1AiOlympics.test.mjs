@@ -163,3 +163,11 @@ test('objective anchoring is evaluated inside physical zone rather than an arbit
   assert.ok(a.finalDistance<4.7);
   assert.ok(a.holdFraction>.8);
 });
+
+test('traffic Olympics meaningfully changes fitted rig families between cohorts',()=>{
+ const yard=runOlympicEvent('ally-choke',{seed:508,family:'yard',seconds:3});
+ const hauler=runOlympicEvent('ally-choke',{seed:508,family:'hauler',seconds:3});
+ assert.deepEqual(yard.actors.map(a=>a.family),['yard','yard','yard']);
+ assert.deepEqual(hauler.actors.map(a=>a.family),['hauler','hauler','hauler']);
+ assert.notDeepEqual(yard.actors.map(a=>a.z),hauler.actors.map(a=>a.z));
+});
