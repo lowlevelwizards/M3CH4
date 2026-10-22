@@ -51,6 +51,11 @@ const stationPaths={
     combat:'M4 10 H13 V7 H17 V17 H13 V14 H4 Z M17 12 H22 M20 10 L22 12 L20 14',
 };
 function stationPictogram(slot) {
+    // Test DOM shims and no-SVG embedded browsers retain the text fallback.
+    if(typeof document.createElementNS!=='function'){
+        const backup=document.createElement('span');backup.textContent=stationGlyph(slot);
+        return backup;
+    }
     const uri='http://www.w3.org/2000/svg';
     const icon=document.createElementNS(uri,'svg');
     icon.setAttribute('viewBox','0 0 24 24');
