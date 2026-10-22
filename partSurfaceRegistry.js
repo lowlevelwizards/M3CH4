@@ -29,7 +29,7 @@ export function classifySurface({name='',role='',slot=''}={}) {
  * versioned: later model rewrites must migrate affected IDs deliberately.
  */
 export function assignPartSurfaces(root,definitionId,slot) {
-  if(!root?.traverse) return 0;
+  if(!root?.children) return 0;
   let count=0;
   function walk(parent,path) {
     const seen=new Map();
