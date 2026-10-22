@@ -41,9 +41,10 @@
 #unified-garage{
  --k4s-footer-safe:83px;
  --k4s-tool-safe-gap:9px;
+ --k4s-inspector-bias:22px;
 }
 #unified-garage[data-workspace="garage"].tool-open #unified-garage-dock{
- top:calc(50% + (var(--k4s-header) - var(--k4s-footer-safe))/2);
+ top:calc(50% - var(--k4s-inspector-bias));
  bottom:auto;transform:translateY(-50%);
  height:max-content;
  max-height:calc(100% - var(--k4s-header) - var(--k4s-footer-safe) - var(--k4s-tool-safe-gap) - var(--k4s-tool-safe-gap));
@@ -51,7 +52,7 @@
 }
 #unified-garage[data-workspace="garage"].replacing #unified-garage-dock,
 #unified-garage[data-workspace="garage"].replacing:not(.drawer-open) #unified-garage-dock{
- top:calc(50% + (var(--k4s-header) - var(--k4s-footer-safe))/2);
+ top:calc(50% - var(--k4s-inspector-bias));
  bottom:auto;transform:translateY(-50%);
  max-height:min(75px,calc(100% - var(--k4s-header) - var(--k4s-footer-safe) - var(--k4s-tool-safe-gap) - var(--k4s-tool-safe-gap)));
 }
@@ -106,7 +107,7 @@
  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
 }
 @media(max-height:460px){
- #unified-garage{--k4s-footer-safe:71px;--k4s-tool-safe-gap:7px}
+ #unified-garage{--k4s-footer-safe:71px;--k4s-tool-safe-gap:7px;--k4s-inspector-bias:19px}
  #unified-garage[data-workspace="garage"] .workshop-top-link{
   min-height:27px;padding:3px 9px;font-size:9px;
  }
