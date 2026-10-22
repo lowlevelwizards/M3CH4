@@ -89,9 +89,9 @@ export function geometryForPhysicalScar(target,event,profile){
   const geo=target?.geometry,position=geo?.getAttribute?.('position');
   // Service records can carry only a repair timestamp, with no physical
   // impact anchor. These records must never be spread into Three.js vectors.
-  const point=event?.localPoint,normal=event?.localNormal;
+  const point=event?.localPoint,surfaceNormal=event?.localNormal;
   const validVector=v=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite);
-  if(!position||!profile?.width||!profile?.height||!validVector(point)||!validVector(normal))return null;
+  if(!position||!profile?.width||!profile?.height||!validVector(point)||!validVector(surfaceNormal))return null;
   const origin=new THREE.Vector3(...point);
   const normal=new THREE.Vector3(...event.localNormal).normalize();
   const tangent=new THREE.Vector3();
