@@ -13,7 +13,7 @@ test('garage lighting uses broad fill instead of blown-out fixtures over black g
 });
 
 test('garage inspection favors selected parts without losing the complete machine', () => {
-  assert.match(scene, /desiredTarget\.set\(0,1\.85,0\)/);
+  assert.match(scene, /function focusPart\(slot\)/);
   assert.doesNotMatch(scene, /radius = Math\.max\(radius, 6\.85\)/);
   assert.match(scene, /framingOffsetWorld\(panelRightPx,viewportWidth,viewportHeight/);
   assert.match(scene, /radius = 6\.05/);
