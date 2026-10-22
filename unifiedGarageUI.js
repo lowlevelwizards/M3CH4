@@ -1050,6 +1050,9 @@ function render() {
     else if(state==='inventory')renderInventory(stable);
     navRender(stable,state);
     if (!selling) preview(stable,series);
+    // The real Three.js pit follows the authoritative workspace and selected
+    // physical module, without changing ownership or opening another stage.
+    arena?.setPitPresentation?.(state==='pit',selectedSlot);
     dock.scrollTop = previousScroll;
     shell.classList.toggle('has-primary',actionBar.childElementCount>0);
     shell.dataset.mode=state;
