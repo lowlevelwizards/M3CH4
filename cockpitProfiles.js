@@ -74,11 +74,25 @@ export function auditCockpitLayouts() {
 }
 /** Cosmetic command damage belongs to the existing real condition, not a
  * per-cab damage buff/debuff. Mandatory DOM failure alarms remain untouched. */
-export function cockpitFailurePresentation(commandHealth=1,powerHealth=1,busRatio=1){
+/** Secondary displays have different real service tolerances; critical
+ * alarms, driving instruments, weapon state and underlying telemetry never
+ * disappear. No additional condition pool or fictional sensor bonuses. */
+export const CAB_SERVICE_POLICY=Object.freeze({
+    'cab-cyclops':Object.freeze({secondaryFloor:.38,signal:'SIMPLE / RUGGED'}),
+    'cab-utility':Object.freeze({secondaryFloor:.58,signal:'SURVEY / LIGHT'}),
+    'cab-armored':Object.freeze({secondaryFloor:.20,signal:'REDUNDANT / ARMORED'}),
+});
+export function cockpitFailurePresentation(commandHealth=1,powerHealth=1,busRatio=1,commandId='cab-cyclops'){
     const clamp=v=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0));
     const command=clamp(commandHealth),power=clamp(powerHealth),bus=clamp(busRatio);
+    const policy=CAB_SERVICE_POLICY[commandId]??CAB_SERVICE_POLICY['cab-cyclops'];
+    const diagnosticsAvailable=command>=policy.secondaryFloor && bus>=.72;
     return { staticStrength:clamp((.76-command)/.76),
         powerDim:clamp((.95-bus)/.95 + (.38-power)*.20),
         commandSevere:command<.38,
-        busSag:bus<.95 };
+        busSag:bus<.95,
+        diagnosticsAvailable,
+        diagnosticsStatus:diagnosticsAvailable?'AVAILABLE':'SERVICE REQUIRED',
+        commandHealth:command,
+    };
 }
