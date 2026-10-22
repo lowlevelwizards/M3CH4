@@ -30,6 +30,15 @@ const families=[
     tests:['combatDepth','combatBalance','squadBattle','destructionCombat','k3t1Domination'],
   },
   {
+    // Shared entrypoints require a few mechanical guards as well as UI tests.
+    match:/^(?:main|scene)\.js$/,
+    tests:['combatDepth','k3t1Domination','k3v3PhysicalShielding','k3v4PowerDynamics'],
+  },
+  {
+    match:/^(?:components|partEconomy|assemblyGraph)\.js$/,
+    tests:['partEconomy','inventoryDuplicates','k3v6Scattergun','stableFoundation'],
+  },
+  {
     match:/^(?:audio|audioSystemsSynth|liveSystemsEvents|audioWarmup|sound)\w*\.js$/,
     tests:['k3w10LiveSystemsSoundscape','k3w11AcousticPerformance'],
   },
