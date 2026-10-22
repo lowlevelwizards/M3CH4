@@ -164,11 +164,11 @@ function serviceInventory(inventory,rigs,credits,armorBySerial){
   }
   return {credits:credits-spent,spent,deferred,repaired};
 }
-function buyForFleet(inventory,cycle,credits,reserve,rng,validRecipes){
+function buyForFleet(inventory,cycle,credits,reserve,rng,validRecipes,campaign){
   const fleet=packFleet(inventory,validRecipes);
   if(fleet.length===3)return {credits,bought:0};
   const counts=inventoryTallies(inventory);
-  const lots=generateCounterStock(cycle).offers.filter(l=>l.price<=credits-reserve);
+  const lots=generateCounterStock(cycle,campaign).offers.filter(l=>l.price<=credits-reserve);
   lots.sort((a,b)=>{
     const sa=CATALOG.find(x=>x.id===a.definitionId)?.slot;
     const sb=CATALOG.find(x=>x.id===b.definitionId)?.slot;
@@ -264,7 +264,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
     credits=repair.credits;repairPaid+=repair.spent;deferred+=repair.deferred;
     if(purchase){
       const market=buyForFleet(inventory,campaign.sorties,credits,
-        assumptions.repairReserve,rng,legalRows);
+        assumptions.repairReserve,rng,legalRows,campaign);
       credits=market.credits;purchases+=market.bought??0;
       spentInShop+=market.price??0;
     }

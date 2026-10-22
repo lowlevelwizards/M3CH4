@@ -42,6 +42,7 @@ import { advanceHostileController, createHostileController, disabledReason, host
 import { contractById } from './contracts.js';
 import { applyEnemyCrewPaint, applyFriendlyCrewPaint } from './crewLivery.js';
 import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
+import { encounterWingArms, weaponDoctrine } from './campaignArsenal.js';
 import { damageWreckIntegrity, shoveWreck, wreckCollisionRadius } from './wreckPhysics.js';
 import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from './combatPresentation.js';
 import { createBoutLedger, recordBoutHit, recordMissionKill, scoreBout } from './boutScoring.js';
@@ -92,8 +93,9 @@ let weaponSpec = weaponFor(assembly);
 let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
 const hostileWeaponSpec = weaponFor(targetAssembly);
 let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
-let hostileController = createHostileController();
-let hostileMotion = createEnemyMotion();
+const leadBehavior = weaponDoctrine(activeContract.behavior,hostileWeaponSpec.id);
+let hostileController = createHostileController(.45,leadBehavior);
+let hostileMotion = createEnemyMotion(leadBehavior);
 let hostileRig = createRigState(HOSTILE_SPAWN);
 const hostileBaseConfig = deriveRigConfig(targetAssembly);
 if (!hostileBaseConfig)
@@ -107,21 +109,24 @@ const primaryEnemyActor = {
     controller: hostileController, motion: hostileMotion,
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
     powerSystem: createPowerSystem(targetAssembly),
-    behavior: activeContract.behavior,
+    behavior: leadBehavior,
     spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
     fieldService: createFieldServiceState(),
     teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
     combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
 };
-function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex=1) {
+function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex=1, combatId=null) {
     const actorAssembly = makeRangeTarget(contractId);
+    if (combatId) equip(actorAssembly,'combat',combatId);
     if(team===FRIENDLY_TEAM)
         applyFriendlyCrewPaint(actorAssembly,saveStorage,assembly,rosterIndex);
     else
         applyEnemyCrewPaint(actorAssembly,targetAssembly.contractId,rosterIndex);
     if (label) actorAssembly.name = label;
-    const behavior = contractById(contractId).behavior;
+    const behavior = team===HOSTILE_TEAM
+        ? weaponDoctrine(contractById(contractId).behavior,combatId ?? weaponFor(actorAssembly)?.id)
+        : contractById(contractId).behavior;
     const actorCondition = createTargetCondition(actorAssembly);
     const actorWeaponSpec = weaponFor(actorAssembly);
     const baseConfig = deriveRigConfig(actorAssembly);
@@ -145,7 +150,8 @@ const friendlySupportActors = FRIENDLY_SUPPORTS.map(spawn =>
     makeSupportActor(spawn.id, FRIENDLY_TEAM, spawn.contractId, spawn, spawn.label, FRIENDLY_SUPPORTS.indexOf(spawn)+1));
 const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).map((contractId, index) => {
     const spawn = HOSTILE_SUPPORT_SPAWNS[index];
-    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn, null, index+1);
+    const arm = encounterWingArms(targetAssembly.contractId)[index];
+    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn, null, index+1, arm);
 });
 const supportActors = [...friendlySupportActors, ...hostileSupportActors];
 const aiActors = [primaryEnemyActor, ...supportActors];
