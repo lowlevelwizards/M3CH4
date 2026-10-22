@@ -8,6 +8,10 @@ const browser=await chromium.launch({headless:true,
 const errors=[];
 const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:2});
 page.on('pageerror',e=>errors.push(String(e.stack||e.message)));
+page.on('console',message=>{
+  if(message.type()==='error' && /THREE\.WebGLProgram|Shader Error|VALIDATE_STATUS|ERROR: 0:/.test(message.text()))
+    errors.push('GPU shader compilation: '+message.text().slice(0,900));
+});
 page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
 try{
   await page.goto('http://127.0.0.1:8765/art-lab.html',{waitUntil:'domcontentloaded',timeout:60000});
