@@ -3,18 +3,7 @@
  */
 import * as THREE from 'three';
 
-export function artHash(value) {
-  let h = 2166136261;
-  for (const char of String(value)) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
-  return h >>> 0;
-}
-export function artRandom(seed) {
-  let state = (seed >>> 0) || 1;
-  return () => {
-    state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
-    return (state >>> 0) / 4294967296;
-  };
-}
+import {artHash,artRandom} from './artStyleSeed.js';
 
 /** One fixed arena texture shared by every terrain view.
  * Texture affects only the presentation mesh, never walkability/collision.
@@ -73,6 +62,36 @@ export function createYardGroundTexture() {
   texture.magFilter=THREE.LinearFilter;
   texture.anisotropy=2;
   return texture;
+}
+
+/** Workshop slab surface, independent of the outdoor ground and its UVs. */
+export function createWorkshopFloorTexture() {
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=512;
+  const ctx=canvas.getContext('2d'),rand=artRandom(0x51514943);
+  ctx.fillStyle='#74736b';ctx.fillRect(0,0,512,512);
+  for(let i=0;i<5800;i++){
+    const x=rand()*512,y=rand()*512,s=.5+rand()*2.5;
+    ctx.fillStyle=rand()>.5?'rgba(232,222,193,.10)':'rgba(36,35,31,.12)';
+    ctx.fillRect(x,y,s,s);
+  }
+  for(let i=0;i<21;i++){
+    const x=rand()*512,y=rand()*512,r=6+rand()*25;
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,'rgba(21,28,26,.30)');
+    g.addColorStop(1,'rgba(21,28,26,0)');
+    ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
+  }
+  ctx.lineCap='round';
+  for(let i=0;i<75;i++){
+    const x=rand()*512,y=rand()*512,length=4+rand()*34;
+    ctx.strokeStyle=rand()>.4?'rgba(22,27,25,.21)':'rgba(218,202,164,.17)';
+    ctx.lineWidth=.5+rand()*1.8;ctx.beginPath();ctx.moveTo(x,y);
+    ctx.lineTo(x+length*(rand()-.5),y+length*(rand()-.5));ctx.stroke();
+  }
+  const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;
+  t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;
+  t.anisotropy=2;return t;
 }
 
 const finishMaps = new Map();
