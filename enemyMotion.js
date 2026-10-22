@@ -231,7 +231,13 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     const emergencyTurn=tactical.mode==='UNDER_FIRE'&&
         (motion.awareness?.underFireSeconds??0)>.2&&
         tactical.point&&distance(from,tactical.point)>.3;
-    const navigationOrderActive=teamIntent?.mode==='ORDER'&&!emergencyCover&&!emergencyTurn;
+    // A pilot's explicit emergency withdrawal must advance physically. If
+    // generic under-fire steering always overrides ORDER it can trap a wounded
+    // machine in an endless defensive turn, even when retreat is reachable.
+    // A separate genuinely selected cover plan remains valid for other goals.
+    const explicitWithdrawal=teamIntent?.mode==='ORDER'&&teamIntent?.goal==='WITHDRAW';
+    const navigationOrderActive=teamIntent?.mode==='ORDER'&&
+        (explicitWithdrawal||(!emergencyCover&&!emergencyTurn));
     // Threat-facing while maneuvering is a presentation of tactical awareness:
     // a close, visible adversary should not force a 90° or 180° chassis turn
     // merely because the route waypoint sits to the side or behind us.

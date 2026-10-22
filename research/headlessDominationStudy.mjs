@@ -15,7 +15,13 @@
  * randomized battle test, NOT equivalent to headless browser playthrough.
  */
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
+import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
+import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
+import {recentThreatTargetId} from '../tacticalAwareness.js';
+import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
@@ -50,16 +56,16 @@ function random(seed){
     return (value>>>0)/4294967296;};
 }
 const pick=(rng,items)=>items[Math.floor(rng()*items.length)];
-function makeRig(team,n,family,rng,wear=0){
-    // Research-only, caller-supplied actual five-station recipes. Invalid
-    // physical hardware is never represented as a moving or fighting actor.
-    const custom=family && typeof family==='object';
-    const identity=custom ? family.name : family;
-    const pilot=custom ? (family.pilot??'yard') : family;
+function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
+    // Balance research can use a full five-station fitted assembly.
+    // Respect actual hardware validity; never invent functional rigs.
+    const custom=family&&typeof family==='object';
+    const identity=custom?family.name:family;
+    const pilot=custom?(family.pilot??'yard'):family;
     if(!Object.hasOwn(FAMILIES,pilot))throw Error('Unknown research pilot: '+pilot);
-    const assembly=custom ? makeTestAssembly() : makeRangeTarget(FAMILIES[pilot]);
+    const assembly=custom?makeTestAssembly():makeRangeTarget(FAMILIES[pilot]);
     if(custom){
-      for(const slot of SLOTS) {
+      for(const slot of SLOTS){
         if(!family.recipe?.[slot])throw Error('Missing recipe slot '+slot);
         equip(assembly,slot,family.recipe[slot]);
       }
@@ -83,19 +89,24 @@ function makeRig(team,n,family,rng,wear=0){
     const side=team==='friendly'?1:-1, x=[-9,0,9][n]+(rng()-.5)*4.2,
         z=side*(21+(rng()-.5)*3.4);
     const rig=createRigState({x,z,yaw:team==='friendly'?0:Math.PI});
-    const behavior=contractById(FAMILIES[pilot]).behavior;
+    const original=contractById(FAMILIES[pilot]).behavior;
+    const behavior={...original,spreadScale:original.spreadScale*difficulty.spreadScale};
     const id=team==='friendly'?'ally-'+(n+1):'enemy-'+n;
     return {id,team,family:identity,behavior,assembly,condition,rig,
         spawn:{x,z},active:true,killReason:null,
         weaponSpec,weaponState:createWeaponState(weaponSpec),
-        controller:createHostileController(.7+n*.15,behavior),
+        controller:createHostileController(difficulty.acquisitionDelay+n*.15,behavior),
         motion:createEnemyMotion(behavior),baseConfig:deriveRigConfig(assembly),
         driveDamage:{drives:{}},brain:createPilotBrain(),executor:createIntentExecutor(),
-        fieldService:createFieldServiceState(),lastScore:0,
+        fieldService:createFieldServiceState(),lastScore:0,targetId:null,combatMemory:{},
+        lastPosition:{x,z},
         stats:{travel:0,damageDealt:0,armorDamage:0,internalDamage:0,damageTaken:0,
             shotTriggers:0,actualShots:0,hits:0,kills:0,goalChanges:0,
             captures:0,zoneSeconds:0,routeErrors:0,serviceCount:0,
             firstContact:null,firstShot:null,deathAt:null,
+            targetSwitches:0,trafficYields:0,routeSwitches:0,stallSeconds:0,
+            trafficQueueSeconds:0,
+            collisionImpacts:0,underFireSeconds:0,
             attackBySlot:Object.fromEntries(PARTS.map(s=>[s,0]))}};
 }
 function configFor(a){
@@ -105,12 +116,15 @@ function configFor(a){
     a.driveDamage.drives[mobility.instance.serial]={left:health,right:health};
     return derateRigConfig(a.baseConfig,functionalOutput(a.assembly,a.driveDamage));
 }
-function nearestVisible(a,roster,snapshot){
+function nearestVisible(a,roster,snapshot,order=null){
     const known=new Set((snapshot?.knowledge?.[a.team]?.contacts??[])
         .filter(c=>c.visible).map(c=>c.id));
     const live=roster.filter(o=>o.active&&o.team!==a.team&&known.has(o.id));
-    live.sort((a1,b1)=>dist(a.rig,a1.rig)-dist(a.rig,b1.rig));
-    return live[0]??null;
+    const selected=prioritizeVisibleTarget(a,live,snapshot,order,a.targetId,
+        recentThreatTargetId(a.motion));
+    if(selected?.id&&a.targetId&&a.targetId!==selected.id)a.stats.targetSwitches++;
+    a.targetId=selected?.id??null;
+    return selected??null;
 }
 function damage(attacker,target,slot,metrics,t,rng){
     const pre=target.condition.parts[slot].integrity;
@@ -135,21 +149,52 @@ function damage(attacker,target,slot,metrics,t,rng){
     }
     return {hit,fault};
 }
+/** Reconstruct the nearby dynamic body AABBs from the live collision layer.
+ * Physics stays in stepRig; a bot never teleports around another body.
+ * Sampling is sequential as in the browser and side-swapped in tournaments.
+ */
+function combatWorldFor(me,actors){
+  const others=actors.filter(a=>a!==me&&a.active).map(a=>{
+    const radius=a.baseConfig?.collisionRadiusM??1;
+    return {id:'rig-'+a.id,dynamic:true,
+      minX:a.rig.x-radius,maxX:a.rig.x+radius,
+      minZ:a.rig.z-radius,maxZ:a.rig.z+radius};
+  });
+  return {...DEFAULT_WORLD,obstacles:[...DEFAULT_WORLD.obstacles,...others]};
+}
 export function runBout(seed,settings){
-    const maxSeconds=Math.min(210,Math.max(1,Number(settings.maxSeconds)||210));
+    const traffic={friendly:settings.trafficFriendly??'legacy',
+        hostile:settings.trafficHostile??'legacy'};
+    if(!TRAFFIC_POLICIES.includes(traffic.friendly)||
+        !TRAFFIC_POLICIES.includes(traffic.hostile))
+      throw new RangeError('Invalid squad traffic research policy');
     const rng=random(seed),state=createSortieObjective(contractById('domination'));
+    const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
+        hostile:getAiResearchProfile(settings.policyHostile??'baseline')};
+    const difficulties={friendly:getAiResearchDifficulty(settings.difficultyFriendly??'pro'),
+        hostile:getAiResearchDifficulty(settings.difficultyHostile??'pro')};
+    const maxSeconds=Math.min(600,Math.max(2,settings.maxSeconds??MAX_SECONDS));
     state.domination.capturePolicy=settings.policy??'strict';
     const strategies=createStrategicState();
     const teams={friendly:[],hostile:[]};
     for(const team of ['friendly','hostile']){
-      let recipe=settings.rosters?.[team] ?? (team===settings.variantTeam?settings.variant:['yard','kestrel','hauler']);
-      if(recipe.length!==3)throw Error('Research 3v3 roster requires exactly three rigs per team');
+      let recipe=settings.rosters?.[team]??(team===settings.variantTeam?
+        settings.variant:['yard','kestrel','hauler']);
+      if(!Array.isArray(recipe)||recipe.length!==3||
+          recipe.some(family=>!(typeof family==='object'&&family!==null)||!family.recipe ?
+            !Object.hasOwn(FAMILIES,family):!Object.hasOwn(FAMILIES,family.pilot??'yard')))
+        throw new RangeError('Invalid three-rig roster for '+team);
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
-          team===settings.wornTeam?settings.wear:settings.backgroundWear??0));
+          team===settings.wornTeam?settings.wear:settings.backgroundWear??0,
+          difficulties[team]));
       teams[team]=actors;
     }
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
-    const metrics={seed,scenario:settings.name,accuracy:settings.accuracy,
+    const metrics={seed,scenario:settings.name??'research',accuracy:settings.accuracy,
+        policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
+        traffic,
+        difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
+        simulation:'research-approximate-v2',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
         win:null,winReason:null,time:maxSeconds,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
@@ -158,49 +203,80 @@ export function runBout(seed,settings){
         contestedEvents:0,recaptureEvents:0,deadlocks:0,damagingShots:0,
         scoreByTeam:{friendly:0,hostile:0},actors:[]};
     let oldOwners=['', '', ''],lastClaimedOwners=[null,null,null],oldContest=[false,false,false],
-        oldLeader=null,plans={},snapshot=null,planLeft=0;
+        oldLeader=null,plans={},snapshot=null,
+        planLeft={friendly:0,hostile:0},perceptionLeft={friendly:0,hostile:0};
+    const assaults={friendly:{},hostile:{}};
     const count=team=>actors.filter(a=>a.team===team&&a.active).length;
     // Each trial is independent; no user-managed player is present.
     for(let tick=0;tick<maxSeconds/DT;tick++){
       const t=tick*DT;
-      planLeft-=DT;
-      if(planLeft<=0||!snapshot){
-        snapshot=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
-        plans={friendly:planTeam(snapshot,'friendly',{
-            strategy:evaluateStrategy(strategies,snapshot,'friendly')}),
-            hostile:planTeam(snapshot,'hostile',{
-            strategy:evaluateStrategy(strategies,snapshot,'hostile')})};
-        planLeft=.85;
+      for(const team of ['friendly','hostile']){
+        planLeft[team]-=DT;perceptionLeft[team]-=DT;
+      }
+      if(!snapshot||perceptionLeft.friendly<=0||perceptionLeft.hostile<=0){
+        const latest=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
+        // Public objectives update together; each team receives new contacts
+        // on its own perception cadence, never the opponent's faster cadence.
+        const knowledge={};
+        for(const team of ['friendly','hostile']){
+          const ready=!snapshot||perceptionLeft[team]<=0;
+          knowledge[team]=ready?latest.knowledge[team]:snapshot.knowledge[team];
+          if(ready)perceptionLeft[team]=difficulties[team].perceptionSeconds;
+        }
+        snapshot={...latest,knowledge};
         if(metrics.firstContactAt===null&&['friendly','hostile'].some(team=>
           snapshot.knowledge[team].contacts.some(c=>c.visible)))
           metrics.firstContactAt=t;
       }
+      for(const team of ['friendly','hostile'])if(planLeft[team]<=0||!plans[team]){
+        plans[team]=planTeam(snapshot,team,{
+          strategy:evaluateStrategy(strategies,snapshot,team),
+          policy:policies[team],previousOrders:plans[team]?.orders,
+          assaultMemory:assaults[team]});
+        planLeft[team]=difficulties[team].planningSeconds;
+      }
       for(const a of actors){
         if(!a.active)continue;
-        const target=nearestVisible(a,actors,snapshot);
+        const view=snapshot.knowledge[a.team];
+        let job=plans[a.team].orders[a.id]??null;
+        const target=nearestVisible(a,actors,snapshot,job);
+        const support=counterFlankOrder(view.allies.find(p=>p.id===a.id),
+          job,view.allies,view.contacts,DEFAULT_WORLD,t);
+        if(support)job=support;
         const recovery=aiWeaponRecoveryDirective(a,target);
-        const capability=snapshot.knowledge[a.team].allies
-          .find(p=>p.id===a.id)?.capability;
-        const job=plans[a.team].orders[a.id]??null;
+        const capability=view.allies.find(p=>p.id===a.id)?.capability;
+        const config=configFor(a);
+        const physicalWorld=combatWorldFor(a,actors);
+        const allies=actors.filter(p=>p.team===a.team&&p!==a&&p.active);
+        const nearbyTraffic=allies.filter(p=>dist(p.rig,a.rig)<7)
+          .map(p=>({id:p.id,position:p.rig,radius:p.baseConfig?.collisionRadiusM??1,
+            active:p.active,speed:Math.hypot(p.rig.vx??0,p.rig.vz??0),
+            velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
         const before=a.brain.history.length;
         const decision=decidePilot(a.brain,{id:a.id,position:{x:a.rig.x,z:a.rig.z}},
           job,{capability,weaponRecovery:recovery,world:DEFAULT_WORLD,
-            personality:a.behavior.id,preferredRangeM:a.behavior.preferredRangeM,
+            policy:policies[a.team],personality:a.behavior.id,
+            preferredRangeM:a.behavior.preferredRangeM,
+            collisionRadius:config.collisionRadiusM+.3,
+            enemySeen:!!view.contacts.some(c=>c.visible),
+            uncertain:!view.contacts.some(c=>c.visible),
+            nearbyAllies:allies.map(p=>({position:p.rig})),
+            threatPosition:target?.rig??null,
+            preserveMajority:state.domination.points.filter(p=>
+              p.owner===a.team&&!p.contested).length>=2,
             underFireSeconds:a.motion.awareness?.underFireSeconds??0,
             retreatPoint:{x:a.rig.x,z:a.team==='friendly'?22:-22}},t);
         if(a.brain.history.length>before)a.stats.goalChanges++;
-        const config=configFor(a);
-        const instruction=executeIntent(a.executor,decision,a.rig,DEFAULT_WORLD,
-          config.collisionRadiusM,DT);
-        if(instruction.routeFailure&&!a._lastRouteFailure){
-          a.stats.routeErrors++;
-        }
+        const instruction=executeIntent(a.executor,decision,a.rig,physicalWorld,
+          config.collisionRadiusM,DT,nearbyTraffic,
+          {trafficPolicy:traffic[a.team],actorId:a.id});
+        if(instruction.routeFailure&&!a._lastRouteFailure)a.stats.routeErrors++;
         a._lastRouteFailure=!!instruction.routeFailure;
         if(recovery.begin&&!a.fieldService.held)
           beginFieldService(a.condition,a.fieldService,a.rig);
         const posture=aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),recovery);
-        let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??a.rig,DT,
-          capability?.canMove??true,DEFAULT_WORLD,config.collisionRadiusM,
+        let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??null,DT,
+          capability?.canMove??true,physicalWorld,config.collisionRadiusM,
           a.behavior,instruction,config);
         if(a.fieldService.held||recovery.mode==='SETTLE')
           drive={throttle:0,strafe:0,steer:0,brake:1};
@@ -208,9 +284,17 @@ export function runBout(seed,settings){
           throttle:drive.throttle*Math.max(.66,posture.paceScale),
           strafe:(drive.strafe??0)*Math.max(.56,posture.strafeScale),
           steer:drive.steer*Math.max(.62,posture.steerScale)};
-        const former={x:a.rig.x,z:a.rig.z};
-        stepRig(a.rig,drive,DT,config,DEFAULT_WORLD);
-        a.stats.travel+=dist(former,a.rig);
+        const former={x:a.rig.x,z:a.rig.z},previousImpact=a.rig.impact??0;
+        stepRig(a.rig,drive,DT,config,physicalWorld);
+        const moved=dist(former,a.rig);
+        a.stats.travel+=moved;
+        a.stats.trafficYields=a.executor.trafficYields;
+        a.stats.trafficQueueSeconds=a.executor.trafficQueueSeconds;
+        a.stats.routeSwitches=a.executor.routeSwitches;
+        if(a.rig.impact>Math.max(.45,previousImpact+.12))a.stats.collisionImpacts++;
+        if(instruction.mode==='ORDER'&&moved<.004&&
+            Math.hypot(a.rig.vx,a.rig.vz)<.2)a.stats.stallSeconds+=DT;
+        if(a.motion.awareness?.underFireSeconds>.1)a.stats.underFireSeconds+=DT;
         if(recovery.mode==='SETTLE'&&!a.fieldService.held&&fieldServiceStationary(a.rig))
             beginFieldService(a.condition,a.fieldService,a.rig);
         const serviceStep=advanceFieldService(a.condition,a.fieldService,a.rig,DT);
@@ -220,15 +304,14 @@ export function runBout(seed,settings){
         advanceWeapon(a.weaponState,a.weaponSpec,DT);
         if(a.weaponState.loaded<=0 && a.weaponState.reloadLeft===0&&a.weaponState.reserve>0)
             startReload(a.weaponState,a.weaponSpec);
-        if(!target)continue;
-        // Production k3u7 fire rate: the actual fitted weapon's loaded,
-        // reload and physical cooldown state are authoritative. No separate
-        // contract personality trigger interval or fake 60Hz attempts.
-        const ready=a.weaponState.cooldown<=0&&a.weaponState.loaded>0&&
-            a.weaponState.reloadLeft<=0&&withinFiringArc(a.rig,target.rig)&&
-            tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD);
-        const fired=advanceHostileController(a.controller,a.condition,DT,false,ready);
-        if(fired===null)continue;
+        const fireReady=!!target&&a.weaponState.cooldown<=0&&
+          a.weaponState.loaded>0&&a.weaponState.reloadLeft<=0&&
+          withinFiringArc(a.rig,target.rig)&&
+          tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)&&
+          shouldAttemptTacticalShot(a,target);
+        // Trigger authority is the real fitted weapon cycle, regardless of policy.
+        const fired=advanceHostileController(a.controller,a.condition,DT,!target,fireReady);
+        if(fired===null||!target)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
@@ -238,19 +321,31 @@ export function runBout(seed,settings){
         const distance=dist(a.rig,target.rig);
         const errors=hostileOutput(a.condition,a.behavior);
         const spread=hostileSpread(fired,errors.spreadRadians);
-        // The sprite/mesh raycast cannot run in Node: represent its probability
-        // of striking a true exposed target with scenario-defined sensitivity.
-        const chance=clamp(settings.accuracy-(Math.max(0,distance-8)*.006)-
-            Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
-        // Fired rounds cost ammunition and recoil even on misses.
+        // Three.js raycast is unavailable: approximate the exposed target hit.
+        const chance=clamp((settings.accuracy??.7)-
+          (Math.max(0,distance-8)*.006)-
+          Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
         if(fireWeapon(a.weaponState,a.weaponSpec)===null)continue;
         a.stats.actualShots++;
         if(a.stats.firstShot===null)a.stats.firstShot=t;
         const dx=target.rig.x-a.rig.x,dz=target.rig.z-a.rig.z;
         applyRecoil(a.rig,config,dx,dz,a.weaponSpec.recoilImpulseNs);
+        // A physically fired but missed/blocked round still creates threat
+        // evidence. Lacking 3D ballistics, use the estimated muzzle-to-target
+        // segment, not invented coordinates or privileged shooter awareness.
+        noteIncomingFire(target.motion,a.rig,a.id,.48,target.rig);
+        for(const observer of actors)if(observer.active&&observer.team!==a.team&&
+            observer.id!==target.id){
+          const evidence=shotThreatEvidence(observer.rig,a.rig,target.rig);
+          if(evidence)recordShotEvidence(observer.motion,observer.rig,evidence);
+        }
         if(settings.accuracy===0||rng()>chance)continue;
         a.stats.hits++;metrics.damagingShots++;
-        const slot=hostileAimSlot(fired,a.behavior.aimPriority);
+        const contested=!!job?.objectiveId&&state.domination.points.some(p=>
+          p.id===job.objectiveId&&p.contested&&dist(target.rig,p)<state.radius);
+        const slot=tacticalAimSlot(hostileAimSlot(fired,a.behavior.aimPriority),{
+          targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
+          contesting:contested,visibleService:!!target.fieldService?.held});
         damage(a,target,slot,metrics,t,rng);
       }
       const prevScore={friendly:state.friendlyProgress,hostile:state.hostileProgress};
@@ -290,10 +385,15 @@ export function runBout(seed,settings){
         metrics.win=outcome.victory?'friendly':'hostile';
         metrics.winReason='SCORE';metrics.time=t+DT;break;
       }
-      // A friendly/hostile team elimination still makes sense as a battle
-      // state, but Domination only ends after territorial points are earned.
-      if(count('friendly')===0 && count('hostile')===0){metrics.win='draw';metrics.winReason='BOTH TEAMS DISABLED';metrics.time=t+DT;break;}
-      // All active actors may be stranded, which produces a timed draw.
+      // Live Domination resolves on full squad elimination immediately.
+      // Check after objective scoring so simultaneous final events have one result.
+      const friendlyRemaining=count('friendly'),hostileRemaining=count('hostile');
+      if(friendlyRemaining===0||hostileRemaining===0){
+        metrics.win=friendlyRemaining===0&&hostileRemaining===0?'draw':
+          friendlyRemaining===0?'hostile':'friendly';
+        metrics.winReason='ELIMINATION';metrics.time=t+DT;break;
+      }
+      // All surviving machines may still be stranded: bounded timed draw.
     }
     if(metrics.win===null){
         metrics.win='draw';metrics.winReason='TIME LIMIT';
@@ -308,7 +408,7 @@ export function runBout(seed,settings){
     return metrics;
 }
 const sum=(rows,key)=>rows.reduce((s,x)=>s+(Number(key(x))||0),0);
-function groupReport(rows){
+export function groupReport(rows){
   const count=rows.length;
   const games=rows.filter(x=>x.win!=='draw');
   const roll=arr=>arr.length?sum(arr,x=>x)/arr.length:null;
@@ -412,4 +512,4 @@ function main(){
     console.log('FINAL_SUMMARY '+JSON.stringify({meta:report.meta,overall:report.overall,
       groups:Object.fromEntries(Object.entries(report.groups).map(([k,v])=>[k,{wins:v.winner,meanTime:v.meanTime,scoring:v.territoryDecisions,meanCaptureEvents:v.meanCaptureEvents,meanContestedSeconds:v.meanContestedSeconds,meanKills:v.meanKills}]))}));
 }
-if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)main();
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main();

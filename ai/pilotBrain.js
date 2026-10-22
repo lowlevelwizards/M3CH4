@@ -17,6 +17,11 @@ function record(brain,next,now) {
 export function decidePilot(brain,actor,assignment,context,now) {
     const capability=context?.capability??{endurance:1,mobility:1,weapon:1,canMove:true,canFight:true};
     const last=brain.intent;
+    // Research policy changes only the pilot's judgment thresholds.
+    // Physical capability, mission results and hardware remain authoritative.
+    const pilotPolicy=context?.policy?.pilot??null;
+    const woundedAt=pilotPolicy?.woundThreshold??.30;
+    const exposureAt=pilotPolicy?.woundExposure??1.4;
     const unsafe=capability.endurance<.13 || capability.command<.09;
     const service=!!context?.weaponRecovery?.active;
     let proposed;
@@ -35,7 +40,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
         proposed={goal:'WITHDRAW',point:{...context.survivalPoint},
             utility:1.0,reason:'PROTECT '+context.systemAtRisk.slot.toUpperCase()+
                 ' · REPEATED IMPACTS'};
-    else if(capability.endurance<.30 && context?.underFireSeconds>1.4 && !(assignment?.goal==='DEFEND'&&context?.preserveMajority&&capability.endurance>.19))
+    else if(capability.endurance<woundedAt && context?.underFireSeconds>exposureAt && !(assignment?.goal==='DEFEND'&&context?.preserveMajority&&capability.endurance>.19))
         proposed={goal:'WITHDRAW',point:context.retreatPoint??actor.position,
             utility:.93,reason:'WOUNDED UNDER SUSTAINED FIRE'};
     else if(assignment)
@@ -48,7 +53,8 @@ export function decidePilot(brain,actor,assignment,context,now) {
     // Geometry updates are slow intentional positioning choices, not 60Hz
     // steering noise. Objective capture still goes to the physical zone.
     const newTask=changed||!last;
-    if(newTask&&context?.world&&context?.uncertain===true&&!context?.enemySeen&&
+    if(newTask&&context?.world&&
+        (context?.uncertain===true||pilotPolicy?.cautiousApproach)&&!context?.enemySeen&&
         !context?.underFireSeconds&&['CAPTURE','CONTEST','SEARCH'].includes(proposed.goal)&&
         proposed.point){
         const via=cautiousApproach(context.world,actor.position,proposed.point,
@@ -91,7 +97,8 @@ export function decidePilot(brain,actor,assignment,context,now) {
     const commitment=proposed.goal==='STAGE'?1.6:
         proposed.goal==='DEFEND'?7.0:
         proposed.goal==='CAPTURE'||proposed.goal==='CONTEST'?3.4:2.7;
-    const next={...proposed,actorId:actor.id,committedUntil:now+commitment};
+    const next={...proposed,actorId:actor.id,committedUntil:now+
+        commitment*(pilotPolicy?.commitment??1)};
     brain.committedUntil=next.committedUntil;
     record(brain,next,now);
     return next;

@@ -1,0 +1,34 @@
+name: k4v Baseline Full-Test Audit
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths: [.github/workflows/k4v-baseline-test-audit.yml]
+  workflow_dispatch:
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compare existing main test failures without changing code
+        run: |
+          mkdir -p study-results/baseline
+          set +e
+          npm test > study-results/baseline/main-npm-test.log 2>&1
+          result=$?
+          set -e
+          echo "main exit status: $result"
+          grep -E '^not ok [0-9]+ - ' study-results/baseline/main-npm-test.log || true
+          grep -E '^# (tests|pass|fail) ' study-results/baseline/main-npm-test.log || true
+          printf 'exit_status=%s\n' "$result" > study-results/baseline/status.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4v-main-test-baseline-${{ github.run_id }}
+          path: study-results/baseline/
+          if-no-files-found: warn
