@@ -751,6 +751,81 @@ try {
   if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='setup')
     throw Error('Garage Deploy did not open sortie setup after selecting a contract');
   console.log('CONTRACT DEPLOY: PASS · stale BO3 retired, job persists, garage Deploy enters setup');
+  // k4w.3: a REAL BO3 intermission must be a touch-selectable 3D service bay,
+  // not the legacy wide scrolling pit modal that obscured the physical mech.
+  await page.evaluate(async()=>{
+    const {createSeries,storeSeries}=await import('./series.js');
+    const {clearSortieAssignment}=await import('./sortieAssignment.js');
+    clearSortieAssignment(sessionStorage);
+    const series=createSeries('yard-dog','rig-01','SCRAPYARD RIG');
+    series.phase='intermission';
+    series.roundNumber=2;
+    series.currentRigId=null;
+    series.rounds=[{round:1,rigId:'rig-01',rigName:'SCRAPYARD RIG',
+      victory:true,reason:'test round',roundsFired:2}];
+    if(!storeSeries(localStorage,series))throw Error('Unable to seed actual pit');
+  });
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  await page.waitForFunction(()=>document.querySelector('#unified-garage')?.dataset.workspace==='pit');
+  const pitDefault=await page.evaluate(()=>{
+    const shell=document.querySelector('#unified-garage');
+    const dock=document.querySelector('#unified-garage-dock');
+    const canvas=document.querySelector('#game canvas');
+    const rails=[...shell.querySelectorAll('.workshop-rail .unified-station')];
+    return {
+      mode:shell.dataset.workspace,stationCount:rails.length,
+      dockVisible:getComputedStyle(dock).display!=='none',
+      railVisible:getComputedStyle(shell.querySelector('.workshop-rail')).display!=='none',
+      canvasVisible:!!canvas&&getComputedStyle(canvas).display!=='none',
+      selection:shell.classList.contains('pit-detail-open'),
+      workButton:!!shell.querySelector('.physical-pit-commit'),
+      footerVisible:!!shell.querySelector('.physical-pit-footer'),
+    };
+  });
+  if(pitDefault.mode!=='pit'||pitDefault.stationCount!==5||
+      !pitDefault.railVisible||pitDefault.dockVisible||!pitDefault.canvasVisible||
+      pitDefault.selection||!pitDefault.footerVisible)
+    throw Error('Physical pit still opens as a modal menu: '+JSON.stringify(pitDefault));
+  await page.screenshot({path:output+'/physical-pit-no-panel.png'});
+  await page.locator('#unified-garage .workshop-rail .unified-station').first().click();
+  const pitAfterRail=await page.evaluate(()=>({
+    displayed:getComputedStyle(document.querySelector('#unified-garage-dock')).display,
+    inspector:!!document.querySelector('#unified-garage-dock .physical-pit-inspector'),
+    selected:document.querySelector('#unified-garage .workshop-rail .unified-station.selected')?.getAttribute('aria-label')||null,
+  }));
+  if(pitAfterRail.displayed==='none'||!pitAfterRail.inspector||!pitAfterRail.selected)
+    throw Error('Left-module inspection failed in actual pit: '+JSON.stringify(pitAfterRail));
+  await page.screenshot({path:output+'/physical-pit-module-picked.png'});
+  // Deselect and then physically tap the in-world mesh, NOT another menu item.
+  await page.locator('#unified-garage .physical-pit-close').click();
+  const modelPick=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const arena=activePlayerArena()?.arena;
+    const canvas=document.querySelector('#game canvas');
+    const bounds=canvas.getBoundingClientRect();
+    for(let yy=.25;yy<.80;yy+=.07){
+      for(let xx=.25;xx<.84;xx+=.035){
+        const x=bounds.left+bounds.width*xx,y=bounds.top+bounds.height*yy;
+        if(document.elementFromPoint(x,y)!==canvas)continue;
+        const slot=arena.pickPart(x,y,canvas);
+        if(slot)return {x,y,slot};
+      }
+    }
+    return null;
+  });
+  if(!modelPick)throw Error('No exposed physical mech hit target in real pit viewport');
+  await page.mouse.click(modelPick.x,modelPick.y);
+  const picked=await page.evaluate(()=>({
+    selected:document.querySelector('#unified-garage .workshop-rail .unified-station.selected')?.getAttribute('aria-label')||null,
+    hasInspector:!!document.querySelector('.physical-pit-inspector'),
+    mode:document.querySelector('#unified-garage').dataset.workspace,
+  }));
+  if(!picked.selected||!picked.hasInspector||picked.mode!=='pit')
+    throw Error('Touch on real Three.js pit model did not open physical module: '+
+      JSON.stringify({modelPick,picked}));
+  console.log('PHYSICAL PIT: PASS · clear 3D bay, five left modules, touch picking and compact work footer');
+
 
 
 
