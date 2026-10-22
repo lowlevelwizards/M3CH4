@@ -7,7 +7,7 @@ const clamp=(x,min,max)=>Math.max(min,Math.min(max,Number.isFinite(x)?x:min));
 export function createWeaponActionState(spec) {
     return spec.fireMode === 'automatic'
         ? { sustainedSeconds:0, sinceLastEmission:99 }
-        : null;
+        : spec.fireMode === 'charged' ? { charge:0, ready:false, latched:false } : null;
 }
 export function advanceWeaponAction(state,spec,dt) {
     if (!state?.action || spec.fireMode !== 'automatic' || !Number.isFinite(dt) || dt<=0) return;
@@ -34,4 +34,18 @@ export function weaponActionSpreadRadians(spec,state,brace=0) {
     const progress=clamp((state?.action?.sustainedSeconds??0)/1.45,0,1);
     const correction=1-clamp(brace,0,1)*.48;
     return basic + Math.max(0,Number(spec.sustainedSpread)||0)*progress*correction;
+}
+
+/** One deliberate held trigger fires one charged shot. Release cancels and rearms;
+ * a release while empty or reloading cannot create a free round.
+ */
+export function advanceChargedTrigger(state,spec,held,dt) {
+    if (spec.fireMode !== 'charged' || !state?.action) return false;
+    const a=state.action;
+    if (!held) { a.charge=0; a.ready=false; a.latched=false; return false; }
+    if (a.latched || state.cooldown>0 || state.reloadLeft>0 || state.loaded<=0 ||
+        !Number.isFinite(dt) || dt<=0) return false;
+    a.charge=Math.min(Math.max(.01,spec.chargeSeconds??.7),a.charge+dt);
+    a.ready=a.charge>=Math.max(.01,spec.chargeSeconds??.7);
+    return a.ready;
 }
