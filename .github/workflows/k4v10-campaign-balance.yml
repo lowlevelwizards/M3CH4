@@ -1,0 +1,47 @@
+name: k4v10 Physical Equipment and Campaign Stress
+on:
+  pull_request:
+    paths:
+      - 'research/headlessDominationStudy.mjs'
+      - 'research/loadoutEconomyStudy.mjs'
+      - 'research/campaignEconomyStudy.mjs'
+      - 'tests/k4v10PhysicalCampaign.test.mjs'
+      - '.github/workflows/k4v10-campaign-balance.yml'
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: 'Mirrored bouts per equipment comparison'
+        required: true
+        default: '6'
+      seeds:
+        description: 'Independent hypothetical campaigns per scenario'
+        required: true
+        default: '48'
+jobs:
+  higher-fidelity-and-campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: New optional runner and long-run scenario safety checks
+        run: |
+          node --check research/headlessDominationStudy.mjs
+          node --check research/campaignEconomyStudy.mjs
+          node --test tests/k4v10PhysicalCampaign.test.mjs tests/k4v8RosterTournament.test.mjs
+      - name: Re-evaluate seven mirrored matchups with live generator and pellet count
+        run: |
+          node research/loadoutEconomyStudy.mjs --pairs=${{ github.event.inputs.pairs || '6' }} --seconds=150 --cycles=512 --out=study-results/k4v10-loadouts
+      - name: Run 30-contract BO3 campaigns across six slow-growth scenarios
+        run: |
+          node research/campaignEconomyStudy.mjs --seeds=${{ github.event.inputs.seeds || '48' }} --contracts=30 --out=study-results/k4v10-campaign
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4v10-equipment-and-campaign-results
+          path: |
+            study-results/k4v10-loadouts/
+            study-results/k4v10-campaign/
+          if-no-files-found: warn
