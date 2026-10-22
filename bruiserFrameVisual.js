@@ -21,6 +21,12 @@ export function buildBruiserFrameVisual(fixture){
         bearing(shoulder,(side<0?'left':'right')+' recessed pivot',
             [side*1.067,.19,-.23],.110,.018,'recess','x',10);
     }
+    // Short, visible side-load returns tie shoulder bearings into the upper
+    // command deck. These are pickable real structural parts, not hit proxies.
+    for(const side of [-1,1]){
+        beam(shoulder,(side<0?'left':'right')+' cab-side load return',
+            [side*.69,.29,.12],[side*.59,.08,.36],.17,.23,'iron');
+    }
     const lower=groupAt(r,'BRUISER / LOWER LOAD BRIDGE');
     blockAt(lower,'reinforced lower transverse bridge',[0,-.38,.11],[1.42,.19,.46],'loadSteel');
     // Fabricated forward load lip: tied through the belly rib and load nodes,
