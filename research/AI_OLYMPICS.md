@@ -10,7 +10,7 @@ tournament; it does not replace it.
 | --- | --- | --- |
 | open-transit | Unobstructed long travel | Arrival, forward progress, wasted movement |
 | wall-detour | Solid building spans a direct route | Actual A* travel around cover and arrival |
-| ally-choke | Three different real machines converge through a gap | All-machine completion, collision impacts, traffic yields |
+| ally-choke | Three real machines of a selected mobility family converge through a gap | All-machine completion, collision impacts, traffic yields |
 | rear-ambush | Approximate shot bearing from behind | *Physical* chassis response, not just an UNDER FIRE UI label |
 | contact-dropout | Scripted sensor loss after an initial visually observable contact | Unobserved contacts cannot remain exact targets, scanning |
 | target-triage | Two legitimately observed enemies, one fires | Timely priority of observed attacker, no hidden targeting |
@@ -20,6 +20,8 @@ tournament; it does not replace it.
 All rigs move through `stepRig` with actual installed family physics.
 `decidePilot`, `executeIntent`, `advanceEnemyMotion`, real A*
 navigation and tactical sensor/target selectors drive the tested actor.
+Choke-point cohorts use three rigs from the selected family; selecting yard,
+kestrel or hauler changes real mass/handling, not merely the report label.
 Peer-rig collisions are modeled as AABB dynamic bodies, with real
 `stepRig` collision resolution. No success is awarded by teleportation.
 
