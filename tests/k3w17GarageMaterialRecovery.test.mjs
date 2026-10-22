@@ -39,5 +39,5 @@ test('Safari cache and version point to the fixed scene rather than k3w15 or k3w
   assert.match(html,/sceneAssembly\.js\?v=k4s2/);
   assert.match(bridge,/scene\.js\?source=k4s2/);
   assert.match(html,/main\.js\?v=k4s2/);
-  assert.match(html,/0\.0\.1k\.4s\.2 — Garage Flow/);
+  assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
 });
