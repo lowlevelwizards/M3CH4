@@ -8,10 +8,18 @@ export function createWeaponActionState(spec) {
     return spec.fireMode === 'automatic'
         ? { sustainedSeconds:0, sinceLastEmission:99 }
         : spec.fireMode === 'charged' ? { charge:0, ready:false, latched:false }
-        : spec.fireMode === 'projectile' ? { latched:false } : null;
+        : spec.fireMode === 'projectile' ? { latched:false }
+        : spec.fireMode === 'continuous' ? { headHeat:0,ventLeft:0 } : null;
 }
 export function advanceWeaponAction(state,spec,dt) {
-    if (!state?.action || spec.fireMode !== 'automatic' || !Number.isFinite(dt) || dt<=0) return;
+    if (!state?.action || !Number.isFinite(dt) || dt<=0) return;
+    if(spec.fireMode==='continuous') {
+        const a=state.action;
+        a.ventLeft=Math.max(0,a.ventLeft-dt);
+        a.headHeat=Math.max(0,a.headHeat-dt*(a.ventLeft>0?.36:.12));
+        return;
+    }
+    if(spec.fireMode !== 'automatic')return;
     state.action.sinceLastEmission+=dt;
     const gap=1/Math.max(.01,spec.roundsPerSecond);
     if (state.action.sinceLastEmission>gap*1.5) {
@@ -19,7 +27,14 @@ export function advanceWeaponAction(state,spec,dt) {
     }
 }
 export function recordWeaponEmission(state,spec) {
-    if (!state?.action || spec.fireMode !== 'automatic') return;
+    if(!state?.action)return;
+    if(spec.fireMode==='continuous') {
+        const a=state.action;
+        a.headHeat=Math.min(1.05,a.headHeat+Math.max(.001,spec.heatPerTick??.027));
+        if(a.headHeat>=1)a.ventLeft=Math.max(a.ventLeft,spec.ventSeconds??1.8);
+        return;
+    }
+    if (spec.fireMode !== 'automatic')return;
     const a=state.action;
     // A long interruption breaks the firing string instead of preserving free accuracy debt.
     if (a.sinceLastEmission>1.1) a.sustainedSeconds=0;
