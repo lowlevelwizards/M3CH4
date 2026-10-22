@@ -228,61 +228,72 @@ function navRender(stable, currentMode) {
     label.append(dots);
     navigator.append(label,button('›', () => stepBay(1), 'bay-arrow', viewedId === BAY_IDS[2]));
 }
-function renderTop(currentMode, series, machine) {
+function renderTop(currentMode,series,machine) {
     top.replaceChildren();
-    const workspace = currentMode==='garage' && paintExpanded ? 'paint' : currentMode;
-    const heading = workspace==='garage' ? rigName(rigById(loadStable(storage).stable,viewedId)).toUpperCase() :
-        workspace==='paint'?'PAINT BOOTH':workspace==='vendor'?'PARTS COUNTER':
-        workspace==='contracts'?'SCRAPYARD CIRCUIT':workspace==='setup'?'SORTIE SETUP':'ROUND PIT';
-    if(workspace!=='garage' && workspace!=='pit') {
+    const workspace=currentMode==='garage'&&paintExpanded?'paint':currentMode;
+    const name=rigName(rigById(loadStable(storage).stable,viewedId)).toUpperCase();
+    const heading=workspace==='garage'?name:
+        workspace==='paint'?'PAINT BOOTH':workspace==='vendor'?'VENDORS':
+        workspace==='inventory'?'INVENTORY':workspace==='contracts'?'SCRAPYARD CIRCUIT':
+        workspace==='setup'?'SORTIE SETUP':'ROUND PIT';
+    if(workspace!=='garage'&&workspace!=='pit'){
         const back=button('‹ BACK',goBack,'workshop-back');
-        back.setAttribute('aria-label','Back from '+heading);
-        top.append(back);
+        back.setAttribute('aria-label','Back from '+heading);top.append(back);
     }
     top.append(el('strong','unified-title',heading));
     if(workspace==='garage') {
-        const view=bayStatus(loadStable(storage).stable,viewedId);
-        const ready=el('small',view.canDeploy?'workshop-ready':'workshop-unready',view.canDeploy?'● READY':'● '+view.state);
-        top.append(ready);
+        const rename=button('✎',()=>{
+            identityExpanded=true;selectedSlot=null;swapExpanded=false;render();
+            const input=dock.querySelector('.unified-identity-form input');
+            input?.focus();input?.select();
+        },'workshop-rename');
+        rename.setAttribute('aria-label','Rename '+name);
+        rename.title='Edit rig name';
+        top.append(rename);
+        const actions=el('nav','workshop-top-links');
+        for(const [id,label] of [['paint','PAINT'],['vendor','VENDORS'],['inventory','INVENTORY']]){
+            const b=button(label,()=>openWorkspace(id),'workshop-top-link');
+            b.setAttribute('aria-label','Open '+label.toLowerCase());
+            actions.append(b);
+        }
+        top.append(actions);
     }
-    if(workspace==='pit' && series) {
-        const contract=contractById(series.contractId);
-        top.append(el('small','unified-match',contract.name.toUpperCase()+
-            ' · R'+series.roundNumber+' · '+series.playerWins+'–'+series.enemyWins));
+    if(workspace==='pit'&&series) {
+        const c=contractById(series.contractId);
+        top.append(el('small','unified-match',c.name.toUpperCase()+' · R'+series.roundNumber+
+            ' · '+series.playerWins+'–'+series.enemyWins));
     }
-    const balance=el('small','unified-credits','₡'+Number(machine.economy?.credits??0).toLocaleString());
-    top.append(balance);
+    top.append(el('small','unified-credits','₡'+Number(machine.economy?.credits??0).toLocaleString()));
 }
-function renderWorkshopChrome(stable, view) {
+function renderWorkshopChrome(stable,view) {
     rail.append(moduleStation(view));
     const reset=button('↺',()=>document.querySelector('#inspect-reset')?.click(),'workshop-reset');
-    reset.title='Reset camera orbit';
     reset.setAttribute('aria-label','Reset garage camera orbit');
-    statusBar.append(reset);
-    statusBar.append(button('◷ '+(view.rig.commissioned?'HISTORY':'COMMISSION'),()=>{
-        identityExpanded=!identityExpanded;
-        selectedSlot=null;swapExpanded=false;drawerExpanded=false;render();
+    reset.title='Reset camera';statusBar.append(reset);
+    statusBar.append(button('◷ HISTORY',()=>{
+        identityExpanded=!identityExpanded;selectedSlot=null;
+        swapExpanded=false;drawerExpanded=false;render();
     },'workshop-status-action'));
-    if(!view.canDeploy) {
-        const reason=button('! '+(view.readiness?.missing?.length?'INCOMPLETE':'CHECK RIG'),()=>{
-            identityExpanded=true;selectedSlot=null;render();
-        },'workshop-warning-action');
-        reason.title=view.reason||'Inspect machine readiness';statusBar.append(reason);
-    }
     const pending=loadSortieAssignment(session);
-    const hasPending=pending?.phase==='pending'&&!loadSeries(storage);
-    const links=[['paint','PAINT'],['vendor','PARTS'],
-        hasPending?['resume','RESUME SORTIE ›']:['contracts','CONTRACTS  ›']];
-    for(const [target,label] of links){
-        const item=button(label,()=>{
-            if(target!=='resume'){openWorkspace(target);return;}
-            selectedJobId=pending.contractId;mode='setup';
-            paintExpanded=false;identityExpanded=false;
-            selectedSlot=null;previewSignature='';render();
-        },'workshop-link workshop-link-'+target);
-        item.setAttribute('aria-label','Open '+(target==='vendor'?'Parts Counter':target==='contracts'?'Contract Board':'Paint Booth'));
-        quickLinks.append(item);
+    const job=pending?.phase==='pending'&&!loadSeries(storage)?pending.contractId:null;
+    const bottom=el('div','workshop-action-lane');
+    const info=el('div','workshop-readiness '+(view.canDeploy?'ready':'blocked'));
+    info.append(el('strong','',view.canDeploy?'● READY':'● '+view.state));
+    if(job) {
+        const contract=contractById(job);
+        info.append(button('JOB · '+(contract?.name.toUpperCase()||job)+' ✎',()=>{
+            selectedJobId=job;mode='contracts';render();
+        },'workshop-job-change'));
+    } else if(!view.canDeploy){
+        info.append(el('small','',view.reason||'CHECK PARTS'));
     }
+    const primary=button(job?'DEPLOY':'SELECT JOB',()=>{
+        if(!job) {openWorkspace('contracts');return;}
+        selectedJobId=job;mode='setup';render();
+    },'workshop-deploy');
+    primary.setAttribute('aria-label',job?'Open sortie preparation':'Select a contract');
+    bottom.append(info,primary);
+    quickLinks.append(bottom);
 }
 function bayHeader(view) {
     const title = el('div','unified-panel-heading');
