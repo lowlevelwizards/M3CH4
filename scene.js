@@ -1256,6 +1256,11 @@ export function createArenaScene(initial, targetAssembly) {
     };
     let pilotColors = captureColors(exterior.pickMeshes);
     let inspectionBaseParts=capturePartTransforms(exterior);
+    function refreshInspectionBase(){
+        // The graph bridge may reposition physical stations after buildExteriorRig.
+        // Capture that final assembled pose, not the temporary pre-graph position.
+        inspectionBaseParts=capturePartTransforms(exterior);
+    }
     let latestPilotParts=null;
     function poseDamagedMachineInGarage() {
         if(!inspecting||animationPreviewMode!=='off'||!latestPilotParts)return;
@@ -2333,7 +2338,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
-        drainSurfaceEvents,restoreSurfaceMarks,
+        drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
