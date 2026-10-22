@@ -87,8 +87,12 @@ function resources(){
  */
 export function geometryForPhysicalScar(target,event,profile){
   const geo=target?.geometry,position=geo?.getAttribute?.('position');
-  if(!position||!profile?.width||!profile?.height)return null;
-  const origin=new THREE.Vector3(...event.localPoint);
+  // Service records can carry only a repair timestamp, with no physical
+  // impact anchor. These records must never be spread into Three.js vectors.
+  const point=event?.localPoint,normal=event?.localNormal;
+  const validVector=v=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite);
+  if(!position||!profile?.width||!profile?.height||!validVector(point)||!validVector(normal))return null;
+  const origin=new THREE.Vector3(...point);
   const normal=new THREE.Vector3(...event.localNormal).normalize();
   const tangent=new THREE.Vector3();
   const reference=Math.abs(normal.y)>.91?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0);
@@ -179,6 +183,9 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
           if(old.userData.surfaceScarEvent===event.coveredEventId)old.visible=false;
       }
     }
+    // Non-spatial workshop service still updates repair history and can conceal
+    // stale breaches; it simply has no surface on which to draw a patch.
+    if(!event.localPoint||!event.localNormal){keys.add(event.eventId);return false;}
     const target=locate(exterior,event);
     // A repaired, fully restored serial retains its hit record but NOT a hole.
     if(event.event==='impact'&&hideBreachAfterService(event,context(exterior,event.serial)))
