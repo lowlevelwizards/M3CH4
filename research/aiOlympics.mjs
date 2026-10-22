@@ -256,7 +256,7 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
       // Objective defenders succeed by physically holding INSIDE the
       // authored scoring circle. They need not touch the exact centre.
       const finishRadius=spec.kind==='anchor'?4.0:
-        spec.kind==='squad-arrival'?3.3:2.7;
+        ['squad-arrival','corridor-crossing'].includes(spec.kind)?3.3:2.7;
       const arrivalGoal=spec.kind==='corridor-crossing'?
         spec.goals[index]:spec.goal;
       if(arrivalGoal&&dist(actor.rig,arrivalGoal)<finishRadius&&
