@@ -713,6 +713,9 @@ try {
     throw Error('Combat PCM was not prepared by the background worker: '+JSON.stringify(cachedPrep));
   console.log('AUDIO PREWARM: PASS · worker delivered ',cachedPrep.status.received,' samples');
 
+  // The audio persistence smoke reopened its modal. Close it before testing
+  // pointer-driven garage navigation; modal focus must remain authoritative.
+  await page.locator('#systems-sound-lab .systems-lab-close').click();
   // k4s.3 regression: after an earlier BO3 result, accepting a new job must
   // change SELECT JOB to DEPLOY. This exact stale-series state was encountered
   // by a real player after returning from completed contracts.
