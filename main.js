@@ -1302,7 +1302,7 @@ document.addEventListener('m3ch4:bay-reconcile-patch', event => {
         // The field-work transaction already succeeded and was committed to
         // both saves. Queue one service fact per truly patched serial now,
         // before the pit's immediate location.reload().
-        const key='pit-'+action.rigId+'-'+action.afterRound+'-'+serial;
+        const key='pit-'+action.rigId+'-'+action.afterRound+'-'+serial+'-'+action.at;
         preserveSuccessfulService(serial,'pit-triage',key);
     }
 });
