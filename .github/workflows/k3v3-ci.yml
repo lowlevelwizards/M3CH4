@@ -4,7 +4,6 @@ on:
     branches: ["k3v3-directional-physical-shielding"]
   pull_request:
     paths:
-      - "scene.js"
       - "tests/k3v3PhysicalShielding.test.mjs"
       - "frameShielding.js"
       - "research/frameShieldingAudit.mjs"
