@@ -29,3 +29,20 @@ export function renderWinningMachines(host,machines,thumbnail){
     card.append(image,name,status);host.append(card);
   }
 }
+
+/** Text labels for the true in-world winning machines. Unlike portrait mode,
+ * this never renders, captures, or caches a second offscreen canvas.
+ */
+export function renderWinnerNameplates(host,machines){
+  if(!host)return;
+  host.replaceChildren();
+  for(const machine of machines){
+    const label=document.createElement('div');
+    label.className='winner-nameplate'+(machine.operational?'':' is-disabled');
+    const name=document.createElement('strong');
+    name.textContent=machine.name;
+    const status=document.createElement('small');
+    status.textContent=machine.operational?'STANDING':'DISABLED';
+    label.append(name,status);host.append(label);
+  }
+}
