@@ -51,6 +51,34 @@ function stableSide(id){
   for(const c of String(id??'').split(''))hash=Math.imul(hash^c.charCodeAt(0),16777619);
   return (hash>>>0)&1?1:-1;
 }
+/**
+ * A bottleneck exists only when physical STATIC obstacles constrain BOTH
+ * sides of travel within the local approach corridor. Proximity to a teammate
+ * alone is not enough: in an open yard the ordinary sidestep is preferable.
+ * Do not infer a doorway from undiscovered enemy positions.
+ */
+export function isPhysicalChoke(rig,waypoint,world,radius=1){
+  if(!rig||!waypoint||!world)return false;
+  const dx=waypoint.x-rig.x,dz=waypoint.z-rig.z;
+  const length=Math.hypot(dx,dz);if(length<1.5)return false;
+  const nx=dx/length,nz=dz/length;
+  const staticBoxes=(world.obstacles??[]).filter(o=>!o.dynamic);
+  if(!staticBoxes.length)return false;
+  const lateral=Math.max(3.6,2*radius+1.8);
+  const inside=(p,o)=>p.x>=o.minX&&p.x<=o.maxX&&
+    p.z>=o.minZ&&p.z<=o.maxZ;
+  for(const advance of [0,2.5,5,7.5]){
+    const along=Math.min(advance,length);
+    const center={x:rig.x+nx*along,z:rig.z+nz*along};
+    // Different boxes can form the sides of the same gap. Require BOTH
+    // probes at the same forward station, so a single wall does not count.
+    const left={x:center.x-nz*lateral,z:center.z+nx*lateral};
+    const right={x:center.x+nz*lateral,z:center.z-nx*lateral};
+    if(staticBoxes.some(o=>inside(left,o))&&
+       staticBoxes.some(o=>inside(right,o)))return true;
+  }
+  return false;
+}
 function passingPoint(rig,waypoint,nearby,world,radius,actorId){
   const blockers=peersAlong(rig,waypoint,nearby,radius);
   if(!blockers.length)return null;
@@ -80,7 +108,10 @@ export function trafficAdvice(rig,waypoint,nearby,world,radius=1,
     {policy='legacy',actorId=null,waitedSeconds=0}={}){
   if(!TRAFFIC_POLICIES.includes(policy))throw new RangeError('Traffic policy '+policy);
   if(!waypoint||!nearby?.length)return null;
-  if(policy==='legacy'){
+  // Hybrid only intervenes where static cover actually constricts a lane.
+  // This is a key protection for otherwise competent open-field full matches.
+  if(policy==='legacy'||(policy==='hybrid'&&
+      !isPhysicalChoke(rig,waypoint,world,radius))){
     const point=trafficWaypoint(rig,waypoint,nearby,world,radius);
     return point===waypoint?null:{kind:'PASS',point,reason:'LEGACY PASS'};
   }
