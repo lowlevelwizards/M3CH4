@@ -235,7 +235,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     // a close, visible adversary should not force a 90° or 180° chassis turn
     // merely because the route waypoint sits to the side or behind us.
     // stepRig remains authoritative for leg grip, reverse speed and strafing.
-    const threatFacing = motion.awareness?.lineOfSight === true &&
+    const threatFacing = !!player && motion.awareness?.lineOfSight === true &&
         distance(enemy,player) < 17;
     const steerFor=point=>clamp(headingError(enemy,threatFacing?player:point)*profile.steerGain-
         enemy.yawRate*profile.yawRateDamping);
@@ -251,7 +251,7 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
             base.steer=steerFor(point);
             base.throttle*=teamIntent.throttleScale??1;
         }else{
-            const hasContact=distance(enemy,player)>.3;
+            const hasContact=!!player && distance(enemy,player)>.3;
             // Route arrival requires stable braking, not idle sector scans.
             // Scan only once a true stationary/anchored order is established.
             if(!hasContact&&motion.scanBaseYaw===null)motion.scanBaseYaw=enemy.yaw;
@@ -293,7 +293,8 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         motion.waypoint=null;
     }
     else if (tactical.mode === 'REPOSITION') {
-        base = tacticalManeuver(motion, enemy, player, profile);
+        base = player ? tacticalManeuver(motion, enemy, player, profile) :
+            {throttle:0,strafe:0,steer:0,brake:.18};
         base.throttle *= profile.id === 'bruiser' ? .55 : .28;
         base.strafe = clamp((tactical.side || 1) * Math.max(.35, tactical.strength ?? .6));
         motion.phase = 'REPOSITION';
@@ -306,12 +307,13 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     }
     else if (teamIntent?.point) {
         const intentDistance = distance(from, teamIntent.point);
-        const targetSteer = clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping);
+        const targetSteer = player ? clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping) : 0;
         if (teamIntent.mode === 'ANCHOR' && intentDistance < 2.2) {
-            const unknown=distance(enemy,player)<.3;
+            const unknown=!player;
             if(unknown&&motion.scanBaseYaw===null)motion.scanBaseYaw=enemy.yaw;
             if(!unknown)motion.scanBaseYaw=null;
-            const scanYaw=(motion.scanBaseYaw??enemy.yaw)+Math.sin(motion.elapsed*.34)*.66;
+            // A wider sweep eventually covers the rear optic blind sector.
+            const scanYaw=(motion.scanBaseYaw??enemy.yaw)+Math.sin(motion.elapsed*.34)*1.28;
             const scanError=Math.atan2(Math.sin(scanYaw-enemy.yaw),Math.cos(scanYaw-enemy.yaw));
             const watchSteer=unknown?clamp(scanError*profile.steerGain-
                 enemy.yawRate*profile.yawRateDamping):targetSteer;
@@ -332,7 +334,10 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
         if (tactical.mode === 'UNDER_FIRE') motion.navigation = `UNDER FIRE · ${motion.navigation}`;
     }
     else {
-        base = tacticalManeuver(motion, enemy, player, profile);
+        // Do not maneuver around a synthetic opponent at our own coordinates.
+        base = player ? tacticalManeuver(motion, enemy, player, profile) :
+            {throttle:0,strafe:0,steer:Math.sin(motion.elapsed*.32)*.45,brake:.62};
+        if (!player) { motion.phase='SCAN'; motion.navigation='SEARCHING FOR CONTACT'; }
         if (tactical.mode === 'UNDER_FIRE') {
             motion.phase = 'UNDER FIRE';
             motion.navigation = `UNDER FIRE · ${motion.navigation}`;
