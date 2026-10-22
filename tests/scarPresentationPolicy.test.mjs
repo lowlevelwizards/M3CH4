@@ -39,3 +39,15 @@ test('source wiring keeps exact physical scene and 3D projected nameplate visibi
   assert.match(src('main.js'),/winnerTableau\.classList\.toggle\('spatial'/);
   assert.match(src('winnerTableau.css'),/\.winner-tableau\.spatial/);
 });
+
+test('covered penetrations release scar slots for visible machine evidence',()=>{
+  const hidden=mark('covered-hole',{event:'impact',internalDamage:90,destroyed:true,timestamp:1000});
+  hidden.visible=false;
+  const visible=Array.from({length:4},(_,i)=>mark('surviving-'+i,{
+    event:i===0?'service':'impact',
+    coveredEventId:i===0?'covered-hole':undefined,
+    internalDamage:i===0?undefined:4+i,timestamp:100+i,
+  }));
+  assert.deepEqual(keepPhysicalScars([hidden,...visible],4),visible);
+  assert.equal(keepPhysicalScars([hidden],4).length,0);
+});
