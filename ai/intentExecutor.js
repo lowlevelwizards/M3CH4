@@ -3,14 +3,16 @@
  * geometry A* plus the legacy local avoidance/stuck recovery.
  */
 import { planRoute, planApproachRoute, nextWaypoint } from './navigation.js';
-import { trafficWaypoint } from './adaptiveTactics.js';
+import { trafficAdvice } from './trafficCoordination.js';
 const d=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createIntentExecutor(){return {route:null,key:null,
     lastPosition:null,stalledFor:0,lastFailure:null,failures:0,retryLeft:0,
     replanAttempts:0,lastWaypoint:null,abortReason:null,
     trafficLock:null,trafficYields:0,zoneSettles:0,routeSwitches:0,
-    viaIdentity:null,viaReached:false};}
-export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=[]) {
+    viaIdentity:null,viaReached:false,trafficWaitTime:0,
+    trafficWaits:0,trafficQueueSeconds:0};}
+export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=[],
+    options={}) {
     state.retryLeft=Math.max(0,(state.retryLeft??0)-dt);
     const finalGoal=intent?.point??{x:rig.x,z:rig.z};
     const viaIdentity=[intent?.goal,intent?.objectiveId??'',
@@ -30,6 +32,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE'||arrived||guarding;
     if(stationary) {
         state.route=null;state.key=null;state.trafficLock=null;state.stalledFor=0;
+        state.trafficWaitTime=0;
         state.lastPosition={x:rig.x,z:rig.z};state.lastYaw=rig.yaw??null;
         if(arrived||guarding)state.zoneSettles++;
         return {mode:'ANCHOR',point:{x:rig.x,z:rig.z},role:'TACTICAL',
@@ -54,7 +57,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     if(retry){state.replanAttempts++;state.abortReason='STALLED AT WAYPOINT';}
     if(state.key!==key||retry||(!state.route&&state.retryLeft===0)){
         if(state.key && state.key!==key)state.routeSwitches++;
-        if(state.key!==key)state.trafficLock=null;
+        if(state.key!==key){state.trafficLock=null;state.trafficWaitTime=0;}
         // CAPTURE/CONTEST may stop anywhere within the true scoring radius.
         // DEFEND already receives a carefully chosen interior point from
         // chooseDefendPosition; another radius around THAT point can leave the
@@ -96,15 +99,29 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         // An established defender never sacrifices scoring for ordinary
         // ally avoidance; dynamic body physics still resolves actual contact.
         if(intent?.goal!=='DEFEND'||d(rig,goal)>2.3){
-            const advice=trafficWaypoint(rig,waypoint,traffic,world,collisionRadius);
-            if(advice!==waypoint){
-                adjusted=advice;state.trafficYields++;
-                state.trafficLock={point:{...advice},left:1.3};
+            const advice=trafficAdvice(rig,waypoint,traffic,world,collisionRadius,{
+                policy:options.trafficPolicy??'legacy',
+                actorId:options.actorId??null,waitedSeconds:state.trafficWaitTime});
+            if(advice?.kind==='WAIT'){
+                state.trafficWaitTime+=dt;
+                state.trafficQueueSeconds+=dt;
+                if(state.trafficWaitTime<=dt*1.5)state.trafficWaits++;
+                state.stalledFor=0;
+                return {mode:'ANCHOR',goal:'TRAFFIC_WAIT',point:{x:rig.x,z:rig.z},
+                    role:'TACTICAL',objectiveId:intent?.objectiveId,
+                    note:'YIELD · '+(advice.toId??'CREW'),
+                    brakeBias:1,trafficQueued:true,missionPoint:finalGoal};
             }
+            if(advice?.kind==='PASS'){
+                adjusted=advice.point;state.trafficYields++;
+                state.trafficLock={point:{...advice.point},left:1.3};
+            }
+            if(!advice||advice.kind==='PASS')
+                state.trafficWaitTime=Math.max(0,state.trafficWaitTime-dt*.6);
         }
     }
     return {mode:'ORDER',goal:intent?.goal??null,point:adjusted,role:'TACTICAL',
-        objectiveId:intent?.objectiveId,throttleScale:intent?.goal==='WITHDRAW'?.92:1,
+        missionPoint:finalGoal,objectiveId:intent?.objectiveId,throttleScale:intent?.goal==='WITHDRAW'?.92:1,
         brakeBias:intent?.goal==='DEFEND'&&d(rig,goal)<3.2?.65:0,
         note:(intent?.goal??'MOVE')+' · '+(intent?.objectiveId??'FIELD')+
           (adjusted!==waypoint?' · YIELD TRAFFIC':''),
