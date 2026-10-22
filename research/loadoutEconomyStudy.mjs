@@ -155,7 +155,10 @@ function aTeamStats(bout,team){
   return {score:bout.points[team],damage:sum('damageDealt'),armorDamage:sum('armorDamage'),
     internalDamage:sum('internalDamage'),kills:sum('kills'),captures:sum('captures'),
     travel:sum('travel'),routeErrors:sum('routeErrors'),
-    shots:sum('shotTriggers'),survivors:actors.filter(a=>a.alive).length};
+    shots:sum('actualShots'),projectiles:sum('projectilesFired'),
+    projectileHits:sum('projectilesHit'),brownoutFrames:sum('brownoutFrames'),
+    blockedPowerFrames:sum('powerBlockedFrames'),
+    survivors:actors.filter(a=>a.alive).length};
 }
 export function evaluateBattles({pairs=4,seconds=110,accuracy=.7,seed=20261022,progress}={}){
   if(!Number.isInteger(pairs)||pairs<1||pairs>80)throw Error('pairs outside 1–80');
@@ -169,6 +172,7 @@ export function evaluateBattles({pairs=4,seconds=110,accuracy=.7,seed=20261022,p
       for(const reversed of [false,true]){
         const left=(reversed?m.b:m.a).map(actor),right=(reversed?m.a:m.b).map(actor);
         const bout=runBout(pairSeed,{name,accuracy,maxSeconds:seconds,policy:'strict',
+          physicalEquipment:true,
           rosters:{friendly:left,hostile:right}});
         const aSide=reversed?'hostile':'friendly',bSide=reversed?'friendly':'hostile';
         const a=aTeamStats(bout,aSide),b=aTeamStats(bout,bSide);
@@ -189,6 +193,9 @@ export function evaluateBattles({pairs=4,seconds=110,accuracy=.7,seed=20261022,p
       meanCapturesDifferential:meanDiff('captures'),
       meanTravelDifferential:meanDiff('travel'),
       meanShotsDifferential:meanDiff('shots'),
+      meanProjectileHitsDifferential:meanDiff('projectileHits'),
+      meanBrownoutFramesDifferential:meanDiff('brownoutFrames'),
+      meanPowerBlockedFramesDifferential:meanDiff('blockedPowerFrames'),
       meanRouteErrorDifferential:meanDiff('routeErrors'),
       meanSurvivorDifferential:meanDiff('survivors'),
       meanTime:avg(bouts.map(x=>x.time)),boutRecords:bouts});
@@ -196,7 +203,7 @@ export function evaluateBattles({pairs=4,seconds=110,accuracy=.7,seed=20261022,p
     ix++;
   }
   return {settings:{pairs,seconds,accuracy,seed,bouts:results.reduce((n,x)=>n+x.bouts,0)},
-    modelLimitations:'Live AI objectives, damage and locomotion; probabilistic first-hit contacts and electrical response, no rendered Three.js raycasts, no real economic settlement or human player.',
+    modelLimitations:'Live generator output/reserve, real six-pellet angular pattern and separate armor-first projectile damage, AI and 60Hz locomotion; moving first-mesh hit selection is STILL approximate and no human player, campaign settlement or BO3 is simulated.',
     results};
 }
 export function runLoadoutEconomyStudy(options={}){
@@ -213,11 +220,12 @@ export function reportMarkdown(r){
     'Mirrored tactical proxy: '+JSON.stringify(r.tactical.settings)+'.',
     '**Limits:** '+r.tactical.modelLimitations,'',
     '## Matched combat comparisons','',
-    '| Matchup (left vs right) | W-L-D | A-equivalent | A score diff | A damage diff | A internal diff | A kills diff | A captures diff |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Matchup (left vs right) | W-L-D | A-equivalent | A score diff | A damage diff | A internal diff | A kills diff | A captures diff | A pellet-hit diff | A brownout-frame diff |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ...r.tactical.results.map(c=>'| '+[c.name,c.wins+'-'+c.losses+'-'+c.draws,
       c.winEquivalent,c.meanPointDifferential,c.meanDamageDifferential,
-      c.meanInternalDifferential,c.meanKillsDifferential,c.meanCapturesDifferential].join(' | ')+' |'),
+      c.meanInternalDifferential,c.meanKillsDifferential,c.meanCapturesDifferential,
+      c.meanProjectileHitsDifferential,c.meanBrownoutFramesDifferential].join(' | ')+' |'),
     '', 'All rows use equal paired seeds and reversed spawn sides. Score and damage differentials are descriptive, not proof of causal win rates.',
     '', '## Catalogue minima by mobility', '',
     '| Legs | Legal | Lowest yard value | Lightest kg | Highest kW headroom |',
