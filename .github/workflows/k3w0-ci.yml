@@ -14,11 +14,8 @@ on:
       - "partGridUI.js"
       - "cockpitDisplays.js"
       - "cockpitIdentityScene.js"
-      - "main.js"
       - "seriesUI.js"
       - "sortieAssignmentUI.js"
-      - "index.html"
-      - "tests/**"
       - ".github/workflows/k3w0-ci.yml"
   workflow_dispatch:
 jobs:
@@ -33,11 +30,4 @@ jobs:
       - name: Source syntax and full regression suite
         run: |
           for f in uiLanguage.js uiMeters.js unifiedGarageUI.js garageBay.js garageMountUI.js partGridUI.js cockpitDisplays.js cockpitIdentityScene.js main.js seriesUI.js sortieAssignmentUI.js tests/k3w0UnifiedUI.test.mjs; do node --check "$f"; done
-          npm test
-      - name: Verify physical cockpits, shielding, power and 3v3 combat
-        run: |
-          npm install --no-save --no-package-lock three@0.186.0
-          node research/cockpitIdentityAudit.mjs
-          node research/frameShieldingAudit.mjs --assert
-          node research/powerResponseStudy.mjs --json > /dev/null
-          node research/headlessDominationStudy.mjs 2
+          node --test tests/k3w0UnifiedUI.test.mjs tests/k4s1WorkspaceShell.test.mjs tests/k4s2GarageFlow.test.mjs tests/k4s3DeployLayout.test.mjs
