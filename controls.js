@@ -37,6 +37,7 @@ export class Controls {
     keyboard = new Set();
     drivePointer = null;
     lookPointer = null;
+    brakePointer = null;
     driveOriginX = 0;
     driveOriginY = 0;
     lookLastX = 0;
@@ -112,15 +113,19 @@ export class Controls {
             brakeButton.classList.toggle('active', this.brake > 0);
         };
         brakeButton.addEventListener('pointerdown', (event) => {
-            if (!this.enabled)
+            if (!this.enabled || this.brakePointer !== null)
                 return;
             event.preventDefault();
+            this.brakePointer = event.pointerId;
             brakeButton.setPointerCapture(event.pointerId);
             setBrake(true);
         });
-        brakeButton.addEventListener('pointerup', () => setBrake(false));
-        brakeButton.addEventListener('pointercancel', () => setBrake(false));
-        brakeButton.addEventListener('lostpointercapture', () => setBrake(false));
+        const brakeEnd = event => {
+            if (event.pointerId === this.brakePointer) this.clearBrake();
+        };
+        brakeButton.addEventListener('pointerup', brakeEnd);
+        brakeButton.addEventListener('pointercancel', brakeEnd);
+        brakeButton.addEventListener('lostpointercapture', brakeEnd);
         window.addEventListener('keydown', (event) => {
             if (!this.enabled)
                 return;
@@ -135,7 +140,7 @@ export class Controls {
         const endAnywhere = event => {
             if (event.pointerId === this.drivePointer) this.clearDrive();
             if (event.pointerId === this.lookPointer) this.clearLook();
-            if (this.brake && event.type !== 'pointermove') setBrake(false);
+            if (event.pointerId === this.brakePointer) this.clearBrake();
         };
         window.addEventListener('pointerup', endAnywhere, true);
         window.addEventListener('pointercancel', endAnywhere, true);
@@ -143,7 +148,7 @@ export class Controls {
             if (event.pointerType === 'touch' || event.buttons !== 0) return;
             if (event.pointerId === this.drivePointer) this.clearDrive();
             if (event.pointerId === this.lookPointer) this.clearLook();
-            if (this.brake) setBrake(false);
+            if (event.pointerId === this.brakePointer) this.clearBrake();
         }, true);
         window.addEventListener('blur', () => this.cancelPointers());
         window.addEventListener('pagehide', () => this.cancelPointers());
@@ -190,12 +195,19 @@ export class Controls {
         if (captured !== null && this.lookZone.hasPointerCapture?.(captured))
             this.lookZone.releasePointerCapture(captured);
     }
+    clearBrake() {
+        const captured = this.brakePointer;
+        this.brakePointer = null;
+        this.brake = 0;
+        this.brakeButton.classList.remove('active');
+        if (captured !== null && this.brakeButton.hasPointerCapture?.(captured))
+            this.brakeButton.releasePointerCapture(captured);
+    }
     cancelPointers() {
         this.keyboard.clear();
         this.clearDrive();
         this.clearLook();
-        this.brake = 0;
-        this.brakeButton.classList.remove('active');
+        this.clearBrake();
     }
     clearDrive() {
         const captured = this.drivePointer;
