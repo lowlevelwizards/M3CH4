@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
+import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
@@ -126,15 +127,15 @@ export function rigThumbnailDataUrl(assembly){
 }
 export function createArenaScene(initial, targetAssembly) {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x171915);
-    scene.fog = new THREE.FogExp2(0x171915, 0.0125);
+    scene.background = new THREE.Color(0x20241f);
+    scene.fog = new THREE.FogExp2(0x20241f, 0.0105);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
     // Lower broad ambient wash and let shaped warm/cool sources describe the forms.
-    const arenaHemisphere = new THREE.HemisphereLight(0x9dafaa, 0x171511, .56);
+    const arenaHemisphere = new THREE.HemisphereLight(0xa3b6a8, 0x29251f, .64);
     scene.add(arenaHemisphere);
-    const sun = new THREE.DirectionalLight(0xffd29a, 3.15);
+    const sun = new THREE.DirectionalLight(0xffd09c, 2.92);
     sun.position.set(-10, 17, 11);
     sun.castShadow = true;
     // Keep the shadow silhouette coherent at source; the deliberately low-res world
@@ -145,7 +146,7 @@ export function createArenaScene(initial, targetAssembly) {
     sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
     sun.shadow.bias = -.0007; sun.shadow.normalBias = .035;
     scene.add(sun);
-    const coolRim = new THREE.DirectionalLight(0x79a9a8, .90);
+    const coolRim = new THREE.DirectionalLight(0x79a9a8, 1.00);
     coolRim.position.set(12, 6, -16);
     scene.add(coolRim);
     const arenaRoot = new THREE.Group();
@@ -2275,7 +2276,9 @@ function buildGarageBay() {
     const teal = mat(0x2c6662, .82, .24);
     const rust = mat(0x714029, .88, .18);
 
-    const floor = box(18, .22, 15, concrete);
+    // Procedural workshop patina: presentation-only slab top, same physical bounds.
+    const workshopTop = new THREE.MeshStandardMaterial({map:createWorkshopFloorTexture(),roughness:.99,metalness:0});
+    const floor = box(18, .22, 15, [concrete,concrete,workshopTop,concrete,concrete,concrete]);
     floor.position.set(0, -.13, .35);
     root.add(floor);
     const pad = box(5.8, .15, 6.1, padMat);
@@ -2421,7 +2424,12 @@ function buildWarehouse(scene) {
     const solids = [];
     const width = DEFAULT_WORLD.maxX - DEFAULT_WORLD.minX;
     const depth = DEFAULT_WORLD.maxZ - DEFAULT_WORLD.minZ;
-    const floor = box(width + 3, 0.35, depth + 3, mat(C.concreteDark, 1, 0));
+    // Terrain is purely visual. Keep one flat, identical collision slab and
+    // the existing obstacle definitions; the yard texture never changes cover.
+    const groundSide=mat(C.concreteDark,1,0);
+    const groundTop=new THREE.MeshStandardMaterial({map:createYardGroundTexture(),roughness:.99,metalness:0});
+    const floor = box(width + 3, 0.35, depth + 3,
+        [groundSide,groundSide,groundTop,groundSide,groundSide,groundSide]);
     floor.position.set((DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2, -0.18, (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2);
     floor.userData.arenaObstacleId = 'floor';
     scene.add(floor);
@@ -2429,6 +2437,8 @@ function buildWarehouse(scene) {
     const gridSize = Math.max(width, depth);
     const grid = new THREE.GridHelper(gridSize, Math.max(16, Math.round(gridSize / 2)), 0x4d4a3e, 0x34342f);
     grid.position.y = 0.01;
+    grid.name = 'development-only-arena-grid';
+    grid.visible = false;
     scene.add(grid);
 
     const wallMat = mat(C.concrete, 0.98, 0.02);
@@ -2522,7 +2532,7 @@ function buildWarehouse(scene) {
         ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
         ctx.fillStyle = '#d6a64a';
         ctx.font = canvasFont(23, 'identity');
-        ctx.fillText('SCRAPYARD BEGINNER YARD', 20, 39, signCanvas.width - 40);
+        ctx.fillText('BACKLOT DUSTBOWL / YARD 01', 20, 39, signCanvas.width - 40);
     };
     drawYardSign();
     const texture = new THREE.CanvasTexture(signCanvas);
