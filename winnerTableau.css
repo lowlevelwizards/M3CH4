@@ -1,0 +1,41 @@
+/* Victory machinery is the event: actual serialized rigs rendered as small,
+   cached Three.js portraits. This replaces no report page or live viewport. */
+.sortie-outro:has(.winner-tableau:not(:empty)){
+  width:min(760px,91vw);max-width:91vw;
+  top:42%;padding:11px 15px 12px;
+}
+.winner-tableau{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  width:100%;gap:9px;margin-top:10px;text-align:center;
+}
+.winner-rig{
+  display:grid;grid-template-rows:minmax(60px,1fr) auto auto;
+  min-width:0;padding:4px 6px 5px;
+  background:#1c2b24e6;border:1px solid #77927a;
+  box-shadow:inset 0 -3px 0 #203b2a;
+}
+.winner-rig img{
+  display:block;object-fit:contain;image-rendering:pixelated;
+  width:100%;height:clamp(65px,20vh,112px);min-width:0;
+}
+.winner-rig strong{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#eccb8e;font:800 10px/1.2 Oxanium,ui-monospace,monospace;
+}
+.winner-rig small{
+  display:block;font:800 7px/1.2 ui-monospace,monospace;
+  color:#93c2a3;letter-spacing:.08em;
+}
+.winner-rig-disabled{border-color:#93634d;background:#28221ce6}
+.winner-rig-disabled img{filter:grayscale(.45) brightness(.7)}
+.winner-rig-disabled small{color:#dd8f73}
+@media(max-height:430px){
+  .sortie-outro:has(.winner-tableau:not(:empty)){
+    top:43%;padding:6px 12px 8px;
+  }
+  .winner-tableau{gap:6px;margin-top:5px}
+  .winner-rig{padding:2px 4px 3px;grid-template-rows:minmax(50px,1fr) auto auto}
+  .winner-rig img{height:clamp(48px,17vh,75px)}
+  .winner-rig strong{font-size:8px}
+  .winner-rig small{font-size:6px}
+}
