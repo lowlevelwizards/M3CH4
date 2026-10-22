@@ -37,8 +37,7 @@ test('in-engine winners animate as real physical rigs without a third WebGL rend
   assert.match(main,/document\.body\.classList\.remove\('victory-showcase'\)/);
   assert.match(css,/body\.victory-showcase #allied-observation/);
   assert.match(css,/body\.victory-showcase #fault-strip/);
-  assert.ok(html.indexOf('id="winner-tableau"') > html.indexOf('</div>\n    <div id="winner-tableau"') || 
-    /<\/div>\s*<div id="winner-tableau"/.test(html));
+  assert.match(html,/<\/div>\s*<div id="winner-tableau"/);
   assert.doesNotMatch(css,/\.sortie-outro:has\(\.winner-tableau/);
   assert.doesNotMatch(source('winnerTableau.js'),/new THREE\.WebGLRenderer|storeMachine|storeStable/);
 });
