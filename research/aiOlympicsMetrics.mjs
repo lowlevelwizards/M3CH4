@@ -34,6 +34,7 @@ export function createMotionDiagnostic(){
   return {seconds:0,travel:0,intentionalHold:0,usefulTurning:0,
     usefulProgress:0,realStall:0,obstacleStall:0,allyStall:0,
     unclassifiedStall:0,routeFailure:0,recoveryTime:0,
+    trafficQueueSeconds:0,
     collisions:0,oscillations:0,lowProgressRun:0,lastImpact:0,
     loopSeconds:0,peakNoAdvance:0,noAdvance:0,bestMissionDistance:null,
     lastMissionKey:null,
@@ -61,8 +62,9 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
   const toward=waypoint?wasRemaining-remaining:0;
   const speed=Math.hypot(rig.vx??0,rig.vz??0);
   const effort=Math.hypot(drive.throttle??0,drive.strafe??0);
-  const hold=order?.mode==='ANCHOR'||order?.goal==='HOLD'||
-    order?.goal==='SERVICE'||(!waypoint&&effort<.2);
+  const queued=!!order?.trafficQueued;
+  const hold=!queued&&(order?.mode==='ANCHOR'||order?.goal==='HOLD'||
+    order?.goal==='SERVICE'||(!waypoint&&effort<.2));
   const turning=yawChange/dt>.14||Math.abs(rig.yawRate??0)>.14;
   const recovering=executor?.phase==='RECOVER'||executor?.recoveryLeft>0;
   const seeking=!!waypoint&&!hold&&remaining>1.8;
@@ -84,6 +86,7 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
   }else if(hold)m.noAdvance=0;
   m.seconds+=dt;m.travel+=moved;
   if(hold)m.intentionalHold+=dt;
+  if(queued)m.trafficQueueSeconds+=dt;
   if(turning&&seeking)m.usefulTurning+=dt;
   if(toward>.014*dt)m.usefulProgress+=dt;
   if(recovering)m.recoveryTime+=dt;
@@ -127,7 +130,8 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
 export function motionSummary(m){
   const keys=['seconds','travel','intentionalHold','usefulTurning','usefulProgress',
     'realStall','obstacleStall','allyStall','unclassifiedStall',
-    'routeFailure','recoveryTime','worstStall','loopSeconds','peakNoAdvance'];
+    'routeFailure','recoveryTime','worstStall','loopSeconds','peakNoAdvance',
+    'trafficQueueSeconds'];
   return {...Object.fromEntries(keys.map(k=>[k,round(m[k])])),
     collisions:m.collisions,oscillations:m.oscillations,
     routeSwitches:m.routeSwitches,trafficYields:m.trafficYields};
@@ -136,7 +140,8 @@ export function gradeOlympicEvent(eventId,facts){
   const time=Math.max(1,facts.seconds??1),motion=facts.motion??{};
   const safety=clamp(1-(motion.realStall??0)/time*1.4-
     (motion.collisions??0)*.07-(motion.routeFailure??0)/time*.5-
-    (motion.loopSeconds??0)/time*.85);
+    (motion.loopSeconds??0)/time*.85-
+    (motion.trafficQueueSeconds??0)/time*.12);
   let mission=0;
   if(['open-transit','wall-detour'].includes(eventId)){
     const initial=Math.max(1,facts.initialDistance??1);
@@ -176,6 +181,7 @@ export function summarizeOlympics(bouts){
       meanScore:round(average(rows.map(b=>b.score)),2),
       meanStall:round(average(rows.map(b=>b.motion.realStall??0))),
       meanLoop:round(average(rows.map(b=>b.motion.loopSeconds??0))),
+      meanQueue:round(average(rows.map(b=>b.motion.trafficQueueSeconds??0))),
       meanCollisions:round(average(rows.map(b=>b.motion.collisions??0))),
       meanIntentionalHold:round(average(rows.map(b=>b.motion.intentionalHold??0))),
       worstSeed:[...rows].sort((a,b)=>a.score-b.score||a.seed-b.seed)[0]?.seed??null};
