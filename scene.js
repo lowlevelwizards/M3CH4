@@ -5,6 +5,7 @@ import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
+import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -2859,6 +2860,9 @@ export function buildExteriorRig(assembly) {
             // the rig or station. Paint remains authoritative before finishing.
             applyIndustrialFinish(group,{...fitted.instance,slot},
                 assembly.partHistory?.[fitted.instance.serial]||null);
+            // Honest stamped service tally. Precise welded patches come later
+            // from recorded repair events, never from fabricated impact points.
+            addPhysicalServiceStamp(group,fitted.instance);
         }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
