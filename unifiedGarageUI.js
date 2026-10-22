@@ -670,6 +670,87 @@ function renderGarage(stable,machine,view) {
         (view.rig.career.fieldServices||0)+' FIELD PATCHES'));
     dock.append(history,appendIdentityForm(view,stable));
 }
+/** Read-only stockroom: the serialized stable remains the inventory authority. */
+function renderInventory(stable) {
+    const wrap=el('section','owned-inventory');
+    const counts={all:stable.inventory.length,stored:0,equipped:0};
+    const entries=stable.inventory.map(part=>{
+        const def=BY_ID.get(part.definitionId);
+        const owner=stable.rigs.find(r=>Object.values(r.installed).includes(part.serial));
+        const current=owner?bayHealth(stable,owner.id).find(x=>x.serial===part.serial):null;
+        const entry={part,def,owner,condition:current?.condition??part.condition,
+            armorRatio:current?.armorRatio??1};
+        counts[owner?'equipped':'stored']++;
+        return entry;
+    }).filter(x=>!!x.def);
+    const header=el('header','inventory-heading');
+    header.append(el('strong','',counts.all+' SERIALIZED PARTS'));
+    header.append(el('small','',counts.stored+' STORED · '+counts.equipped+' EQUIPPED'));
+    wrap.append(header);
+    const controls=el('div','inventory-filters');
+    for(const [id,label] of [['all','ALL'],['stored','STORED'],['equipped','EQUIPPED']]) {
+        const b=button(label+' '+counts[id],()=>{inventoryFilter=id;inventorySerial=null;render();},
+            'inventory-filter'+(inventoryFilter===id?' active':''));
+        b.setAttribute('aria-pressed',String(inventoryFilter===id));
+        controls.append(b);
+    }
+    controls.append(button(inventorySort==='station'?'SORT · TYPE':'SORT · CONDITION',()=>{
+        inventorySort=inventorySort==='station'?'condition':'station';render();
+    },'inventory-sort'));
+    wrap.append(controls);
+    const filtered=entries.filter(item=>inventoryFilter==='all'||
+        (inventoryFilter==='equipped'&&item.owner)||
+        (inventoryFilter==='stored'&&!item.owner));
+    filtered.sort((a,b)=>inventorySort==='station'
+        ?BAY_SLOTS.indexOf(a.def.slot)-BAY_SLOTS.indexOf(b.def.slot)||
+            a.def.name.localeCompare(b.def.name)||a.part.serial.localeCompare(b.part.serial)
+        :a.condition-b.condition||a.part.serial.localeCompare(b.part.serial));
+    const gallery=el('div','inventory-grid part-grid');
+    for(const item of filtered){
+        const p=item.part;
+        const card=createPartCard({
+            entry:{id:'owned:'+p.serial,sourceSerial:p.serial,name:item.def.name,
+                slot:item.def.slot,condition:item.condition,destroyed:p.destroyed},
+            thumbnailUrl:activePlayerArena()?.arena.partThumbnailDataUrl?.(p.definitionId,p),
+            value:partCreditValue(item.def,item.condition,{wear:p.wear,destroyed:p.destroyed}),
+            selected:inventorySerial===p.serial,
+            source:item.owner?'BAY '+String(item.owner.bay).padStart(2,'0'):'STORED',
+            onSelect:()=>{inventorySerial=p.serial;render();},
+        });
+        card.classList.add('inventory-card');gallery.append(card);
+    }
+    wrap.append(gallery);
+    const selected=entries.find(item=>item.part.serial===inventorySerial);
+    if(selected){
+        const p=selected.part,slot=selected.def.slot;
+        const panel=el('section','inventory-detail');
+        panel.append(el('strong','',selected.def.name),
+            el('small','',p.serial+' · '+stationLabel(slot)));
+        const preview=activePlayerArena()?.arena.partThumbnailDataUrl?.(p.definitionId,p);
+        if(preview){const img=el('img','inventory-preview');img.src=preview;img.alt=selected.def.name;panel.append(img);}
+        panel.append(createConditionMeter({
+            serial:p.serial,condition:selected.condition,armorRatio:selected.armorRatio,
+            wear:p.wear,destroyed:p.destroyed,
+        },{showNumbers:true,slot}));
+        panel.append(el('p','',selected.owner
+            ?'INSTALLED · '+rigName(selected.owner)+' · BAY '+selected.owner.bay
+            :'IN STORAGE · READY FOR A COMPATIBLE MOUNT'));
+        panel.append(el('small','',selected.def.massKg+' KG · '+(selected.def.powerKw||0)+' KW · WEAR '+pct(p.wear)));
+        panel.append(button(selected.owner?'INSPECT IN BAY':'FIT TO A RIG',()=>{
+            const owner=selected.owner;
+            if(owner)viewedId=owner.id;
+            openWorkspace('garage');
+            selectedSlot=slot;swapExpanded=!owner;
+            selectedHardwareSerial=owner?null:p.serial;
+            rackView='ready';identityExpanded=false;
+            previewSignature='';render();
+        },'inventory-view-bay'));
+        wrap.append(panel);
+    } else if(!filtered.length){
+        wrap.append(el('p','unified-muted','NO PARTS IN THIS GROUP'));
+    }
+    dock.append(wrap);
+}
 function renderCounter(machine) {
     const campaign=loadCampaign(storage);
     const {stock,persisted}=loadCounter(storage,campaign.sorties);
