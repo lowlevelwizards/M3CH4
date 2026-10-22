@@ -126,7 +126,10 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
   if(spec.kind==='withdraw'){
     // Actual structural integrity, not a fictitious health multiplier.
     const part=player.condition.parts.structure;
-    part.integrity=part.maxIntegrity*.35;
+    // All pilot profiles must recognize this as a genuinely critical,
+    // physically damaged structure. Marginal 35% cases belong in separate
+    // preference tests, not a mandatory retreat competency benchmark.
+    part.integrity=part.maxIntegrity*.25;
     mirrorTargetCondition(player.assembly,player.condition);
   }
   const facts={seed,event:id,family,profile,difficulty,
@@ -189,8 +192,11 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
       stepRig(actor.rig,command,DT,actor.config,world);
       sampleMotion(actor.diagnostic,actor.rig,command,instruction,
         actor.executor,spec.world,DT,actors.filter(a=>a!==actor),t);
-      if(spec.goal&&dist(actor.rig,spec.goal)<2.7&&!arrivalTimes.has(actor.id))
-        arrivalTimes.set(actor.id,t);
+      // Objective defenders succeed by physically holding INSIDE the
+      // authored scoring circle. They need not touch the exact centre.
+      const finishRadius=spec.kind==='anchor'?4.0:2.7;
+      if(spec.goal&&dist(actor.rig,spec.goal)<finishRadius&&
+         !arrivalTimes.has(actor.id))arrivalTimes.set(actor.id,t);
       if(index!==0)continue;
       if(spec.kind==='ambush'&&t>=2){
         const headingTowardShot=heading(actor.rig,{x:0,z:12});
