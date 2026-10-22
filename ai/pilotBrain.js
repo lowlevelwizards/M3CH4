@@ -59,13 +59,15 @@ export function decidePilot(brain,actor,assignment,context,now) {
         proposed.point){
         const via=cautiousApproach(context.world,actor.position,proposed.point,
             context.collisionRadius??1.4,context.personality??'pressure');
-        if(via)proposed.viaPoint=via;
+        if(via&&!proposed.viaPoint)proposed.viaPoint=via;
     }
     if(proposed.point&&context?.world &&
         now-brain.lastGeometryAt>=(newTask?.75:1.2)) {
         if(proposed.goal==='ENGAGE')proposed.point=chooseFightPosition(
             context.world,actor.position,proposed.point,
             context.preferredRangeM??6,context.personality??'pressure');
+        else if(['DEFEND','SCREEN'].includes(proposed.goal)&&proposed.reservationPoint)
+            proposed.point={...proposed.reservationPoint};
         else if(['DEFEND','SCREEN'].includes(proposed.goal))proposed.point=chooseDefendPosition(
             context.world,actor.position,proposed.point,
             Math.min(3,Math.max(1.8,(proposed.radius??4.7)-1.3)),
@@ -90,7 +92,9 @@ export function decidePilot(brain,actor,assignment,context,now) {
         brain.intent={...last,point:proposed.point??last.point,
             // Known enemy contact ends the speculative sheltered crossing;
             // ordinary objective commitment remains, only the via-stop drops.
-            viaPoint:context?.enemySeen?null:last.viaPoint,
+            viaPoint:context?.enemySeen?null:(proposed.viaPoint??last.viaPoint),
+            arrivalPoint:proposed.arrivalPoint??last.arrivalPoint,
+            reservationPoint:proposed.reservationPoint??last.reservationPoint,
             utility:proposed.utility};
         return brain.intent;
     }
