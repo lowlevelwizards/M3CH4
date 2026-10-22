@@ -7,6 +7,7 @@ import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
+import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -174,6 +175,46 @@ export function createArenaScene(initial, targetAssembly) {
     const serviceDressing=buildServiceDressing();
     garageRoot.add(serviceDressing);
     serviceDressing.visible=false;
+    let pitPresentation=false,serviceSelectedSlot=null,lastServiceSignature='';
+    function setPitPresentation(pit=false,slot=null){
+        pitPresentation=!!pit;
+        serviceSelectedSlot=SLOTS.includes(slot)?slot:null;
+        lastServiceSignature='';
+        refreshPhysicalServiceBay();
+    }
+    function refreshPhysicalServiceBay(){
+        const policy=serviceBayFocus(latestPilotParts||{},serviceSelectedSlot,pitPresentation);
+        serviceDressing.visible=inspecting&&!vendorEnabled&&policy.visible;
+        if(!serviceDressing.visible)return;
+        const stage=serviceDressing.userData.stage;
+        if(!stage)return;
+        stage.supports.visible=policy.supports;
+        stage.warning.material.emissive.setHex(policy.critical?0xae351a:
+          policy.intensity>.025?0xc78e36:0x245d50);
+        stage.warning.material.color.setHex(policy.critical?0xda7851:
+          policy.intensity>.025?0xe1b862:0x5c9c87);
+        stage.lamp.intensity=pitPresentation?1.65:.8;
+        const station=policy.focus?SLOT_CENTERS[policy.focus]:[0,1.1,0];
+        stage.lamp.target.position.set(station[0],Math.max(.6,station[1]),station[2]);
+        stage.lamp.target.updateMatrixWorld();
+        const signature=[policy.focus,policy.mode,policy.damagedCount,pitPresentation].join(':');
+        if(signature!==lastServiceSignature){
+            lastServiceSignature=signature;
+            const canvas=stage.readout.image;
+            const g=canvas.getContext('2d');
+            g.fillStyle='#111c19';g.fillRect(0,0,128,64);
+            g.fillStyle='#344c43';g.fillRect(2,2,124,60);
+            g.fillStyle='#13221b';g.fillRect(5,5,118,54);
+            g.fillStyle='#b0c4a8';g.font='bold 11px monospace';g.fillText(pitPresentation?'PIT DIAGNOSTIC':'SERVICE BAY',10,19);
+            g.fillStyle=policy.critical?'#eda16c':'#d9b977';
+            g.font='bold 13px monospace';
+            g.fillText(policy.focus?.toUpperCase()?.slice(0,11)||'ALL SYSTEMS',10,37);
+            g.font='bold 10px monospace';
+            g.fillStyle=policy.critical?'#ff9876':'#94bfb2';
+            g.fillText(policy.mode+' / '+policy.damagedCount+' ALERT',10,51);
+            stage.readout.needsUpdate=true;
+        }
+    }
     garageRoot.name = 'garage-bay';
     garageRoot.visible = false;
     scene.add(garageRoot);
@@ -1284,9 +1325,7 @@ export function createArenaScene(initial, targetAssembly) {
     let latestPilotParts=null;
     function poseDamagedMachineInGarage() {
         if(!inspecting||animationPreviewMode!=='off'||!latestPilotParts)return;
-        serviceDressing.visible=!vendorEnabled&&Object.values(latestPilotParts)
-          .some(part=>part&&(part.destroyed||
-            (part.maxIntegrity>0&&part.integrity<=.001)));
+        refreshPhysicalServiceBay();
         const mobility=installedPart(previewAssembly,'mobility')?.definition.id||'legs-yard';
         const failure=familyFailureAnatomy(mobility,conditionFailureFlags(latestPilotParts));
         exterior.root.rotation.x=failure.rootPitch;
@@ -1764,6 +1803,7 @@ export function createArenaScene(initial, targetAssembly) {
         arenaPresentationRoot.visible = !enabled;
         garageRoot.visible = enabled;
         if(!enabled)serviceDressing.visible=false;
+        else refreshPhysicalServiceBay();
         stagingFixtures.visible = enabled && !vendorEnabled;
         arenaHemisphere.visible = !enabled;
         sun.visible = !enabled;
@@ -2545,7 +2585,7 @@ export function createArenaScene(initial, targetAssembly) {
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
-        beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,
+        beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,setPitPresentation,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
@@ -2563,30 +2603,57 @@ function box(w, h, d, material) {
 /** Bounded decorative pit-service equipment, no picking, solids or physics. */
 function buildServiceDressing() {
     const root=new THREE.Group();root.name='physical-service-equipment';
-    const steel=mat(0x495650,.81,.35);
-    const deep=mat(0x202a28,.90,.10);
-    const warning=mat(0xc79b45,.84,.15);
-    // Two low adjustable jack stands outside the mech's central foot lane.
+    const supports=new THREE.Group();supports.name='service-jacks';
+    const steel=mat(0x495650,.81,.35),deep=mat(0x202a28,.90,.10);
+    const warning=mat(0xc79b45,.84,.15),accent=mat(0x5b817b,.72,.25);
     for(const side of [-1,1]){
         const x=side*1.42,z=.54;
-        const foot=box(.66,.12,.70,steel);
-        foot.position.set(x,.105,z);root.add(foot);
-        const mast=box(.14,.68,.14,warning);
-        mast.position.set(x,.49,z);root.add(mast);
-        const collar=box(.35,.13,.35,deep);
-        collar.position.set(x,.84,z);root.add(collar);
-        const saddle=box(.54,.08,.22,steel);
-        saddle.position.set(x,.92,z);root.add(saddle);
+        const foot=box(.66,.12,.70,steel);foot.position.set(x,.105,z);supports.add(foot);
+        const mast=box(.14,.68,.14,warning);mast.position.set(x,.49,z);supports.add(mast);
+        const collar=box(.35,.13,.35,deep);collar.position.set(x,.84,z);supports.add(collar);
+        const saddle=box(.54,.08,.22,steel);saddle.position.set(x,.92,z);supports.add(saddle);
     }
-    // Oil catch tray and portable shop toolbox; purely physical storytelling.
-    const tray=box(.86,.05,.59,deep);
-    tray.position.set(.08,.075,.96);root.add(tray);
-    const trayLip=box(.88,.055,.06,steel);
-    trayLip.position.set(.08,.12,1.23);root.add(trayLip);
-    const toolbox=box(.52,.27,.34,warning);
-    toolbox.position.set(-1.9,.20,1.13);root.add(toolbox);
-    const handle=box(.23,.045,.06,steel);
-    handle.position.set(-1.9,.37,1.13);root.add(handle);
+    root.add(supports);
+    // Oil tray, secondary catch lip, work case. These are shop fixtures rather
+    // than fictional dents or extracted machine parts.
+    const tray=box(.86,.05,.59,deep);tray.position.set(.08,.075,.96);root.add(tray);
+    const trayLip=box(.88,.055,.06,steel);trayLip.position.set(.08,.12,1.23);root.add(trayLip);
+    const toolbox=box(.52,.27,.34,warning);toolbox.position.set(-1.9,.20,1.13);root.add(toolbox);
+    const handle=box(.23,.045,.06,steel);handle.position.set(-1.9,.37,1.13);root.add(handle);
+    // A mobile diagnostic trolley and calibrated mechanical work light.
+    // Everything is static mesh except its low-cost light and CRT readout.
+    const base=box(.73,.12,.49,deep);base.position.set(2.08,.19,-1.02);root.add(base);
+    for(const z of [-1.20,-.83]){
+        const axle=box(.12,.16,.13,steel);axle.position.set(2.08,.12,z);root.add(axle);
+    }
+    const post=box(.11,1.48,.12,steel);post.position.set(2.08,.91,-1.02);root.add(post);
+    const monitor=box(.91,.68,.18,deep);monitor.position.set(1.80,1.48,-1.04);
+    monitor.rotation.y=-.38;root.add(monitor);
+    const canvas=document.createElement('canvas');canvas.width=128;canvas.height=64;
+    const readout=new THREE.CanvasTexture(canvas);
+    readout.colorSpace=THREE.SRGBColorSpace;
+    readout.magFilter=THREE.NearestFilter;readout.minFilter=THREE.NearestFilter;
+    const glass=new THREE.Mesh(new THREE.PlaneGeometry(.80,.55),
+        new THREE.MeshBasicMaterial({map:readout,side:THREE.DoubleSide}));
+    glass.position.set(0,0,.101);monitor.add(glass);
+    const alertMat=new THREE.MeshStandardMaterial({color:0x5c9c87,emissive:0x245d50,
+        emissiveIntensity:.7,roughness:.4});
+    const warningLED=box(.11,.085,.025,alertMat);
+    warningLED.position.set(.33,-.25,.11);monitor.add(warningLED);
+    const arm=box(.58,.095,.095,warning);arm.position.set(1.76,2.08,-1.03);
+    arm.rotation.z=.27;root.add(arm);
+    const lampHousing=box(.30,.16,.27,steel);
+    lampHousing.position.set(1.45,2.18,-1.04);root.add(lampHousing);
+    const lampLens=box(.24,.035,.23,accent);
+    lampLens.position.set(1.45,2.07,-1.04);root.add(lampLens);
+    const lamp=new THREE.SpotLight(0xffce8d,0,4.4,.72,.8,2);
+    lamp.position.set(1.45,2.08,-1.04);lamp.castShadow=false;
+    root.add(lamp);root.add(lamp.target);
+    const cable=box(.035,.48,.035,deep);cable.position.set(2.42,.49,-1.00);
+    cable.rotation.z=.13;root.add(cable);
+    const hose=box(.035,.29,.035,deep);hose.position.set(2.34,.94,-1.07);
+    hose.rotation.z=-.32;root.add(hose);
+    root.userData.stage={supports,warning:warningLED,lamp,readout};
     return root;
 }
 function buildGarageBay() {
