@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#18211e">
+<title>M3CH4 / ART LAB</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./typography.css?v=k4t1">
+<link rel="stylesheet" href="./artLab.css">
+</head>
+<body>
+<header>
+ <div><span class="eyebrow">M3CH4 / VISUAL DEVELOPMENT</span><h1>ART LAB <small>0.1</small></h1></div>
+ <a href="./index.html">BACK TO GARAGE ↗</a>
+</header>
+<main>
+ <section class="workbench" aria-label="Real Three.js machine comparison">
+  <div class="stage-bar"><span id="stage-name">ASSEMBLED RIG / A-B STUDY</span><span id="stage-status" role="status">STARTING...</span></div>
+  <div id="art-stage">
+   <canvas id="art-canvas" aria-label="Current and candidate Three.js machine renders"></canvas>
+   <div id="view-labels"><span id="left-label">CURRENT</span><span id="right-label">CANDIDATE</span></div>
+  </div>
+ </section>
+ <section class="controls" aria-label="Art direction controls">
+  <div class="control">
+   <label for="rig">MACHINE</label>
+   <select id="rig">
+    <option value="yard">BRUISER / YARDWALKER</option>
+    <option value="kestrel">SKELETON / KESTREL</option>
+    <option value="hauler">WEDGE / HAULER</option>
+   </select>
+  </div>
+  <div class="control">
+   <label for="angle">CAMERA</label>
+   <select id="angle"><option value="quarter">3/4 VIEW</option><option value="front">FRONT</option><option value="side">SIDE</option></select>
+  </div>
+  <div class="control">
+   <label for="comparison">COMPARE</label>
+   <select id="comparison"><option value="compare">SIDE BY SIDE</option><option value="candidate">CANDIDATE ONLY</option><option value="current">CURRENT ONLY</option></select>
+  </div>
+  <div class="control slider">
+   <label for="wear">SURFACE WEAR <output id="wear-value">3 / 5</output></label>
+   <input id="wear" type="range" min="0" max="5" step="1" value="3">
+  </div>
+  <div class="control slider">
+   <label for="contrast">LIGHT SHAPE <output id="contrast-value">65%</output></label>
+   <input id="contrast" type="range" min="0" max="100" step="5" value="65">
+  </div>
+  <div class="control">
+   <label for="terrain">GROUND</label>
+   <select id="terrain"><option value="dirt">BACKLOT EARTH</option><option value="neutral">NEUTRAL PLATE</option></select>
+  </div>
+  <div class="actions">
+   <button id="save" type="button">SAVE LOCAL PRESET</button>
+   <button id="export" type="button">EXPORT SETTINGS</button>
+   <button id="reset" type="button">RESET</button>
+  </div>
+  <textarea id="export-result" readonly aria-label="Exported preset JSON" hidden></textarea>
+  <p class="note">Real catalogue-built rig geometry. Candidate finishes are experimental and never alter your saved machines, paint, combat, or inventory. The two cameras are identical.</p>
+ </section>
+</main>
+<script type="module" src="./artLab.js"></script>
+</body>
+</html>
