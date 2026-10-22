@@ -95,7 +95,7 @@ test('bundled entry and mobile versions include exact changed assets and no new 
     const html=source('index.html'),mount=source('garageMountUI.js');
     assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
     assert.match(html,/uiRedesign\.css\?v=k4u/);
-    assert.match(html,/main\\.js\\?v=[\\w.-]+/);
+    assert.match(html,/main\.js\?v=[\w.-]+/);
     assert.match(html,/garageMountUI\.js\?v=k4s3/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
