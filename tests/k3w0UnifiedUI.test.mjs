@@ -76,7 +76,7 @@ test('cockpit gets real armor data and two distinct physical damage events witho
     assert.match(main,/part\.armor\/part\.maxArmor/);
     assert.match(main,/systems, armor, team: counts/);
     assert.match(c,/const integrity=data\.systems\?\?\{\},armor=data\.armor\?\?\{\}/);
-    assert.match(c,/STATIONS\[slot\]\.glyph/);
+    assert.match(c,/drawModuleIcon\(ctx,slot/);
     assert.match(c,/line\(ctx,29,y-6,45,5,shell\/100,p,true\)/);
     assert.match(bridge,/const penetrating=Number\(profile\.internalDamage\)>0/);
     assert.match(bridge,/triggerBase\(slot,profile\)/);
