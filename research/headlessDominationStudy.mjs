@@ -23,6 +23,7 @@ import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/com
 import {recentThreatTargetId} from '../tacticalAwareness.js';
 import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
 import {ARRIVAL_POLICIES} from '../ai/squadPositioning.js';
+import {CORRIDOR_POLICIES} from '../ai/corridorCoordinator.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
@@ -151,6 +152,11 @@ function combatWorldFor(me,actors){
 export function runBout(seed,settings){
     const traffic={friendly:settings.trafficFriendly??'legacy',
         hostile:settings.trafficHostile??'legacy'};
+    const corridorPolicy={friendly:settings.corridorFriendly??'legacy',
+      hostile:settings.corridorHostile??'legacy'};
+    if(!CORRIDOR_POLICIES.includes(corridorPolicy.friendly)||
+       !CORRIDOR_POLICIES.includes(corridorPolicy.hostile))
+      throw new RangeError('Invalid corridor coordination policy');
     const arrivals={friendly:settings.arrivalFriendly??'legacy',
       hostile:settings.arrivalHostile??'legacy'};
     if(!ARRIVAL_POLICIES.includes(arrivals.friendly)||
@@ -182,7 +188,7 @@ export function runBout(seed,settings){
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
     const metrics={seed,scenario:settings.name??'research',accuracy:settings.accuracy,
         policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
-        traffic,arrivals,
+        traffic,arrivals,corridorPolicy,
         difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
         simulation:'research-approximate-v2',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
@@ -196,6 +202,7 @@ export function runBout(seed,settings){
         oldLeader=null,plans={},snapshot=null,
         planLeft={friendly:0,hostile:0},perceptionLeft={friendly:0,hostile:0};
     const assaults={friendly:{},hostile:{}};
+    const corridorMemory={friendly:{},hostile:{}};
     const count=team=>actors.filter(a=>a.team===team&&a.active).length;
     // Each trial is independent; no user-managed player is present.
     for(let tick=0;tick<maxSeconds/DT;tick++){
@@ -223,6 +230,7 @@ export function runBout(seed,settings){
           strategy:evaluateStrategy(strategies,snapshot,team),
           policy:policies[team],previousOrders:plans[team]?.orders,
           arrivalPolicy:arrivals[team],world:DEFAULT_WORLD,
+          corridorPolicy:corridorPolicy[team],corridorMemory:corridorMemory[team],
           assaultMemory:assaults[team]});
         planLeft[team]=difficulties[team].planningSeconds;
       }
@@ -281,6 +289,7 @@ export function runBout(seed,settings){
         a.stats.travel+=moved;
         a.stats.trafficYields=a.executor.trafficYields;
         a.stats.trafficQueueSeconds=a.executor.trafficQueueSeconds;
+        a.stats.corridorWaitSeconds=a.executor.corridorWaitSeconds;
         a.stats.routeSwitches=a.executor.routeSwitches;
         if(a.rig.impact>Math.max(.45,previousImpact+.12))a.stats.collisionImpacts++;
         if(instruction.mode==='ORDER'&&moved<.004&&
