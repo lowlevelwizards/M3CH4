@@ -341,7 +341,7 @@ body.inspecting .fault-strip { display:none; }
   border:1px solid #66736966; background:#222b26e8; color:#93aa98; border-radius:3px;
   font-family:ui-monospace,monospace; touch-action:manipulation;
 }
-.module-tab .module-glyph { font:700 20px/1 ui-monospace,monospace; }
+.module-tab .module-glyph { font:700 20px/1 ui-monospace,monospace; display:grid;place-items:center; }.module-tab .module-glyph .module-icon{width:1em;height:1em}
 .module-tab small { margin:0; color:inherit; font:700 6px/1 ui-monospace,monospace; letter-spacing:.07em; }
 .module-tab i { font:700 7px/1 ui-monospace,monospace; font-style:normal; opacity:.92; }
 .module-tab.status-good { color:#8dcc96; border-color:#5c9d6980; background:#1d3425e8; }

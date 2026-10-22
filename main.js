@@ -43,6 +43,7 @@ import { clearBoutResult, publishBoutResult } from './boutSession.js';
 import { resetDamageFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
+import { createModuleIcon } from './moduleIcons.js';
 import { loadStable, serialOwner } from './stable.js';
 import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount } from './garageBay.js';
 import { buyCounterLot } from './usedPartsCounter.js';
@@ -53,7 +54,6 @@ const labels = {
     structure: 'STRUCTURE', mobility: 'MOBILITY', power: 'POWER',
     command: 'COMMAND', combat: 'COMBAT',
 };
-const symbols = { structure: '⬡', mobility: '⋀', power: 'ϟ', command: '◉', combat: '✦' };
 // Loading takes place before either the renderer or the damage/garage UI exists.
 // An invalid or inaccessible save never prevents a fresh rig from opening.
 let saveStorage = null;
@@ -1169,7 +1169,7 @@ function renderPartsList() {
         button.title = `${labels[slot]} · ${fitted?.definition.name ?? 'missing'} · ${moduleStatusLabel(status)}`;
         const glyph = document.createElement('span');
         glyph.className = 'module-glyph';
-        glyph.textContent = symbols[slot];
+        glyph.append(createModuleIcon(slot));
         const category = document.createElement('small');
         category.textContent = labels[slot] === 'STRUCTURE' ? 'FRAME' : labels[slot] === 'MOBILITY' ? 'MOVE' : labels[slot] === 'COMMAND' ? 'CMD' : labels[slot] === 'COMBAT' ? 'ARMS' : 'PWR';
         const value = document.createElement('i');

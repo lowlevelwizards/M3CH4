@@ -3,7 +3,8 @@
  * Viewed rig changes only a Three.js preview; battle-active rig changes at DEPLOY.
  */
 import { BY_ID } from './components.js';
-import { stationGlyph, stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
+import { stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
+import { createModuleIcon } from './moduleIcons.js';
 import { createStationFace, createConditionMeter } from './uiMeters.js';
 import { loadCounter } from './usedPartsCounter.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js?v=k3w0';
@@ -322,7 +323,6 @@ function summary(view) {
     }
     return status;
 }
-const STATION_GLYPHS = Object.freeze(Object.fromEntries(BAY_SLOTS.map(slot=>[slot,stationGlyph(slot)])));
 function moduleStation(view) {
     const station = el('section','unified-stations');
     for (const item of view.health) {
@@ -413,7 +413,7 @@ function moduleDetails(stable, view, machine) {
         if(picture) {
             const img=el('img');img.src=picture;img.alt=def?.name+' 3D model';
             img.draggable=false;image.append(img);
-        } else image.append(el('span','',stationGlyph(slot)));
+        } else image.append(createModuleIcon(slot,{className:'workshop-placeholder-icon'}));
         body.append(image);
         const readout=el('div','workshop-part-readout');
         readout.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));

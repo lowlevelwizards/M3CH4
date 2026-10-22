@@ -8,7 +8,7 @@ test('k4s.2 uses cache-fresh mobile modules and last-loaded flow stylesheet',()=
   assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
   assert.match(html,/k4s2GarageFlow\.css\?v=k4s2/);
   assert.ok(html.indexOf('k4s2GarageFlow.css')>html.indexOf('k4sWorkshopShell.css'));
-  assert.match(html,/main\.js\?v=k4s2/);
+  assert.match(html,/main\.js\?v=k4u/);
   assert.match(html,/garageMountUI\.js\?v=k4s3/);
   assert.match(mount,/unifiedGarageUI\.js\?v=k4s3/);
   assert.match(bridge,/scene\.js\?source=k4s2/);
@@ -63,10 +63,10 @@ test('part inspector restores rendered model, only one name and always-open deta
   assert.match(ui,/bayModuleQuote\(stable, viewedId, slot\)/);
 });
 test('station shapes are distinct and camera never jumps on selection or deselection',()=>{
-  const meters=read('uiMeters.js'),scene=read('scene.js'),main=read('main.js');
+  const meters=read('uiMeters.js'),icons=read('moduleIcons.js'),scene=read('scene.js'),main=read('main.js');
   for(const slot of ['structure','mobility','power','command','combat'])
-    assert.match(meters,new RegExp(slot+':'));
-  assert.match(meters,/stationPictogram/);
+    assert.match(icons,new RegExp(slot+':'));
+  assert.match(meters,/createModuleIcon\(slot/);
   assert.match(scene,/savedWorkshopOrbit/);
   assert.match(scene,/desiredTarget\.copy\(savedWorkshopOrbit\.target\)/);
   assert.match(scene,/function focusPart\(slot\) \{\s*\/\//);

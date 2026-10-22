@@ -24,6 +24,12 @@
 .rig-condition.expanded::before{inset:6px}
 .rig-condition.expanded .rig-meter-core{width:27px;height:27px;box-shadow:inset 0 0 0 5px #182720}
 .rig-meter-numbers{position:absolute;top:100%;font:700 8px/1.3 ui-monospace,monospace;letter-spacing:.04em;color:#c8d6ba;white-space:nowrap;}
+/* Shared SVGs preserve their silhouettes in narrow phone rails; color still
+   communicates the actual operational state of the parent control. */
+.module-icon{display:block;flex-shrink:0;width:1em;height:1em;overflow:visible}
+.module-icon-fallback{display:inline-block;line-height:1}
+.rig-station-icon .module-icon{width:1em;height:1em}
+.workshop-part-preview .module-icon{width:42px;height:42px;max-width:70%;max-height:70%;color:#c4cdbb}
 .rig-station-face{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;width:100%}
 .rig-station-icon{font-size:20px;line-height:1;color:#a2d1b2}
 .rig-station-label{font:800 8px/1 ui-monospace,monospace;letter-spacing:.035em;white-space:nowrap;color:#c3d4ba}
@@ -136,3 +142,7 @@ body:not(.inspecting) #shot-report.faded{opacity:0}
 
 /* Yard value stays visible only after selecting the actual serialized part. */
 #unified-garage .unified-part-detail .part-detail-value{display:block;font-size:8px;line-height:1.1;margin:0;color:#c7a978}
+
+/* Five physical modules remain legible beside compact post-bout readouts. */
+.k4n-part strong{display:flex;flex-direction:row-reverse;align-items:center;justify-content:center;gap:4px}
+.k4n-part strong .module-icon{width:13px;height:13px}

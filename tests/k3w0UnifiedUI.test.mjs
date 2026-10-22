@@ -76,7 +76,7 @@ test('cockpit gets real armor data and two distinct physical damage events witho
     assert.match(main,/part\.armor\/part\.maxArmor/);
     assert.match(main,/systems, armor, team: counts/);
     assert.match(c,/const integrity=data\.systems\?\?\{\},armor=data\.armor\?\?\{\}/);
-    assert.match(c,/STATIONS\[slot\]\.glyph/);
+    assert.match(c,/drawModuleIcon\(ctx,slot/);
     assert.match(c,/line\(ctx,29,y-6,45,5,shell\/100,p,true\)/);
     assert.match(bridge,/const penetrating=Number\(profile\.internalDamage\)>0/);
     assert.match(bridge,/triggerBase\(slot,profile\)/);
@@ -94,8 +94,8 @@ test('intermission reports compact truthful dual gauges and reveal detailed read
 test('bundled entry and mobile versions include exact changed assets and no new save contract',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
     assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
-    assert.match(html,/uiRedesign\.css\?v=k4q/);
-    assert.match(html,/main\.js\?v=k4s2/);
+    assert.match(html,/uiRedesign\.css\?v=k4u/);
+    assert.match(html,/main\.js\?v=k4u/);
     assert.match(html,/garageMountUI\.js\?v=k4s3/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
