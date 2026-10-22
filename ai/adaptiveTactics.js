@@ -35,7 +35,13 @@ export function prioritizeVisibleTarget(actor,candidates,snapshot,order=null,cur
     const d=dist(actor.rig,candidate.rig);
     const relevance=observedZoneThreat(candidate,snapshot,actor.team,order?.objectiveId);
     const service= candidate.fieldService?.held?.12:0; // visible servicing, no component health
-    const targetBonus=candidate.id===currentId?.18:0;
+    const targetBonus=candidate.id===currentId?.24:0;
+    // Prefer actual firing opportunities without chasing an unseen shooter.
+    const dx=candidate.rig.x-actor.rig.x,dz=candidate.rig.z-actor.rig.z;
+    const bearing=Math.atan2(dx,-dz);
+    const facing=Number.isFinite(actor.rig.yaw)?Math.abs(Math.atan2(
+      Math.sin(bearing-actor.rig.yaw),Math.cos(bearing-actor.rig.yaw))):Math.PI;
+    const fireLane=facing<.95?.21:facing<1.8?.06:0;
     // A legitimate observed assailant outranks a distant routine target.
     // Threat identity alone never makes an unseen contact eligible.
     const retaliate=candidate.id===threatId?(d<16?.65:.38):0;
@@ -46,8 +52,8 @@ export function prioritizeVisibleTarget(actor,candidates,snapshot,order=null,cur
       dist(candidate.rig,order.point):0;
     const anchorBias=order?.anchor?(anchorDistance<14?.32:-.32):0;
     const designated=order?.targetActorId===candidate.id?.42:0;
-    return {candidate,score:relevance+service+targetBonus+retaliate+
-      interception+anchorBias+designated-Math.min(.9,d*.019)};
+    return {candidate,score:relevance+service+targetBonus+retaliate+fireLane+
+      interception+anchorBias+designated-Math.min(.9,d*.024)};
   });
   scored.sort((a,b)=>b.score-a.score||a.candidate.id.localeCompare(b.candidate.id));
   return scored[0].candidate;
@@ -98,23 +104,37 @@ export function trafficWaypoint(rig,waypoint,nearby,world,collisionRadius=1){
   const dx=waypoint.x-rig.x,dz=waypoint.z-rig.z,length=Math.hypot(dx,dz);
   if(length<1.5)return waypoint;
   const nx=dx/length,nz=dz/length;
-  for(const item of nearby){
-    if(item.active===false&&!item.wreck)continue;
-    const p=item.position??item.rig;
-    if(!p)continue;
-    const forward=(p.x-rig.x)*nx+(p.z-rig.z)*nz;
-    const lateral=Math.abs((p.x-rig.x)*nz-(p.z-rig.z)*nx);
-    const clearance=collisionRadius+(item.radius??1)+.45;
-    if(forward<.1||forward>Math.min(5,length)||lateral>=clearance)continue;
-    const side=((p.x-rig.x)*nz-(p.z-rig.z)*nx)>=0?-1:1;
-    const point={x:rig.x+nx*Math.max(1.5,forward)+(-nz)*side*(clearance+1),
-      z:rig.z+nz*Math.max(1.5,forward)+nx*side*(clearance+1)};
-    if(point.x<world.minX+collisionRadius||point.x>world.maxX-collisionRadius||
-       point.z<world.minZ+collisionRadius||point.z>world.maxZ-collisionRadius)continue;
-    if((world.obstacles??[]).some(o=>!o.dynamic&&
-      point.x>o.minX-collisionRadius&&point.x<o.maxX+collisionRadius&&
-      point.z>o.minZ-collisionRadius&&point.z<o.maxZ+collisionRadius))continue;
-    return point;
+  const obstacles=nearby.filter(item=>item.active!==false||item.wreck)
+    .map(item=>{
+      const p=item.position??item.rig;
+      if(!p)return null;
+      const ahead=(p.x-rig.x)*nx+(p.z-rig.z)*nz;
+      const cross=(p.x-rig.x)*nz-(p.z-rig.z)*nx;
+      return {...item,p,ahead,cross,
+        clearance:collisionRadius+(item.radius??1)+.45};
+    })
+    .filter(o=>o&&o.ahead>=-.3&&o.ahead<=Math.min(5.5,length)&&
+      Math.abs(o.cross)<o.clearance)
+    .sort((a,b)=>a.ahead-b.ahead||String(a.id??'').localeCompare(String(b.id??'')));
+  // Yield to the nearest real block, not whichever ally the roster lists first.
+  // Choose a clear side and let the executor hold that waypoint for 1.3 s.
+  for(const item of obstacles){
+    const preferred=item.cross>=0?-1:1;
+    for(const side of [preferred,-preferred]){
+      const p={x:rig.x+nx*Math.max(1.8,item.ahead+1.25)-nz*side*(item.clearance+.8),
+        z:rig.z+nz*Math.max(1.8,item.ahead+1.25)+nx*side*(item.clearance+.8)};
+      if(p.x<world.minX+collisionRadius||p.x>world.maxX-collisionRadius||
+        p.z<world.minZ+collisionRadius||p.z>world.maxZ-collisionRadius)continue;
+      if((world.obstacles??[]).some(o=>!o.dynamic&&
+        p.x>o.minX-collisionRadius&&p.x<o.maxX+collisionRadius&&
+        p.z>o.minZ-collisionRadius&&p.z<o.maxZ+collisionRadius))continue;
+      if(nearby.some(other=>{
+        const q=other.position??other.rig;
+        return q&&Math.hypot(p.x-q.x,p.z-q.z)<
+          collisionRadius+(other.radius??1)+.3;
+      }))continue;
+      return p;
+    }
   }
   return waypoint;
 }
