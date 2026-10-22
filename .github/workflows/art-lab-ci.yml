@@ -1,0 +1,39 @@
+name: M3CH4 Art Lab Real Browser Smoke
+on:
+  pull_request:
+    paths:
+      - 'art-lab.html'
+      - 'artLab.js'
+      - 'artLab.css'
+      - 'artStyleSeed.js'
+      - 'artStyleProcedural.js'
+      - 'scene.js'
+      - 'research/artLabBrowserSmoke.mjs'
+      - '.github/workflows/art-lab-ci.yml'
+  workflow_dispatch:
+jobs:
+  art-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Run static site
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/m3ch4-art-lab.log 2>&1 &
+          sleep 2
+      - name: Render phone-first A/B comparison
+        run: node research/artLabBrowserSmoke.mjs
+      - name: Upload actual rendered views
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3ch4-art-lab-renders
+          path: art-lab-artifacts/
+          if-no-files-found: warn
