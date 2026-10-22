@@ -15,12 +15,13 @@
  * randomized battle test, NOT equivalent to headless browser playthrough.
  */
 import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
 import { createRigState, stepRig, DEFAULT_WORLD } from '../locomotion.js';
 import { deriveRigConfig } from '../assemblyPhysics.js';
-import { installedPart } from '../components.js';
+import { installedPart,makeTestAssembly,equip,inspectAssembly,SLOTS } from '../components.js';
 import { createSortieObjective, advanceSortieObjective } from '../sortieObjectives.js';
 import { contractById } from '../contracts.js';
 import { createHostileController, hostileOutput, advanceHostileController,
@@ -50,7 +51,22 @@ function random(seed){
 }
 const pick=(rng,items)=>items[Math.floor(rng()*items.length)];
 function makeRig(team,n,family,rng,wear=0){
-    const assembly=makeRangeTarget(FAMILIES[family]);
+    // Research-only, caller-supplied actual five-station recipes. Invalid
+    // physical hardware is never represented as a moving or fighting actor.
+    const custom=family && typeof family==='object';
+    const identity=custom ? family.name : family;
+    const pilot=custom ? (family.pilot??'yard') : family;
+    if(!Object.hasOwn(FAMILIES,pilot))throw Error('Unknown research pilot: '+pilot);
+    const assembly=custom ? makeTestAssembly() : makeRangeTarget(FAMILIES[pilot]);
+    if(custom){
+      for(const slot of SLOTS) {
+        if(!family.recipe?.[slot])throw Error('Missing recipe slot '+slot);
+        equip(assembly,slot,family.recipe[slot]);
+      }
+      const check=inspectAssembly(assembly);
+      if(!check.ready)throw Error('Illegal research rig '+identity+': '+
+        check.checks.filter(x=>!x.passes).map(x=>x.reason).join('; '));
+    }
     const condition=createTargetCondition(assembly);
     for(const slot of PARTS){
         const part=condition.parts[slot];
@@ -67,9 +83,9 @@ function makeRig(team,n,family,rng,wear=0){
     const side=team==='friendly'?1:-1, x=[-9,0,9][n]+(rng()-.5)*4.2,
         z=side*(21+(rng()-.5)*3.4);
     const rig=createRigState({x,z,yaw:team==='friendly'?0:Math.PI});
-    const behavior=contractById(FAMILIES[family]).behavior;
+    const behavior=contractById(FAMILIES[pilot]).behavior;
     const id=team==='friendly'?'ally-'+(n+1):'enemy-'+n;
-    return {id,team,family,behavior,assembly,condition,rig,
+    return {id,team,family:identity,behavior,assembly,condition,rig,
         spawn:{x,z},active:true,killReason:null,
         weaponSpec,weaponState:createWeaponState(weaponSpec),
         controller:createHostileController(.7+n*.15,behavior),
@@ -119,13 +135,15 @@ function damage(attacker,target,slot,metrics,t,rng){
     }
     return {hit,fault};
 }
-function runBout(seed,settings){
+export function runBout(seed,settings){
+    const maxSeconds=Math.min(210,Math.max(1,Number(settings.maxSeconds)||210));
     const rng=random(seed),state=createSortieObjective(contractById('domination'));
     state.domination.capturePolicy=settings.policy??'strict';
     const strategies=createStrategicState();
     const teams={friendly:[],hostile:[]};
     for(const team of ['friendly','hostile']){
-      let recipe=team===settings.variantTeam?settings.variant:['yard','kestrel','hauler'];
+      let recipe=settings.rosters?.[team] ?? (team===settings.variantTeam?settings.variant:['yard','kestrel','hauler']);
+      if(recipe.length!==3)throw Error('Research 3v3 roster requires exactly three rigs per team');
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
           team===settings.wornTeam?settings.wear:settings.backgroundWear??0));
       teams[team]=actors;
@@ -133,7 +151,7 @@ function runBout(seed,settings){
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
     const metrics={seed,scenario:settings.name,accuracy:settings.accuracy,
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
-        win:null,winReason:null,time:MAX_SECONDS,points:{friendly:0,hostile:0},
+        win:null,winReason:null,time:maxSeconds,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
         firstCaptureAt:null,firstMajorityAt:null,scoreLeadChanges:0,contestedSeconds:0,
         noMajoritySeconds:0,totalScoringSeconds:0,captureEvents:0,
@@ -143,7 +161,7 @@ function runBout(seed,settings){
         oldLeader=null,plans={},snapshot=null,planLeft=0;
     const count=team=>actors.filter(a=>a.team===team&&a.active).length;
     // Each trial is independent; no user-managed player is present.
-    for(let tick=0;tick<MAX_SECONDS/DT;tick++){
+    for(let tick=0;tick<maxSeconds/DT;tick++){
       const t=tick*DT;
       planLeft-=DT;
       if(planLeft<=0||!snapshot){
@@ -394,4 +412,4 @@ function main(){
     console.log('FINAL_SUMMARY '+JSON.stringify({meta:report.meta,overall:report.overall,
       groups:Object.fromEntries(Object.entries(report.groups).map(([k,v])=>[k,{wins:v.winner,meanTime:v.meanTime,scoring:v.territoryDecisions,meanCaptureEvents:v.meanCaptureEvents,meanContestedSeconds:v.meanContestedSeconds,meanKills:v.meanKills}]))}));
 }
-main();
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href)main();
