@@ -1,0 +1,52 @@
+name: k4v AI Difficulty Ladder
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths: [.github/workflows/k4v-ai-difficulty-ladder.yml]
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: 'Seed pairs for every tier comparison'
+        required: true
+        default: '12'
+      seconds:
+        description: 'Maximum simulated seconds per bout'
+        required: true
+        default: '180'
+      accuracy:
+        description: 'Hit sensitivity, e.g. .7 or .45,.7,.9'
+        required: true
+        default: '.7'
+      seed:
+        description: 'Independent evaluation seed'
+        required: true
+        default: '96821'
+jobs:
+  ladder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PAIRS: ${{ github.event.inputs.pairs || '4' }}
+      SECONDS: ${{ github.event.inputs.seconds || '180' }}
+      ACCURACY: ${{ github.event.inputs.accuracy || '.7' }}
+      SEED: ${{ github.event.inputs.seed || '96821' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compare rookie to elite without rig stat cheats
+        run: |
+          node research/aiTournament.mjs \
+            --entrants=baseline@rookie,baseline@club,baseline@pro,baseline@elite \
+            --pairs="$PAIRS" --seconds="$SECONDS" \
+            --accuracy="$ACCURACY" --seed="$SEED" \
+            --out=study-results/ai-difficulty
+      - name: Show provisional difficulty order
+        run: cat study-results/ai-difficulty/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-difficulty-${{ github.run_id }}
+          path: study-results/ai-difficulty/
+          if-no-files-found: warn

@@ -1,5 +1,7 @@
 import { zoneOpportunity, casualtyAssignment, assaultStagingPoint } from './adaptiveTactics.js';
 import { scoreForecast,reserveAnchors,assignmentSwitchCost,canStageAssault,teamPosture } from './objectiveDiscipline.js';
+import {coordinateSquadArrivals} from './squadPositioning.js';
+import {coordinateCorridors} from './corridorCoordinator.js';
 /** Small exhaustive team assignment planner. Six rigs total makes a full general
  * scheduler unnecessary. Jobs are real tactical consequences of the objective.
  * No path, transform, ammo or damage mutation happens here.
@@ -7,7 +9,7 @@ import { scoreForecast,reserveAnchors,assignmentSwitchCost,canStageAssault,teamP
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
 const other=team=>team==='friendly'?'hostile':'friendly';
-function zoneJobs(snapshot,team,strategy=null) {
+function zoneJobs(snapshot,team,strategy=null,policy=null) {
     const zones=snapshot.zones??[], ours=zones.filter(z=>z.owner===team&&!z.contested).length;
     const theirs=zones.filter(z=>z.owner===other(team)&&!z.contested).length;
     const enemyMajority=theirs>=2;
@@ -30,6 +32,13 @@ function zoneJobs(snapshot,team,strategy=null) {
         if(strategy?.phase==='ROTATE'&&z.contested&&strategy.target!==z.id)
             base-=.35;
         if(strategy?.phase==='HOLD_MAJORITY'&&friendlyOwned)base+=.13;
+        // Optional research temperament biases the EXISTING physically valid jobs.
+        // Baseline (no policy) retains the production utility curve verbatim.
+        const weights=policy?.weights;
+        if(weights)base+=(weights[job.toLowerCase()]??0)+
+          (!z.owner?weights.neutral??0:enemyOwned?weights.enemyOwned??0:0)+
+          (z.contested?weights.contested??0:0)+
+          ((z[other(team)]??0)>(z[team]??0)?weights.threatened??0:0);
         const primary={id:job+':'+z.id,kind:job,objectiveId:z.id,point:{...z.point},zone:z,
             priority:base,defended:friendlyOwned,contested:z.contested,
             note:enemyMajority&&threat?'BREAK ENEMY MAJORITY':
@@ -41,13 +50,13 @@ function zoneJobs(snapshot,team,strategy=null) {
         if(z.id===strategy?.target &&
            ['BREAK_MAJORITY','ROTATE'].includes(strategy.phase)&&threat)
             return [primary,{id:'SCREEN:'+z.id,kind:'SCREEN',
-                objectiveId:z.id,point:{...z.point},zone:z,priority:base-.12,
+                objectiveId:z.id,point:{...z.point},zone:z,priority:base-.12+(policy?.weights?.screen??0),
                 defended:false,contested:z.contested,
                 note:'SCREEN CAPTURER · INTERCEPT APPROACH'}];
         return [primary];
     });
 }
-function suitability(actor,job,team) {
+function suitability(actor,job,team,policy=null) {
     const d=dist(actor.position,job.point);
     const cap=actor.capability;
     if(!cap.canMove&&d>3.5)return -100;
@@ -59,11 +68,11 @@ function suitability(actor,job,team) {
     const toughness=job.kind==='DEFEND'?cap.endurance*.2:0;
     const maneuver=job.kind==='CAPTURE'?(role==='skirmisher'?.12:0)+cap.speed*.16:0;
     const positional=here?.26:0;
-    const penalty=Math.min(.62,travel*.021);
+    const penalty=Math.min(.62,travel*.021)*(policy?.weights?.travel??1);
     return job.priority+offense+toughness+maneuver+positional-penalty+
         (cap.canFight?.04:-.09)+casualtyAssignment(actor,job,job.zone);
 }
-function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={}) {
+function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={},policy=null) {
     const entries=actors.slice(0,4).sort((a,b)=>a.id.localeCompare(b.id));
     let best=-Infinity,bestList=[];
     function walk(i,score,chosen,counts){
@@ -78,15 +87,17 @@ function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previ
         for(const job of jobs) {
             const previousOrder=previous[entries[i].id];
             const oldZone=jobs.find(j=>j.objectiveId===previousOrder?.objectiveId)?.zone;
-            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team);
-            const value=suitability(entries[i],job,team)-switchPenalty;
+            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team)*
+              (policy?.weights?.switching??1);
+            const value=suitability(entries[i],job,team,policy)-switchPenalty;
             if(value<0)continue;
             const n=counts.get(job.objectiveId)??0;
             // First unit wins most value. A second can reinforce, but piling the
             // entire team onto one objective wastes the other two positions.
             const concentrating=strategy?.target===job.objectiveId&&
                 strategy?.phase==='BREAK_MAJORITY';
-            const duplication=(n===0?0:n===1?(concentrating?.19:.43):.88)+
+            const duplication=(n===0?0:n===1?(concentrating?.19:.43):.88)*
+                (policy?.weights?.duplication??1)+
                 (playerZoneId===job.objectiveId&&!job.contested?.52:0);
             counts.set(job.objectiveId,n+1);
             chosen.push(job);walk(i+1,score+value-duplication,chosen,counts);
@@ -103,7 +114,7 @@ export function planTeam(snapshot,team,options={}) {
     const orders={};
     if(snapshot.kind==='domination'&&snapshot.zones.length) {
         const strategy=options.strategy??null;
-        const jobs=zoneJobs(snapshot,team,strategy);
+        const jobs=zoneJobs(snapshot,team,strategy,options.policy??null);
         const posture=teamPosture(snapshot,team);
         // A crippled/outnumbered squad should not allocate its remaining
         // fighting machine to a speculative screening maneuver.
@@ -124,13 +135,13 @@ export function planTeam(snapshot,team,options={}) {
                 strategy:strategy?.phase??'TAKE_GROUND'};
         }
         const assignedPairs=assignExhaustive(actors.filter(a=>!anchoredIds.has(a.id)),
-            jobs,team,playerZone?.id,strategy,previous);
+            jobs,team,playerZone?.id,strategy,previous,options.policy??null);
         for(const pair of assignedPairs) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
                 role:'ANCHOR',reason:'UNABLE TO REACH OBJECTIVE',
                 note:'UNABLE TO REACH OBJECTIVE',score:0};continue;}
-            const suitabilityScore=suitability(actor,job,team);
+            const suitabilityScore=suitability(actor,job,team,options.policy??null);
             const playerCoverage=playerZone?.id===job.objectiveId&&
                 !job.contested&&job.kind==='DEFEND';
             orders[actor.id]={goal:job.kind,objectiveId:job.objectiveId,
@@ -210,7 +221,17 @@ export function planTeam(snapshot,team,options={}) {
                 }
             }
         }
-        return {team,orders,reason:strategy?.reason??'TERRITORY MAJORITY',
+        const coordinated=coordinateSquadArrivals(orders,actors,snapshot.zones,{
+            policy:options.arrivalPolicy??'legacy',world:options.world??null,
+            zoneRadius:snapshot.zoneRadius??4.7,previousOrders:previous,
+            player:player??null,collisionRadius:options.collisionRadius??1.12});
+        const passage=coordinateCorridors(coordinated,actors,options.world??null,{
+            policy:options.corridorPolicy??'legacy',time:snapshot.time??0,
+            collisionRadius:options.collisionRadius??1.15,
+            memory:options.corridorMemory??null});
+        return {team,orders:passage.orders,
+            ...(options.corridorPolicy&&options.corridorPolicy!=='legacy'?{corridors:passage.metrics}:{}),
+            reason:strategy?.reason??'TERRITORY MAJORITY',
             strategy:strategy?.phase??'TAKE_GROUND',
             target:strategy?.target??null,stalledFor:strategy?.stalledFor??0,
             scoring:Math.floor(snapshot.score[team]),

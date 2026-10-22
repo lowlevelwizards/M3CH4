@@ -1786,7 +1786,9 @@ function frame(now) {
                     p.id!==actor.id&&p.active&&p.rig&&
                     Math.hypot(p.rig.x-actor.rig.x,p.rig.z-actor.rig.z)<7)
                     .map(p=>({id:p.id,position:p.rig,
-                        radius:p.baseConfig?.collisionRadiusM??1.1,active:p.active}));
+                        radius:p.baseConfig?.collisionRadiusM??1.1,active:p.active,
+                        speed:Math.hypot(p.rig.vx??0,p.rig.vz??0),
+                        velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);

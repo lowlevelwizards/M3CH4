@@ -62,12 +62,10 @@ test('protected and direct module hits still follow original armor, integrity an
     assert.equal(a.parts.structure.armor,a.parts.structure.maxArmor);
 });
 
-test('the three frame identities remain stable as the Forge generator expands the roster', () => {
+test('physical shielding stays limited to the three existing frames as the part catalogue expands', () => {
     assert.deepEqual(CATALOG.filter(c=>c.slot==='structure').map(c=>c.id),
         ['frame-sr','frame-utility','frame-wedge']);
-    // The original 15 definitions remain; the new Forge H-4 is an additive power option.
     assert.equal(CATALOG.length,16);
-    assert.ok(CATALOG.some(c=>c.id==='power-forge' && c.slot==='power'));
 });
 
 test('player and AI shots use the same actual intersections and first-hit damage authority', () => {

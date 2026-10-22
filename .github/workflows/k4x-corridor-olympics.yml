@@ -1,0 +1,51 @@
+name: k4x Shared Corridor Olympics
+on:
+  push:
+    branches: [k4x-corridor-reservations]
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: Matched seeds per family/policy
+        required: true
+        default: '25'
+      seed:
+        description: Seed base for rerunnable trials
+        required: true
+        default: '70831'
+jobs:
+  corridors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    env:
+      SEEDS: ${{ github.event.inputs.seeds || '12' }}
+      SEED: ${{ github.event.inputs.seed || '70831' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and focused production-adjacent regressions
+        run: |
+          node --check ai/corridorCoordinator.js
+          node --check ai/teamPlanner.js
+          node --check ai/intentExecutor.js
+          node --check research/aiOlympics.mjs
+          node --test tests/k4xCorridors.test.mjs tests/k4wSquadArrivals.test.mjs tests/k4v1AiOlympics.test.mjs
+      - name: Execute cross-objective shared-corridor Olympics
+        run: |
+          node research/aiOlympics.mjs \
+            --events=corridor-crossing \
+            --corridors=legacy,priority,stagger,clearance \
+            --traffic=legacy --arrivals=legacy \
+            --families=yard,kestrel,hauler \
+            --profiles=baseline,cautious \
+            --seeds="$SEEDS" --seed="$SEED" \
+            --out=study-results/corridor-olympics
+      - name: Report meaningful progress, collision and holding cost
+        run: cat study-results/corridor-olympics/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: corridor-olympics-${{ github.run_id }}
+          path: study-results/corridor-olympics/
+          if-no-files-found: warn

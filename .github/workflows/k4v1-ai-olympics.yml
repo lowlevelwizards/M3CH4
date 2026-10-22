@@ -1,0 +1,69 @@
+name: k4v.1 AI Olympics
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths:
+      - research/aiOlympics.mjs
+      - research/aiOlympicsMetrics.mjs
+      - tests/k4v1AiOlympics.test.mjs
+      - .github/workflows/k4v1-ai-olympics.yml
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: 'Matched seeds per scenario/family/profile'
+        required: true
+        default: '6'
+      profiles:
+        description: 'Comma-separated strategy names'
+        required: true
+        default: 'baseline,cautious'
+      families:
+        description: 'Comma-separated mobility types'
+        required: true
+        default: 'yard,kestrel,hauler'
+      difficulties:
+        description: 'Comma-separated tiers'
+        required: true
+        default: 'pro'
+      seed:
+        description: 'Reproducible seed base'
+        required: true
+        default: '46291'
+concurrency:
+  group: olympics-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+jobs:
+  olympics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SEEDS: ${{ github.event.inputs.seeds || '20' }}
+      PROFILES: ${{ github.event.inputs.profiles || 'baseline,cautious' }}
+      FAMILIES: ${{ github.event.inputs.families || 'yard,kestrel,hauler' }}
+      DIFFICULTIES: ${{ github.event.inputs.difficulties || 'pro' }}
+      SEED: ${{ github.event.inputs.seed || '46291' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compile research sources
+        run: |
+          node --check research/aiOlympics.mjs
+          node --check research/aiOlympicsMetrics.mjs
+      - name: Verify physical competency tests
+        run: node --test tests/k4v1AiOlympics.test.mjs tests/k4vAiTournament.test.mjs
+      - name: Run seeded multi-event Olympics
+        run: |
+          node research/aiOlympics.mjs \
+            --seeds="$SEEDS" --profiles="$PROFILES" \
+            --families="$FAMILIES" --difficulties="$DIFFICULTIES" \
+            --seed="$SEED" --out=study-results/ai-olympics
+      - name: Print annotated event scoreboard
+        run: cat study-results/ai-olympics/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-olympics-${{ github.run_id }}
+          path: study-results/ai-olympics/
+          if-no-files-found: warn

@@ -1,0 +1,34 @@
+name: k4v AI Simulator Fidelity Regression
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths: [.github/workflows/k4v-ai-fidelity-ci.yml]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check research and production-adjacent syntax
+        run: |
+          node --check ai/researchProfiles.js
+          node --check ai/pilotBrain.js
+          node --check ai/teamPlanner.js
+          node --check research/headlessDominationStudy.mjs
+          node --check research/aiTournamentCore.mjs
+          node --check research/aiTournament.mjs
+      - name: Full established regression suite
+        run: npm test
+      - name: Legacy 12-cohort headless compatibility smoke
+        if: success() || failure()
+        run: node research/headlessDominationStudy.mjs 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4v-legacy-research-${{ github.run_id }}
+          path: study-results/
+          if-no-files-found: warn
