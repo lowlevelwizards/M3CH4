@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {serviceStampCount} from '../serviceEvidenceVisuals.js';
+import {serviceStampCount,serviceStampLabel} from '../serviceEvidencePolicy.js';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('service marking reflects exact existing repair counts, never creates imaginary maintenance',()=>{
   assert.equal(serviceStampCount({repairs:0}),0);
@@ -11,6 +11,8 @@ test('service marking reflects exact existing repair counts, never creates imagi
   assert.equal(serviceStampCount({repairs:-1}),0);
   assert.equal(serviceStampCount({repairs:1.6}),0);
   assert.equal(serviceStampCount({repairs:'3'}),0);
+  assert.equal(serviceStampLabel({repairs:150}),'R-99+');
+  assert.equal(serviceStampLabel({repairs:2}),'R-02');
 });
 test('service plate is graphical only and attached after authentic owner paint',()=>{
   const scene=read('scene.js'),visuals=read('serviceEvidenceVisuals.js');
