@@ -5,6 +5,11 @@ import {createMotionDiagnostic,sampleMotion,motionSummary,
   from '../research/aiOlympicsMetrics.mjs';
 import {runOlympicEvent,runOlympics,olympicsMarkdown}
   from '../research/aiOlympics.mjs';
+import {createIntentExecutor,executeIntent} from '../ai/intentExecutor.js';
+import {createEnemyMotion,advanceEnemyMotion} from '../enemyMotion.js';
+import {createRigState} from '../locomotion.js';
+import {noteIncomingFire} from '../tacticalAwareness.js';
+import {contractById} from '../contracts.js';
 
 const emptyWorld={minX:-30,maxX:30,minZ:-30,maxZ:30,obstacles:[]};
 const moving={mode:'ORDER',point:{x:0,z:-10}};
@@ -123,4 +128,31 @@ test('small Olympics report aggregates scenarios without ranking a single long e
   assert.doesNotMatch(markdown,/\| Lost visual contact \|/);
   assert.ok(r.summary.overall>0,'unselected events should not dilute the score');
   assert.ok(r.summary.overall>=0);
+});
+
+test('defender route reaches chosen safe interior position, not a second offset scoring circle',()=>{
+  const executor=createIntentExecutor();
+  const rig=createRigState({x:0,z:8,yaw:0});
+  const instruction=executeIntent(executor,{goal:'DEFEND',point:{x:0,z:2.1},
+    radius:4.7,objectiveId:'B',score:.9},rig,emptyWorld,1,1/60);
+  assert.equal(instruction.mode,'ORDER');
+  assert.equal(instruction.goal,'DEFEND');
+  assert.ok(Math.hypot(instruction.point.x,instruction.point.z-2.1)<.1,
+    'Route should aim at physically chosen inside-zone position');
+});
+
+test('wounded explicit WITHDRAW route overrides repeated unseen-fire turn commands',()=>{
+  const behavior=contractById('yard-dog').behavior;
+  const rig=createRigState({x:0,z:0,yaw:0}),motion=createEnemyMotion(behavior);
+  const executor=createIntentExecutor();
+  noteIncomingFire(motion,{x:0,z:-12},'unseen-shooter',1.4,rig);
+  const instruction=executeIntent(executor,{goal:'WITHDRAW',
+    point:{x:0,z:16},score:.93,reason:'CRITICAL MACHINE CONDITION'},
+    rig,emptyWorld,1,1/60);
+  const command=advanceEnemyMotion(motion,rig,null,1/60,true,
+    emptyWorld,1,behavior,instruction);
+  assert.equal(instruction.goal,'WITHDRAW');
+  assert.equal(motion.phase,'ORDER','defensive turning must not erase retreat');
+  assert.equal(motion.navigation.includes('WITHDRAW'),true);
+  assert.ok(Math.hypot(command.throttle,command.strafe)>0);
 });
