@@ -34,6 +34,7 @@ export const CATALOG = [
     { id: 'power-forge', name: 'Forge H-4 industrial generator', slot: 'power', massKg: 680, center: SLOT_CENTERS.power, envelope: [1.34, 1.15, 1.05], accepts: 'U1', description: 'Massive continuous-duty industrial generation in a welded cradle with exposed heat exchangers. 170 kW sustained, slow transient response and substantial handling penalty.', powerKw: 170, functionReady: true },
     // k4w.1: append after all sixteen historical serials, retaining save and fixture identities.
     { id: 'gun-rivet', name: 'RR-4 Rivet Repeater', slot: 'combat', massKg: 440, center: SLOT_CENTERS.combat, envelope: [1.46, 1.02, 1.88], accepts: 'U1', description: 'Salvaged industrial belt-feed tool converted for sustained fire. Immediate automatic rivets, strong progressive mounting wander, high ammunition consumption and slow belt change.', powerKw: -24, functionReady: true },
+    { id: 'gun-breaker', name: 'Breaker Driver', slot: 'combat', massKg: 590, center: SLOT_CENTERS.combat, envelope: [1.42, 1.30, 1.94], accepts: 'U1', description: 'Hydraulic demolition driver. Takes 0.7 seconds to pressurize, launches one heavy penetrator with severe recoil and requires a deliberate new trigger hold after reloading.', powerKw: -18, functionReady: true },
 ];
 // Independent mechanical mounting metadata; mesh geometry and hit envelopes remain unchanged.
 for (const part of CATALOG) {
