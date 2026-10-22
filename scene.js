@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
+import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -2766,7 +2767,13 @@ export function buildExteriorRig(assembly) {
     // All original geometry, physical material roles and mechanism tags remain.
     for (const [slot, group] of partGroups) {
         const fitted=installedPart(assembly,slot);
-        if (fitted) applyPartFinish(group,fitted.definition.id,fitted.instance.paint);
+        if (fitted) {
+            applyPartFinish(group,fitted.definition.id,fitted.instance.paint);
+            // Appearance is a property of this serialized physical object, not
+            // the rig or station. Paint remains authoritative before finishing.
+            applyIndustrialFinish(group,{...fitted.instance,slot},
+                assembly.partHistory?.[fitted.instance.serial]||null);
+        }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
     // their authored interface hardware; mass and compatibility remain graph data.
