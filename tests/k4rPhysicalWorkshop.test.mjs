@@ -45,7 +45,7 @@ test('parts shelf previews but only confirmed action emits the persisted bay edi
     assert.match(ui,/bayPreviewAssembly\(stable,viewedId,selectedSlot,fitSerial\)/);
     assert.match(ui,/arena\.rebuildAssembly\(assembly\)/);
     assert.match(ui,/garage-shelf-title/);
-    assert.match(ui,/ALL PARTS ↗/);
+    assert.match(ui,/ALL MODULES ↗/);
     assert.match(ui,/COMPACT SHELF/);
     assert.match(ui,/\(drawerExpanded\?box:shelf\)\.append\(detail\)/);
     assert.match(ui,/onAction: \(\) => editModule\(slot, focused\.serial\)/);

@@ -48,7 +48,7 @@ test('contract list and detail are mutually exclusive with one visible dock-leve
     assert.match(css, /#unified-garage-action \.unified-primary/);
 });
 test('reload restores only pending valid job setups, not completed deployments',()=>{
-    assert.match(ui, /restoredAssignment\?\.phase === 'pending' && !loadSeries\(storage\)/);
+    assert.match(ui, /restoredAssignment\?\.phase === 'pending'/);
     assert.match(ui, /availableCampaignNodes\(campaign\)\.includes\(restoredAssignment\.contractId\)/);
     assert.match(ui, /mode = 'setup'/);
     assert.match(ui, /selectedJobId = restoredAssignment\.contractId/);

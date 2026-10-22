@@ -128,7 +128,7 @@ test('sound UI remains DEV-only, landscape grouped and disconnected from gamepla
   assert.match(index,/audioSystemsSynth\.js\?v=k3w11/);
   assert.match(index,/audioSystemsPresets\.js\?v=k3w8/);
   assert.match(index,/audioSystems\.css\?v=k3w8/);
-  assert.match(index,/0\.0\.1k\.4s\.2 — Garage Flow/);
+  assert.match(index,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
   assert.match(ui,/audio\.play\(item\.id,i\)/);
   assert.match(ui,/formatSystemsSelection\(saved\)/);
   assert.match(ui,/audio\.stop\(\)/);
