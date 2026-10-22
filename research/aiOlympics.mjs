@@ -143,7 +143,6 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
     triageOnly=0,anchorFrames=0,anchorInside=0,visibleBeforeLoss=false,
     startRetreat=player.rig.z,t=0;
   const arrivalTimes=new Map();
-  const previousAwareness=player.motion.awareness;
   for(let tick=0;tick<duration/DT;tick++){
     t=tick*DT;
     const snapshot=(spec.kind==='triage'||spec.kind==='dropout')?
@@ -197,8 +196,11 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
         const headingTowardShot=heading(actor.rig,{x:0,z:12});
         const turn=yawError(firstAngles[0],actor.rig.yaw);
         facts.defensiveTurn=Math.max(facts.defensiveTurn,turn);
-        if(facts.reactionSeconds===null&&
-          (turn>.55||actor.motion.phase==='SEEK COVER'||actor.motion.phase==='UNDER FIRE'))
+        // A label saying UNDER FIRE is not a physical response.
+        // Require a measurable chassis turn or actual cover-seeking travel.
+        const coverMove=actor.motion.phase==='SEEK COVER'&&
+          dist(actor.rig,spec.starts[0])>1.8;
+        if(facts.reactionSeconds===null&&(turn>.55||coverMove))
           facts.reactionSeconds=t-2;
       }
       if(spec.kind==='dropout'&&t>=2.5){
