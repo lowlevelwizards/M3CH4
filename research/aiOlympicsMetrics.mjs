@@ -35,6 +35,8 @@ export function createMotionDiagnostic(){
     usefulProgress:0,realStall:0,obstacleStall:0,allyStall:0,
     unclassifiedStall:0,routeFailure:0,recoveryTime:0,
     collisions:0,oscillations:0,lowProgressRun:0,lastImpact:0,
+    loopSeconds:0,peakNoAdvance:0,noAdvance:0,bestMissionDistance:null,
+    lastMissionKey:null,
     lastPosition:null,lastYaw:null,lastVelocity:null,lastReversalAt:-Infinity,
     worstStall:0,peakStall:0,routeSwitches:0,trafficYields:0};
 }
@@ -47,6 +49,13 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
   const moved=distance(previous,rig);
   const yawChange=m.lastYaw===null?0:Math.abs(wrap(rig.yaw-m.lastYaw));
   const waypoint=order?.point??null;
+  // Track net accomplishment against the PILOT mission, not a temporary
+  // local traffic sidestep. A machine circling a wall can be moving, steering
+  // and technically making waypoint progress without getting any closer
+  // to the objective for tens of seconds.
+  const mission=order?.missionPoint??waypoint;
+  const missionKey=mission?
+    Math.round(mission.x*2)+'/'+Math.round(mission.z*2):null;
   const remaining=waypoint?distance(rig,waypoint):null;
   const wasRemaining=waypoint?distance(previous,waypoint):null;
   const toward=waypoint?wasRemaining-remaining:0;
@@ -58,6 +67,21 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
   const recovering=executor?.phase==='RECOVER'||executor?.recoveryLeft>0;
   const seeking=!!waypoint&&!hold&&remaining>1.8;
   const pressing=seeking&&effort>.26&&!recovering;
+  if(missionKey!==m.lastMissionKey){
+    m.lastMissionKey=missionKey;
+    m.bestMissionDistance=mission?distance(rig,mission):null;
+    m.noAdvance=0;
+  }else if(pressing&&mission){
+    const remainingMission=distance(rig,mission);
+    if(remainingMission<(m.bestMissionDistance??Infinity)-.35){
+      m.bestMissionDistance=remainingMission;
+      m.noAdvance=0;
+    }else{
+      m.noAdvance+=dt;
+      m.peakNoAdvance=Math.max(m.peakNoAdvance,m.noAdvance);
+      if(m.noAdvance>4)m.loopSeconds+=dt;
+    }
+  }else if(hold)m.noAdvance=0;
   m.seconds+=dt;m.travel+=moved;
   if(hold)m.intentionalHold+=dt;
   if(turning&&seeking)m.usefulTurning+=dt;
@@ -103,7 +127,7 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
 export function motionSummary(m){
   const keys=['seconds','travel','intentionalHold','usefulTurning','usefulProgress',
     'realStall','obstacleStall','allyStall','unclassifiedStall',
-    'routeFailure','recoveryTime','worstStall'];
+    'routeFailure','recoveryTime','worstStall','loopSeconds','peakNoAdvance'];
   return {...Object.fromEntries(keys.map(k=>[k,round(m[k])])),
     collisions:m.collisions,oscillations:m.oscillations,
     routeSwitches:m.routeSwitches,trafficYields:m.trafficYields};
@@ -111,7 +135,8 @@ export function motionSummary(m){
 export function gradeOlympicEvent(eventId,facts){
   const time=Math.max(1,facts.seconds??1),motion=facts.motion??{};
   const safety=clamp(1-(motion.realStall??0)/time*1.4-
-    (motion.collisions??0)*.07-(motion.routeFailure??0)/time*.5);
+    (motion.collisions??0)*.07-(motion.routeFailure??0)/time*.5-
+    (motion.loopSeconds??0)/time*.85);
   let mission=0;
   if(['open-transit','wall-detour'].includes(eventId)){
     const initial=Math.max(1,facts.initialDistance??1);
@@ -150,6 +175,7 @@ export function summarizeOlympics(bouts){
       passRate:round(average(rows.map(b=>Number(b.pass)))),
       meanScore:round(average(rows.map(b=>b.score)),2),
       meanStall:round(average(rows.map(b=>b.motion.realStall??0))),
+      meanLoop:round(average(rows.map(b=>b.motion.loopSeconds??0))),
       meanCollisions:round(average(rows.map(b=>b.motion.collisions??0))),
       meanIntentionalHold:round(average(rows.map(b=>b.motion.intentionalHold??0))),
       worstSeed:[...rows].sort((a,b)=>a.score-b.score||a.seed-b.seed)[0]?.seed??null};
