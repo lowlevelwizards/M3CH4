@@ -1,42 +1,71 @@
-/** Lightweight authored pixel scar patches attached to named moving surfaces.
- * Full exact history lives in IndexedDB; the renderer keeps only a few visible
- * marks per serial. Reuses one plane geometry, one texture and one material.
+/** Pixel damage decals attached to actual moving physical meshes.
+ * The full per-serial journal is stored separately. Here only a few marks per
+ * serial are drawn. All marks share one geometry and one material per family.
  */
 import * as THREE from 'three';
 import {normalizeSurfaceEvent} from './partServiceJournal.js';
+import {surfaceDamageLanguage} from './surfaceDamageLanguage.js';
+
 let shared=null;
+const P=32;
+function pixelTexture(kind) {
+  const c=document.createElement('canvas');c.width=c.height=P;
+  const g=c.getContext('2d');
+  g.clearRect(0,0,P,P);
+  if(kind==='armor-scrape'){
+    // Exposed steel and a directional paint-chip tail, NOT a puncture.
+    g.fillStyle='#242a26';
+    g.fillRect(3,17,24,3);g.fillRect(7,14,20,4);
+    g.fillRect(11,12,12,2);g.fillRect(20,20,7,2);
+    g.fillStyle='#777b6f';g.fillRect(6,15,19,2);
+    g.fillRect(15,13,10,1);
+    g.fillStyle='#c0ae85';g.fillRect(8,14,13,1);g.fillRect(19,19,8,1);
+    g.fillStyle='#474c43';g.fillRect(10,18,17,2);
+  } else {
+    const destroyed=kind==='destroyed-breach';
+    const hot=kind==='power-breach';
+    // Intentionally broad blocked pixels: a real black cavity, surrounded by
+    // torn primer/steel. At default phone resolution it reads as a hole.
+    g.fillStyle=hot?'#34271d':'#514b3c';
+    g.fillRect(8,4,16,24);g.fillRect(5,8,22,16);
+    g.fillRect(3,12,26,8);
+    if(destroyed){g.fillRect(2,9,8,13);g.fillRect(23,11,7,13);}
+    g.fillStyle=hot?'#896044':'#929184';
+    g.fillRect(8,6,15,3);g.fillRect(5,10,4,12);
+    g.fillRect(9,23,14,3);g.fillRect(24,11,3,11);
+    g.fillStyle='#202421';
+    g.fillRect(9,8,13,17);g.fillRect(6,12,20,9);
+    if(destroyed){g.fillRect(4,11,23,13);}
+    g.fillStyle='#080c0c';
+    g.fillRect(10,10,12,12);g.fillRect(8,13,16,6);
+    if(destroyed){g.fillRect(7,11,18,13);}
+    g.fillStyle='#050808';
+    g.fillRect(12,12,8,8);g.fillRect(10,14,12,4);
+    // A few white exposed-metal chips preserve depth without glow.
+    g.fillStyle=hot?'#ad8663':'#c0baa0';
+    g.fillRect(10,6,8,2);g.fillRect(6,12,2,5);g.fillRect(22,23,3,2);
+    if(hot){g.fillStyle='#423129';g.fillRect(0,13,5,8);g.fillRect(26,16,6,10);}
+  }
+  const map=new THREE.CanvasTexture(c);
+  map.colorSpace=THREE.SRGBColorSpace;
+  map.magFilter=THREE.NearestFilter;map.minFilter=THREE.NearestFilter;
+  return map;
+}
 function resources(){
   if(shared)return shared;
-  const canvas=document.createElement('canvas');
-  canvas.width=canvas.height=32;
-  const g=canvas.getContext('2d');
-  g.clearRect(0,0,32,32);
-  g.fillStyle='#171d1b';
-  g.fillRect(5,13,22,6);g.fillRect(8,10,17,11);
-  g.fillRect(12,8,11,13);g.fillRect(3,15,27,4);
-  g.fillStyle='#707970';
-  g.fillRect(7,14,17,3);g.fillRect(12,11,13,2);g.fillRect(18,18,7,2);
-  g.fillStyle='#b3a78a';
-  g.fillRect(9,13,12,1);g.fillRect(18,17,7,1);
-  g.fillStyle='#3a423e';
-  g.fillRect(5,19,17,2);
-  const map=new THREE.CanvasTexture(canvas);
-  map.colorSpace=THREE.SRGBColorSpace;
-  map.magFilter=THREE.NearestFilter;
-  map.minFilter=THREE.NearestFilter;
   const geometry=new THREE.PlaneGeometry(1,1);
-  const material=new THREE.MeshBasicMaterial({
-    map,transparent:false,alphaTest:.25,
-    polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
-    side:THREE.DoubleSide,depthWrite:false,
-  });
-  shared={geometry,material};return shared;
+  const materials=new Map();
+  for(const kind of ['armor-scrape','breach','power-breach','destroyed-breach']){
+    materials.set(kind,new THREE.MeshBasicMaterial({
+      map:pixelTexture(kind),transparent:false,alphaTest:.3,
+      polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
+      side:THREE.DoubleSide,depthWrite:false,
+    }));
+  }
+  shared={geometry,materials};return shared;
 }
-const bySeverity=e=>Math.min(1,Math.max(.13,
-  ((e.armorAbsorbed||0)+(e.internalDamage||0)*1.8)/65));
 export function createSurfaceScarRenderer({perSerialLimit=4}={}){
-  const displayed=new Map();
-  const keys=new Set();
+  const displayed=new Map(), keys=new Set();
   function locate(exterior,event){
     if(!exterior?.partGroups)return null;
     for(const group of exterior.partGroups.values()){
@@ -52,21 +81,21 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
   }
   function apply(exterior,raw){
     const event=normalizeSurfaceEvent(raw);
-    if(!event || keys.has(event.eventId))return false;
+    if(!event||keys.has(event.eventId))return false;
     const target=locate(exterior,event);
     if(!target)return false;
-    const r=resources(),mark=new THREE.Mesh(r.geometry,r.material);
-    const size=bySeverity(event);
+    const r=resources(),profile=surfaceDamageLanguage(event);
+    const mark=new THREE.Mesh(r.geometry,r.materials.get(profile.kind)||r.materials.get('breach'));
     const origin=new THREE.Vector3(...event.localPoint);
     const normal=new THREE.Vector3(...event.localNormal).normalize();
-    mark.position.copy(origin).addScaledVector(normal,.009);
+    mark.position.copy(origin).addScaledVector(normal,.012);
     mark.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
-    mark.scale.set(.11+size*.19,.045+size*.08,1);
+    mark.scale.set(profile.width,profile.height,1);
     mark.renderOrder=1;
     mark.userData.surfaceScarEvent=event.eventId;
-    // Marks are children of the genuinely struck moving mesh.
-    target.add(mark);
-    keys.add(event.eventId);
+    mark.userData.surfaceDamageKind=profile.kind;
+    // A decal belongs to the specific struck moving physical mesh, not its slot.
+    target.add(mark);keys.add(event.eventId);
     const list=displayed.get(event.serial)||[];
     list.push(mark);
     if(list.length>perSerialLimit){
