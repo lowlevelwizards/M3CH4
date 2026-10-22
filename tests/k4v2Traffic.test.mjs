@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {trafficAdvice,TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
+import {trafficAdvice,isPhysicalChoke,TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
 import {createIntentExecutor,executeIntent} from '../ai/intentExecutor.js';
 import {createRigState,stepRig,DEFAULT_RIG_CONFIG} from '../locomotion.js';
 import {runOlympicEvent} from '../research/aiOlympics.mjs';
@@ -88,4 +88,25 @@ test('the full 3v3 headless battle can pit two independent traffic policies fair
  assert.equal(trial.traffic.friendly,'hybrid');
  assert.equal(trial.traffic.hostile,'zipper');
  assert.ok(trial.actors.every(a=>Number.isFinite(a.trafficQueueSeconds)));
+});
+
+test('hybrid avoids altering open-field movement even with an ally directly ahead',()=>{
+ const legacy=trafficAdvice(rig(),target,ahead,world,1,{
+  policy:'legacy',actorId:'ally-2'});
+ const hybrid=trafficAdvice(rig(),target,ahead,world,1,{
+  policy:'hybrid',actorId:'ally-2'});
+ assert.equal(isPhysicalChoke(rig(),target,world,1),false);
+ assert.deepEqual(hybrid,legacy);
+});
+test('constriction detector demands bilateral real static obstacles, not a one-sided building',()=>{
+ const one={...world,obstacles:[{id:'west',minX:-7,maxX:-2.9,minZ:-4,maxZ:8}]};
+ const both={...one,obstacles:[...one.obstacles,
+  {id:'east',minX:2.9,maxX:7,minZ:-4,maxZ:8}]};
+ const start=createRigState({x:0,z:10,yaw:0});
+ assert.equal(isPhysicalChoke(start,target,one,1),false);
+ assert.equal(isPhysicalChoke(start,target,both,1),true);
+ const close=[{...ahead[0],position:{x:0,z:6},speed:1}];
+ const decision=trafficAdvice(start,target,close,both,1,{
+  policy:'hybrid',actorId:'ally-2'});
+ assert.equal(decision?.kind,'WAIT');
 });
