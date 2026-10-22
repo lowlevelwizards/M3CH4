@@ -154,11 +154,12 @@ export function summarizeOlympics(bouts){
       meanIntentionalHold:round(average(rows.map(b=>b.motion.intentionalHold??0))),
       worstSeed:[...rows].sort((a,b)=>a.score-b.score||a.seed-b.seed)[0]?.seed??null};
   });
-  const groups=[...new Set(OLYMPIC_EVENTS.map(e=>e.group))].map(group=>{
-    const selected=events.filter(e=>e.group===group);
+  const tested=events.filter(e=>e.n>0);
+  const groups=[...new Set(tested.map(e=>e.group))].map(group=>{
+    const selected=tested.filter(e=>e.group===group);
     return {group,meanScore:round(average(selected.map(e=>e.meanScore)),2),
       meanPass:round(average(selected.map(e=>e.passRate)))};
   });
-  return {events,groups,overall:round(average(events.map(e=>e.meanScore)),2),
-    weakest:[...events].sort((a,b)=>a.meanScore-b.meanScore).slice(0,4)};
+  return {events,groups,overall:round(average(tested.map(e=>e.meanScore)),2),
+    weakest:[...tested].sort((a,b)=>a.meanScore-b.meanScore).slice(0,4)};
 }
