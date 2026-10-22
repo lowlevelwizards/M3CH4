@@ -242,8 +242,9 @@ function renderTop(currentMode,series,machine) {
         const back=button('‹ BACK',goBack,'workshop-back');
         back.setAttribute('aria-label','Back from '+heading);top.append(back);
     }
-    top.append(el('strong','unified-title',heading));
     if(workspace==='garage') {
+        const nameplate=el('div','workshop-rig-name');
+        nameplate.append(el('strong','unified-title',heading));
         const rename=button('✎',()=>{
             identityExpanded=true;selectedSlot=null;swapExpanded=false;render();
             const input=dock.querySelector('.unified-identity-form input');
@@ -251,7 +252,7 @@ function renderTop(currentMode,series,machine) {
         },'workshop-rename');
         rename.setAttribute('aria-label','Rename '+name);
         rename.title='Edit rig name';
-        top.append(rename);
+        nameplate.append(rename);top.append(nameplate);
         const actions=el('nav','workshop-top-links');
         for(const [id,label] of [['paint','PAINT'],['vendor','VENDORS'],['inventory','INVENTORY']]){
             const b=button(label,()=>openWorkspace(id),'workshop-top-link');
@@ -259,6 +260,8 @@ function renderTop(currentMode,series,machine) {
             actions.append(b);
         }
         top.append(actions);
+    } else {
+        top.append(el('strong','unified-title',heading));
     }
     if(workspace==='pit'&&series) {
         const c=contractById(series.contractId);
