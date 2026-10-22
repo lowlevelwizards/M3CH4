@@ -156,7 +156,11 @@ export function runBout(seed,settings){
     const strategies=createStrategicState();
     const teams={friendly:[],hostile:[]};
     for(const team of ['friendly','hostile']){
-      let recipe=team===settings.variantTeam?settings.variant:['yard','kestrel','hauler'];
+      let recipe=settings.rosters?.[team]??(team===settings.variantTeam?
+        settings.variant:['yard','kestrel','hauler']);
+      if(!Array.isArray(recipe)||recipe.length!==3||
+          recipe.some(family=>!Object.hasOwn(FAMILIES,family)))
+        throw new RangeError('Invalid three-rig roster for '+team);
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
           team===settings.wornTeam?settings.wear:settings.backgroundWear??0,
           difficulties[team]));
