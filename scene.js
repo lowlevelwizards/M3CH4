@@ -5,6 +5,7 @@ import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
+import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
@@ -1092,7 +1093,10 @@ export function createArenaScene(initial, targetAssembly) {
                 spin: new THREE.Vector3((Math.random() - .5) * 1.4, (Math.random() - .5) * .65, side * (.8 + Math.random() * 1.1)),
             });
         } else if (slot === 'mobility') {
-            group.rotation.z += side * .42; group.rotation.x += .19;
+            const family=installedPart(record.assembly,'mobility')?.definition.id;
+            const fail=familyFailureAnatomy(family,{mobilityDestroyed:true});
+            group.rotation.z += side * (fail.rootRoll+.20);
+            group.rotation.x += fail.rootPitch+.06;
             settleAttachedPartToFloor(group, .02);
         } else if (slot === 'command') {
             group.position.y -= .18; group.rotation.z += side * .27; group.rotation.x += .14;
@@ -1105,9 +1109,17 @@ export function createArenaScene(initial, targetAssembly) {
         record.wrecked = true;
         record.cleared = false;
         const side = record.id.length % 2 ? 1 : -1;
-        record.exterior.root.rotation.z = side * .075;
-        record.exterior.root.rotation.x = .025;
-        record.exterior.root.position.y = -.06;
+        const family=installedPart(record.assembly,'mobility')?.definition.id;
+        const fail=familyFailureAnatomy(family,{
+            mobilityDisabled:record.disabledSlots.has('mobility'),
+            mobilityDestroyed:record.destroyedSlots.has('mobility'),
+            structureDisabled:record.disabledSlots.has('structure'),
+            structureDestroyed:record.destroyedSlots.has('structure'),
+            active:false,
+        });
+        record.exterior.root.rotation.z = side * (fail.rootRoll+.02);
+        record.exterior.root.rotation.x = fail.rootPitch+.018;
+        record.exterior.root.position.y = -fail.rootDrop;
         for (const slot of ['power', 'structure']) {
             const group = record.exterior.partGroups.get(slot);
             if (!group) continue;
@@ -1262,10 +1274,12 @@ export function createArenaScene(initial, targetAssembly) {
     };
     let pilotColors = captureColors(exterior.pickMeshes);
     let inspectionBaseParts=capturePartTransforms(exterior);
+    let inspectionJoints=captureArticulation(exterior).joints;
     function refreshInspectionBase(){
         // The graph bridge may reposition physical stations after buildExteriorRig.
         // Capture that final assembled pose, not the temporary pre-graph position.
         inspectionBaseParts=capturePartTransforms(exterior);
+        inspectionJoints=captureArticulation(exterior).joints;
     }
     let latestPilotParts=null;
     function poseDamagedMachineInGarage() {
@@ -1273,6 +1287,20 @@ export function createArenaScene(initial, targetAssembly) {
         serviceDressing.visible=!vendorEnabled&&Object.values(latestPilotParts)
           .some(part=>part&&(part.destroyed||
             (part.maxIntegrity>0&&part.integrity<=.001)));
+        const mobility=installedPart(previewAssembly,'mobility')?.definition.id||'legs-yard';
+        const failure=familyFailureAnatomy(mobility,conditionFailureFlags(latestPilotParts));
+        exterior.root.rotation.x=failure.rootPitch;
+        exterior.root.rotation.z=failure.rootRoll;
+        exterior.root.position.y=(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y-failure.rootDrop;
+        // Reset every joint to its authored rest before applying the damaged
+        // posture: no accumulating rotations, regardless of inspection duration.
+        for(const joint of inspectionJoints){
+            joint.object.rotation.copy(joint.base);
+            const side=joint.side;
+            const leg=failure.legs.find(item=>item.side===side);
+            if(leg && Object.hasOwn(leg,joint.joint))
+                joint.object.rotation.x+=leg[joint.joint];
+        }
         for(const [slot,group] of exterior.partGroups){
             const base=inspectionBaseParts.get(slot);
             if(!base)continue;
@@ -1600,6 +1628,14 @@ export function createArenaScene(initial, targetAssembly) {
                 const forward=(state.forwardSpeed??0)/3.2;
                 const blocked=record.disabledSlots.has('mobility')||
                     record.destroyedSlots.has('mobility');
+                const damaged=familyFailureAnatomy(mobilityId,{
+                    mobilityDisabled:blocked,
+                    mobilityDestroyed:record.destroyedSlots.has('mobility'),
+                    structureDisabled:record.disabledSlots.has('structure')||
+                        record.destroyedSlots.has('structure'),
+                    structureDestroyed:record.destroyedSlots.has('structure'),
+                    active:record.active&&!record.wrecked,
+                });
                 for(const [side,leg] of motion.legs){
                     if(!leg.hip||!leg.knee||!leg.ankle||!leg.foot)continue;
                     const pose=legPose(leg.upper,leg.lower,{
@@ -1615,6 +1651,13 @@ export function createArenaScene(initial, targetAssembly) {
                     leg.ankle.rotation.z=pose.ankleRoll;
                     leg.foot.rotation.x=pose.foot;
                     leg.foot.rotation.z=pose.footRoll;
+                    const failedLeg=damaged.legs.find(item=>item.side===side);
+                    if(failedLeg){
+                        leg.hip.rotation.x+=failedLeg.hip;
+                        leg.knee.rotation.x+=failedLeg.knee;
+                        leg.ankle.rotation.x+=failedLeg.ankle;
+                        leg.foot.rotation.x+=failedLeg.foot;
+                    }
                 }
             }
             const desired=visual?.target
@@ -1684,6 +1727,20 @@ export function createArenaScene(initial, targetAssembly) {
                 -(state.lateralSpeed??0)*.014-
                 (state.yawRate??0)*speed*.009+
                 damage*Math.sin((motion?.phase??0)*.64)*.032,-.12,.12);
+            // Family-specific mechanical collapse is downstream from game
+            // mobility health: pose only, no collision or speed adjustments.
+            const failed=familyFailureAnatomy(mobilityId,{
+                mobilityDisabled:record.disabledSlots.has('mobility')||
+                    record.destroyedSlots.has('mobility'),
+                mobilityDestroyed:record.destroyedSlots.has('mobility'),
+                structureDisabled:record.disabledSlots.has('structure')||
+                    record.destroyedSlots.has('structure'),
+                structureDestroyed:record.destroyedSlots.has('structure'),
+                active:record.active&&!record.wrecked,
+            });
+            root.position.y-=failed.rootDrop;
+            root.rotation.x+=failed.rootPitch;
+            root.rotation.z+=failed.rootRoll;
         }
         root.updateWorldMatrix(true,true);
     }
@@ -1736,6 +1793,7 @@ export function createArenaScene(initial, targetAssembly) {
         surfaceMarks.clear();
         exterior = buildExteriorRig(assembly);
         inspectionBaseParts=capturePartTransforms(exterior);
+        inspectionJoints=captureArticulation(exterior).joints;
         calibrateExteriorSoles(exterior);
         updateGarageFixtures(assembly);
         for (const mesh of exterior.pickMeshes)
