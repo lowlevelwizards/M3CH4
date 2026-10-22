@@ -103,10 +103,12 @@ export function coordinateSquadArrivals(orders,actors,zones,{
       if(!best)continue; // Existing route fallback remains authoritative.
       const position=rounded(best);
       claimed.push({point:position,radius:collisionRadius,pathFrom:actor.position});
-      if(order.goal==='DEFEND'||order.goal==='SCREEN')
-        output[id].reservationPoint=position;
-      else output[id].arrivalPoint=position;
-      output[id].approachRole=order.goal==='SCREEN'?'OUTER SCREEN':'SCORING SLOT';
+      if(policy!=='lanes'){
+        if(order.goal==='DEFEND'||order.goal==='SCREEN')
+          output[id].reservationPoint=position;
+        else output[id].arrivalPoint=position;
+        output[id].approachRole=order.goal==='SCREEN'?'OUTER SCREEN':'SCORING SLOT';
+      }
       if(policy==='slots')continue;
       // Create staging bearings only if there are multiple approaching actors
       // and the selected slot can be reached from a safe, physically clear
