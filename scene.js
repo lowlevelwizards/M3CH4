@@ -1899,6 +1899,7 @@ export function createArenaScene(initial, targetAssembly) {
             if(contacts.length>=3)break;
             const slot=hit.object.userData.slot,actorId=hit.object.userData.actorId;
             if(!slot||!actorId||hit.object.userData.arenaObstacleId)break;
+            if(actorId!==primary.actorId)break;
             const key=actorId+'/'+slot;
             if(seen.has(key))continue;
             seen.add(key);
