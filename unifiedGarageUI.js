@@ -58,6 +58,7 @@ let swapExpanded = false, drawerExpanded = false, detailsExpanded = false;
 let triageSelected=new Set();let triageRigId=null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
+let inventoryFilter='all',inventorySort='station',inventorySerial=null;
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
@@ -118,6 +119,7 @@ function openWorkspace(target) {
         selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;
         drawerExpanded=false;detailsExpanded=false;identityExpanded=false;
         if (target==='vendor') selectedLotSerial=null;
+        if (target==='inventory') inventorySerial=null;
         if (target==='contracts') {
             const pending=loadSortieAssignment(session);
             selectedJobId=pending?.phase==='pending'?pending.contractId:null;
@@ -128,7 +130,7 @@ function openWorkspace(target) {
 function goBack() {
     const state=actualMode(loadSeries(storage));
     if (state==='pit') return;
-    if (paintExpanded || state==='vendor') {openWorkspace('garage');return;}
+    if (paintExpanded || state==='vendor' || state==='inventory') {openWorkspace('garage');return;}
     if (state==='setup') {mode='contracts';render();return;}
     if (state==='contracts' && selectedJobId) {selectedJobId=null;render();return;}
     if (state==='contracts') {openWorkspace('garage');return;}
@@ -210,8 +212,8 @@ function preview(stable, series) {
 }
 function navRender(stable, currentMode) {
     navigator.replaceChildren();
-    navigator.classList.toggle('hidden', currentMode === 'contracts' || currentMode === 'vendor' || paintExpanded);
-    if (currentMode === 'contracts' || currentMode === 'vendor' || paintExpanded) return;
+    navigator.classList.toggle('hidden', !['garage','setup','pit'].includes(currentMode) || paintExpanded);
+    if (!['garage','setup','pit'].includes(currentMode) || paintExpanded) return;
     const view = bayStatus(stable, viewedId);
     navigator.append(button('‹', () => stepBay(-1), 'bay-arrow', viewedId === BAY_IDS[0]));
     const label = el('div','bay-index');
@@ -724,9 +726,9 @@ function takeContract(stable,jobId) {
     const result=beginSortieAssignment(session,jobId);
     if (!result.ok) {message(result.reason,true);return;}
     selectedJobId = jobId;
-    mode='setup';
     assignment(stable,jobId,viewedId);
-    dock.scrollTop=0;render();
+    // Choosing a job returns to workshop, deployment commits in sortie setup.
+    mode='garage';dock.scrollTop=0;render();
 }
 function renderContracts(stable) {
     const campaign=loadCampaign();
@@ -793,9 +795,7 @@ function renderContracts(stable) {
         if(!node.required)choice.append(el('small','node-optional','OPTIONAL'));
         list.append(choice);
     }
-    dock.append(el('p','unified-muted','SCRAPYARD CIRCUIT · CONNECTED JOBS · TAP A NODE TO OPEN ITS BRIEFING.'));
     dock.append(list);
-    dock.append(el('p','unified-muted','SOLID CONNECTIONS MARK UNLOCKED PATHS. OPTIONAL JOBS DO NOT BLOCK THE CIRCUIT.'));
 }
 function renderStationReadout(view) {
     if (!selectedSlot) return null;
@@ -948,6 +948,7 @@ function render() {
     else if(state==='setup')renderSetup(stable,view);
     else if(state==='pit')renderPit(stable,view,series);
     else if(state==='vendor')renderCounter(machine);
+    else if(state==='inventory')renderInventory(stable);
     navRender(stable,state);
     if (!selling) preview(stable,series);
     dock.scrollTop = previousScroll;
