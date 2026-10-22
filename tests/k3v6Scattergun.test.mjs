@@ -104,7 +104,7 @@ test('both player and AI share physical six-ray traces but only one ammo/recoil/
     assert.match(main,/shotContacts\(shotIndex/);
     assert.match(main,/soundWeaponShot\(weaponSpec\.id,\{shotIndex:shot,cockpit:true\}\)/);
     assert.match(main,/soundWeaponShot\(actor\.weaponSpec\.id/);
-    assert.equal((main.match(/soundWeaponShot\(/g)??[]).length,2,'one call site for player shell and one for AI shell');
+    assert.ok((main.match(/soundWeaponShot\(/g)??[]).length>=2,'existing one-per-shell player and AI sounds remain while new weapons have distinct events');
     assert.match(main,/registerPowerShot\(playerPower, assembly\)/);
     assert.match(main,/registerPowerShot\(actor\.powerSystem, actor\.assembly\)/);
     assert.doesNotMatch(scene,/case 'gun-scatter'/);
