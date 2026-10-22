@@ -5,6 +5,8 @@
  * and presents round score without exposing contract rewards/salvage early.
  */
 import { contractById } from './contracts.js';
+import { stationLabel } from './uiLanguage.js';
+import { createModuleIcon } from './moduleIcons.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
 import { bayHealth, bayModuleQuote, SLOT_LABELS } from './garageBay.js';
@@ -220,7 +222,7 @@ function renderRoundIntermission(series, round) {
         : critical.length?critical.length+' CRITICAL':'FIELDABLE';
     flags.append(make('span','',summary),make('small','',disabled.length?'PIT CREW AVAILABLE':'RETURNED TO BAY'));
     const parts=make('div','k4n-parts');
-    const category={structure:'FRAME',mobility:'DRIVE',power:'POWER',command:'CAB',combat:'GUN'};
+    const category=Object.fromEntries(['structure','mobility','power','command','combat'].map(slot=>[slot,stationLabel(slot)]));
     const statusOf=p=>!p.serial?'EMPTY':p.destroyed?'DESTROYED':
         p.condition<=.001?'DISABLED':Math.min(p.condition,p.armorRatio)<.38?'CRITICAL':
         Math.min(p.condition,p.armorRatio)<.995?'WORN':'OK';
@@ -228,6 +230,7 @@ function renderRoundIntermission(series, round) {
         const status=statusOf(p);
         const tile=make('div','k4n-part k4n-'+status.toLowerCase());
         const title=make('strong','',category[p.slot]);
+        title.prepend(createModuleIcon(p.slot));
         const picture=make('div','k4n-part-art');
         if(p.part?.definitionId){
             const url=activePlayerArena()?.arena?.partThumbnailDataUrl?.(p.part.definitionId,{
