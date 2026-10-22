@@ -25,7 +25,7 @@ export const TARGET_SLOTS = Object.freeze(['power','command','combat','mobility'
 // Include visible outer edges, rather than sampling only an unrepresentative centerline.
 const sampleOffsets = [-.40, 0, .40];
 
-function measure(assembly, frameId) {
+export function measureShieldedAssembly(assembly, frameId) {
     const inspection = inspectAssembly(assembly);
     assert.equal(inspection.ready, true, `Invalid ${frameId}: ${inspection.checks?.map(c=>c.reason)}`);
     const model = buildExteriorRig(assembly);
@@ -91,7 +91,7 @@ export function runFrameShieldAudit() {
     return FRAME_IDS.map(frameId => {
         const assembly = makeTestAssembly();
         equip(assembly, 'structure', frameId);
-        return measure(assembly, frameId);
+        return measureShieldedAssembly(assembly, frameId);
     });
 }
 export function verifyShieldAudit(results = runFrameShieldAudit()) {
