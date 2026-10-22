@@ -91,3 +91,50 @@ until holdout samples and human-vs-AI playtests confirm the benefit.
 - The new event does not simulate a contested firefight or precise 3D
   weapon raycasts, which remain approximations in the headless runner.
 - Each variant is optional; do not auto-promote based on benchmark grade.
+
+## Independent-seed holdout and 3v3 decision
+
+A second course experiment used new seeds `88127` with 30 seeds × 3
+families × 2 profiles, **180 physical trials per candidate**:
+
+| Policy | Independent pass rate | Mean grade | No-net-advance |
+| --- | ---: | ---: | ---: |
+| legacy | 72.2% | 79.05 | 12.237s |
+| slots | 57.8% | 77.54 | 3.971s |
+| lanes | **76.7%** | **82.58** | **0.903s** |
+| coordinated | 51.1% | 76.74 | 1.299s |
+
+Lane staging generalizes to the new seed set, but with a smaller
+completion-margin (4.5 percentage points versus 22.5 previously).
+This is expected under broader physical spawn/handling variations
+and argues against prematurely declaring a best universal policy.
+
+**Full scored 3v3:** 20 side-swapped seed pairs / 40 bouts resulted
+in **18 legacy wins, 18 lanes wins, 4 draws**. Team time on objectives
+averaged 71.343s (legacy) versus 69.623s (lanes). There is no
+demonstrated match advantage. Real objective allocation often spreads
+the squad across different zones, while k4w intervenes only when
+two or more rigs are assigned the **same** objective.
+
+**Promotion decision:** Keep `arrivalPolicy:'legacy'` live. The
+separated-lane candidate remains accessible for scenario experiments
+and potential future faction behavior. The tight-space trial appears
+to benefit, but there is no mandate to globally replace a policy
+that can perform equally well in ordinary battles.
+
+Workflow evidence:
+- Initial Olympics: GitHub Actions `39821610495`
+- Independent holdout and full 3v3: GitHub Actions `39822035895`
+- The workflow archives readable reports and per-trial JSON.
+
+### Next hypothesis suggested by results
+
+Synchronous routes **to different objectives** can still pass through
+the same constricted entrance. A future planner could reserve corridor
+capacity at the team scale independently of objective ownership,
+e.g., stagger entry commitments for nearby machines whose physically
+validated routes overlap. This is distinct from rigidly prescribing
+exact final scoring slots, which the Olympics rejected.
+
+Separate competency, difficulty and faction personality decisions.
+Do not use stage times as magical speed upgrades.
