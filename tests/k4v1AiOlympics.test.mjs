@@ -124,7 +124,7 @@ test('small Olympics report aggregates scenarios without ranking a single long e
   assert.equal(r.summary.events.filter(e=>e.n>0).length,2);
   const markdown=olympicsMarkdown(r);
   assert.match(markdown,/AI Olympics/);
-  assert.match(markdown,/True stalled seconds/);
+  assert.match(markdown,/No-net-advance/);
   assert.doesNotMatch(markdown,/\| Lost visual contact \|/);
   assert.ok(r.summary.overall>0,'unselected events should not dilute the score');
   assert.ok(r.summary.overall>=0);
