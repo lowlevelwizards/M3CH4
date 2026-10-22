@@ -10,6 +10,7 @@ const specs={
     armored:{bg:'#27261e',edge:'#aa8955',text:'#e1d3a8',muted:'#b8a481',ok:'#c4d3a5',warn:'#f1ae69',bad:'#f18a69'},
 };
 import { STATION_ORDER, STATIONS } from './uiLanguage.js';
+import { drawModuleIcon } from './moduleIcons.js';
 import { canvasFont } from './typography.js';
 const slots=STATION_ORDER;
 const names=Object.fromEntries(slots.map(slot=>[slot,STATIONS[slot].short]));
@@ -46,7 +47,6 @@ function systems(ctx,w,h,data,p,theme){
         const y=36+i*35;
         const core=clamp(integrity[slot]??100,0,100);
         const shell=clamp(armor[slot]??100,0,100);
-        const icon=STATIONS[slot].glyph;
         // Distinct physical display grammar: workhorse gauge-mark, Vista
         // compact stacked rails, Hearth welded annunciator segment.
         if(theme==='armored'){
@@ -55,7 +55,7 @@ function systems(ctx,w,h,data,p,theme){
         }else if(theme==='observation'){
             ctx.fillStyle='#204047';ctx.fillRect(6,y-8,w-12,30);
         }
-        label(ctx,icon,9,y+2,14,p.text);
+        drawModuleIcon(ctx,slot,8,y-13,19,p.text,p.warn);
         line(ctx,29,y-6,45,5,shell/100,p,true);
         line(ctx,29,y+6,45,7,core/100,p,core<38);
         if(core<99||shell<99){
@@ -72,16 +72,19 @@ function weapon(ctx,w,h,data,p,theme){
     const tone=critical?p.warn:p.ok;
     const gun=abbreviation(data.weapon);
     if(theme==='workhorse'){
-        label(ctx,'✦ '+gun,9,12,12,p.muted);
+        drawModuleIcon(ctx,'combat',8,4,16,p.muted,p.warn);
+        label(ctx,gun,27,12,12,p.muted);
         ctx.fillStyle='#203126';ctx.fillRect(7,23,w-14,36);
         label(ctx,String(data.ammo??'—'),12,42,27,p.ok);
         ctx.textAlign='right';label(ctx,state,w-8,69,10,tone);ctx.textAlign='left';
     }else if(theme==='observation'){
-        label(ctx,'✦ '+gun,9,12,11,p.muted);
+        drawModuleIcon(ctx,'combat',8,4,16,p.muted,p.warn);
+        label(ctx,gun,27,12,11,p.muted);
         label(ctx,String(data.ammo??'—'),9,43,27,p.text);
         ctx.textAlign='right';label(ctx,state,w-9,66,11,tone);ctx.textAlign='left';
     }else{
-        label(ctx,'✦ '+gun,9,13,11,p.muted);
+        drawModuleIcon(ctx,'combat',8,5,16,p.muted,p.warn);
+        label(ctx,gun,27,13,11,p.muted);
         ctx.fillStyle=critical?'#663824':'#36432d';ctx.fillRect(7,23,w-14,31);
         label(ctx,state,13,40,19,tone);
         ctx.textAlign='right';label(ctx,String(data.ammo??'—'),w-9,67,14,p.text);ctx.textAlign='left';
@@ -136,13 +139,15 @@ function drive(ctx,w,h,data,p,theme){
         label(ctx,`LOAD ${integer(load*100)}%`,9,68,11,p.muted);
         ctx.textAlign='right';label(ctx,`CAP ${integer(reserve*100)}%`,w-9,68,11,p.ok);ctx.textAlign='left';
     }else if(theme==='observation'){
-        label(ctx,'ϟ SUPPLY',8,12,10,p.muted);
+        drawModuleIcon(ctx,'power',8,5,15,p.muted,p.warn);
+        label(ctx,'SUPPLY',27,12,10,p.muted);
         label(ctx,`${generation} / ${demand} kW`,8,31,15,p.text);
         label(ctx,`BUS ${integer(bus*100)}%`,8,51,12,sag?p.warn:p.ok);
         ctx.textAlign='right';label(ctx,`RES ${integer(reserve*100)}%`,w-8,51,12,p.text);ctx.textAlign='left';
         line(ctx,8,63,w-16,7,reserve,p,sag);
     }else{
-        label(ctx,sag?'ϟ SAG':'ϟ POWER',8,13,11,sag?p.warn:p.ok);
+        drawModuleIcon(ctx,'power',8,5,15,p.text,p.warn);
+        label(ctx,sag?'SAG':'POWER',27,13,11,sag?p.warn:p.ok);
         label(ctx,`SUP ${generation} kW`,8,34,13,p.text);
         label(ctx,`REQ ${demand} kW`,8,50,13,p.muted);
         line(ctx,8,60,w-16,6,bus,p,sag);
