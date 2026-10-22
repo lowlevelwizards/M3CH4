@@ -125,3 +125,20 @@ test('reservation persists after leader route no longer overlaps the choke',()=>
  assert.equal(later.orders[id].corridorReservation.releaseAt,
   order.corridorReservation.releaseAt);
 });
+
+test('clearance-aware follower can release early when preceding rig physically passes gate',()=>{
+ const memory={};
+ const scheduled=coordinateCorridors(independent(),actors,world,{
+  policy:'clearance',time:0,memory,collisionRadius:1.14});
+ const pending=Object.entries(scheduled.orders)
+  .find(([,o])=>o.corridorReservation);
+ assert.ok(pending,'expected a waiting vehicle');
+ const [id,order]=pending;
+ const predecessor=order.corridorReservation.leaderId;
+ const cleared=actors.map(a=>a.id===predecessor?
+  {...a,position:{...order.corridorReservation.leaderGoal}}:a);
+ const state=coordinateCorridors(independent(),cleared,world,{
+  policy:'clearance',time:1,memory,collisionRadius:1.14});
+ assert.equal(state.orders[id].corridorReservation,undefined,
+  'cleared passage must not keep its waiting reservation');
+});
