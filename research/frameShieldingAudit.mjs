@@ -57,7 +57,7 @@ export function measureShieldedAssembly(assembly, frameId) {
                 samples.push({ direction, targetSlot, struck,
                     shieldedSlot, evidentialShield, distance: first?.distance ?? null,
                     aim: aim.toArray(), firstName: first?.object?.name ?? null,
-                    intersections: intersections.slice(0,4).map(h=>({
+                    intersections: intersections.filter((h,i)=>i<4 || h.object.userData.slot===targetSlot).map(h=>({
                         slot:h.object.userData.slot,name:h.object.name,distance:h.distance,
                     })) });
             }
