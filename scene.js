@@ -1992,7 +1992,21 @@ export function createArenaScene(initial, targetAssembly) {
                 for(let spark=0;spark<6;spark++)activateParticle(sparkPool,'spark',point,
                     randomBurstDirection(p.direction.clone().negate(),1).multiplyScalar(2.2),
                     .7,.22,-4,0,0xffb25d);
-                impacts.push({ownerId:p.ownerId,point,contacts:blastContacts(point,p.radius,p.damage)});
+                const contacts=blastContacts(point,p.radius,p.damage);
+                // A true direct collision is authoritative even when its
+                // surface normal means the radial ray would backface-cull.
+                const direct=coverFirst?null:hit;
+                if(direct?.object.userData.actorId && direct?.object.userData.slot) {
+                    const slot=direct.object.userData.slot,actorId=direct.object.userData.actorId;
+                    const old=contacts.findIndex(p=>p.contact.actorId===actorId&&p.contact.slot===slot);
+                    if(old>=0)contacts.splice(old,1);
+                    const normal=direct.face?.normal.clone().transformDirection(direct.object.matrixWorld)
+                        ??p.direction.clone().negate();
+                    contacts.unshift({contact:{actorId,slot,blockedBy:null,point:point.clone(),
+                        muzzle:point.clone().addScaledVector(p.direction,-.05),normal,
+                        distance:0,surfaceHit:surfaceContact(direct,point,normal)},damage:p.damage});
+                }
+                impacts.push({ownerId:p.ownerId,point,contacts});
                 arenaPresentationRoot.remove(p.mesh);activeRockets.splice(i,1);
                 continue;
             }
