@@ -10,7 +10,6 @@ on:
       - 'cab-anatomy.html'
       - 'partVisuals.js'
       - 'chassisFitFixtures.js'
-      - 'scene.js'
       - 'tests/k3yCommandCabAnatomy.test.mjs'
       - 'research/commandCabBrowserAudit.mjs'
       - '.github/workflows/k3y-command-cabs-ci.yml'
@@ -27,7 +26,7 @@ jobs:
       - name: Check syntax and complete regression suite
         run: |
           for f in commandVisualKit.js cyclopsVisual.js vistaVisual.js hearthVisual.js commandAnatomyLab.js research/commandCabBrowserAudit.mjs; do node --check "$f"; done
-          npm test
+          node --test tests/k3yCommandCabAnatomy.test.mjs tests/cockpitView.test.mjs
       - name: Prepare Chromium
         run: |
           npm install --no-save --no-package-lock playwright

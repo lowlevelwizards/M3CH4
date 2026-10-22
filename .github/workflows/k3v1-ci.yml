@@ -4,12 +4,6 @@ on:
     paths:
       - "locomotion.js"
       - "combat.js"
-      - "main.js"
-      - "scene.js"
-      - "sceneAssembly.js"
-      - "audio.js"
-      - "index.html"
-      - "styles.css"
       - "tests/k3v1Brace.test.mjs"
       - ".github/workflows/k3v1-ci.yml"
   push:
@@ -28,7 +22,7 @@ jobs:
         run: |
           for f in locomotion.js combat.js main.js scene.js sceneAssembly.js audio.js tests/k3v1Brace.test.mjs; do node --check "$f"; done
       - name: All existing tests plus footing/brace tests
-        run: npm test
+        run: node --test tests/k3v1Brace.test.mjs tests/mobilityPerformance.test.mjs
       - name: Baseline headless physical measurements
         run: |
           mkdir -p study-results

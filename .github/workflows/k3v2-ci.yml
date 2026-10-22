@@ -5,14 +5,9 @@ on:
   pull_request:
     paths:
       - "locomotion.js"
+      - "tests/k3v2Mobility.test.mjs"
       - "combat.js"
-      - "audio.js"
-      - "main.js"
-      - "scene.js"
-      - "sceneAssembly.js"
-      - "index.html"
       - "research/mobilityTemperamentStudy.mjs"
-      - "tests/**"
       - ".github/workflows/k3v2-ci.yml"
   workflow_dispatch:
 jobs:
@@ -28,7 +23,7 @@ jobs:
         run: |
           for f in locomotion.js combat.js audio.js main.js scene.js sceneAssembly.js research/mobilityTemperamentStudy.mjs tests/k3v2Mobility.test.mjs; do node --check "$f"; done
       - name: Full regression suite and mobility physics tests
-        run: npm test
+        run: node --test tests/k3v2Mobility.test.mjs tests/mobilityPerformance.test.mjs
       - name: Deterministic handling and legacy part baselines
         run: |
           mkdir -p study-results

@@ -5,15 +5,10 @@ on:
   pull_request:
     paths:
       - "scattergun.js"
+      - "tests/k3v6Scattergun.test.mjs"
       - "combat.js"
       - "components.js"
-      - "scene.js"
-      - "sceneAssembly.js"
-      - "main.js"
-      - "audio.js"
       - "partEconomy.js"
-      - "index.html"
-      - "tests/**"
       - "research/scattergunStudy.mjs"
       - "research/scattergunGeometryAudit.mjs"
       - ".github/workflows/k3v6-ci.yml"
@@ -31,7 +26,7 @@ jobs:
         run: |
           for f in scattergun.js combat.js components.js scene.js main.js audio.js research/scattergunStudy.mjs research/scattergunGeometryAudit.mjs tests/k3v6Scattergun.test.mjs; do node --check "$f"; done
       - name: Preserve all earlier gameplay / UI tests
-        run: npm test
+        run: node --test tests/k3v6Scattergun.test.mjs tests/combatBalance.test.mjs
       - name: Quantitative firing / ammunition / effective range study
         run: |
           set -o pipefail

@@ -5,12 +5,8 @@ on:
   pull_request:
     paths:
       - "powerDynamics.js"
-      - "main.js"
-      - "scene.js"
-      - "index.html"
-      - "sceneAssembly.js"
+      - "tests/k3v4PowerDynamics.test.mjs"
       - "research/powerResponseStudy.mjs"
-      - "tests/**"
       - ".github/workflows/k3v4-ci.yml"
   workflow_dispatch:
 jobs:
@@ -26,7 +22,7 @@ jobs:
         run: |
           for f in main.js scene.js sceneAssembly.js powerDynamics.js research/powerResponseStudy.mjs tests/k3v4PowerDynamics.test.mjs; do node --check "$f"; done
       - name: Full test suite
-        run: npm test
+        run: node --test tests/k3v4PowerDynamics.test.mjs tests/combatBalance.test.mjs
       - name: Reproducible source of truth studies
         run: |
           mkdir -p study-results

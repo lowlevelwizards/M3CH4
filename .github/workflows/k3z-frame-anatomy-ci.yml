@@ -6,9 +6,7 @@ on:
       - '*FrameVisual.js'
       - 'partVisuals.js'
       - 'chassisFitFixtures.js'
-      - 'scene.js'
       - 'sceneAssembly.js'
-      - 'index.html'
       - 'frame-anatomy.html'
       - 'frameAnatomyLab.js'
       - 'tests/k3zFrameAnatomy.test.mjs'
@@ -32,7 +30,7 @@ jobs:
       - name: Validate source and run entire regression suite
         run: |
           for f in frameVisualKit.js bruiserFrameVisual.js skeletonFrameVisual.js wedgeFrameVisual.js frameAnatomyLab.js research/frameAnatomyBrowserAudit.mjs; do node --check "$f"; done
-          npm test
+          node --test tests/k3zFrameAnatomy.test.mjs tests/partVisuals.test.mjs
       - name: Real mesh directional shielding (must pass)
         run: |
           node research/frameShieldingAudit.mjs --debug

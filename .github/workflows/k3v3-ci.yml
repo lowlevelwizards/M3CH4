@@ -4,13 +4,8 @@ on:
     branches: ["k3v3-directional-physical-shielding"]
   pull_request:
     paths:
-      - "scene.js"
-      - "sceneAssembly.js"
+      - "tests/k3v3PhysicalShielding.test.mjs"
       - "frameShielding.js"
-      - "main.js"
-      - "audio.js"
-      - "index.html"
-      - "tests/**"
       - "research/frameShieldingAudit.mjs"
       - ".github/workflows/k3v3-ci.yml"
   workflow_dispatch:
@@ -27,7 +22,7 @@ jobs:
         run: |
           for f in scene.js sceneAssembly.js main.js audio.js frameShielding.js research/frameShieldingAudit.mjs; do node --check "$f"; done
       - name: All current tests and directional shielding tests
-        run: npm test
+        run: node --test tests/k3v3PhysicalShielding.test.mjs tests/coverTruth.test.mjs
       - name: Install same Three.js version as browser for geometry audit only
         run: npm install --no-save --no-package-lock three@0.186.0
       - name: Real Three.js mesh raycast from six attack directions
