@@ -1,0 +1,63 @@
+name: k4x Corridor Holdout & Domination
+on:
+  push:
+    branches: [k4x-corridor-reservations]
+    paths: [.github/workflows/k4x-corridor-holdout.yml]
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: Unseen initial random seed
+        required: true
+        default: '91841'
+      seeds:
+        description: Matched Olympics cases per cohort
+        required: true
+        default: '25'
+      pairs:
+        description: Side-swapped 3v3 pairs
+        required: true
+        default: '16'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SEED: ${{ github.event.inputs.seed || '91841' }}
+      SEEDS: ${{ github.event.inputs.seeds || '25' }}
+      PAIRS: ${{ github.event.inputs.pairs || '16' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify new source and behavior
+        run: |
+          node --check research/corridorDominationCompare.mjs
+          node --test tests/k4xCorridors.test.mjs
+      - name: Independent physical cross-objective corridor Olympics
+        run: |
+          node research/aiOlympics.mjs \
+            --events=corridor-crossing \
+            --corridors=legacy,priority,stagger,clearance \
+            --traffic=legacy --arrivals=legacy \
+            --families=yard,kestrel,hauler \
+            --profiles=baseline,cautious \
+            --seeds="$SEEDS" --seed="$SEED" \
+            --out=study-results/corridor-holdout
+      - name: Matched full 3v3 Domination versus existing AI
+        run: |
+          node research/corridorDominationCompare.mjs \
+            --policy=stagger --pairs="$PAIRS" --seed="$SEED" \
+            --seconds=150 --out=study-results/corridor-3v3
+      - name: Print independent findings
+        run: |
+          cat study-results/corridor-holdout/report.md
+          cat study-results/corridor-3v3/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: corridor-holdout-${{ github.run_id }}
+          path: |
+            study-results/corridor-holdout/
+            study-results/corridor-3v3/
+          if-no-files-found: warn

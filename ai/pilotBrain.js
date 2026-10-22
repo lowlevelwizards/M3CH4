@@ -95,6 +95,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
             viaPoint:context?.enemySeen?null:(proposed.viaPoint??last.viaPoint),
             arrivalPoint:proposed.arrivalPoint??last.arrivalPoint,
             reservationPoint:proposed.reservationPoint??last.reservationPoint,
+            corridorReservation:proposed.corridorReservation??null,
             utility:proposed.utility};
         return brain.intent;
     }

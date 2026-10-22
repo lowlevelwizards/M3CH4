@@ -10,7 +10,7 @@ export function createIntentExecutor(){return {route:null,key:null,
     replanAttempts:0,lastWaypoint:null,abortReason:null,
     trafficLock:null,trafficYields:0,zoneSettles:0,routeSwitches:0,
     viaIdentity:null,viaReached:false,trafficWaitTime:0,
-    trafficWaits:0,trafficQueueSeconds:0};}
+    trafficWaits:0,trafficQueueSeconds:0,corridorWaitSeconds:0};}
 export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=[],
     options={}) {
     state.retryLeft=Math.max(0,(state.retryLeft??0)-dt);
@@ -31,13 +31,29 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     }
     if(intent?.viaPoint&&d(rig,intent.viaPoint)<1.7)state.viaReached=true;
     const via=!state.viaReached?intent?.viaPoint??null:null;
-    const goal=via??slot??finalGoal;
+    const window=intent?.corridorReservation;
+    const activeWindow=window&&Number.isFinite(options.now)&&
+        options.now<window.releaseAt&&options.now<window.expiresAt&&
+        window.stagePoint&&['CAPTURE','CONTEST','DEFEND','SCREEN','SEARCH','STAGE'].includes(intent.goal);
+    // Travel to physically reachable upstream holding ground, then brake
+    // until the absolute team reservation expires. Never fake goal capture.
+    const corridorStage=activeWindow?window.stagePoint:null;
+    const goal=corridorStage??via??slot??finalGoal;
     // Physical presence already inside an objective is an accomplished
     // approach; stop steering instead of continually seeking a sample point.
     const arrived=(intent?.goal==='CAPTURE'||intent?.goal==='CONTEST')&&
         !intent.contested&&Number.isFinite(intent?.radius)&&
         d(rig,finalGoal)<Math.max(.65,intent.radius-collisionRadius-.5);
     const guarding=intent?.goal==='DEFEND'&&d(rig,finalGoal)<1.15;
+    if(activeWindow&&d(rig,corridorStage)<1.55&&!arrived&&!guarding){
+        state.route=null;state.key=null;state.stalledFor=0;
+        state.lastPosition={x:rig.x,z:rig.z};state.lastYaw=rig.yaw??null;
+        state.corridorWaitSeconds=(state.corridorWaitSeconds??0)+dt;
+        return {mode:'ANCHOR',goal:'CORRIDOR_WAIT',
+            point:{x:rig.x,z:rig.z},role:'TACTICAL',
+            objectiveId:intent?.objectiveId,missionPoint:finalGoal,
+            note:'CORRIDOR ENTRY RESERVED',corridorQueued:true,brakeBias:1};
+    }
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE'||arrived||guarding;
     if(stationary) {
         state.route=null;state.key=null;state.trafficLock=null;state.stalledFor=0;
@@ -74,7 +90,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         // chassis outside the actual objective (detected by AI Olympics).
         const territory=['CAPTURE','CONTEST'].includes(intent?.goal)&&
             Number.isFinite(intent?.radius);
-        let route=territory&&!slot&&!via?
+        let route=territory&&!slot&&!via&&!corridorStage?
             planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
                 failedWaypoint,traffic):
             planRoute(world,rig,goal,collisionRadius);

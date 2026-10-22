@@ -13,6 +13,8 @@ export const OLYMPIC_EVENTS=Object.freeze([
     description:'Three same-family physical mechs share a confined route without deadlocking',seconds:55}),
   Object.freeze({id:'squad-arrival',name:'Coordinated objective arrival',group:'coordination',
     description:'Three machines reach a shared scoring circle while reserving distinct space',seconds:55}),
+  Object.freeze({id:'corridor-crossing',name:'Shared corridor / distinct destinations',group:'coordination',
+    description:'Three machines heading to DIFFERENT objectives must use one physical gate',seconds:70}),
   Object.freeze({id:'rear-ambush',name:'Rear-sector ambush',group:'awareness',
     description:'Infer a shot bearing and turn or seek safety without x-ray vision',seconds:16}),
   Object.freeze({id:'contact-dropout',name:'Lost visual contact',group:'awareness',
@@ -36,7 +38,7 @@ export function createMotionDiagnostic(){
   return {seconds:0,travel:0,intentionalHold:0,usefulTurning:0,
     usefulProgress:0,realStall:0,obstacleStall:0,allyStall:0,
     unclassifiedStall:0,routeFailure:0,recoveryTime:0,
-    trafficQueueSeconds:0,
+    trafficQueueSeconds:0,corridorQueueSeconds:0,
     collisions:0,oscillations:0,lowProgressRun:0,lastImpact:0,
     loopSeconds:0,peakNoAdvance:0,noAdvance:0,bestMissionDistance:null,
     lastMissionKey:null,
@@ -64,7 +66,7 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
   const toward=waypoint?wasRemaining-remaining:0;
   const speed=Math.hypot(rig.vx??0,rig.vz??0);
   const effort=Math.hypot(drive.throttle??0,drive.strafe??0);
-  const queued=!!order?.trafficQueued;
+  const queued=!!order?.trafficQueued||!!order?.corridorQueued;
   const hold=!queued&&(order?.mode==='ANCHOR'||order?.goal==='HOLD'||
     order?.goal==='SERVICE'||(!waypoint&&effort<.2));
   const turning=yawChange/dt>.14||Math.abs(rig.yawRate??0)>.14;
@@ -88,7 +90,10 @@ export function sampleMotion(m,rig,drive,order,executor,world,dt,
   }else if(hold)m.noAdvance=0;
   m.seconds+=dt;m.travel+=moved;
   if(hold)m.intentionalHold+=dt;
-  if(queued)m.trafficQueueSeconds+=dt;
+  if(queued){
+    if(order?.corridorQueued)m.corridorQueueSeconds+=dt;
+    else m.trafficQueueSeconds+=dt;
+  }
   if(turning&&seeking)m.usefulTurning+=dt;
   if(toward>.014*dt)m.usefulProgress+=dt;
   if(recovering)m.recoveryTime+=dt;
@@ -133,7 +138,7 @@ export function motionSummary(m){
   const keys=['seconds','travel','intentionalHold','usefulTurning','usefulProgress',
     'realStall','obstacleStall','allyStall','unclassifiedStall',
     'routeFailure','recoveryTime','worstStall','loopSeconds','peakNoAdvance',
-    'trafficQueueSeconds'];
+    'trafficQueueSeconds','corridorQueueSeconds'];
   return {...Object.fromEntries(keys.map(k=>[k,round(m[k])])),
     collisions:m.collisions,oscillations:m.oscillations,
     routeSwitches:m.routeSwitches,trafficYields:m.trafficYields};
@@ -143,13 +148,17 @@ export function gradeOlympicEvent(eventId,facts){
   const safety=clamp(1-(motion.realStall??0)/time*1.4-
     (motion.collisions??0)*.07-(motion.routeFailure??0)/time*.5-
     (motion.loopSeconds??0)/time*.85-
-    (motion.trafficQueueSeconds??0)/time*.12);
+    (motion.trafficQueueSeconds??0)/time*.12-
+    (motion.corridorQueueSeconds??0)/time*.12);
   let mission=0;
   if(['open-transit','wall-detour'].includes(eventId)){
     const initial=Math.max(1,facts.initialDistance??1);
     const progress=clamp(1-(facts.finalDistance??initial)/initial);
     const completion=facts.completed?1:0;
     mission=completion*.70+progress*.30;
+  } else if(eventId==='corridor-crossing'){
+    mission=.70*clamp((facts.teamCompletions??0)/3)+
+      .30*clamp((facts.teamProgress??0)/3);
   } else if(eventId==='squad-arrival'){
     mission=.62*clamp((facts.teamCompletions??0)/3)+
       .25*clamp((facts.teamProgress??0)/3)+
@@ -188,6 +197,7 @@ export function summarizeOlympics(bouts){
       meanStall:round(average(rows.map(b=>b.motion.realStall??0))),
       meanLoop:round(average(rows.map(b=>b.motion.loopSeconds??0))),
       meanQueue:round(average(rows.map(b=>b.motion.trafficQueueSeconds??0))),
+      meanCorridorQueue:round(average(rows.map(b=>b.motion.corridorQueueSeconds??0))),
       meanCollisions:round(average(rows.map(b=>b.motion.collisions??0))),
       meanIntentionalHold:round(average(rows.map(b=>b.motion.intentionalHold??0))),
       worstSeed:[...rows].sort((a,b)=>a.score-b.score||a.seed-b.seed)[0]?.seed??null};
