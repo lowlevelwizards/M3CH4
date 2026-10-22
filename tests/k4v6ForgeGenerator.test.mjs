@@ -39,7 +39,8 @@ test('real heavy load constraints still forbid overweight or poorly powered conf
     const baseline=runRosterBalanceAudit();
     assert.equal(baseline.summary.definitions,CATALOG.length);
     assert.equal(baseline.summary.total,baseline.combinations.length);
-    const legacy=baseline.combinations.filter(row=>row.recipe.combat!=='gun-rivet');
+    const originalGuns=new Set(CATALOG.slice(0,16).filter(p=>p.slot==='combat').map(p=>p.id));
+    const legacy=baseline.combinations.filter(row=>originalGuns.has(row.recipe.combat));
     assert.equal(legacy.length,324,'historic pre-expansion combinations remain represented');
     assert.equal(legacy.filter(row=>row.ready).length,237,'new gun does not change historic build legality');
 });
