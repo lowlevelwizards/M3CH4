@@ -24,6 +24,7 @@ const BASE_VALUES = Object.freeze({
     'gun-rivet': 1470,
     'gun-breaker': 1980,
     'gun-rocket': 1800,
+    'gun-arc': 1720,
 });
 
 const clamp01 = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));

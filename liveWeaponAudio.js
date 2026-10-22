@@ -24,6 +24,8 @@ export const LIVE_WEAPON_RECIPES=Object.freeze({
     settings:settings(100,98,28,80,35,100,65,100,76)}),
   'gun-rocket':Object.freeze({template:'custom',action:'none',
     settings:settings(75,80,85,80,20,0,0,50,30)}),
+  'gun-arc':Object.freeze({template:'custom',action:'none',
+    settings:settings(25,28,98,90,4,0,0,30,20)}),
 });
 const finite=(value,fallback=0)=>Number.isFinite(value)?value:fallback;
 

@@ -23,7 +23,7 @@ export function createPowerSystem(assembly) {
         generatorId:id, reserveKJ:profile.reserveKJ, reserveFraction:1,
         generationKw:Math.min(Math.max(0,rating(assembly,'power')),demandKw),
         demandKw, servedKw:demandKw, capacityKw:Math.max(0,rating(assembly,'power')),
-        busRatio:1, shotPulseKw:0, brownout:false, weaponReady:true,
+        busRatio:1, shotPulseKw:0, activeWeaponKw:0, brownout:false, weaponReady:true,
     };
 }
 /** Actual stationary service demand: cab electronics, weapon standby current,
@@ -52,7 +52,7 @@ export function advancePowerSystem(state,assembly,rig,dt,powerHealth=1) {
     const mobilityKw = Math.max(0,-rating(assembly,'mobility'));
     const duty = clamp(rig?.driveLoad ?? 0,0,1);
     const idle = standbyDemandKw(assembly);
-    const demandKw = idle + mobilityKw * .82 * duty + (state.shotPulseKw??0);
+    const demandKw = idle + mobilityKw * .82 * duty + (state.shotPulseKw??0) + (state.activeWeaponKw??0);
     const reserveCap = spec.reserveKJ * clamp(powerHealth,0,1);
     state.reserveKJ = clamp(state.reserveKJ,0,reserveCap);
     const availableReserve = reserveCap - state.reserveKJ;
@@ -89,4 +89,12 @@ export function powerConstrainedOutput(output,powerSystem) {
 export function powerProfile(assembly) {
     const id = installedPart(assembly,'power')?.definition.id ?? null;
     return { ...profileFor(id), id };
+}
+
+/** Demand beyond ordinary weapon standby is paid on every actual active
+ * fixed simulation tick. Power shortage follows the existing bus and reserve.
+ */
+export function setActiveWeaponLoad(state,kW) {
+    if(!state)return;
+    state.activeWeaponKw=Math.max(0,Math.min(100,Number.isFinite(kW)?kW:0));
 }

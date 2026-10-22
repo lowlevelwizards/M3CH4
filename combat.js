@@ -14,6 +14,7 @@ export const WEAPONS = {
     'gun-rivet': { id: 'gun-rivet', label: 'RR-4 RIVET REPEATER', fireMode: 'automatic', magazine: 60, spareRounds: 216, roundsPerSecond: 8.5, reloadSeconds: 4.2, damage: 10, recoilImpulseNs: 470, spread: .014, sustainedSpread: .034, muzzleZ: -1.60, visualRecoil: .26, visualRecovery: 9.0, muzzleFlashSeconds: .045, handling: 'AUTOMATIC / LANE PRESSURE' },
     'gun-breaker': { id: 'gun-breaker', label: 'BREAKER DRIVER', fireMode: 'charged', chargeSeconds: .70, penetrationEnergy: 135, magazine: 1, spareRounds: 12, roundsPerSecond: 1.0, reloadSeconds: 3.0, damage: 85, recoilImpulseNs: 6200, spread: .004, muzzleZ: -1.80, visualRecoil: 2.0, visualRecovery: 1.55, muzzleFlashSeconds: .17, handling: 'CHARGED / PENETRATION' },
     'gun-rocket': { id: 'gun-rocket', label: 'SCRAP ROCKET RACK', fireMode: 'projectile', projectileSpeed: 32, blastRadius: 3.5, magazine: 3, spareRounds: 18, roundsPerSecond: 1.1, reloadSeconds: 4.5, damage: 92, recoilImpulseNs: 1700, spread: .010, muzzleZ: -1.60, visualRecoil: .70, visualRecovery: 3.1, muzzleFlashSeconds: .16, handling: 'UNGUIDED / EXPLOSIVE' },
+    'gun-arc': { id: 'gun-arc', label: 'ARC CUTTER', fireMode: 'continuous', activeKw: 42, heatPerTick: .027, ventSeconds: 1.8, rangeMeters: 6, magazine: 50, spareRounds: 250, roundsPerSecond: 10, reloadSeconds: 3.0, damage: 5, recoilImpulseNs: 0, spread: .001, muzzleZ: -1.80, visualRecoil: .06, visualRecovery: 10, muzzleFlashSeconds: .075, handling: 'CONTACT / THERMAL' },
 };
 export function weaponFor(assembly) {
     const id = installedPart(assembly, 'combat')?.definition.id;
@@ -45,7 +46,8 @@ export function advanceWeapon(state, spec, dt) {
 /** Return shot index when a round is actually consumed; never invent a shot during reload. */
 export function fireWeapon(state, spec) {
     if (state.reloadLeft > 0 || state.cooldown > 0 || state.loaded <= 0 ||
-        (spec.fireMode === 'charged' && !state.action?.ready))
+        (spec.fireMode === 'charged' && !state.action?.ready) ||
+        (spec.fireMode === 'continuous' && state.action?.ventLeft > 0))
         return null;
     state.loaded--;
     state.cooldown = 1 / spec.roundsPerSecond;
