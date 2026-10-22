@@ -228,7 +228,7 @@ export function planTeam(snapshot,team,options={}) {
             const search=snapshot.kind==='elimination';
             // Opening search uses a broad front, not a pile-up at the central
             // loading house. It depends on roster order, not permanent pilot IDs.
-            const flank=index%2===0?-10:10;
+            const flank=(index-(actors.length-1)/2)*10;
             const point=search?{x:rally.x+flank,z:rally.z}:rally;
             orders[actor.id]={goal:search?'SEARCH':'CAPTURE',point,
                 score:.78,note:search?'SWEEP FLANK FOR CONTACT':'ADVANCE OBJECTIVE'};

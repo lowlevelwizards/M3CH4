@@ -29,7 +29,8 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     const guarding=intent?.goal==='DEFEND'&&d(rig,finalGoal)<1.15;
     const stationary=intent?.goal==='HOLD'||intent?.goal==='SERVICE'||arrived||guarding;
     if(stationary) {
-        state.route=null;state.key=null;state.trafficLock=null;
+        state.route=null;state.key=null;state.trafficLock=null;state.stalledFor=0;
+        state.lastPosition={x:rig.x,z:rig.z};state.lastYaw=rig.yaw??null;
         if(arrived||guarding)state.zoneSettles++;
         return {mode:'ANCHOR',point:{x:rig.x,z:rig.z},role:'TACTICAL',
             objectiveId:intent?.objectiveId,
@@ -38,12 +39,16 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     }
     const key=[intent?.goal,intent?.objectiveId??'',Math.round(goal.x),Math.round(goal.z)].join(':');
     if(state.lastPosition) {
-        const traveled=d(state.lastPosition,rig);
-        const finalWaypoint=state.route?.waypoints?.at(-1)??goal;
-        if(traveled<.055&&d(rig,finalWaypoint)>1.6)state.stalledFor+=dt;
+        const waypoint=state.route?.waypoints?.[state.route.index]??goal;
+        // Evaluate actual progress per second, not motion per simulation tick.
+        const progress=d(state.lastPosition,waypoint)-d(rig,waypoint);
+        const turn=Number.isFinite(rig.yaw)&&Number.isFinite(state.lastYaw)?
+            Math.abs(Math.atan2(Math.sin(rig.yaw-state.lastYaw),Math.cos(rig.yaw-state.lastYaw))):0;
+        if(progress<.07*dt&&turn<.08*dt&&d(rig,waypoint)>1.6)
+            state.stalledFor+=dt;
         else state.stalledFor=Math.max(0,state.stalledFor-dt*2);
     }
-    state.lastPosition={x:rig.x,z:rig.z};
+    state.lastPosition={x:rig.x,z:rig.z};state.lastYaw=rig.yaw??null;
     const retry=state.stalledFor>2.5;
     const failedWaypoint=retry?state.route?.waypoints?.[state.route.index]??null:null;
     if(retry){state.replanAttempts++;state.abortReason='STALLED AT WAYPOINT';}
@@ -54,7 +59,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
             Number.isFinite(intent?.radius);
         let route=territory?
             planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
-                failedWaypoint):
+                failedWaypoint,traffic):
             planRoute(world,rig,goal,collisionRadius);
         // A speculative sheltered via-point must never strand an otherwise
         // valid capture route. Fall back to real destination on route failure.
@@ -62,7 +67,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
             state.viaReached=true;
             route=territory?
               planApproachRoute(world,rig,finalGoal,intent.radius,
-                collisionRadius,state.replanAttempts,failedWaypoint):
+                collisionRadius,state.replanAttempts,failedWaypoint,traffic):
               planRoute(world,rig,finalGoal,collisionRadius);
         }
         state.route=route.ok?{waypoints:route.waypoints,index:0}:null;

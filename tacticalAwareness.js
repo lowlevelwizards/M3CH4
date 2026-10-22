@@ -191,8 +191,9 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
         state.recentAttackerId = null;
     }
 
-    const blocker = tacticalCoverBlocker(enemy, target, world);
-    state.lineOfSight = !blocker;
+    const blocker = target ? tacticalCoverBlocker(enemy, target, world) : null;
+    // No observed target is NOT an unobstructed contact with ourselves.
+    state.lineOfSight = !!target && !blocker;
     state.blockerId = blocker?.id ?? null;
     if (state.lineOfSight) {
         state.exposedSeconds += dt;
@@ -252,13 +253,18 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
     // Move toward the last contact until line of sight is reacquired. At initial spawn,
     // where the central house hides everyone before first contact, retain the authored
     // approach behavior so the existing match opening does not stall.
-    if (!state.lineOfSight && state.lastSeenTarget) {
-        return { mode: 'SEARCH', point: state.lastSeenTarget, blockedBy: state.blockerId, lineOfSight: false };
-    }
-
+    // Immediate incoming fire outranks returning to an old search coordinate.
+    // Otherwise an AI can ignore unseen rear attacks while tunnel-visioned.
     if(state.underFireSeconds>.2&&state.lastThreat)
         return {mode:'UNDER_FIRE',point:{...state.lastThreat},
             lineOfSight:state.lineOfSight,unseen:!!state.unseenThreat};
+
+    if (!state.lineOfSight && state.lastSeenTarget && state.unseenSeconds < 5.5) {
+        return { mode: 'SEARCH', point: state.lastSeenTarget, blockedBy: state.blockerId, lineOfSight: false };
+    }
+    // A lost contact expires; don't circle an old coordinate forever.
+    if (state.unseenSeconds >= 5.5) state.lastSeenTarget = null;
+    if (!target) return {mode:'NO_CONTACT',point:null,lineOfSight:false};
     return {mode:'ENGAGE',point:{x:target.x,z:target.z},
         lineOfSight:state.lineOfSight};
 }

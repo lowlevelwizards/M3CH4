@@ -1791,7 +1791,7 @@ function frame(now) {
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
-                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? actor.rig, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
                 if (actor.fieldService.held || recovery.mode === 'SETTLE')
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
@@ -2353,7 +2353,7 @@ function resolveAiShotContact(actor,target,contact,damage) {
     // AI pilots register fire directed at them even if a crate catches it. That gives
     // suppression/cover behavior before the first internal-damage event.
     if (target.id !== 'player' && target.motion)
-        noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48);
+        noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48, target.rig);
     if (obstruction)
         noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
     if (contact.slot === null || contact.actorId !== target.id) {
