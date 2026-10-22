@@ -1,0 +1,135 @@
+/* k4s.3 — navigation correction and short landscape geometry.
+   This stylesheet is last so no legacy panel max-height can reintroduce
+   a header/footer collision. */
+#unified-garage[data-workspace="garage"] .unified-top{
+ display:flex;align-items:center;gap:0;
+ background:transparent;border:0;box-shadow:none;padding:0;
+ pointer-events:none;
+}
+#unified-garage[data-workspace="garage"] .workshop-rig-name{
+ display:flex;align-items:center;gap:3px;flex:0 1 auto;min-width:0;
+ padding:3px 5px 3px 10px;min-height:100%;box-sizing:border-box;
+ border:1px solid #78816789;
+ background:linear-gradient(90deg,#121d17f5,#121d17e1);
+ box-shadow:0 4px 15px #0008;pointer-events:auto;
+}
+#unified-garage[data-workspace="garage"] .workshop-rig-name .unified-title{
+ min-width:0;max-width:clamp(140px,23vw,340px);
+ overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+#unified-garage[data-workspace="garage"] .workshop-rename{
+ flex:0 0 28px;min-height:27px;
+}
+#unified-garage[data-workspace="garage"] .workshop-top-links{
+ display:flex;position:static;left:auto;transform:none;
+ margin-left:clamp(8px,3.2vw,54px);gap:6px;
+ padding:0;pointer-events:auto;
+}
+#unified-garage[data-workspace="garage"] .workshop-top-link{
+ min-height:31px;padding:5px clamp(9px,1.2vw,17px);
+ font-size:10px;background:#131e18ed;
+ box-shadow:0 3px 11px #0008;
+}
+#unified-garage[data-workspace="garage"] .unified-credits{
+ margin-left:auto;padding:9px 11px;
+ background:#111c17ed;border:1px solid #78816789;
+ box-shadow:0 3px 10px #0008;
+ pointer-events:auto;
+}
+/* Available space: below the fixed header and above the bay/deploy controls.
+   The toolbox is vertically centered in that safe band, not bottom-anchored. */
+#unified-garage{
+ --k4s-footer-safe:83px;
+ --k4s-tool-safe-gap:9px;
+}
+#unified-garage[data-workspace="garage"].tool-open #unified-garage-dock{
+ top:calc(50% + (var(--k4s-header) - var(--k4s-footer-safe))/2);
+ bottom:auto;transform:translateY(-50%);
+ height:max-content;
+ max-height:calc(100% - var(--k4s-header) - var(--k4s-footer-safe) - 2 * var(--k4s-tool-safe-gap));
+ overflow-y:auto;overscroll-behavior:contain;
+}
+#unified-garage[data-workspace="garage"].replacing #unified-garage-dock,
+#unified-garage[data-workspace="garage"].replacing:not(.drawer-open) #unified-garage-dock{
+ top:calc(50% + (var(--k4s-header) - var(--k4s-footer-safe))/2);
+ bottom:auto;transform:translateY(-50%);
+ max-height:min(75px,calc(100% - var(--k4s-header) - var(--k4s-footer-safe) - 2 * var(--k4s-tool-safe-gap)));
+}
+#unified-garage[data-workspace="garage"].drawer-open #unified-garage-dock{
+ top:calc(var(--k4s-header) + var(--k4s-tool-safe-gap));
+ bottom:calc(var(--k4s-footer-safe) + var(--k4s-tool-safe-gap));
+ transform:none;height:auto;max-height:none;
+}
+/* Contracts are a single briefing card and an anchored decision, with
+   no scroll area. Essential objective always appears before optional flavor. */
+#unified-garage[data-workspace="contracts"].briefing-open #unified-garage-dock{
+ overflow:hidden;justify-content:center;
+}
+#unified-garage[data-workspace="contracts"].briefing-open .unified-contract-detail{
+ box-sizing:border-box;width:min(100%,750px);min-height:0;
+ max-height:100%;padding:10px 14px;
+ display:flex;flex-direction:column;gap:6px;
+ overflow:hidden;
+}
+#unified-garage .contract-brief-eyebrow{
+ font:800 9px/1.2 ui-monospace,monospace;color:#9fb39f;
+}
+#unified-garage .contract-brief-heading{
+ display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+#unified-garage .contract-brief-heading>strong{
+ color:#f2d188;font:900 clamp(12px,1.4vw,17px)/1.1 ui-monospace,monospace;
+}
+#unified-garage .contract-brief-tags{
+ display:flex;align-items:center;gap:12px;flex-shrink:0;
+ color:#e0c28b;font:900 10px ui-monospace,monospace;
+}
+#unified-garage .contract-brief-tags strong{color:#f2c978;font-size:14px}
+#unified-garage .contract-brief-mission{
+ padding:6px 9px;border-left:3px solid #ddad58;background:#383122;
+ color:#eac67e;font:900 11px/1.2 ui-monospace,monospace;
+}
+#unified-garage .unified-contract-detail p.contract-brief-description{
+ margin:0;color:#d6d6c7;font:11px/1.32 ui-monospace,monospace;
+}
+#unified-garage .unified-contract-detail p.contract-brief-flavor{
+ margin:0;color:#aab9a7;font:10px/1.3 ui-monospace,monospace;
+ display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+ overflow:hidden;
+}
+#unified-garage .contract-brief-notes{
+ display:grid;grid-template-columns:1fr 1fr;gap:7px;
+ padding-top:5px;border-top:1px solid #73644977;
+}
+#unified-garage .contract-brief-notes span{
+ font:9px/1.22 ui-monospace,monospace;color:#a9b9a6;
+ display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+}
+@media(max-height:460px){
+ #unified-garage{--k4s-footer-safe:71px;--k4s-tool-safe-gap:7px}
+ #unified-garage[data-workspace="garage"] .workshop-top-link{
+  min-height:27px;padding:3px 9px;font-size:9px;
+ }
+ #unified-garage[data-workspace="garage"] .workshop-rig-name{
+  padding:2px 4px 2px 7px;
+ }
+ #unified-garage[data-workspace="contracts"].briefing-open .unified-contract-detail{
+  padding:7px 10px;gap:4px;
+ }
+ #unified-garage .unified-contract-detail p.contract-brief-description{font-size:10px;line-height:1.22}
+ #unified-garage .unified-contract-detail p.contract-brief-flavor{-webkit-line-clamp:1;font-size:9px}
+ #unified-garage .contract-brief-notes span{-webkit-line-clamp:1}
+}
+@media(max-width:730px){
+ #unified-garage[data-workspace="garage"] .workshop-top-links{
+  margin-left:7px;gap:3px;
+ }
+ #unified-garage[data-workspace="garage"] .workshop-top-link{
+  min-height:26px;padding:3px 5px;font-size:8px;
+ }
+ #unified-garage[data-workspace="garage"] .workshop-rig-name .unified-title{
+  max-width:clamp(105px,21vw,165px);font-size:10px;
+ }
+ #unified-garage[data-workspace="garage"] .workshop-rename{flex-basis:25px;min-height:25px}
+ #unified-garage[data-workspace="garage"] .unified-credits{padding:7px 5px}
+}
