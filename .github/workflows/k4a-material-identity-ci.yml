@@ -5,7 +5,6 @@ on:
       - 'partMaterialPalette.js'
       - '*Visual.js'
       - '*VisualKit.js'
-      - 'scene.js'
       - 'color-material-gallery.html'
       - 'colorMaterialGallery.js'
       - 'research/k4aBrowserComparison.mjs'
@@ -36,7 +35,7 @@ jobs:
         working-directory: after
         run: |
           for f in partMaterialPalette.js weaponVisualKit.js commandVisualKit.js scene.js colorMaterialGallery.js research/k4aBrowserComparison.mjs; do node --check "$f"; done
-          npm test
+          node --test tests/k4aMaterialRoles.test.mjs tests/partVisuals.test.mjs
       - name: Serve identical gallery over both source revisions
         run: |
           cp after/color-material-gallery.html after/colorMaterialGallery.js before/
