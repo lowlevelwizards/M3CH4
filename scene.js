@@ -4,6 +4,7 @@ import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
+import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -964,12 +965,9 @@ export function createArenaScene(initial, targetAssembly) {
         wounds.push(local.clone());
         if (wounds.length > 2) wounds.shift();
         record.wounds.set(slot, wounds);
-        const mark = new THREE.Mesh(new THREE.IcosahedronGeometry(.065, 0), new THREE.MeshBasicMaterial({ color: 0x0d100e }));
-        mark.position.copy(local); mark.scale.set(1.35, .32, 1.35); group.add(mark);
-        record.woundMarks.push(mark);
-        if (record.woundMarks.length > 10) {
-            const oldest = record.woundMarks.shift(); oldest.parent?.remove(oldest); oldest.geometry.dispose(); oldest.material.dispose();
-        }
+        // Keep this actual hit point for subsequent smoke and sparks only.
+        // SurfaceDamageRenderer now owns persistent visible scars so one hit
+        // cannot become both a round breach and an old generic black blob.
     }
     function weaponServicePoint(record) {
         const group = record?.exterior.partGroups.get('combat');
@@ -1257,6 +1255,21 @@ export function createArenaScene(initial, targetAssembly) {
         return colors;
     };
     let pilotColors = captureColors(exterior.pickMeshes);
+    let inspectionBaseParts=capturePartTransforms(exterior);
+    let latestPilotParts=null;
+    function poseDamagedMachineInGarage() {
+        if(!inspecting||animationPreviewMode!=='off'||!latestPilotParts)return;
+        for(const [slot,group] of exterior.partGroups){
+            const base=inspectionBaseParts.get(slot);
+            if(!base)continue;
+            group.position.copy(base.position);
+            group.rotation.copy(base.rotation);
+            const pose=physicalFailurePose(slot,latestPilotParts[slot]);
+            group.position.y+=pose.y;
+            group.rotation.x+=pose.x;
+            group.rotation.z+=pose.z;
+        }
+    }
     // Empty ports are physical, touchable workshop fixtures, not combat hitboxes.
     // Markers only represent stations that can currently be approached on the rig.
     let emptyMountPicks = [];
@@ -1486,6 +1499,7 @@ export function createArenaScene(initial, targetAssembly) {
             exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
             poseInspectionPreview(dt);
+            poseDamagedMachineInGarage();
             // A hidden rear assembly gets a small, eased reveal from its station
             // shortcut. Never reframe the pivot or fight a manual orbit.
             if (orbitAssist !== null) {
@@ -1705,6 +1719,7 @@ export function createArenaScene(initial, targetAssembly) {
         // Detach shared scar geometry before the old rig disposal traversal.
         surfaceMarks.clear();
         exterior = buildExteriorRig(assembly);
+        inspectionBaseParts=capturePartTransforms(exterior);
         calibrateExteriorSoles(exterior);
         updateGarageFixtures(assembly);
         for (const mesh of exterior.pickMeshes)
@@ -2110,6 +2125,8 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function updatePilotDamage(condition) {
+        latestPilotParts=condition?.parts||null;
+        poseDamagedMachineInGarage();
         for (const [slot, meshes] of exterior.partMeshes) {
             const state = condition.parts[slot];
             if (!state)
