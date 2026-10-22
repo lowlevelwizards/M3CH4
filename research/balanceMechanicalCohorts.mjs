@@ -83,6 +83,15 @@ function runSteps(config, phases, initial = {}, world = WORLD, shotImpulse = 0) 
     };
 }
 
+function actualBracedRecoil(config, recoil) {
+    const rig = createRigState({ x: 0, z: 0, yaw: 0 });
+    for (let i = 0; i < Math.round(.5 / DT); i++)
+        stepRig(rig, { ...NEUTRAL, brake: 1 }, DT, config, WORLD);
+    if (!rig.braced) throw new Error('Cannot establish an actual brace for recoil cohort');
+    applyRecoil(rig, config, 0, -1, recoil);
+    return runSteps(config, [{ seconds: .5, input: { ...NEUTRAL, brake: 1 } }], rig);
+}
+
 function electricalTrial(assembly, baseConfig, gunId, powerCondition, phase) {
     const rig = createRigState({ x: 0, z: 0, yaw: 0 });
     const power = createPowerSystem(assembly), damage = createFunctionalDamage();
@@ -148,10 +157,7 @@ function measureVariant(name, recipeIds, driveLeft, driveRight, powerCondition) 
         brakeAndSteer: runSteps(config, phase(1, { ...NEUTRAL, brake: 1, steer: 1 }), { vz: -5 }),
         brace1s: runSteps(config, phase(1, { ...NEUTRAL, brake: 1 })),
         recoilHalfSecond: runSteps(config, phase(.5, NEUTRAL), {}, WORLD, recoil),
-        recoilBraced: runSteps(config, [
-            { seconds: .5, input: { ...NEUTRAL, brake: 1 } },
-            { seconds: .5, input: { ...NEUTRAL, brake: 1 } },
-        ], {}, WORLD, recoil),
+        recoilBraced: actualBracedRecoil(config, recoil),
         wallContact: runSteps(config, phase(3, { ...NEUTRAL, throttle: 1 }),
             { x: 0, z: 5, yaw: 0 }, WALL_WORLD),
         wallReverseRecovery: runSteps(config, [
