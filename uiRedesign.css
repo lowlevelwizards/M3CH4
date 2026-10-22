@@ -24,6 +24,12 @@
 .rig-condition.expanded::before{inset:6px}
 .rig-condition.expanded .rig-meter-core{width:27px;height:27px;box-shadow:inset 0 0 0 5px #182720}
 .rig-meter-numbers{position:absolute;top:100%;font:700 8px/1.3 ui-monospace,monospace;letter-spacing:.04em;color:#c8d6ba;white-space:nowrap;}
+/* Shared SVGs preserve their silhouettes in narrow phone rails; color still
+   communicates the actual operational state of the parent control. */
+.module-icon{display:block;flex-shrink:0;width:1em;height:1em;overflow:visible}
+.module-icon-fallback{display:inline-block;line-height:1}
+.rig-station-icon .module-icon{width:1em;height:1em}
+.workshop-part-preview .module-icon{width:42px;height:42px;max-width:70%;max-height:70%;color:#c4cdbb}
 .rig-station-face{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;width:100%}
 .rig-station-icon{font-size:20px;line-height:1;color:#a2d1b2}
 .rig-station-label{font:800 8px/1 ui-monospace,monospace;letter-spacing:.035em;white-space:nowrap;color:#c3d4ba}
