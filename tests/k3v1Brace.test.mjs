@@ -149,5 +149,5 @@ test('existing touch brake and keyboard Space remain the only brace inputs', () 
     assert.match(html, /id="brake"[^>]*Hold brake to stop/);
     assert.match(main, /stepRig\(rig, \{ throttle: input\.throttle, strafe: input\.strafe, steer: bodySteer, brake: input\.brake \}/);
     assert.match(main, /settledToShoot/);
-    assert.match(html, /0\.0\.1k\.4s\.3/);
+    assert.match(html, /0\.0\.1k\.4(?:s\.3|y\.1)/);
 });

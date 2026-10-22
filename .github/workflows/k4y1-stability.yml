@@ -1,0 +1,31 @@
+name: k4y.1 Targeted Stability Checks
+on:
+  push:
+    branches: [fix/k4y1-mobile-input-service-and-results]
+  pull_request:
+    paths:
+      - 'controls.js'
+      - 'main.js'
+      - 'scene.js'
+      - 'sceneAssembly.js'
+      - 'surfaceDamageRenderer.js'
+      - 'winnerTableau.css'
+      - 'styles.css'
+      - 'index.html'
+      - 'tests/k4y1Stability.test.mjs'
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check changed JavaScript
+        run: |
+          for file in controls.js main.js scene.js sceneAssembly.js surfaceDamageRenderer.js; do
+            node --check "$file"
+          done
+      - name: Stability regressions
+        run: node --test tests/k4y1Stability.test.mjs

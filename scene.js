@@ -1359,7 +1359,10 @@ export function createArenaScene(initial, targetAssembly) {
     let emptyMountPicks = [];
     function rebuildEmptyMountPicks(assembly) {
         emptyMountPicks = [];
-        if (!exterior.root) return;
+        // An empty pad has no mid-air connection sockets. Station selection is
+        // always available on the left rail; transparent targets remain only
+        // for empty positions around an actual installed structural frame.
+        if (!exterior.root || !installedPart(assembly, 'structure')) return;
         const anchors = new THREE.Group();
         anchors.name = 'garage-empty-mounts';
         for (const slot of SLOTS) {
@@ -1368,14 +1371,8 @@ export function createArenaScene(initial, targetAssembly) {
             const point = SLOT_CENTERS[slot];
             const bracket = new THREE.Group();
             bracket.position.set(point[0],point[1],point[2]);
-            const metal = new THREE.MeshStandardMaterial({color:0x6d7467,roughness:.88,metalness:.28});
-            const signal = new THREE.MeshStandardMaterial({color:0xdaa85b,emissive:0x644016,emissiveIntensity:.36,roughness:.74});
-            const plate = new THREE.Mesh(new THREE.BoxGeometry(.38,.07,.28),metal);
-            bracket.add(plate);
-            const bar = new THREE.Mesh(new THREE.BoxGeometry(.22,.035,.07),signal);
-            bar.position.y=.065;bracket.add(bar);
-            const cross = new THREE.Mesh(new THREE.BoxGeometry(.07,.035,.22),signal.clone());
-            cross.position.y=.067;bracket.add(cross);
+            // Invisible touch geometry only: drawing a plus or floating plate
+            // at a catalogue datum implied physical connectors that aren't here.
             const hit = new THREE.Mesh(new THREE.BoxGeometry(.62,.42,.58),
                 new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
             hit.userData.slot=slot;
@@ -2635,20 +2632,25 @@ export function createArenaScene(initial, targetAssembly) {
         powerArcCooldown = Math.max(0, powerArcCooldown - dt);
         if (!inspecting && pilotWeaponServicing) {
             cockpit.updateWorldMatrix(true, true);
-            pilotServiceSparkBudget += 28 * dt;
+            pilotServiceSparkBudget += 64 * dt;
             while (pilotServiceSparkBudget >= 1) {
                 pilotServiceSparkBudget -= 1;
-                const origin = gunPivot.localToWorld(new THREE.Vector3(0, .01, .26));
-                const velocity = new THREE.Vector3((Math.random() - .5) * 1.4, -.25 - Math.random() * 1.55, (Math.random() - .5) * 1.15);
-                activateParticle(sparkPool, 'spark', origin, velocity, .62 + Math.random() * .42, .22 + Math.random() * .22, -2.4, 0, Math.random() > .25 ? 0x76dfff : 0xc8fff2);
+                const side=Math.random()<.5?-1:1;
+                const origin=gunPivot.localToWorld(new THREE.Vector3(side*.14,.02,.26));
+                const spread=new THREE.Vector3(side*(1.05+Math.random()*1.5),0,(Math.random()-.5)*1.2)
+                    .transformDirection(gunPivot.matrixWorld).multiplyScalar(1.0);
+                const velocity=spread.add(new THREE.Vector3(0,1.2+Math.random()*1.7,0));
+                activateParticle(sparkPool,'spark',origin,velocity,1.1+Math.random()*.7,.32+Math.random()*.24,-2.0,0,Math.random()>.22?0x76dfff:0xe0fbff);
             }
         } else pilotServiceSparkBudget = 0;
         if (!inspecting && pilotRecoveryBurstPending) {
             cockpit.updateWorldMatrix(true, true);
             const origin = gunPivot.localToWorld(new THREE.Vector3(0, .01, .26));
             flashDamageLight(origin, 0x76dfff, 5.5, .10, 3.6);
-            for (let i = 0; i < 7; i++)
-                activateParticle(sparkPool, 'spark', origin, new THREE.Vector3((Math.random()-.5)*2.0, .2+Math.random()*1.5, (Math.random()-.5)*1.7), .7+Math.random()*.45, .20+Math.random()*.24, -2.8, 0, i % 3 ? 0x76dfff : 0xe0fbff);
+            for (let i = 0; i < 16; i++) {
+                const side=i%2===0?-1:1;
+                activateParticle(sparkPool,'spark',origin,new THREE.Vector3(side*(1.3+Math.random()*2),1.4+Math.random()*2.1,(Math.random()-.5)*1.7),1.2+Math.random()*.7,.30+Math.random()*.23,-2.4,0,i%3?0x76dfff:0xe0fbff);
+            }
             pilotRecoveryBurstPending = false;
         }
         if (!inspecting && persistentPowerHealth < .52 && powerArcCooldown <= 0) {
@@ -2735,19 +2737,22 @@ export function createArenaScene(initial, targetAssembly) {
             if (!record.condition?.parts || record.cleared) continue;
             record.exterior.root.updateWorldMatrix(true, true);
             if (record.weaponServicing && record.active && !record.wrecked) {
-                record.serviceSparkBudget += 26 * dt;
+                record.serviceSparkBudget += 60 * dt;
                 while (record.serviceSparkBudget >= 1) {
                     record.serviceSparkBudget -= 1;
-                    const origin = weaponServicePoint(record);
-                    const velocity = new THREE.Vector3((Math.random() - .5) * 1.6, -.18 - Math.random() * 1.7, (Math.random() - .5) * 1.35);
-                    activateParticle(sparkPool, 'spark', origin, velocity, .60 + Math.random() * .45, .21 + Math.random() * .24, -2.5, 0, Math.random() > .25 ? 0x76dfff : 0xc8fff2);
+                    const side=Math.random()<.5?-1:1;
+                    const origin=weaponServicePoint(record).add(new THREE.Vector3(side*.12,.04,0));
+                    const velocity=new THREE.Vector3(side*(1.05+Math.random()*1.45),1.1+Math.random()*1.8,(Math.random()-.5)*1.6);
+                    activateParticle(sparkPool,'spark',origin,velocity,1.15+Math.random()*.65,.32+Math.random()*.22,-2.1,0,Math.random()>.22?0x76dfff:0xe0fbff);
                 }
             } else record.serviceSparkBudget = 0;
             if (record.recoveryBurstPending && record.active && !record.wrecked) {
                 const origin = weaponServicePoint(record);
                 flashDamageLight(origin, 0x76dfff, 6.5, .10, 4.2);
-                for (let i = 0; i < 8; i++)
-                    activateParticle(sparkPool, 'spark', origin, new THREE.Vector3((Math.random()-.5)*2.2, .25+Math.random()*1.65, (Math.random()-.5)*1.8), .72+Math.random()*.48, .20+Math.random()*.26, -2.9, 0, i % 3 ? 0x76dfff : 0xe0fbff);
+                for (let i = 0; i < 18; i++) {
+                    const side=i%2===0?-1:1;
+                    activateParticle(sparkPool,'spark',origin,new THREE.Vector3(side*(1.3+Math.random()*2.0),1.3+Math.random()*2.1,(Math.random()-.5)*1.8),1.2+Math.random()*.7,.30+Math.random()*.25,-2.4,0,i%3?0x76dfff:0xe0fbff);
+                }
                 record.recoveryBurstPending = false;
             }
             for (const slot of SLOTS) {
