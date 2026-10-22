@@ -67,6 +67,28 @@ export function packFleet(inventory,validRecipes,{includeDisabled=false}={}){
   }
   return fleet;
 }
+/** One sample of a deliberate owned three-mech target, not a meta prescription.
+ * Keep each serialized unit distinct across bays.
+ */
+export const DESIRED_THREE_RIGS=Object.freeze([
+ ['frame-sr','legs-yard','power-dynamo','cab-cyclops','gun-cannon'],
+ ['frame-utility','legs-compact','power-air','cab-utility','gun-light'],
+ ['frame-wedge','legs-hauler','power-dynamo','cab-cyclops','gun-short']
+]);
+export function chosenTriadCount(inventory){
+ const remaining=new Map();
+ for(const p of inventory){
+   if(p.destroyed||p.condition<=.001)continue;
+   remaining.set(p.definitionId,(remaining.get(p.definitionId)??0)+1);
+ }
+ let complete=0;
+ for(const recipe of DESIRED_THREE_RIGS){
+   if(!recipe.every(id=>(remaining.get(id)??0)>=(recipe.filter(x=>x===id).length)))continue;
+   complete++;
+   for(const id of recipe)remaining.set(id,remaining.get(id)-1);
+ }
+ return complete;
+}
 function preferredContract(campaign){
   const available=availableCampaignNodes(campaign);
   const next=['yard-dog','cutter','mule','circuit-final'].find(
@@ -183,6 +205,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
   let wins=0,losses=0,roundWins=0,salvages=0,purchases=0,repairPaid=0,
     deferred=0,spentInShop=0,peakFleet=1,firstTwo=null,firstThree=null,
     fieldableFailures=0,unfinishedSeries=0,lowBalance=0,stalledAt=null;
+  let firstChosenTwo=null,firstChosenThree=null,peakChosen=1;
   let emergencyServicePaid=0;
   const history=[];
   for(let cycle=0;cycle<contracts;cycle++){
@@ -249,6 +272,10 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
     if(fleet.length>=2&&firstTwo===null)firstTwo=cycle+1;
     if(fleet.length>=3&&firstThree===null)firstThree=cycle+1;
     peakFleet=Math.max(peakFleet,fleet.length);
+    const chosen=chosenTriadCount(inventory);
+    peakChosen=Math.max(peakChosen,chosen);
+    if(chosen>=2&&firstChosenTwo===null)firstChosenTwo=cycle+1;
+    if(chosen>=3&&firstChosenThree===null)firstChosenThree=cycle+1;
     if(credits<250)lowBalance++;
     history.push({contract:cycle+1,id:contract.id,win:terminal,rounds:won+lost,
       shots,claims,credits,owned:inventory.length,fleet:fleet.length,
@@ -257,7 +284,8 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
   return {seed,contracts,wins,losses,roundWins,salvages,purchases,repairPaid,
     deferredRepairQuoted:deferred,spentInShop,credits,owned:inventory.length,
     uniqueDefinitions:new Set(inventory.map(x=>x.definitionId)).size,
-    peakFleet,firstTwo,firstThree,fieldableFailures,lowBalance,
+    peakFleet,firstTwo,firstThree,peakChosen,firstChosenTwo,firstChosenThree,
+    fieldableFailures,lowBalance,
     stalledAt,contractsCompleted:history.length,emergencyServicePaid,
     requiredClears:campaign.clearedNodes.filter(x=>
       ['yard-dog','cutter','mule','circuit-final'].includes(x)).length,
@@ -270,11 +298,15 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     const runs=[];
     for(let i=0;i<seeds;i++)runs.push(simulateCampaign({
       seed:900001+i*3779,contracts,assumptions,purchase:true}));
-    const two=runs.filter(x=>x.firstTwo!==null),three=runs.filter(x=>x.firstThree!==null);
+    const two=runs.filter(x=>x.firstTwo!==null),three=runs.filter(x=>x.firstThree!==null),
+      chosenThree=runs.filter(x=>x.firstChosenThree!==null);
     cases.push({name,assumptions,scenarios:runs.length,
       pctTwoRigs:pct(two.length,runs.length),
       medianContractsToTwo:two.length?median(two.map(x=>x.firstTwo)):null,
       pctThreeRigs:pct(three.length,runs.length),
+      pctDesiredTriad:pct(chosenThree.length,runs.length),
+      medianContractsToDesiredTriad:chosenThree.length?
+        median(chosenThree.map(x=>x.firstChosenThree)):null,
       medianContractsToThree:three.length?median(three.map(x=>x.firstThree)):null,
       avgCash:average(runs.map(x=>x.credits)),
       avgOwned:average(runs.map(x=>x.owned)),
@@ -299,7 +331,8 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     'Market turns over each completed contract. One shortage-targeted purchase per contract leaves cash buffer.',
     'No human selling, advanced trading, customization preferences, actor careers or high-end money sinks.',
     'Fieldability follows the stable serial condition threshold (>0.001) but this heuristic packs three legal recipes, not the full commission/assignment UX.',
-    'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.']};
+    'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.',
+    'The example desired triad is Workhorse plus Precision Kestrel plus Wedge Hauler: merely filling three bays is not the same as achieving personally preferred builds.']};
 }
 export function reportCampaign(r){
   return ['# k4v.10 — Scrapyard multi-bay economic campaign stress tests','',
@@ -312,10 +345,11 @@ export function reportCampaign(r){
       c.pctThreeRigs+'%',c.medianContractsToThree??'—',c.avgClaims,
       c.avgPurchases,c.avgCash,c.avgRepairPaid].join(' | ')+' |'),
     '', '## Additional pressure indicators','',
-    '| Scenario | Avg completed contracts | Avg credits below 250 | Stranded before horizon | Average unserviced repair quotes | Four required jobs cleared |',
+    '| Scenario | Example desired triad achieved | Median contracts to desired triad | Avg completed contracts | Stranded before horizon | Four required jobs cleared |',
     '| --- | ---: | ---: | ---: | ---: | ---: |',
-    ...r.cases.map(c=>'| '+[c.name,c.avgContractsCompleted,c.avgLowBalanceContracts,
-      c.pctNoFieldableAtSomePoint+'%',c.avgDeferredRepair,c.pctFourCampaignClears+'%'].join(' | ')+' |'),
+    ...r.cases.map(c=>'| '+[c.name,c.pctDesiredTriad+'%',
+      c.medianContractsToDesiredTriad??'—',c.avgContractsCompleted,
+      c.pctNoFieldableAtSomePoint+'%',c.pctFourCampaignClears+'%'].join(' | ')+' |'),
     '', ...r.cautions.map(x=>'- '+x),
     '', 'No payouts, repair prices, salvage terms, market prices, or production enemy strategies are modified.'].join('\n')+'\n';
 }
