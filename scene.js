@@ -10,7 +10,7 @@ import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
-import { buildPartVisual } from './partVisuals.js?v=k4w2';
+import { buildPartVisual } from './partVisuals.js?v=k4w3';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
@@ -18,6 +18,8 @@ import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
 import { firstCoverHit } from './coverTruth.js';
+import { rocketFlightStep } from './projectileSimulation.js';
+import { blastDamage } from './explosionResolution.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
@@ -2226,6 +2228,103 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return contacts;
     }
+
+    const activeRockets=[];
+    const rocketGeometry=new THREE.CylinderGeometry(.11,.11,.47,6);
+    const rocketMaterial=new THREE.MeshStandardMaterial({color:0xa87a36,roughness:.78,metalness:.40,flatShading:true});
+    function launchRocket({ownerId,muzzle,point,speed=32,radius=3.5,damage=92}) {
+        if(!muzzle||!point||activeRockets.length>=18)return false;
+        const direction=point.clone().sub(muzzle).normalize();
+        if(!Number.isFinite(direction.x)||direction.lengthSq()<.5)return false;
+        const mesh=new THREE.Mesh(rocketGeometry,rocketMaterial);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction);
+        mesh.position.copy(muzzle).addScaledVector(direction,.45);
+        arenaPresentationRoot.add(mesh);
+        activeRockets.push({ownerId,mesh,direction,speed,radius,damage,life:4});
+        return true;
+    }
+    /** Blast hits originate only on physically ray-visible surfaces; other
+     * plates and solid cover shield internal hardware. No indiscriminate
+     * "all slots within radius" health subtraction.
+     */
+    function blastContacts(position,radius,nominal) {
+        const blockers=[...combatPickMeshes(),...exterior.pickMeshes,...worldSolids];
+        const rigs=[{id:'player',exterior},...squadCombatants.values()];
+        const contacts=[];
+        for(const rig of rigs) {
+            if(rig.cleared)continue;
+            rig.exterior.root.updateWorldMatrix(true,true);
+            for(const [slot,group] of rig.exterior.partGroups) {
+                const direct=group.getWorldPosition(new THREE.Vector3()).sub(position);
+                const length=direct.length();
+                if(length>radius+1||length<1e-5)continue;
+                direct.divideScalar(length);
+                raycaster.set(position,direct);raycaster.far=Math.min(radius+1,length+.8);
+                const hit=raycaster.intersectObjects(blockers,false)[0];
+                if(!hit)continue;
+                const cover=firstCoverHit(position,direct,DEFAULT_WORLD.obstacles,raycaster.far,.035);
+                if(cover&&cover.distance<hit.distance-.01)continue;
+                if(hit.object.userData.actorId!==rig.id||hit.object.userData.slot!==slot)continue;
+                const damage=blastDamage(hit.distance,radius,nominal);
+                if(damage<=0)continue;
+                const normal=hit.face?.normal.clone().transformDirection(hit.object.matrixWorld)
+                    ??direct.clone().negate();
+                const driveSide=slot==='mobility'
+                    ? (rig.exterior.root.worldToLocal(hit.point.clone()).x<0?'left':'right') : undefined;
+                contacts.push({contact:{actorId:rig.id,slot,blockedBy:null,
+                    point:hit.point.clone(),normal,muzzle:position.clone(),distance:hit.distance,
+                    surfaceHit:surfaceContact(hit,hit.point,normal),driveSide},damage});
+            }
+        }
+        return contacts;
+    }
+    function clearRockets() {
+        for(const p of activeRockets)arenaPresentationRoot.remove(p.mesh);
+        activeRockets.length=0;
+    }
+    function advanceRockets(dt) {
+        const impacts=[];
+        for(let i=activeRockets.length-1;i>=0;i--) {
+            const p=activeRockets[i];
+            const sweep=rocketFlightStep({position:p.mesh.position,direction:p.direction,speed:p.speed,life:p.life},dt);
+            if(!sweep){arenaPresentationRoot.remove(p.mesh);activeRockets.splice(i,1);continue;}
+            const start=new THREE.Vector3(sweep.start.x,sweep.start.y,sweep.start.z);
+            raycaster.set(start,p.direction);raycaster.far=sweep.distance;
+            const hit=raycaster.intersectObjects([
+                ...combatPickMeshes(p.ownerId),
+                ...(p.ownerId==='player'?[]:exterior.pickMeshes),...worldSolids],false)[0]??null;
+            const cover=firstCoverHit(start,p.direction,DEFAULT_WORLD.obstacles,sweep.distance,.035);
+            const coverFirst=!!cover&&(!hit||cover.distance<hit.distance-.01);
+            if(coverFirst||hit) {
+                const point=coverFirst?new THREE.Vector3(...cover.point):hit.point.clone();
+                flashDamageLight(point,0xffa64f,9,.17,6);
+                for(let spark=0;spark<6;spark++)activateParticle(sparkPool,'spark',point,
+                    randomBurstDirection(p.direction.clone().negate(),1).multiplyScalar(2.2),
+                    .7,.22,-4,0,0xffb25d);
+                const contacts=blastContacts(point,p.radius,p.damage);
+                // A true direct collision is authoritative even when its
+                // surface normal means the radial ray would backface-cull.
+                const direct=coverFirst?null:hit;
+                if(direct?.object.userData.actorId && direct?.object.userData.slot) {
+                    const slot=direct.object.userData.slot,actorId=direct.object.userData.actorId;
+                    const old=contacts.findIndex(p=>p.contact.actorId===actorId&&p.contact.slot===slot);
+                    if(old>=0)contacts.splice(old,1);
+                    const normal=direct.face?.normal.clone().transformDirection(direct.object.matrixWorld)
+                        ??p.direction.clone().negate();
+                    contacts.unshift({contact:{actorId,slot,blockedBy:null,point:point.clone(),
+                        muzzle:point.clone().addScaledVector(p.direction,-.05),normal,
+                        distance:0,surfaceHit:surfaceContact(direct,point,normal)},damage:p.damage});
+                }
+                impacts.push({ownerId:p.ownerId,point,contacts});
+                arenaPresentationRoot.remove(p.mesh);activeRockets.splice(i,1);
+                continue;
+            }
+            p.mesh.position.set(sweep.end.x,sweep.end.y,sweep.end.z);
+            p.life=sweep.lifeAfter;
+            if(p.life<=0){arenaPresentationRoot.remove(p.mesh);activeRockets.splice(i,1);}
+        }
+        return impacts;
+    }
     function traceShot(spreadX, spreadY, muzzleZ, penetrate=false) {
         camera.updateMatrixWorld();
         cockpit.updateMatrixWorld(true);
@@ -2273,7 +2372,7 @@ export function createArenaScene(initial, targetAssembly) {
         target.exterior.root.updateWorldMatrix(true, true);
         const combatGroup = shooter.exterior.partGroups.get('combat');
         const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : weaponId === 'gun-breaker' ? -1.32 : -1.58;
+        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : weaponId === 'gun-breaker' ? -1.32 : weaponId === 'gun-rocket' ? -1.08 : -1.58;
         const muzzle = combatGroup
             ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
             : shooter.exterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
@@ -2667,7 +2766,7 @@ export function createArenaScene(initial, targetAssembly) {
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
         beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,setPitPresentation,
-        traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
+        traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
     };

@@ -3,7 +3,7 @@ import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceMotionSound } from './liveSystemsEvents.js';
 import { shotContacts } from './scattergun.js';
-import { weaponActionSpreadRadians, advanceChargedTrigger } from './weaponController.js';
+import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
@@ -1913,8 +1913,24 @@ function frame(now) {
                 const authorized=weaponSpec.fireMode==='charged'
                     ? advanceChargedTrigger(weaponState,weaponSpec,
                         fireHeld&&playerCombatActive&&output.weaponOperational&&playerPower.weaponReady,FIXED_DT)
-                    : fireHeld;
+                    : weaponSpec.fireMode==='projectile'
+                        ? advanceProjectileTrigger(weaponState,weaponSpec,fireHeld&&playerCombatActive)
+                        : fireHeld;
                 if (authorized && playerCombatActive) attemptFire();
+            }
+            // Flight and explosion outcomes are authoritative only when the
+            // projectile physically arrives, never at the instant of launch.
+            for(const blast of arena.advanceRockets(FIXED_DT)) {
+                for(const {contact,damage} of blast.contacts) {
+                    if(testEnded)break;
+                    if(blast.ownerId==='player') {
+                        resolvePlayerShotContact(contact,damage,false,true);
+                    } else {
+                        const shooter=actorById(blast.ownerId);
+                        const target=actorById(contact.actorId);
+                        if(shooter&&target)resolveAiShotContact(shooter,target,contact,damage);
+                    }
+                }
             }
             syncMovingObstacles();
             accumulator -= FIXED_DT;
@@ -2236,6 +2252,7 @@ function finishSortie(victory, reason) {
     testEndReason = victory ? null : reason;
     stopFireInput();
     stopFieldServiceInput();
+    arena.clearRockets();
     // The bout state is final, but a surviving pilot gets a short physical aftermath
     // before the report covers the yard. Fire/service stay locked by testEnded.
     controls.setEnabled(victory && playerCombatActive && appSheet.classList.contains('hidden'));
@@ -2435,6 +2452,13 @@ function attemptAiFire(actor, target, shotIndex) {
     const aimSlot=tacticalAimSlot(hostileAimSlot(shotIndex,actor.behavior.aimPriority),{
         targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
         contesting,visibleService:!!target.fieldService?.held});
+    if(actor.weaponSpec.fireMode==='projectile') {
+        const aim=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
+        arena.launchRocket({ownerId:actor.id,muzzle:aim.muzzle,point:aim.point,
+            speed:actor.weaponSpec.projectileSpeed,radius:actor.weaponSpec.blastRadius,
+            damage:actor.weaponSpec.damage});
+        return;
+    }
     const contacts=actor.weaponSpec.pellets>1
         ? shotContacts(shotIndex,actor.weaponSpec,
             1+Math.max(0,1-actorOutput.weapon)*.45,
@@ -2533,6 +2557,19 @@ function attemptFire() {
     const multi=weaponSpec.pellets>1;
     const [baseX,baseY]=shotSpread(shot,multi ? .004*degradedSpread :
         weaponActionSpreadRadians(weaponSpec,weaponState,rig.brace??0)*degradedSpread);
+    if(weaponSpec.fireMode==='projectile') {
+        const aim=arena.traceShot(baseX,baseY,weaponSpec.muzzleZ);
+        const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
+        const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
+        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
+        shotsFired++;sortieRoundsFired++;
+        soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
+        arena.launchRocket({ownerId:'player',muzzle:aim.muzzle,point:aim.point,
+            speed:weaponSpec.projectileSpeed,radius:weaponSpec.blastRadius,
+            damage:weaponSpec.damage});
+        renderAmmo();
+        return;
+    }
     const contacts=multi
         ? shotContacts(shot,weaponSpec,degradedSpread,
             (x,y)=>arena.traceShot(baseX+x,baseY+y,weaponSpec.muzzleZ))
