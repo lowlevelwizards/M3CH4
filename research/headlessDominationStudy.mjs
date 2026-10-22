@@ -339,10 +339,15 @@ export function runBout(seed,settings){
         metrics.win=outcome.victory?'friendly':'hostile';
         metrics.winReason='SCORE';metrics.time=t+DT;break;
       }
-      // A friendly/hostile team elimination still makes sense as a battle
-      // state, but Domination only ends after territorial points are earned.
-      if(count('friendly')===0 && count('hostile')===0){metrics.win='draw';metrics.winReason='BOTH TEAMS DISABLED';metrics.time=t+DT;break;}
-      // All active actors may be stranded, which produces a timed draw.
+      // Live Domination resolves on full squad elimination immediately.
+      // Check after objective scoring so simultaneous final events have one result.
+      const friendlyRemaining=count('friendly'),hostileRemaining=count('hostile');
+      if(friendlyRemaining===0||hostileRemaining===0){
+        metrics.win=friendlyRemaining===0&&hostileRemaining===0?'draw':
+          friendlyRemaining===0?'hostile':'friendly';
+        metrics.winReason='ELIMINATION';metrics.time=t+DT;break;
+      }
+      // All surviving machines may still be stranded: bounded timed draw.
     }
     if(metrics.win===null){
         metrics.win='draw';metrics.winReason='TIME LIMIT';
@@ -357,7 +362,7 @@ export function runBout(seed,settings){
     return metrics;
 }
 const sum=(rows,key)=>rows.reduce((s,x)=>s+(Number(key(x))||0),0);
-function groupReport(rows){
+export function groupReport(rows){
   const count=rows.length;
   const games=rows.filter(x=>x.win!=='draw');
   const roll=arr=>arr.length?sum(arr,x=>x)/arr.length:null;
@@ -461,4 +466,4 @@ function main(){
     console.log('FINAL_SUMMARY '+JSON.stringify({meta:report.meta,overall:report.overall,
       groups:Object.fromEntries(Object.entries(report.groups).map(([k,v])=>[k,{wins:v.winner,meanTime:v.meanTime,scoring:v.territoryDecisions,meanCaptureEvents:v.meanCaptureEvents,meanContestedSeconds:v.meanContestedSeconds,meanKills:v.meanKills}]))}));
 }
-main();
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main();
