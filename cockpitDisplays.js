@@ -10,6 +10,7 @@ const specs={
     armored:{bg:'#27261e',edge:'#aa8955',text:'#e1d3a8',muted:'#b8a481',ok:'#c4d3a5',warn:'#f1ae69',bad:'#f18a69'},
 };
 import { STATION_ORDER, STATIONS } from './uiLanguage.js';
+import { canvasFont } from './typography.js';
 const slots=STATION_ORDER;
 const names=Object.fromEntries(slots.map(slot=>[slot,STATIONS[slot].short]));
 const abbreviation=(s)=>String(s??'NO WEAPON').toUpperCase().includes('NEEDLE')?'NEEDLE':
@@ -24,7 +25,7 @@ function start(ctx,w,h,p,tone='ok'){
 }
 function label(ctx,value,x,y,size=11,color=null){
     if(color)ctx.fillStyle=color;
-    ctx.font=`bold ${size}px monospace`;
+    ctx.font = canvasFont(size, 'data');
     ctx.fillText(String(value),x,y);
 }
 function line(ctx,x,y,w,h,fraction,p,warning=false){

@@ -1,0 +1,29 @@
+name: k4t1 Typography
+on:
+  pull_request:
+    paths:
+      - 'typography.*'
+      - 'index.html'
+      - 'scene.js'
+      - 'cockpitDisplays.js'
+      - 'cockpitIdentityScene.js'
+      - '*-anatomy.html'
+      - 'chassis-*.html'
+      - 'color-material-gallery.html'
+      - 'tests/k4t1Typography.test.mjs'
+      - '.github/workflows/k4t1-typography-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  typography:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check typography-related JavaScript syntax
+        run: |
+          node --check typography.js
+          node --check scene.js
+          node --check cockpitDisplays.js
+          node --check cockpitIdentityScene.js
+      - name: Run focused typography integration tests
+        run: node --test tests/k4t1Typography.test.mjs
