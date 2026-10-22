@@ -25,7 +25,8 @@ test('service plate is graphical only and attached after authentic owner paint',
 test('pit equipment appears only on real disabled machines and has no collision authority',()=>{
   const scene=read('scene.js');
   assert.match(scene,/const serviceDressing=buildServiceDressing\(\)/);
-  assert.match(scene,/serviceDressing\.visible=!vendorEnabled&&Object\.values\(latestPilotParts\)/);
+  assert.match(scene,/serviceDressing\.visible=inspecting&&!vendorEnabled&&policy\.visible/);
+  assert.match(scene,/const policy=serviceBayFocus\(latestPilotParts\|\|\{\}/);
   assert.match(scene,/function buildServiceDressing\(\)/);
   assert.match(scene,/if\(!enabled\)serviceDressing\.visible=false/);
   const method=scene.slice(scene.indexOf('function buildServiceDressing()'),
