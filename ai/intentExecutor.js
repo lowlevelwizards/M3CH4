@@ -55,7 +55,11 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     if(state.key!==key||retry||(!state.route&&state.retryLeft===0)){
         if(state.key && state.key!==key)state.routeSwitches++;
         if(state.key!==key)state.trafficLock=null;
-        const territory=['CAPTURE','CONTEST','DEFEND'].includes(intent?.goal)&&
+        // CAPTURE/CONTEST may stop anywhere within the true scoring radius.
+        // DEFEND already receives a carefully chosen interior point from
+        // chooseDefendPosition; another radius around THAT point can leave the
+        // chassis outside the actual objective (detected by AI Olympics).
+        const territory=['CAPTURE','CONTEST'].includes(intent?.goal)&&
             Number.isFinite(intent?.radius);
         let route=territory?
             planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
@@ -99,7 +103,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
             }
         }
     }
-    return {mode:'ORDER',point:adjusted,role:'TACTICAL',
+    return {mode:'ORDER',goal:intent?.goal??null,point:adjusted,role:'TACTICAL',
         objectiveId:intent?.objectiveId,throttleScale:intent?.goal==='WITHDRAW'?.92:1,
         brakeBias:intent?.goal==='DEFEND'&&d(rig,goal)<3.2?.65:0,
         note:(intent?.goal??'MOVE')+' · '+(intent?.objectiveId??'FIELD')+
