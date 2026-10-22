@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      SEEDS: ${{ github.event.inputs.seeds || '4' }}
+      SEEDS: ${{ github.event.inputs.seeds || '20' }}
       PROFILES: ${{ github.event.inputs.profiles || 'baseline,cautious' }}
       FAMILIES: ${{ github.event.inputs.families || 'yard,kestrel,hauler' }}
       DIFFICULTIES: ${{ github.event.inputs.difficulties || 'pro' }}
