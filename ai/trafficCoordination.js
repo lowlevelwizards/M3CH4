@@ -6,11 +6,12 @@
  * "legacy" is the exact old local sidestep behavior.
  * "zipper" adds deterministic front-of-queue yielding.
  * "lanes" tries identity-stable, validated lateral passing positions.
- * "hybrid" combines the two. None are live defaults until proven.
+ * "hybrid" combines the two everywhere; "gated" tests the rejected
+ * terrain-constrained hypothesis separately. None are live defaults.
  */
 import {trafficWaypoint} from './adaptiveTactics.js';
 
-export const TRAFFIC_POLICIES=Object.freeze(['legacy','zipper','lanes','hybrid']);
+export const TRAFFIC_POLICIES=Object.freeze(['legacy','zipper','lanes','hybrid','gated']);
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const position=entry=>entry?.position??entry?.rig??entry;
 const valid=(p,world,radius)=>
@@ -117,7 +118,7 @@ export function trafficAdvice(rig,waypoint,nearby,world,radius=1,
   if(!waypoint||!nearby?.length)return null;
   // Hybrid only intervenes where static cover actually constricts a lane.
   // This is a key protection for otherwise competent open-field full matches.
-  if(policy==='legacy'||(policy==='hybrid'&&
+  if(policy==='legacy'||(policy==='gated'&&
       !isPhysicalChoke(rig,waypoint,world,radius))){
     const point=trafficWaypoint(rig,waypoint,nearby,world,radius);
     return point===waypoint?null:{kind:'PASS',point,reason:'LEGACY PASS'};
@@ -135,9 +136,9 @@ export function trafficAdvice(rig,waypoint,nearby,world,radius=1,
   const shouldQueue=corridor&&ahead>.35&&ahead<5.2&&
     waitedSeconds<2.6&&
     (slowing>.2||ahead<nearest.separation+1.35);
-  if((policy==='zipper'||policy==='hybrid')&&shouldQueue)
+  if((policy==='zipper'||policy==='hybrid'||policy==='gated')&&shouldQueue)
     return {kind:'WAIT',reason:'FRONT-OF-LANE YIELD',toId:nearest.id};
-  if(policy==='lanes'||policy==='hybrid'){
+  if(policy==='lanes'||policy==='hybrid'||policy==='gated'){
     const point=passingPoint(rig,waypoint,nearby,world,radius,actorId);
     if(point)return {kind:'PASS',point,reason:'STABLE PASSING LANE'};
   }
