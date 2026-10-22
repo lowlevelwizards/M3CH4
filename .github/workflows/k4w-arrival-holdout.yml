@@ -1,0 +1,64 @@
+name: k4w Squad Arrival Holdout
+on:
+  push:
+    branches: [k4w-squad-destination-planning]
+    paths: [.github/workflows/k4w-arrival-holdout.yml]
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: New seed count for each mechanical family and arrival policy
+        required: true
+        default: '30'
+      pairs:
+        description: Mirrored 3v3 seed pairs
+        required: true
+        default: '20'
+      seed:
+        description: Independent seed
+        required: true
+        default: '88127'
+jobs:
+  holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    env:
+      SEEDS: ${{ github.event.inputs.seeds || '30' }}
+      PAIRS: ${{ github.event.inputs.pairs || '20' }}
+      SEED: ${{ github.event.inputs.seed || '88127' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify physical scenario and match comparison
+        run: |
+          node --check research/squadArrivalDomination.mjs
+          node --test tests/k4wSquadArrivals.test.mjs
+      - name: Independent multi-family scoring-entry Olympics
+        run: |
+          node research/aiOlympics.mjs \
+            --events=squad-arrival \
+            --arrivals=legacy,slots,lanes,coordinated \
+            --traffic=legacy \
+            --families=yard,kestrel,hauler \
+            --profiles=baseline,cautious \
+            --seeds="$SEEDS" --seed="$SEED" \
+            --out=study-results/squad-arrival-holdout
+      - name: Side-swapped full Domination comparison
+        run: |
+          node research/squadArrivalDomination.mjs \
+            --policy=lanes --pairs="$PAIRS" \
+            --seconds=150 --accuracy=.7 --seed="$SEED" \
+            --out=study-results/squad-arrival-3v3
+      - name: Read the complete results
+        run: |
+          cat study-results/squad-arrival-holdout/report.md
+          cat study-results/squad-arrival-3v3/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: squad-arrival-holdout-${{ github.run_id }}
+          path: |
+            study-results/squad-arrival-holdout
+            study-results/squad-arrival-3v3
+          if-no-files-found: warn

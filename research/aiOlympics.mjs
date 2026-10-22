@@ -26,6 +26,7 @@ import {prioritizeVisibleTarget} from '../ai/adaptiveTactics.js';
 import {noteIncomingFire,recentThreatTargetId} from '../tacticalAwareness.js';
 import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
 import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
+import {coordinateSquadArrivals,ARRIVAL_POLICIES} from '../ai/squadPositioning.js';
 import {OLYMPIC_EVENTS,EVENT_IDS,METRIC_VERSION,createMotionDiagnostic,
   sampleMotion,motionSummary,gradeOlympicEvent,summarizeOlympics}
   from './aiOlympicsMetrics.mjs';
@@ -56,6 +57,11 @@ function configuration(id,rng){
     case 'wall-detour':return {world:trainingWorld([
       block('closed-gate',-5.5,5.5,-2.2,2.2)]),
       starts:[p(0,17)],goal:{x:0,z:-17},kind:'route'};
+    case 'squad-arrival':return {world:trainingWorld([
+      block('west-objective-approach',-12,-3,-5,7),
+      block('east-objective-approach',3,12,-5,7)]),
+      starts:[p(-5.2,19),p(0,22),p(5.2,19)],
+      goal:{x:0,z:-14},kind:'squad-arrival'};
     case 'ally-choke':return {world:trainingWorld([
       block('west-corridor-wall',-12,-3,-6,7),
       block('east-corridor-wall',3,12,-6,7)]),
@@ -105,6 +111,9 @@ function listTraffic(actor,actors){
 function courseOrder(spec,actor,index){
   if(spec.kind==='anchor')return {goal:'DEFEND',point:spec.goal,
     objectiveId:'olympic-objective',radius:4.7,anchor:true,score:.9};
+  if(spec.kind==='squad-arrival')return {goal:'CAPTURE',
+    objectiveId:'olympics-zone',point:spec.goal,radius:4.7,
+    score:.83,note:'TEAM ENTER SHARED ZONE'};
   if(spec.kind==='route'||spec.kind==='traffic')return {
     goal:'CAPTURE',point:spec.goal,score:.82};
   if(spec.kind==='withdraw')return {goal:'CAPTURE',point:spec.goal,score:.78};
@@ -114,7 +123,9 @@ const heading=(rig,point)=>Math.atan2(point.x-rig.x,-(point.z-rig.z));
 const yawError=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
 export function runOlympicEvent(id,{seed=1717,family='yard',
     profile='baseline',difficulty='pro',seconds=null,
-    trafficPolicy='legacy'}={}){
+    trafficPolicy='legacy',arrivalPolicy='legacy'}={}){
+  if(!ARRIVAL_POLICIES.includes(arrivalPolicy))
+    throw new RangeError('Arrival policy '+arrivalPolicy);
   if(!TRAFFIC_POLICIES.includes(trafficPolicy))throw new RangeError('Traffic policy '+trafficPolicy);
   if(!EVENT_IDS.includes(id))throw new RangeError('Unknown event '+id);
   if(!Object.hasOwn(FAMILIES,family))throw new RangeError('Unknown family '+family);
@@ -142,7 +153,7 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
     part.integrity=part.maxIntegrity*.25;
     mirrorTargetCondition(player.assembly,player.condition);
   }
-  const facts={seed,event:id,family,profile,difficulty,trafficPolicy,
+  const facts={seed,event:id,family,profile,difficulty,trafficPolicy,arrivalPolicy,
     initialDistance:spec.goal?dist(player.rig,spec.goal):null,
     finalDistance:spec.goal?dist(player.rig,spec.goal):null,
     completed:false,arrived:false,teamCompletions:0,
@@ -150,12 +161,13 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
     noGhostFraction:0,searchFraction:0,
     threatSelectionFraction:0,visibleOnlyFraction:0,
     holdFraction:0,withdrawSeconds:null,escapeProgress:0,
-    contactsVisible:0,contactLossAt:null};
+    contactsVisible:0,contactLossAt:null,spacingQuality:0};
   const firstAngles=actors.map(a=>a.rig.yaw);
   let observed=0,ghostOk=0,searchOk=0,triageFrames=0,triageThreat=0,
     triageOnly=0,anchorFrames=0,anchorInside=0,visibleBeforeLoss=false,
     startRetreat=player.rig.z,t=0;
   const arrivalTimes=new Map();
+  let squadOrders=null;
   for(let tick=0;tick<duration/DT;tick++){
     t=tick*DT;
     const snapshot=(spec.kind==='triage'||spec.kind==='dropout')?
@@ -168,6 +180,16 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
       noteIncomingFire(player.motion,{x:0,z:-12},'unseen-attacker',1.1,player.rig);
     if(spec.kind==='triage'&&tick===Math.round(2.5/DT))
       noteIncomingFire(player.motion,enemies[1].rig,enemies[1].id,1.4,player.rig);
+    if(spec.kind==='squad-arrival'&&(!squadOrders||tick%51===0)){
+      const assigned=Object.fromEntries(actors.map((actor,i)=>[
+        actor.id,courseOrder(spec,actor,i)]));
+      squadOrders=coordinateSquadArrivals(assigned,actors.map(a=>({
+        id:a.id,position:{x:a.rig.x,z:a.rig.z},active:a.active,
+        capability:actorCapabilities(a)})),[
+        {id:'olympics-zone',point:spec.goal}],{
+        policy:arrivalPolicy,world:spec.world,zoneRadius:4.7,
+        previousOrders:squadOrders??{},collisionRadius:1.14});
+    }
     for(let index=0;index<actors.length;index++){
       const actor=actors[index],cap=actorCapabilities(actor);
       const view=snapshot?.knowledge?.friendly;
@@ -180,7 +202,8 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
           actor.targetId??null,recentThreatTargetId(actor.motion)):
         candidates[0]??null;
       actor.targetId=target?.id??null;
-      const assignment=courseOrder(spec,actor,index);
+      const assignment=spec.kind==='squad-arrival'?
+        squadOrders[actor.id]:courseOrder(spec,actor,index);
       const position={x:actor.rig.x,z:actor.rig.z};
       const context={capability:cap,policy,world:spec.world,
         personality:actor.behavior.id,
@@ -206,7 +229,8 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
         actor.executor,spec.world,DT,actors.filter(a=>a!==actor),t);
       // Objective defenders succeed by physically holding INSIDE the
       // authored scoring circle. They need not touch the exact centre.
-      const finishRadius=spec.kind==='anchor'?4.0:2.7;
+      const finishRadius=spec.kind==='anchor'?4.0:
+        spec.kind==='squad-arrival'?3.3:2.7;
       if(spec.goal&&dist(actor.rig,spec.goal)<finishRadius&&
          !arrivalTimes.has(actor.id))arrivalTimes.set(actor.id,t);
       if(index!==0)continue;
@@ -239,7 +263,7 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
       if(spec.kind==='withdraw'&&facts.withdrawSeconds===null&&
         decision.goal==='WITHDRAW')facts.withdrawSeconds=t;
     }
-    if(['route','traffic'].includes(spec.kind)&&
+    if(['route','traffic','squad-arrival'].includes(spec.kind)&&
       actors.every(a=>arrivalTimes.has(a.id)))break;
   }
   const secs=Math.min(duration,t+DT);
@@ -248,9 +272,20 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
   facts.arrived=facts.completed;
   facts.timeToGoal=arrivalTimes.get(player.id)??null;
   facts.teamCompletions=arrivalTimes.size;
-  if(spec.kind==='traffic')facts.teamProgress=actors.reduce((total,a,i)=>
-    total+clamp(1-dist(a.rig,spec.goal)/
+  if(['traffic','squad-arrival'].includes(spec.kind))facts.teamProgress=actors.reduce((total,a,i)=>
+    total+clamp(1-(spec.kind==='squad-arrival'?
+      Math.max(0,dist(a.rig,spec.goal)-3.3):dist(a.rig,spec.goal))/
       Math.max(1,dist(spec.starts[i],spec.goal))),0);
+  if(spec.kind==='squad-arrival'){
+    let pairs=0,total=0;
+    for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){
+      const desired=actors[i].config.collisionRadiusM+
+        actors[j].config.collisionRadiusM+.45;
+      total+=clamp(dist(actors[i].rig,actors[j].rig)/desired);
+      pairs++;
+    }
+    facts.spacingQuality=pairs?total/pairs:1;
+  }
   if(spec.kind==='dropout'){
     facts.noGhostFraction=observed?ghostOk/observed:0;
     facts.searchFraction=observed?searchOk/observed:0;
@@ -300,6 +335,7 @@ function parseOpts(args){
   };
   const events=selected('events',EVENT_IDS,EVENT_IDS.join(','));
   const trafficPolicies=selected('traffic',TRAFFIC_POLICIES,'legacy');
+  const arrivalPolicies=selected('arrivals',ARRIVAL_POLICIES,'legacy');
   const families=selected('families',Object.keys(FAMILIES),
     o.quick?'yard':Object.keys(FAMILIES).join(','));
   const profiles=selected('profiles',['baseline','blitz','fortress','wolfpack',
@@ -311,7 +347,7 @@ function parseOpts(args){
   if(!Number.isInteger(seeds)||seeds<1||seeds>100||
     !Number.isInteger(seed)||seed<0||seed>4294967295)
     throw RangeError('Bad seed count or seed');
-  return {events,families,profiles,difficulties,trafficPolicies,seeds,seed,
+  return {events,families,profiles,difficulties,trafficPolicies,arrivalPolicies,seeds,seed,
     out:o.out??'study-results/ai-olympics'};
 }
 function csv(bouts){
@@ -332,16 +368,18 @@ export function runOlympics(config,{onProgress=null}={}){
   const trafficPolicies=config.trafficPolicies??['legacy'];
   const bouts=[];const total=config.events.length*config.families.length*
     config.profiles.length*config.difficulties.length*config.seeds*
-    trafficPolicies.length;
+    trafficPolicies.length*(config.arrivalPolicies??['legacy']).length;
   for(const event of config.events)
     for(const family of config.families)
       for(const profile of config.profiles)
         for(const difficulty of config.difficulties)
           for(const trafficPolicy of trafficPolicies)
+          for(const arrivalPolicy of (config.arrivalPolicies??['legacy']))
           for(let i=0;i<config.seeds;i++){
             // Same scenario and seed across families and profiles.
             const seed=(config.seed+43909*i+31337*EVENT_IDS.indexOf(event))>>>0;
-            const result=runOlympicEvent(event,{seed,family,profile,difficulty,trafficPolicy});
+            const result=runOlympicEvent(event,{seed,family,profile,difficulty,
+              trafficPolicy,arrivalPolicy});
             bouts.push(result);
             onProgress?.(bouts.length,total,result);
           }
@@ -353,6 +391,10 @@ export function runOlympics(config,{onProgress=null}={}){
     const cohort=bouts.filter(b=>b.trafficPolicy===trafficPolicy);
     return [trafficPolicy,summarizeOlympics(cohort)];
   }));
+  const byArrival=Object.fromEntries((config.arrivalPolicies??['legacy']).map(arrivalPolicy=>{
+    const cohort=bouts.filter(b=>b.arrivalPolicy===arrivalPolicy);
+    return [arrivalPolicy,summarizeOlympics(cohort)];
+  }));
   const byFamily=Object.fromEntries(config.families.map(family=>{
     const cohort=bouts.filter(b=>b.family===family);
     return [family,summarizeOlympics(cohort)];
@@ -361,10 +403,10 @@ export function runOlympics(config,{onProgress=null}={}){
     sourceCommit:process.env.GITHUB_SHA??null,
     seeds:config.seeds,seed:config.seed,families:config.families,
     profiles:config.profiles,difficulties:config.difficulties,
-    trafficPolicies,
+    trafficPolicies,arrivalPolicies:config.arrivalPolicies??['legacy'],
     events:config.events,bouts:bouts.length,
     note:'Controlled scripted drills; not a full-match win-rate estimate. Physics and AI decisions shared with live game.'},
-    summary:summarizeOlympics(bouts),byProfile,byFamily,byTraffic,bouts};
+    summary:summarizeOlympics(bouts),byProfile,byFamily,byTraffic,byArrival,bouts};
 }
 export function olympicsMarkdown(report){
   const {meta,summary}=report;
@@ -372,7 +414,8 @@ export function olympicsMarkdown(report){
     meta.bouts+' controlled physical trials · '+meta.seeds+' paired seeds per cohort.',
     'Families: '+meta.families.join(', ')+' · Policies: '+meta.profiles.join(', ')+
       ' · Skill tiers: '+meta.difficulties.join(', ')+
-      ' · Traffic: '+(meta.trafficPolicies??['legacy']).join(', ')+'.','',
+      ' · Traffic: '+(meta.trafficPolicies??['legacy']).join(', ')+
+      ' · Arrival: '+(meta.arrivalPolicies??['legacy']).join(', ')+'.','',
     '## Event medals (diagnostic, not competitive ranks)','',
     '| Event | Group | Trials | Pass | Score / 100 | Hard stall (s) | No-net-advance (s) | Queued (s) | Deliberate hold (s) |',
     '|---|---|---:|---:|---:|---:|---:|---:|---:|'];
@@ -399,6 +442,16 @@ export function olympicsMarkdown(report){
       s.push('- **'+name+'**: '+(choke.passRate*100).toFixed(1)+'% pass, score '+
         choke.meanScore+', '+choke.meanCollisions+' collisions, '+choke.meanLoop+
         's looping, '+choke.meanQueue+'s queued, '+choke.meanStall+'s hard stall');
+    }
+  }
+  if(report.byArrival){
+    s.push('','## Destination-reservation experiments','');
+    for(const [name,cohort]of Object.entries(report.byArrival)){
+      const event=cohort.events.find(e=>e.id==='squad-arrival');
+      if(!event?.n)continue;
+      s.push('- **'+name+'**: '+(event.passRate*100).toFixed(1)+'% pass; '+
+        event.meanScore+'/100; '+event.meanCollisions+' collisions; '+
+        event.meanLoop+'s no-net-progress');
     }
   }
   s.push('','## Evaluation rules and limitations','',
@@ -433,7 +486,7 @@ function main(){
       .sort((a,b)=>a.score-b.score||a.seed-b.seed)[0];
     console.log('OLYMPICS_ANOMALY '+JSON.stringify({
       event:event.id,score:worst.score,pass:worst.pass,seed:worst.seed,
-      trafficPolicy:worst.trafficPolicy,
+      trafficPolicy:worst.trafficPolicy,arrivalPolicy:worst.arrivalPolicy,
       profile:worst.profile,family:worst.family,
       initialDistance:worst.initialDistance,finalDistance:worst.finalDistance,
       arrived:worst.arrived,holdFraction:worst.holdFraction,

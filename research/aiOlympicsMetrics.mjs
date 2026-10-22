@@ -11,6 +11,8 @@ export const OLYMPIC_EVENTS=Object.freeze([
     description:'Find a physical path around a tall obstruction',seconds:55}),
   Object.freeze({id:'ally-choke',name:'Squad traffic',group:'coordination',
     description:'Three same-family physical mechs share a confined route without deadlocking',seconds:55}),
+  Object.freeze({id:'squad-arrival',name:'Coordinated objective arrival',group:'coordination',
+    description:'Three machines reach a shared scoring circle while reserving distinct space',seconds:55}),
   Object.freeze({id:'rear-ambush',name:'Rear-sector ambush',group:'awareness',
     description:'Infer a shot bearing and turn or seek safety without x-ray vision',seconds:16}),
   Object.freeze({id:'contact-dropout',name:'Lost visual contact',group:'awareness',
@@ -148,6 +150,10 @@ export function gradeOlympicEvent(eventId,facts){
     const progress=clamp(1-(facts.finalDistance??initial)/initial);
     const completion=facts.completed?1:0;
     mission=completion*.70+progress*.30;
+  } else if(eventId==='squad-arrival'){
+    mission=.62*clamp((facts.teamCompletions??0)/3)+
+      .25*clamp((facts.teamProgress??0)/3)+
+      .13*clamp(facts.spacingQuality??0);
   } else if(eventId==='ally-choke'){
     mission=.65*clamp((facts.teamCompletions??0)/3)+
       .35*clamp((facts.teamProgress??0)/3);

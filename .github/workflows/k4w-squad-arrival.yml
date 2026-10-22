@@ -1,0 +1,55 @@
+name: k4w Squad Arrival Olympics
+on:
+  push:
+    branches: [k4w-squad-destination-planning]
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: Matched event seeds per mobility and policy
+        required: true
+        default: '40'
+      seed:
+        description: Deterministic seed base
+        required: true
+        default: '46291'
+concurrency:
+  group: k4w-arrival-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      SEEDS: ${{ github.event.inputs.seeds || '40' }}
+      SEED: ${{ github.event.inputs.seed || '46291' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and targeted progression regression
+        run: |
+          node --check ai/squadPositioning.js
+          node --check ai/teamPlanner.js
+          node --check ai/pilotBrain.js
+          node --check ai/intentExecutor.js
+          node --check research/aiOlympics.mjs
+          node --test tests/k4wSquadArrivals.test.mjs tests/k4v1AiOlympics.test.mjs tests/k4v2Traffic.test.mjs tests/k4vAiTournament.test.mjs
+      - name: Run matched full physics team arrival course
+        run: |
+          node research/aiOlympics.mjs \
+            --events=squad-arrival \
+            --arrivals=legacy,slots,lanes,coordinated \
+            --traffic=legacy \
+            --families=yard,kestrel,hauler \
+            --profiles=baseline,cautious \
+            --seeds="$SEEDS" --seed="$SEED" \
+            --out=study-results/squad-arrivals
+      - name: Print measured comparison
+        run: cat study-results/squad-arrivals/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4w-squad-arrival-${{ github.run_id }}
+          path: study-results/squad-arrivals/
+          if-no-files-found: warn
