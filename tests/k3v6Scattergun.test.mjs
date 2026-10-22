@@ -18,7 +18,7 @@ function scatterAssembly(){
 test('scrapyard shotgun adds one physical U1 serial without rewriting fourteen legacy serial definitions',()=>{
     assert.deepEqual(CATALOG.slice(0,14).map(x=>x.id),legacy);
     assert.equal(CATALOG[14].id,'gun-scatter');
-    assert.equal(new Set(CATALOG.map(x=>x.id)).size,15);
+    assert.equal(new Set(CATALOG.map(x=>x.id)).size,16);
     const owned=makeTestAssembly().owned;
     assert.equal(owned[14].serial,'SR01-015');
     assert.equal(owned[14].definitionId,'gun-scatter');

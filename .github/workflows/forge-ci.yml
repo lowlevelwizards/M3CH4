@@ -1,0 +1,34 @@
+name: M3CH4 Forge H-4 Release Checks
+on:
+  pull_request:
+    paths:
+      - 'components.js'
+      - 'forgePowerVisual.js'
+      - 'partVisuals.js'
+      - 'powerDynamics.js'
+      - 'research/forgeGeometryAudit.mjs'
+      - 'tests/k4v6ForgeGenerator.test.mjs'
+      - '.github/workflows/forge-ci.yml'
+jobs:
+  forge-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Protected serials and power constraints
+        run: |
+          node --test tests/k4v6ForgeGenerator.test.mjs tests/k4v0RosterBalance.test.mjs tests/k4v4HaulerElectricalTrial.test.mjs tests/k3v4PowerDynamics.test.mjs
+      - name: Real shipped meshes, pick ownership and mounting envelope
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0
+          node research/forgeGeometryAudit.mjs > forge-real-geometry.json
+          node research/frameShieldingAudit.mjs --assert
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: forge-h4-mesh-and-fit-evidence
+          path: forge-real-geometry.json
+          if-no-files-found: warn

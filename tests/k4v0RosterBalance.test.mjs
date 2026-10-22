@@ -5,7 +5,7 @@ import { CATALOG, SLOTS } from '../components.js';
 import { runRosterBalanceAudit, compareRosterBalanceAudits,
     recipeKey, formatRosterBalanceAudit } from '../research/rosterBalanceAudit.mjs';
 
-const fixture = JSON.parse(readFileSync(new URL('../research/baselines/roster-build4-hauler110.json', import.meta.url), 'utf8'));
+const fixture = JSON.parse(readFileSync(new URL('../research/baselines/roster-build6-forge.json', import.meta.url), 'utf8'));
 
 test('rebalanced catalogue preserves the original October 22 identities', () => {
     assert.deepEqual(CATALOG.slice(0, fixture.originalIds.length).map(p => p.id), fixture.originalIds);
@@ -13,7 +13,7 @@ test('rebalanced catalogue preserves the original October 22 identities', () => 
     assert.equal(CATALOG.length, fixture.expected.definitions);
 });
 
-test('all live five-module recipes produce the recomputed 216 / 152 / 64 power legality', () => {
+test('all live five-module recipes produce the recomputed 324 / 237 / 87 power legality', () => {
     const report = runRosterBalanceAudit(), s = report.summary;
     assert.equal(s.definitions, fixture.expected.definitions);
     assert.equal(s.total, fixture.expected.total);
@@ -49,7 +49,7 @@ test('the first-hit mounting and eligibility authority is inspected, not simulat
             assert.equal(row.combatWinRate, undefined);
         }
     }
-    assert.equal(get('mobility', 'legs-hauler').length, 72);
+    assert.equal(get('mobility', 'legs-hauler').length, 108);
     assert.ok(report.combinations.some(row => !row.ready &&
         row.reasons.some(r => r.check === 'power')));
     assert.ok(report.combinations.some(row => !row.ready &&

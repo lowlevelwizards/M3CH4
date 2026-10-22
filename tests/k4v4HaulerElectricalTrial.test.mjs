@@ -8,7 +8,7 @@ test('110 kW Hauler expands legal assemblies without admitting Draft heavy rigs'
     assert.equal(CATALOG.find(p=>p.id==='legs-hauler').powerKw,-110);
     const matrix=runHaulerElectricalTrial();
     assert.deepEqual(matrix.candidates.map(r=>[r.drawKw,r.totalLegal,r.haulerLegal]),
-        [[115,144,17],[110,152,25],[105,154,27]]);
+        [[115,229,41],[110,237,49],[105,239,51]]);
     const rig=makeTestAssembly();
     equip(rig,'mobility','legs-hauler');
     equip(rig,'combat','gun-light');

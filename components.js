@@ -30,6 +30,8 @@ export const CATALOG = [
     { id: 'frame-wedge', name: 'W-3 Wedge monocoque', slot: 'structure', massKg: 1450, center: SLOT_CENTERS.structure, envelope: [1.88, .84, 1.88], accepts: 'U1', description: 'Shallow tapered monocoque with a sloped armored nose, buried structural spine and low roof-mounted U1 station. Carries up to 4,850 kg.', powerKw: 0, loadLimitKg: 4850, functionReady: true },
     // k.3v.6 — append after all fourteen factory serial IDs; old saves remain stable.
     { id: 'gun-scatter', name: 'Scrapyard S-6 scattergun', slot: 'combat', massKg: 375, center: SLOT_CENTERS.combat, envelope: [1.10, 1.00, 1.92], accepts: 'U1', description: 'Welded six-pellet industrial scattergun: fat choke, four-shell box, exposed cycle lever and heavy single-shell recoil. Short-range armor stripping; every pellet strikes physically.', powerKw: -12, functionReady: true },
+    // Forge H-4 is appended after all fifteen protected factory serial definitions.
+    { id: 'power-forge', name: 'Forge H-4 industrial generator', slot: 'power', massKg: 680, center: SLOT_CENTERS.power, envelope: [1.34, 1.15, 1.05], accepts: 'U1', description: 'Massive continuous-duty industrial generation in a welded cradle with exposed heat exchangers. 170 kW sustained, slow transient response and substantial handling penalty.', powerKw: 170, functionReady: true },
 ];
 // Independent mechanical mounting metadata; mesh geometry and hit envelopes remain unchanged.
 for (const part of CATALOG) {

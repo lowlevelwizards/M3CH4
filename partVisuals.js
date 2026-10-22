@@ -17,6 +17,7 @@ import { buildHearthVisual } from './hearthVisual.js';
 import { buildBruiserFrameVisual } from './bruiserFrameVisual.js';
 import { buildSkeletonFrameVisual } from './skeletonFrameVisual.js';
 import { buildWedgeFrameVisual } from './wedgeFrameVisual.js';
+import { buildForgePowerVisual } from './forgePowerVisual.js';
 
 const BUILDERS = Object.freeze({
     'frame-sr': buildBruiserFrameVisual,
@@ -32,6 +33,7 @@ const BUILDERS = Object.freeze({
     'cab-cyclops': buildCyclopsVisual,
     'cab-utility': buildVistaVisual,
     'cab-armored': buildHearthVisual,
+    'power-forge': buildForgePowerVisual,
 });
 
 export const SHARED_PART_IDS = Object.freeze(Object.keys(BUILDERS));
