@@ -104,8 +104,8 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/soundCombatImpact\(/);
   assert.match(main,/soundSystemEvent\(/);
   assert.match(main,/soundReload\(/);
-  assert.match(html,/\.\/audio\.js\?v=k4w1/);
-  assert.match(html,/\.\/liveWeaponAudio\.js\?v=k4i/);
+  assert.match(html,/\.\/audio\.js\?v=k4i/);
+  assert.match(html,/\.\/liveWeaponAudio\.js\?v=k4w1/);
   assert.match(html,/main\.js\?v=k4w1/);
   assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
