@@ -12,7 +12,7 @@ const ahead=[{id:'ally-1',position:{x:0,z:8},radius:1,
 const target={x:0,z:-15};
 
 test('all four research policy identities are known and invalid input is rejected',()=>{
- assert.deepEqual(TRAFFIC_POLICIES,['legacy','zipper','lanes','hybrid']);
+ assert.deepEqual(TRAFFIC_POLICIES,['legacy','zipper','lanes','hybrid','gated']);
  assert.throws(()=>trafficAdvice(rig(),target,ahead,world,1,
   {policy:'magic'}),RangeError);
 });
@@ -90,11 +90,11 @@ test('the full 3v3 headless battle can pit two independent traffic policies fair
  assert.ok(trial.actors.every(a=>Number.isFinite(a.trafficQueueSeconds)));
 });
 
-test('hybrid avoids altering open-field movement even with an ally directly ahead',()=>{
+test('gated prototype avoids altering open-field movement even with an ally directly ahead',()=>{
  const legacy=trafficAdvice(rig(),target,ahead,world,1,{
   policy:'legacy',actorId:'ally-2'});
  const hybrid=trafficAdvice(rig(),target,ahead,world,1,{
-  policy:'hybrid',actorId:'ally-2'});
+  policy:'gated',actorId:'ally-2'});
  assert.equal(isPhysicalChoke(rig(),target,world,1),false);
  assert.deepEqual(hybrid,legacy);
 });
@@ -107,6 +107,15 @@ test('constriction detector demands bilateral real static obstacles, not a one-s
  assert.equal(isPhysicalChoke(start,target,both,1),true);
  const close=[{...ahead[0],position:{x:0,z:6},speed:1}];
  const decision=trafficAdvice(start,target,close,both,1,{
-  policy:'hybrid',actorId:'ally-2'});
+  policy:'gated',actorId:'ally-2'});
  assert.equal(decision?.kind,'WAIT');
+});
+
+test('original hybrid remains available outside a gateway, with no automatic live promotion',()=>{
+ const proposal=trafficAdvice(rig(),target,ahead,world,1,{
+  policy:'hybrid',actorId:'ally-2'});
+ assert.equal(proposal?.kind,'WAIT');
+ const scoped=trafficAdvice(rig(),target,ahead,world,1,{
+  policy:'gated',actorId:'ally-2'});
+ assert.notEqual(scoped?.kind,'WAIT');
 });
