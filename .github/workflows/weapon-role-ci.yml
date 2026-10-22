@@ -1,0 +1,30 @@
+name: M3CH4 Build 5 Real Weapon Role Audit
+on:
+  pull_request:
+    paths:
+      - 'research/weaponRoleContactAudit.mjs'
+      - 'tests/k4v5WeaponTrials.test.mjs'
+      - '.github/workflows/weapon-role-ci.yml'
+jobs:
+  real-contacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Frozen gameplay stats and controlled candidates
+        run: node --test tests/k4v5WeaponTrials.test.mjs tests/combatBalance.test.mjs tests/k3v6Scattergun.test.mjs
+      - name: Geometry-backed sampled first-hit, armor and subsystem effects
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0
+          mkdir -p weapon-evidence
+          node research/weaponRoleContactAudit.mjs --assert > weapon-evidence/contact-summary.md
+          node research/weaponRoleContactAudit.mjs --json > weapon-evidence/contact-matrix.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build5-weapon-real-contact-evidence
+          path: weapon-evidence/
+          if-no-files-found: warn
