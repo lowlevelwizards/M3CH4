@@ -20,6 +20,8 @@ export const LIVE_WEAPON_RECIPES=Object.freeze({
   // Short mechanical impulses keep sustained 8.5 Hz fire distinct without huge tails.
   'gun-rivet':Object.freeze({template:'custom',action:'bolt',
     settings:settings(55,64,86,78,8,55,38,40,55)}),
+  'gun-breaker':Object.freeze({template:'custom',action:'bolt',
+    settings:settings(100,98,28,80,35,100,65,100,76)}),
 });
 const finite=(value,fallback=0)=>Number.isFinite(value)?value:fallback;
 

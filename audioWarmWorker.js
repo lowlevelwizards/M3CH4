@@ -3,8 +3,8 @@
  * generating thousands of trig / exp samples inside an active physics frame.
  */
 import {renderSystemSound} from './audioSystemsSynth.js?v=k3w11';
-import {renderPressureForgePCM} from './audioPressureForgeSynth.js?v=k3w6';
-import {LIVE_WEAPON_RECIPES} from './liveWeaponAudio.js?v=k4w1';
+import {renderPressureForgePCM} from './audioPressureForgeSynth.js?v=k4w2';
+import {LIVE_WEAPON_RECIPES} from './liveWeaponAudio.js?v=k4w2';
 const rate=24000;
 const tasks=[
   ...Object.keys(LIVE_WEAPON_RECIPES).map(id=>['weapon',id,0]),

@@ -3,7 +3,8 @@ import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceMotionSound } from './liveSystemsEvents.js';
 import { shotContacts } from './scattergun.js';
-import { weaponActionSpreadRadians } from './weaponController.js';
+import { weaponActionSpreadRadians, advanceChargedTrigger } from './weaponController.js';
+import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
@@ -1883,8 +1884,10 @@ function frame(now) {
                                 Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<
                                   sortieObjective.radius &&
                                 (p.contested||p.owner===actor.team))});
+                    const triggerReady=actor.weaponSpec.fireMode==='charged'
+                        ? advanceChargedTrigger(actor.weaponState,actor.weaponSpec,ready,FIXED_DT) : ready;
                     const shot=advanceHostileController(actor.controller,
-                        actor.condition,FIXED_DT,!target,ready);
+                        actor.condition,FIXED_DT,!target,triggerReady);
                     if(shot!==null&&target)attemptAiFire(actor,target,shot);
                 }
             }
@@ -1896,7 +1899,11 @@ function frame(now) {
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
-                if (fireHeld && playerCombatActive) attemptFire();
+                const authorized=weaponSpec.fireMode==='charged'
+                    ? advanceChargedTrigger(weaponState,weaponSpec,
+                        fireHeld&&playerCombatActive&&output.weaponOperational&&playerPower.weaponReady,FIXED_DT)
+                    : fireHeld;
+                if (authorized && playerCombatActive) attemptFire();
             }
             syncMovingObstacles();
             accumulator -= FIXED_DT;
@@ -2374,6 +2381,10 @@ function warnNearbyAiFromShot(firingTeam,contact){
         if(evidence)recordShotEvidence(defender.motion,defender.rig,evidence);
     }
 }
+function armorForPenetratingContact(contact) {
+    const target=contact.actorId==='player' ? playerCondition : actorById(contact.actorId)?.condition;
+    return target?.parts?.[contact.slot]?.armor??0;
+}
 function attemptAiFire(actor, target, shotIndex) {
     if (!actor?.active || !target || target.active === false || inspecting || testEnded || !appSheet.classList.contains('hidden')) return;
     const actorOutput = hostileOutput(actor.condition, actor.behavior);
@@ -2418,10 +2429,18 @@ function attemptAiFire(actor, target, shotIndex) {
             1+Math.max(0,1-actorOutput.weapon)*.45,
             (x,y)=>arena.traceCombatantShot(actor.id,target.id,aimSlot,
                 spreadX+x,spreadY+y)).map(entry=>entry.contact)
-        : [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY)];
+        : actor.weaponSpec.fireMode==='charged'
+            ? [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY,true)]
+            : [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY)];
+    const packets=actor.weaponSpec.fireMode==='charged'
+        ? resolvePenetratingContacts(contacts[0]?.penetrationContacts??contacts,{
+            energy:actor.weaponSpec.penetrationEnergy,damage:actor.weaponSpec.damage,
+            armorAt:armorForPenetratingContact})
+        : contacts.map(contact=>({contact,damage:actor.weaponSpec.damage}));
     actor._scatterImpactAudible=false;
-    for(const contact of contacts) {
-        resolveAiShotContact(actor,target,contact,actor.weaponSpec.damage);
+    if(packets.length===0&&contacts[0])resolveAiShotContact(actor,target,contacts[0],0);
+    for(const {contact,damage} of packets) {
+        resolveAiShotContact(actor,target,contact,damage);
         if(testEnded) break;
     }
     actor._scatterImpactAudible=false;
@@ -2507,7 +2526,7 @@ function attemptFire() {
         ? shotContacts(shot,weaponSpec,degradedSpread,
             (x,y)=>arena.traceShot(baseX+x,baseY+y,weaponSpec.muzzleZ))
             .map(entry=>entry.contact)
-        : [arena.traceShot(baseX,baseY,weaponSpec.muzzleZ)];
+        : [arena.traceShot(baseX,baseY,weaponSpec.muzzleZ,weaponSpec.fireMode==='charged')];
     const center=contacts[0];
     warnNearbyAiFromShot(FRIENDLY_TEAM,center);
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
@@ -2520,9 +2539,17 @@ function attemptFire() {
     soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
     let impactSoundPlayed=false;
     if(multi)scatterFeedback={landed:0,pellets:contacts.length,best:null,rank:-1};
-    for(const contact of contacts){
+    const packets=weaponSpec.fireMode==='charged'
+        ? resolvePenetratingContacts(center?.penetrationContacts??contacts,{
+            energy:weaponSpec.penetrationEnergy,damage:weaponSpec.damage,
+            armorAt:armorForPenetratingContact})
+        : contacts.map(contact=>({contact,damage:weaponSpec.damage}));
+    if(packets.length===0 && weaponSpec.fireMode==='charged') {
+        arena.showShot(center,null);
+    }
+    for(const {contact,damage} of packets){
         if(testEnded)break;
-        const affected=resolvePlayerShotContact(contact,weaponSpec.damage,
+        const affected=resolvePlayerShotContact(contact,damage,
             !impactSoundPlayed,!multi);
         if(affected)impactSoundPlayed=true;
     }

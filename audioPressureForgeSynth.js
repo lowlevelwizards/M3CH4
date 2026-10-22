@@ -3,7 +3,7 @@
  */
 import {FORGE_WEAPONS,FORGE_ACTIONS} from './audioPressureForgePresets.js';
 const PI2=Math.PI*2;
-const known=new Set([...FORGE_WEAPONS.map(w=>w.id),'gun-rivet']);
+const known=new Set([...FORGE_WEAPONS.map(w=>w.id),'gun-rivet','gun-breaker']);
 const actionIds=new Set(FORGE_ACTIONS.map(a=>a.id));
 const decay=(t,at,tau)=>t<at?0:Math.exp(-(t-at)/tau);
 const swell=(t,at,tau)=>decay(t,at,tau)*(1-Math.exp(-Math.max(0,t-at)/.0018));
@@ -27,6 +27,7 @@ export function renderPressureForgePCM(weaponId,recipe,sampleRate=44100,mode='fu
     'gun-light':{body:.65,pitch:1.40,edge:1.48,dry:1.10},
     'gun-scatter':{body:1.13,pitch:.90,edge:1.20,dry:1.16},
     'gun-rivet':{body:.64,pitch:1.24,edge:1.45,dry:1.35},
+    'gun-breaker':{body:1.52,pitch:.65,edge:.97,dry:.92},
   })[weaponId];
   const shotTail=.048+.255*tail;
   const actionAt=.13+.34*delay;

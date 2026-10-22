@@ -13,6 +13,7 @@ const expected={
  'gun-light':['custom','bolt',[54,100,94,40,12,65,60,85,30]],
  'gun-scatter':['custom','breech',[88,100,45,95,90,95,80,95,95]],
  'gun-rivet':['custom','bolt',[55,64,86,78,8,55,38,40,55]],
+ 'gun-breaker':['custom','bolt',[100,98,28,80,35,100,65,100,76]],
 };
 const knobs=['bass','punch','treble','grit','tail','actionLevel','delay','mass','scrape'];
 test('original pressure forge recipes and repeater recipe become the live audio source of truth',()=>{
@@ -86,7 +87,7 @@ test('one source per actual shot, cache PCM and protect speaker with shared comp
   assert.notEqual(own.playbackRate,near.playbackRate);
   assert.equal(buffers,1,'different shots reuse the same cached physical gun sound');
   for(const id of Object.keys(expected))assert.equal(engine.play(id,{shotIndex:1}).ok,true);
-  assert.equal(buffers,5);
+  assert.equal(buffers,6);
   assert.equal(engine.play('not-a-gun').ok,false);
   for(let i=0;i<20;i++)engine.play('gun-cannon',{shotIndex:i+20});
   assert.ok(events.some(x=>x[0]==='stop'),'busy AI battle bounds active voices');
@@ -105,8 +106,8 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(main,/soundSystemEvent\(/);
   assert.match(main,/soundReload\(/);
   assert.match(html,/\.\/audio\.js\?v=k4i/);
-  assert.match(html,/\.\/liveWeaponAudio\.js\?v=k4w1/);
-  assert.match(html,/main\.js\?v=k4w1/);
+  assert.match(html,/\.\/liveWeaponAudio\.js\?v=k4w2/);
+  assert.match(html,/main\.js\?v=k4w2/);
   assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });

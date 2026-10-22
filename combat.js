@@ -12,6 +12,7 @@ export const WEAPONS = {
     'gun-light': { id: 'gun-light', label: 'NEEDLE CANNON', magazine: 16, spareRounds: 80, roundsPerSecond: 3.5, reloadSeconds: 2.8, damage: 28, recoilImpulseNs: 1050, spread: .002, muzzleZ: -2.73, visualRecoil: .56, visualRecovery: 4.8, muzzleFlashSeconds: .065, handling: 'LIGHT / FAST RECOVERY' },
     'gun-scatter': { id: 'gun-scatter', label: 'S-6 SCATTERGUN', magazine: 4, spareRounds: 28, roundsPerSecond: 1.0, reloadSeconds: 3.0, pellets: 6, damage: 21, recoilImpulseNs: 3550, spread: .115, muzzleZ: -1.46, visualRecoil: 1.60, visualRecovery: 2.0, muzzleFlashSeconds: .20, handling: 'CLOSE / SIX PHYSICAL PELLETS' },
     'gun-rivet': { id: 'gun-rivet', label: 'RR-4 RIVET REPEATER', fireMode: 'automatic', magazine: 60, spareRounds: 216, roundsPerSecond: 8.5, reloadSeconds: 4.2, damage: 10, recoilImpulseNs: 470, spread: .014, sustainedSpread: .034, muzzleZ: -1.60, visualRecoil: .26, visualRecovery: 9.0, muzzleFlashSeconds: .045, handling: 'AUTOMATIC / LANE PRESSURE' },
+    'gun-breaker': { id: 'gun-breaker', label: 'BREAKER DRIVER', fireMode: 'charged', chargeSeconds: .70, penetrationEnergy: 135, magazine: 1, spareRounds: 12, roundsPerSecond: 1.0, reloadSeconds: 3.0, damage: 85, recoilImpulseNs: 6200, spread: .004, muzzleZ: -1.80, visualRecoil: 2.0, visualRecovery: 1.55, muzzleFlashSeconds: .17, handling: 'CHARGED / PENETRATION' },
 };
 export function weaponFor(assembly) {
     const id = installedPart(assembly, 'combat')?.definition.id;
@@ -42,11 +43,15 @@ export function advanceWeapon(state, spec, dt) {
 }
 /** Return shot index when a round is actually consumed; never invent a shot during reload. */
 export function fireWeapon(state, spec) {
-    if (state.reloadLeft > 0 || state.cooldown > 0 || state.loaded <= 0)
+    if (state.reloadLeft > 0 || state.cooldown > 0 || state.loaded <= 0 ||
+        (spec.fireMode === 'charged' && !state.action?.ready))
         return null;
     state.loaded--;
     state.cooldown = 1 / spec.roundsPerSecond;
     recordWeaponEmission(state, spec);
+    if (spec.fireMode === 'charged' && state.action) {
+        state.action.ready=false; state.action.latched=true; state.action.charge=0;
+    }
     return ++state.firingCount;
 }
 /** Deterministic spread allows a failed target test to be reproduced. */

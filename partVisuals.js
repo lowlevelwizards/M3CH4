@@ -12,6 +12,7 @@ import { buildStumpCannonVisual } from './stumpCannonVisual.js';
 import { buildNeedleCannonVisual } from './needleCannonVisual.js';
 import { buildScattergunVisual } from './scattergunVisual.js';
 import { buildRivetRepeaterVisual } from './rivetRepeaterVisual.js';
+import { buildBreakerDriverVisual } from './breakerDriverVisual.js';
 import { buildCyclopsVisual } from './cyclopsVisual.js';
 import { buildVistaVisual } from './vistaVisual.js';
 import { buildHearthVisual } from './hearthVisual.js';
@@ -32,6 +33,7 @@ const BUILDERS = Object.freeze({
     'gun-light': buildNeedleCannonVisual,
     'gun-scatter': buildScattergunVisual,
     'gun-rivet': buildRivetRepeaterVisual,
+    'gun-breaker': buildBreakerDriverVisual,
     'cab-cyclops': buildCyclopsVisual,
     'cab-utility': buildVistaVisual,
     'cab-armored': buildHearthVisual,
