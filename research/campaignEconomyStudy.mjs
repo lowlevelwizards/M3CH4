@@ -116,21 +116,31 @@ function damageRig(inventory,rig,fraction,rng,armorBySerial){
   return {assembly,state};
 }
 function serviceInventory(inventory,rigs,credits,armorBySerial){
-  let spent=0,deferred=0;
+  // Same real per-serial quote as the garage, not an all-or-nothing fictional
+  // fleet restoration. Service the most damaged essential hardware first.
+  const tasks=[],seen=new Set();
   for(const rig of rigs){
     const assembly=assembledForRig(inventory,rig),condition=createTargetCondition(assembly,true);
-    for(const p of Object.values(condition.parts))p.armor=armorBySerial.get(p.serial)??p.armor;
-    const quote=totalRepairQuote(condition);
+    for(const p of Object.values(condition.parts)){
+      if(seen.has(p.serial))continue;
+      seen.add(p.serial);
+      p.armor=armorBySerial.get(p.serial)??p.armor;
+      const quote=repairQuote(p);
+      if(quote>0)tasks.push({part:p,quote,
+        health:p.integrity/Math.max(1,p.maxIntegrity)});
+    }
+  }
+  tasks.sort((a,b)=>a.health-b.health||a.quote-b.quote);
+  let spent=0,deferred=0,repaired=0;
+  for(const {part,quote} of tasks){
     if(quote<=credits-spent){
-      spent+=quote;
-      for(const p of Object.values(condition.parts)){
-        const owned=inventory.find(x=>x.serial===p.serial);
-        if(owned)owned.condition=1;
-        armorBySerial.set(p.serial,p.maxArmor);
-      }
+      spent+=quote;repaired++;
+      const owned=inventory.find(x=>x.serial===part.serial);
+      if(owned)owned.condition=1;
+      armorBySerial.set(part.serial,part.maxArmor);
     }else deferred+=quote;
   }
-  return {credits:credits-spent,spent,deferred};
+  return {credits:credits-spent,spent,deferred,repaired};
 }
 function buyForFleet(inventory,cycle,credits,reserve,rng,validRecipes){
   const fleet=packFleet(inventory,validRecipes);
@@ -285,7 +295,7 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     'Salvage claim eligibility is a scenario assumption; maximum one claimed surviving module per won round, using actual draft and acquisition.',
     'Opponent manifests repeat each contract lead recipe; supporting crew mixes, wreck destruction and score-order draft loss are not simulated.',
     'Repairs are paid after terminal BO3 settlement; persistent armor and integrity losses are quoted by the actual economic functions.',
-    'A garage rescue service is attempted on unfieldable hardware. If unaffordable, the modeled career stops: no fictional future loss payouts.',
+    'Garage service is individually quoted per serialized part and prioritizes disabled hardware; if no fieldable rig remains and service is unaffordable, the career stops without fictional payouts.',
     'Market turns over each completed contract. One shortage-targeted purchase per contract leaves cash buffer.',
     'No human selling, advanced trading, customization preferences, actor careers or high-end money sinks.',
     'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.']};
