@@ -27,7 +27,8 @@ export function aiWeaponRecoveryDirective(actor, target = null) {
 
     const awareness = actor.motion?.awareness ?? {};
     const targetDistance = target ? distance(actor.rig, target.rig ?? target) : Infinity;
-    const covered = awareness.lineOfSight === false;
+    // No sighting is not proof of physical cover from incoming rounds.
+    const covered = !!target && awareness.lineOfSight === false;
     const quiet = (awareness.underFireSeconds ?? 0) <= .18;
     // If no useful cover exists, a rig that has genuinely opened distance and is no
     // longer under pressure may still attempt the exposed emergency procedure.
