@@ -14,7 +14,17 @@ function pixelTexture(kind) {
   const c=document.createElement('canvas');c.width=c.height=P;
   const g=c.getContext('2d');
   g.clearRect(0,0,P,P);
-  if(kind==='armor-scrape'){
+  if(kind==='service-patch'){
+    // A replacement steel panel with deliberately pixelated weld edging.
+    g.fillStyle='#1d2624';g.fillRect(2,5,28,23);
+    g.fillStyle='#ab8a59';g.fillRect(4,7,24,19);
+    g.fillStyle='#68766d';g.fillRect(6,8,20,17);
+    g.fillStyle='#899589';g.fillRect(8,10,16,12);
+    g.fillStyle='#c6ab7b';
+    for(let x=4;x<29;x+=4){g.fillRect(x,5,2,3);g.fillRect(x,25,2,3);}
+    for(let y=7;y<26;y+=4){g.fillRect(2,y,3,2);g.fillRect(27,y,3,2);}
+    g.fillStyle='#393b33';g.fillRect(8,10,2,2);g.fillRect(22,20,2,2);
+  } else if(kind==='armor-scrape'){
     // Exposed steel and a directional paint-chip tail, NOT a puncture.
     g.fillStyle='#242a26';
     g.fillRect(3,17,24,3);g.fillRect(7,14,20,4);
@@ -56,7 +66,7 @@ function pixelTexture(kind) {
 function resources(){
   if(shared)return shared;
   const materials=new Map();
-  for(const kind of ['armor-scrape','breach','power-breach','destroyed-breach']){
+  for(const kind of ['armor-scrape','breach','power-breach','destroyed-breach','service-patch']){
     materials.set(kind,new THREE.MeshBasicMaterial({
       map:pixelTexture(kind),transparent:false,alphaTest:.3,
       polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
@@ -106,9 +116,10 @@ export function geometryForPhysicalScar(target,event,profile){
     accepted++;
     for(let j=1;j<polygon.length-1;j++){
       for(const point of [polygon[0],polygon[j],polygon[j+1]]){
-        coords.push(point.x+faceNormal.x*.005,
-                    point.y+faceNormal.y*.005,
-                    point.z+faceNormal.z*.005);
+        const lift=event.event==='service'?.012:.005;
+        coords.push(point.x+faceNormal.x*lift,
+                    point.y+faceNormal.y*lift,
+                    point.z+faceNormal.z*lift);
         uvs.push(point.u/profile.width+.5,point.v/profile.height+.5);
       }
     }
@@ -140,18 +151,24 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
     if(!event||keys.has(event.eventId))return false;
     const target=locate(exterior,event);
     if(!target)return false;
-    const profile=surfaceDamageLanguage(event);
+    const profile=event.event==='service'
+      ?{kind:'service-patch',width:.31,height:.22}
+      :surfaceDamageLanguage(event);
     const decal=geometryForPhysicalScar(target,event,profile);
     if(!decal)return false;
     const r=resources();
     const mark=new THREE.Mesh(decal,r.materials.get(profile.kind)||r.materials.get('breach'));
-    mark.renderOrder=1;
+    mark.renderOrder=event.event==='service'?2:1;
     mark.userData.surfaceDamageSize=[profile.width,profile.height];
     mark.userData.surfaceScarEvent=event.eventId;
     mark.userData.surfaceDamageKind=profile.kind;
     // A decal belongs to the specific struck moving physical mesh, not its slot.
     target.add(mark);keys.add(event.eventId);
     const list=displayed.get(event.serial)||[];
+    if(event.event==='service'&&event.coveredEventId){
+      for(const old of list)
+        if(old.userData.surfaceScarEvent===event.coveredEventId)old.visible=false;
+    }
     list.push(mark);
     if(list.length>perSerialLimit){
       const oldest=list.shift();
