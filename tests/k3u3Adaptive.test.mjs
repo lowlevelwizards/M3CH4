@@ -136,7 +136,7 @@ test('page labels and connected circuit map actually ship in the working tree',(
  const html=content('index.html'),ui=content('unifiedGarageUI.js'),css=content('unifiedGarageStyles.css');
  assert.match(html,/RIG DIAGNOSTICS <span id="dev-version"><\/span>/);
  assert.match(html,/Garage Flow/);
- assert.match(ui,/CONNECTED JOBS/);
+ assert.match(ui,/unified-campaign-map/);
  assert.match(css,/campaign-node-tile/);
  assert.match(content('garageMountUI.js'),/unifiedGarageUI\.js\?v=k4s2/);
 });
