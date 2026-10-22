@@ -142,3 +142,7 @@ body:not(.inspecting) #shot-report.faded{opacity:0}
 
 /* Yard value stays visible only after selecting the actual serialized part. */
 #unified-garage .unified-part-detail .part-detail-value{display:block;font-size:8px;line-height:1.1;margin:0;color:#c7a978}
+
+/* Five physical modules remain legible beside compact post-bout readouts. */
+.k4n-part strong{display:flex;align-items:center;justify-content:center;gap:4px}
+.k4n-part strong .module-icon{width:13px;height:13px}
