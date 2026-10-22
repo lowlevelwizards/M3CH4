@@ -17,7 +17,7 @@ test('k3z cache refresh has one coherent real-game module identity',()=>{
 test('updated live part registry retains cab, weapon and mobility builders',()=>{
     const registry=read('partVisuals.js');
     for(const id of ['cab-cyclops','cab-utility','cab-armored','gun-cannon',
-        'gun-short','gun-light','gun-scatter','gun-rivet','legs-yard','legs-compact','legs-hauler'])
+        'gun-short','gun-light','gun-scatter','gun-rivet','gun-breaker','legs-yard','legs-compact','legs-hauler'])
         assert.ok(registry.includes("'"+id+"':"),'missing shared builder: '+id);
     assert.match(read('scene.js'),/const sharedVisual = buildPartVisual\(def\.id, \{ mode: 'gameplay' \}\)/);
 });
