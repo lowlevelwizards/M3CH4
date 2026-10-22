@@ -13,6 +13,7 @@ export const WEAPONS = {
     'gun-scatter': { id: 'gun-scatter', label: 'S-6 SCATTERGUN', magazine: 4, spareRounds: 28, roundsPerSecond: 1.0, reloadSeconds: 3.0, pellets: 6, damage: 21, recoilImpulseNs: 3550, spread: .115, muzzleZ: -1.46, visualRecoil: 1.60, visualRecovery: 2.0, muzzleFlashSeconds: .20, handling: 'CLOSE / SIX PHYSICAL PELLETS' },
     'gun-rivet': { id: 'gun-rivet', label: 'RR-4 RIVET REPEATER', fireMode: 'automatic', magazine: 60, spareRounds: 216, roundsPerSecond: 8.5, reloadSeconds: 4.2, damage: 10, recoilImpulseNs: 470, spread: .014, sustainedSpread: .034, muzzleZ: -1.60, visualRecoil: .26, visualRecovery: 9.0, muzzleFlashSeconds: .045, handling: 'AUTOMATIC / LANE PRESSURE' },
     'gun-breaker': { id: 'gun-breaker', label: 'BREAKER DRIVER', fireMode: 'charged', chargeSeconds: .70, penetrationEnergy: 135, magazine: 1, spareRounds: 12, roundsPerSecond: 1.0, reloadSeconds: 3.0, damage: 85, recoilImpulseNs: 6200, spread: .004, muzzleZ: -1.80, visualRecoil: 2.0, visualRecovery: 1.55, muzzleFlashSeconds: .17, handling: 'CHARGED / PENETRATION' },
+    'gun-rocket': { id: 'gun-rocket', label: 'SCRAP ROCKET RACK', fireMode: 'projectile', projectileSpeed: 32, blastRadius: 3.5, magazine: 3, spareRounds: 18, roundsPerSecond: 1.1, reloadSeconds: 4.5, damage: 92, recoilImpulseNs: 1700, spread: .010, muzzleZ: -1.60, visualRecoil: .70, visualRecovery: 3.1, muzzleFlashSeconds: .16, handling: 'UNGUIDED / EXPLOSIVE' },
 };
 export function weaponFor(assembly) {
     const id = installedPart(assembly, 'combat')?.definition.id;
