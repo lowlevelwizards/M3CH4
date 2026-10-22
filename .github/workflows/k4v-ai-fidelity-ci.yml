@@ -24,6 +24,7 @@ jobs:
       - name: Full established regression suite
         run: npm test
       - name: Legacy 12-cohort headless compatibility smoke
+        if: success() || failure()
         run: node research/headlessDominationStudy.mjs 2
       - uses: actions/upload-artifact@v4
         if: always()
