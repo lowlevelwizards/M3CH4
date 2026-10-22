@@ -3,6 +3,7 @@ import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
+import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -1694,6 +1695,8 @@ export function createArenaScene(initial, targetAssembly) {
         previewRecord=null;
         previewAssembly=assembly;
         const oldRoot = exterior.root;
+        // Detach shared scar geometry before the old rig disposal traversal.
+        surfaceMarks.clear();
         exterior = buildExteriorRig(assembly);
         calibrateExteriorSoles(exterior);
         updateGarageFixtures(assembly);
@@ -1706,6 +1709,7 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.visible = inspecting;
         scene.add(exterior.root);
         scene.remove(oldRoot);
+        restoreSurfaceMarks([...knownSurfaceEvents.values()]);
         // Part swaps can encounter legacy meshes with malformed material
         // data (the original S-6 underbarrel brace had a bare color number).
         // Never crash a player garage while cleaning up a discarded visual.
@@ -1830,6 +1834,53 @@ export function createArenaScene(initial, targetAssembly) {
         barrel.scale.y=scatter?.86:1;
         cockpit.userData.scatterGreebles.visible = scatter;
     }
+    // Physical scar anchors are expressed in the actual intersected mesh's
+    // local space. Animated legs and moving weapon actions retain their scars.
+    function surfaceContact(actual,point,normal) {
+        const surface=actual?.object?.userData?.surface;
+        if(!surface?.persistable || !surface.id || !point || !normal)return null;
+        const node=actual.object;
+        const origin=node.worldToLocal(point.clone());
+        const tip=node.worldToLocal(point.clone().add(normal));
+        const localNormal=tip.sub(origin).normalize();
+        const rounded=v=>Math.round(v*10000)/10000;
+        return {
+            surfaceId:surface.id,surfaceVersion:surface.version,
+            localPoint:origin.toArray().map(rounded),
+            localNormal:localNormal.toArray().map(rounded),
+        };
+    }
+    const surfaceImpactEvents=[];
+    const surfaceMarks=createSurfaceScarRenderer({perSerialLimit:4});
+    const knownSurfaceEvents=new Map();
+    function restoreSurfaceMarks(events) {
+        for(const event of events||[]) {
+            if(!event?.eventId||!event?.serial)continue;
+            knownSurfaceEvents.set(event.eventId,event);
+            if(surfaceMarks.apply(exterior,event))continue;
+            for(const record of squadCombatants.values()) {
+                if(surfaceMarks.apply(record.exterior,event))break;
+            }
+        }
+    }
+    const surfaceSortieId='sortie-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36));
+    function noteSurfaceImpact(contact,outcome) {
+        const s=contact?.surfaceHit;
+        if(!s || !outcome?.serial || !contact?.actorId)return;
+        const event={
+            eventId:surfaceSortieId+':'+(surfaceImpactEvents.length+1),
+            sortieId:surfaceSortieId,serial:outcome.serial,
+            surfaceId:s.surfaceId,surfaceVersion:s.surfaceVersion,
+            localPoint:s.localPoint,localNormal:s.localNormal,
+            armorAbsorbed:outcome.armorAbsorbed||0,
+            internalDamage:outcome.internalDamage||0,
+            disabled:!!outcome.disabled,destroyed:!!outcome.destroyed,
+            timestamp:Date.now(),
+        };
+        surfaceImpactEvents.push(event);
+        restoreSurfaceMarks([event]);
+    }
+    function drainSurfaceEvents() {return surfaceImpactEvents.splice(0);}
     function traceShot(spreadX, spreadY, muzzleZ) {
         camera.updateMatrixWorld();
         cockpit.updateMatrixWorld(true);
@@ -1861,6 +1912,7 @@ export function createArenaScene(initial, targetAssembly) {
         const blockedBy = cover?.id ?? actual?.object.userData.arenaObstacleId ?? null;
         return { actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
             shieldedSlot: cover ? null : shieldedSlot,
+            surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
     }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
@@ -1914,6 +1966,7 @@ export function createArenaScene(initial, targetAssembly) {
             actorId: slot ? actorId : null,
             slot: slot ?? null, blockedBy, shieldedSlot: cover ? null : shieldedSlot,
             point, normal: surfaceNormal, muzzle,
+            surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             distance: muzzle.distanceTo(point), driveSide,
         };
     }
@@ -1944,6 +1997,7 @@ export function createArenaScene(initial, targetAssembly) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
+        noteSurfaceImpact(contact,outcome);
         showShieldStrike(contact);
         if (outcome?.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
         if (outcome?.justDestroyed) {
@@ -1983,6 +2037,7 @@ export function createArenaScene(initial, targetAssembly) {
         activateParticle(sparkPool, 'spark', contact.muzzle, new THREE.Vector3(0, .08, 0), 1.15, .09, 0, 0, 0xffd79a);
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         spawnImpactParticles(impactPoint, contact.normal, outcome);
+        noteSurfaceImpact(contact,outcome);
         showShieldStrike(contact);
     }
     function updateCombatantDamage(id, condition) {
@@ -2035,6 +2090,7 @@ export function createArenaScene(initial, targetAssembly) {
         if (outcome) {
             const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
             spawnImpactParticles(impactPoint, contact.normal, outcome);
+            noteSurfaceImpact(contact,outcome);
             showShieldStrike(contact);
             if (outcome.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
             if (outcome.justDestroyed) {
@@ -2253,6 +2309,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
+        drainSurfaceEvents,restoreSurfaceMarks,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,

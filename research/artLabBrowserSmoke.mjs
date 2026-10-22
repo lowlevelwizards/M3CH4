@@ -34,6 +34,35 @@ try{
   const exported=JSON.parse(await page.locator('#export-result').inputValue());
   if(exported.kind!=='M3CH4-ArtLab-v1'||exported.rig!=='hauler'||exported.wear!==5)
     throw Error('Art Lab settings export was not faithful');
+  // Verify a scar on the actual catalogue model sticks to the correct
+  // articulated submesh without becoming another physical raycast target.
+  const scar=await page.evaluate(async()=>{
+    const [{buildExteriorRig},{makeTestAssembly},
+      {createSurfaceScarRenderer}]=await Promise.all([
+      import('./scene.js'),import('./components.js'),
+      import('./surfaceDamageRenderer.js'),
+    ]);
+    const rig=buildExteriorRig(makeTestAssembly()),renderer=createSurfaceScarRenderer();
+    let hit=null;
+    rig.partGroups.get('mobility').traverse(node=>{
+      if(!hit&&node.isMesh&&node.userData.surface?.persistable)hit=node;
+    });
+    if(!hit)return {ok:false,reason:'No named mobility surface'};
+    const mark={
+      eventId:'browser-mobility-hit-1',sortieId:'browser-smoke',serial:'SR01-002',
+      surfaceId:hit.userData.surface.id,
+      localPoint:[0,0,0],localNormal:[0,0,1],
+      armorAbsorbed:12,internalDamage:0,timestamp:1000,
+    };
+    const applied=renderer.apply(rig,mark);
+    const duplicate=renderer.apply(rig,mark);
+    const child=hit.children.find(node=>node.userData.surfaceScarEvent===mark.eventId);
+    const pickContamination=rig.pickMeshes.includes(child);
+    renderer.clear();
+    return {ok:applied&&!duplicate&&!!child&&!pickContamination&&
+      !child.parent,markCount:renderer.counts()};
+  });
+  if(!scar.ok)throw Error('Real articulated scar render failed: '+JSON.stringify(scar));
   if(errors.length)throw Error('Art Lab browser errors: '+errors.join('\n'));
   // Small-device portrait inspection: no unusable horizontal document overflow.
   await page.setViewportSize({width:390,height:844});
