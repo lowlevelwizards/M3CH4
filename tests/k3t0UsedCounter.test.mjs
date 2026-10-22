@@ -24,11 +24,11 @@ function setup() {
 }
 const code=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
-test('vendor presents four deterministic serialized as-is parts, never freshly rerolling on reopen',()=>{
+test('vendor presents six deterministic serialized as-is parts, never freshly rerolling on reopen',()=>{
     const a=generateCounterStock(0),b=generateCounterStock(0);
     assert.equal(a.offers.length,COUNTER_SIZE);
     assert.deepEqual(a,b);
-    assert.equal(new Set(a.offers.map(l=>l.serial)).size,4);
+    assert.equal(new Set(a.offers.map(l=>l.serial)).size,COUNTER_SIZE);
     assert.ok(a.offers.every(l=>BY_ID.has(l.definitionId)&&l.price>0&&!l.sold));
     assert.ok(a.offers.some(l=>l.condition<.75));
     assert.notDeepEqual(generateCounterStock(1).offers.map(l=>l.serial),a.offers.map(l=>l.serial));
@@ -41,7 +41,7 @@ test('most vendor offers are meaningfully marked up over their actual yard condi
     assert.ok(worn>=lots.length*.80,'worn: '+worn+'/'+lots.length);
     assert.ok(lots.some(l=>l.condition>.79),'rare more promising lots exist');
 });
-test('four lots persist independently of menu visits; sold-out table retains its empty slots',()=>{
+test('six lots persist independently of menu visits; sold-out table retains its empty slots',()=>{
     const storage=setup();
     const first=loadCounter(storage,0);
     assert.equal(first.persisted,true);
@@ -52,7 +52,7 @@ test('four lots persist independently of menu visits; sold-out table retains its
         assert.equal(result.ok,true,result.reason);
         assert.equal(loadCounter(storage,0).stock.offers.find(l=>l.serial===offer.serial).sold,true);
     }
-    assert.equal(loadCounter(storage,0).stock.offers.length,4);
+    assert.equal(loadCounter(storage,0).stock.offers.length,COUNTER_SIZE);
     assert.equal(loadCounter(storage,0).stock.offers.filter(l=>!l.sold).length,0);
     assert.equal(buyCounterLot(storage,0,first.stock.offers[0].serial,machine).ok,false);
 });
@@ -67,7 +67,7 @@ test('a complete contract, not a new round or clock tick, refreshes the whole ta
     const after=recordCampaignSortie(activeCampaign,{nodeId:'yard-dog',victory:false});
     assert.equal(after.state.sorties,1);
     const replenished=loadCounter(storage,after.state.sorties).stock;
-    assert.equal(replenished.offers.length,4);
+    assert.equal(replenished.offers.length,COUNTER_SIZE);
     assert.ok(replenished.offers.every(l=>!l.sold));
     assert.notEqual(replenished.offers[0].serial,before.offers[0].serial);
     assert.equal(loadCounter(storage,after.state.sorties).stock.offers[0].serial,replenished.offers[0].serial);
@@ -113,11 +113,11 @@ test('insufficient funds and vendor-save failure never award free hardware or bu
     storage.failCounter=false;
     assert.equal(loadCounter(storage,0).stock.offers[0].sold,false);
 });
-test('3D counter uses actual part meshes on four separate table stalls with touch-selectable serials',()=>{
+test('3D counter uses actual part meshes on six selectable stalls in two rows with touch-selectable serials',()=>{
     const scene=code('scene.js'),main=code('main.js'),ui=code('unifiedGarageUI.js');
     assert.match(scene,/used-parts-counter-table/);
     assert.match(scene,/buildExteriorRig\(assembly\)/);
-    assert.match(scene,/offers\|\|\[\]\)\.slice\(0,4\)/);
+    assert.match(scene,/offers\|\|\[\]\)\.slice\(0,6\)/);
     assert.match(scene,/function pickVendorLot/);
     assert.match(scene,/raycaster\.intersectObjects\(vendorPicks,false\)/);
     assert.match(scene,/vendorRoot\.visible=inspecting&&vendorEnabled/);

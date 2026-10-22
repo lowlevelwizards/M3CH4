@@ -225,7 +225,7 @@ export function createArenaScene(initial, targetAssembly) {
         }
         stagingFixtures.visible=inspecting;
     }
-    // Four real components on one battered dealer's table. The counter is a
+    // Six new-cycle components on two physical rows of a battered dealer's table. The counter is a
     // mutually exclusive garage viewing mode: no combat meshes or extra loadout
     // geometry are created. Cards and these physical objects share lot serials.
     const vendorRoot = new THREE.Group();
@@ -281,16 +281,16 @@ export function createArenaScene(initial, targetAssembly) {
             sign.position.set(0,3.50,2.94);sign.rotation.y=Math.PI;
             vendorRoot.add(sign);
         }
-        vendorBox(10.0,.18,2.65,0x654632,0,.75,0);
-        vendorBox(9.9,.065,2.6,0x967647,0,.865,0);
-        for(const x of [-4.3,4.3])for(const z of [-.98,.98])
+        vendorBox(10.0,.18,5.45,0x654632,0,.75,0);
+        vendorBox(9.9,.065,5.4,0x967647,0,.865,0);
+        for(const x of [-4.3,4.3])for(const z of [-2.35,2.35])
             vendorBox(.23,.72,.23,0x343d38,x,.34,z);
-        vendorBox(10.1,.12,.19,0xb38742,0,.95,-1.27);
-        (offers||[]).slice(0,4).forEach((offer,i)=>{
-            const x=(i-1.5)*2.40;
-            const tray=vendorBox(2.14,.06,2.17,offer.sold?0x333732:0x3e4a42,x,.97,0);
+        vendorBox(10.1,.12,.19,0xb38742,0,.95,-2.71);
+        (offers||[]).slice(0,6).forEach((offer,i)=>{
+            const x=(i%3-1)*3.1,z=(Math.floor(i/3)-.5)*2.65;
+            const tray=vendorBox(2.55,.06,2.24,offer.sold?0x333732:0x3e4a42,x,.97,z);
             tray.userData.vendorSerial=offer.serial;vendorPicks.push(tray);
-            const light=vendorBox(2.09,.04,.12,offer.sold?0x5b4138:0xb99151,x,1.018,-1.02);
+            const light=vendorBox(2.46,.04,.12,offer.sold?0x5b4138:0xb99151,x,1.018,z-1.05);
             vendorPads.set(offer.serial,{light,sold:offer.sold});
             if(offer.sold)return;
             const def=BY_ID.get(offer.definitionId);
@@ -303,11 +303,11 @@ export function createArenaScene(initial, targetAssembly) {
             const visual=buildExteriorRig(assembly);
             const bounds=new THREE.Box3().setFromObject(visual.root);
             const size=bounds.getSize(new THREE.Vector3());
-            const scale=Math.min(1,1.86/Math.max(.1,size.x),
-                1.86/Math.max(.1,size.z),1.95/Math.max(.1,size.y));
+            const scale=Math.min(1,2.15/Math.max(.1,size.x),
+                2.00/Math.max(.1,size.z),1.95/Math.max(.1,size.y));
             visual.root.scale.setScalar(scale);
             visual.root.position.set(x-(bounds.min.x+bounds.max.x)*.5*scale,
-                1.04-bounds.min.y*scale,-(bounds.min.z+bounds.max.z)*.5*scale);
+                1.04-bounds.min.y*scale,z-(bounds.min.z+bounds.max.z)*.5*scale);
             for(const mesh of visual.pickMeshes){
                 mesh.userData.vendorSerial=offer.serial;vendorPicks.push(mesh);
                 if(mesh.material instanceof THREE.MeshStandardMaterial && offer.condition<.98){
