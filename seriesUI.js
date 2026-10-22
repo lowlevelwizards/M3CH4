@@ -230,7 +230,7 @@ function renderRoundIntermission(series, round) {
         const status=statusOf(p);
         const tile=make('div','k4n-part k4n-'+status.toLowerCase());
         const title=make('strong','',category[p.slot]);
-        title.prepend(createModuleIcon(p.slot));
+        title.append(createModuleIcon(p.slot));
         const picture=make('div','k4n-part-art');
         if(p.part?.definitionId){
             const url=activePlayerArena()?.arena?.partThumbnailDataUrl?.(p.part.definitionId,{
