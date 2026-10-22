@@ -11,7 +11,9 @@ export function scarPriority(event) {
 export function keepPhysicalScars(marks,limit=4) {
   const cap=Math.max(0,Math.floor(Number(limit)||0));
   if(!cap)return [];
-  const ranked=marks.map((mark,index)=>({
+  // A completely restored/covered hole is history, not a visible detail.
+  // Reclaim its scarce GPU geometry slot before ranking live scars.
+  const ranked=marks.filter(mark=>mark?.visible!==false).map((mark,index)=>({
     mark,index,event:mark?.userData?.sourceSurfaceEvent,
   })).sort((a,b)=>scarPriority(b.event)-scarPriority(a.event)||
     (b.event?.timestamp||0)-(a.event?.timestamp||0)||b.index-a.index);
