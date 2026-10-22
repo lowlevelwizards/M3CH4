@@ -50,7 +50,7 @@ export function runComparison(config,{onProgress=null}={}){
     winner:bout.win==='draw'?'draw':bout.win===challengerSide?
       challenger:'legacy',
     winReason:bout.winReason,time:bout.time,
-    points:{legacy:bout.points[side],challenger:bout.points[challengerSide]},
+    points:{legacy:bout.points[side],[challenger]:bout.points[challengerSide]},
     stats:Object.fromEntries([['legacy',side],[challenger,challengerSide]].map(
       ([id,team])=>{
         const rigs=bout.actors.filter(a=>a.team===team);
