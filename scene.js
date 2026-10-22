@@ -5,6 +5,7 @@ import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
+import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -167,6 +168,11 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(arenaPresentationRoot);
     const worldSolids = buildWarehouse(arenaRoot);
     const garageRoot = buildGarageBay();
+    // Non-colliding shop hardware appears only when real mounted systems are
+    // disabled, making the workshop/pit feel like a service space.
+    const serviceDressing=buildServiceDressing();
+    garageRoot.add(serviceDressing);
+    serviceDressing.visible=false;
     garageRoot.name = 'garage-bay';
     garageRoot.visible = false;
     scene.add(garageRoot);
@@ -1264,6 +1270,9 @@ export function createArenaScene(initial, targetAssembly) {
     let latestPilotParts=null;
     function poseDamagedMachineInGarage() {
         if(!inspecting||animationPreviewMode!=='off'||!latestPilotParts)return;
+        serviceDressing.visible=!vendorEnabled&&Object.values(latestPilotParts)
+          .some(part=>part&&(part.destroyed||
+            (part.maxIntegrity>0&&part.integrity<=.001)));
         for(const [slot,group] of exterior.partGroups){
             const base=inspectionBaseParts.get(slot);
             if(!base)continue;
@@ -1696,6 +1705,7 @@ export function createArenaScene(initial, targetAssembly) {
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
         garageRoot.visible = enabled;
+        if(!enabled)serviceDressing.visible=false;
         stagingFixtures.visible = enabled && !vendorEnabled;
         arenaHemisphere.visible = !enabled;
         sun.visible = !enabled;
@@ -2353,6 +2363,35 @@ function box(w, h, d, material) {
     return mesh;
 }
 
+/** Bounded decorative pit-service equipment, no picking, solids or physics. */
+function buildServiceDressing() {
+    const root=new THREE.Group();root.name='physical-service-equipment';
+    const steel=mat(0x495650,.81,.35);
+    const deep=mat(0x202a28,.90,.10);
+    const warning=mat(0xc79b45,.84,.15);
+    // Two low adjustable jack stands outside the mech's central foot lane.
+    for(const side of [-1,1]){
+        const x=side*1.42,z=.54;
+        const foot=box(.66,.12,.70,steel);
+        foot.position.set(x,.105,z);root.add(foot);
+        const mast=box(.14,.68,.14,warning);
+        mast.position.set(x,.49,z);root.add(mast);
+        const collar=box(.35,.13,.35,deep);
+        collar.position.set(x,.84,z);root.add(collar);
+        const saddle=box(.54,.08,.22,steel);
+        saddle.position.set(x,.92,z);root.add(saddle);
+    }
+    // Oil catch tray and portable shop toolbox; purely physical storytelling.
+    const tray=box(.86,.05,.59,deep);
+    tray.position.set(.08,.075,.96);root.add(tray);
+    const trayLip=box(.88,.055,.06,steel);
+    trayLip.position.set(.08,.12,1.23);root.add(trayLip);
+    const toolbox=box(.52,.27,.34,warning);
+    toolbox.position.set(-1.9,.20,1.13);root.add(toolbox);
+    const handle=box(.23,.045,.06,steel);
+    handle.position.set(-1.9,.37,1.13);root.add(handle);
+    return root;
+}
 function buildGarageBay() {
     const root = new THREE.Group();
     const steel = mat(0x2d3431, .72, .55);
@@ -2859,6 +2898,9 @@ export function buildExteriorRig(assembly) {
             // the rig or station. Paint remains authoritative before finishing.
             applyIndustrialFinish(group,{...fitted.instance,slot},
                 assembly.partHistory?.[fitted.instance.serial]||null);
+            // Honest stamped service tally. Precise welded patches come later
+            // from recorded repair events, never from fabricated impact points.
+            addPhysicalServiceStamp(group,fitted.instance);
         }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
