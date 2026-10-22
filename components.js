@@ -35,6 +35,7 @@ export const CATALOG = [
     // k4w.1: append after all sixteen historical serials, retaining save and fixture identities.
     { id: 'gun-rivet', name: 'RR-4 Rivet Repeater', slot: 'combat', massKg: 440, center: SLOT_CENTERS.combat, envelope: [1.46, 1.02, 1.88], accepts: 'U1', description: 'Salvaged industrial belt-feed tool converted for sustained fire. Immediate automatic rivets, strong progressive mounting wander, high ammunition consumption and slow belt change.', powerKw: -24, functionReady: true },
     { id: 'gun-breaker', name: 'Breaker Driver', slot: 'combat', massKg: 590, center: SLOT_CENTERS.combat, envelope: [1.42, 1.30, 1.94], accepts: 'U1', description: 'Hydraulic demolition driver. Takes 0.7 seconds to pressurize, launches one heavy penetrator with severe recoil and requires a deliberate new trigger hold after reloading.', powerKw: -18, functionReady: true },
+    { id: 'gun-rocket', name: 'Scrap Rocket Rack', slot: 'combat', massKg: 390, center: SLOT_CENTERS.combat, envelope: [1.18, 1.08, 1.85], accepts: 'U1', description: 'Improvised three-tube unguided launcher. Physical rockets travel at 32 m/s and burst on actual contact; close explosions threaten the launch machine.', powerKw: -14, functionReady: true },
 ];
 // Independent mechanical mounting metadata; mesh geometry and hit envelopes remain unchanged.
 for (const part of CATALOG) {
