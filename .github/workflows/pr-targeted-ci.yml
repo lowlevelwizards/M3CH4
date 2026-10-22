@@ -1,0 +1,36 @@
+name: M3CH4 Targeted PR Regression
+on:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: targeted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check changed-file whitespace and JavaScript syntax
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          BASE="${GITHUB_BASE_SHA:-HEAD~1}"
+          git diff --check "$BASE"...HEAD
+          git diff --name-only --diff-filter=ACMR "$BASE"...HEAD |
+            grep -E '\.(js|mjs)$' |
+            while IFS= read -r path; do
+              test ! -f "$path" || node --check "$path"
+            done
+      - name: Run core and changed-system regression tests
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mapfile -t tests < <(node research/selectRegressionTests.mjs --explain)
+          printf 'Checking %s selected regression files\n' "${#tests[@]}"
+          node --test "${tests[@]}"
