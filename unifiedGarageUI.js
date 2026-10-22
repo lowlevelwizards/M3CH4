@@ -6,7 +6,7 @@ import { BY_ID } from './components.js';
 import { stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
 import { createModuleIcon } from './moduleIcons.js';
 import { createStationFace, createConditionMeter } from './uiMeters.js';
-import { loadCounter } from './usedPartsCounter.js';
+import { loadCounter, counterCanStock } from './usedPartsCounter.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js?v=k3w0';
 import { partCreditValue } from './partEconomy.js';
 import { activePlayerArena } from './scene.js';
@@ -773,7 +773,12 @@ function renderCounter(machine) {
     placard.append(el('strong','','BACKLOT COUNTER'),
         el('small','','AS-IS HARDWARE · LOT '+String(campaign.sorties+1).padStart(2,'0')));
     dock.append(placard);
-    const hint=el('p','vendor-hint',chosen?'TAP ANOTHER PART TO INSPECT':'TAP A PART ON THE COUNTER TO INSPECT');
+    const nextStock=!counterCanStock('gun-rivet',campaign)?'RR-4 · CLEAR YARD DOG':
+        !counterCanStock('gun-breaker',campaign)?'ARC / BREAKER · CLEAR CUTTER':
+        !counterCanStock('gun-rocket',campaign)?'ROCKETS · CLEAR MULE':null;
+    const hint=el('p','vendor-hint',chosen?'TAP ANOTHER PART TO INSPECT':
+        nextStock?'TAP HARDWARE · NEXT: '+nextStock:
+            'TAP HARDWARE · FULL CIRCUIT CATALOGUE AVAILABLE');
     dock.append(hint);
     if(chosen) {
         const def=BY_ID.get(chosen.definitionId);

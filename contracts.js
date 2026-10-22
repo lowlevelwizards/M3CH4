@@ -60,10 +60,10 @@ export const CONTRACTS = Object.freeze([
     Object.freeze({
         id: 'recovery-run', name: 'RECOVERY RUN', opponentSerial: 'REC-01', serialPrefix: 'REC01',
         role: 'LOW-RISK YARD WORK', payout: 450, risk: 'LOW', kind: 'OPTIONAL RECOVERY',
-        loadout: yardLoadout, behavior: RECOVERY_BEHAVIOR,
+        loadout: Object.freeze({...yardLoadout, combat:'gun-cannon'}), behavior: RECOVERY_BEHAVIOR,
         objective: Object.freeze({ type: 'recovery', label: 'SECURE RECOVERY SITE', description: 'Hold the marked east-yard recovery pad uncontested.', point: Object.freeze({ x: 16, z: 1.5 }), radius: 4.8, holdSeconds: 8.5 }),
         salvagePriority: Object.freeze(['power', 'combat', 'mobility', 'structure', 'command']),
-        knownEquipment: Object.freeze(['Common Yard Lots', 'Repairable Hardware']),
+        knownEquipment: Object.freeze(['Training Cannon', 'Common Yard Lots', 'Repairable Hardware']),
         salvageHint: 'COMMON / STABILIZING SALVAGE',
         briefing: 'A smaller cleanup crew working a quiet corner of the yard. Lower pay, lighter opposition and useful common hardware.',
     }),
@@ -84,7 +84,7 @@ export const CONTRACTS = Object.freeze([
     Object.freeze({
         id: 'domination', name: 'THREE POINT LOCK', opponentSerial: 'DOM-01', serialPrefix: 'DOM01',
         role: 'TERRITORY CREW', payout: 1100, risk: 'MODERATE', kind: 'DOMINATION CONTRACT',
-        loadout: yardLoadout, behavior: YARD_DOG_BEHAVIOR,
+        loadout: Object.freeze({...yardLoadout, power:'power-dynamo', combat:'gun-rivet'}), behavior: YARD_DOG_BEHAVIOR,
         objective: Object.freeze({
             type:'domination',label:'SECURE TWO OF THREE',description:
                 'Capture A, B and C. Hold two uncontested points to score; first to 60 wins. Contested zones stop paying.',
@@ -96,33 +96,33 @@ export const CONTRACTS = Object.freeze([
             ]),
         }),
         salvagePriority: Object.freeze(['mobility','command','combat','power','structure']),
-        knownEquipment:Object.freeze(['Yardwalker Lead','Kestrel Flank','Hauler Anchor']),
+        knownEquipment:Object.freeze(['RR-4 Rivet Repeater','Needle Flanker','Hauler Scattergun']),
         salvageHint:'TERRITORY CREW SPARES',
-        briefing:'Three marked yards. Capture a zone by occupying it uncontested. Hold two or more points to accrue contract score; contest their zones to stop them scoring. Winning the firefight helps, but mobility and map control decide the outcome.',
+        briefing:'The RR-4 lead lays down suppressing rivets while a fast Needle flanker changes lanes and a Hauler guard punishes close pushes with a scattergun. Take two points, not every firefight.',
     }),
     Object.freeze({
         id: 'mule', name: 'MULE', opponentSerial: 'MULE-01', serialPrefix: 'MULE01',
         role: 'HEAVY / TOUGH', payout: 1050, risk: 'HEAVY', kind: 'CIRCUIT BOUT',
         loadout: Object.freeze({
             structure: 'frame-wedge', mobility: 'legs-hauler', power: 'power-dynamo',
-            command: 'cab-cyclops', combat: 'gun-short',
+            command: 'cab-cyclops', combat: 'gun-breaker',
         }),
         behavior: MULE_BEHAVIOR,
         objective: Object.freeze({ type: 'breakthrough', label: 'BREAK THE FAR LINE', description: 'Get a friendly rig into the hostile backline and hold long enough to break through.', friendlyGoal: Object.freeze({ x: 0, z: -20 }), hostileGoal: Object.freeze({ x: 0, z: 20 }), radius: 4.4, holdSeconds: 5.5 }),
         salvagePriority: Object.freeze(['mobility', 'structure', 'combat', 'power', 'command']),
-        knownEquipment: Object.freeze(['Hauler H2', 'W-3 Wedge']),
+        knownEquipment: Object.freeze(['Breaker Driver', 'Arc Cutter', 'Hauler H2', 'W-3 Wedge']),
         salvageHint: 'HEAVY / DURABLE HARDWARE',
-        briefing: 'Heavy bruiser. Walks down space, braces in cannon range and favors deliberate center-mass fire.',
+        briefing: 'The Hauler charges a hydraulic Breaker shot before striking layered armor. Its welding escort rushes close with an Arc Cutter while a Kestrel flanker strips mobility.',
     }),
     Object.freeze({
         id: 'circuit-final', name: 'CIRCUIT FINAL', opponentSerial: 'FIN-01', serialPrefix: 'FIN01',
         role: 'MIXED SCRAPYARD CREW', payout: 1450, risk: 'SEVERE', kind: 'FINAL CONTRACT',
-        loadout: yardLoadout, behavior: YARD_DOG_BEHAVIOR,
+        loadout: Object.freeze({...yardLoadout,combat:'gun-rocket'}), behavior: YARD_DOG_BEHAVIOR,
         objective: Object.freeze({ type: 'elimination', label: 'BREAK THE CIRCUIT CREW', description: 'The final is a straight mixed-role squad fight. Make the opposing team combat ineffective.' }),
         salvagePriority: Object.freeze(['combat', 'mobility', 'structure', 'power', 'command']),
-        knownEquipment: Object.freeze(['Pressure Lead', 'Kestrel Wing', 'Hauler Wing']),
+        knownEquipment: Object.freeze(['Scrap Rocket Rack','RR-4 Rivet Wing', 'Breaker Hauler']),
         salvageHint: 'MIXED SIGNATURE HARDWARE',
-        briefing: 'The circuit crew fields all three yard doctrines together. Expect pressure, flanking and a heavy anchor in one fight.',
+        briefing: 'An unguided rocket lead controls open ground, an RR-4 Kestrel wing keeps lanes hot, and a braced Hauler drives penetrators through exposed assemblies.',
     }),
 ]);
 

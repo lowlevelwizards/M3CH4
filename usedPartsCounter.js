@@ -5,6 +5,7 @@
 import { CATALOG, BY_ID } from './components.js';
 import { partCreditValue, basePartValue } from './partEconomy.js';
 import { loadMachine, storeMachine } from './persistence.js';
+import { loadCampaign } from './campaign.js';
 
 export const COUNTER_KEY = 'm3ch4-used-counter-v1';
 export const COUNTER_VERSION = 2;
@@ -20,10 +21,24 @@ function prng(seed) {
     };
 }
 function ten(n) { return Math.max(10, Math.round(n / 10) * 10); }
-export function generateCounterStock(cycle=0) {
+/** Clearance opens access to better used hardware, not free ownership.
+ * Replays do not reset access; incomplete side jobs cannot skip required gates.
+ * Salvage remains separate: defeating an advanced squad may yield its real parts.
+ */
+export const ADVANCED_COUNTER_GATES=Object.freeze({
+ 'gun-rivet':'yard-dog',
+ 'gun-arc':'cutter',
+ 'gun-breaker':'cutter',
+ 'gun-rocket':'mule',
+});
+export function counterCanStock(definitionId,campaign=null) {
+ const prerequisite=ADVANCED_COUNTER_GATES[definitionId];
+ return !prerequisite || !!campaign?.clearedNodes?.includes(prerequisite);
+}
+export function generateCounterStock(cycle=0,campaign=null) {
     const index = Number.isSafeInteger(cycle) && cycle>=0 ? cycle : 0;
     const random = prng(index * 761 + 179);
-    const choices = [...CATALOG];
+    const choices = CATALOG.filter(part=>counterCanStock(part.id,campaign));
     const offers = [];
     for (let i=0;i<COUNTER_SIZE;i++) {
         // One introductory S-6 only on a new campaign's first rotation;
@@ -81,7 +96,7 @@ export function loadCounter(storage,cycle=0) {
         const parsed=JSON.parse(storage.getItem(COUNTER_KEY)??'null');
         if(validStock(parsed,number))return {stock:parsed,persisted:true};
     } catch { /* first arrival or damaged sidecar */ }
-    const fresh=generateCounterStock(number);
+    const fresh=generateCounterStock(number,loadCampaign(storage));
     return {stock:fresh,persisted:storeCounter(storage,fresh)};
 }
 export function counterLot(stock,serial) {
