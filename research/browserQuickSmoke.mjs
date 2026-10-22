@@ -1,0 +1,41 @@
+/** PR-only real-browser smoke. The full several-minute interaction/audio
+ * battery stays available via the weekly/manual browser workflow. */
+import {chromium} from 'playwright';
+import {mkdirSync} from 'node:fs';
+mkdirSync('browser-smoke-artifacts',{recursive:true});
+const browser=await chromium.launch({
+  headless:true,args:['--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader'],
+});
+const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:2});
+const errors=[];
+page.on('pageerror',e=>errors.push(String(e.stack||e.message)));
+page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
+try{
+  await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:60000});
+  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  const initial=await page.evaluate(()=>({
+    workspace:document.querySelector('#unified-garage')?.dataset.workspace,
+    stations:document.querySelectorAll('#unified-garage .workshop-rail .unified-station').length,
+    deploy:document.querySelector('#unified-garage .workshop-deploy')?.textContent,
+  }));
+  if(initial.workspace!=='garage'||initial.stations!==5||initial.deploy!=='SELECT JOB')
+    throw Error('Wrong garage startup: '+JSON.stringify(initial));
+  await page.screenshot({path:'browser-smoke-artifacts/quick-garage.png'});
+  await page.locator('#unified-garage .workshop-deploy').click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='contracts')
+    throw Error('Select Job did not open contract board');
+  await page.locator('#unified-garage .campaign-node-tile[data-node="yard-dog"]').click();
+  await page.locator('#unified-garage-action .unified-primary').click();
+  const garage=await page.evaluate(()=>({
+    workspace:document.querySelector('#unified-garage')?.dataset.workspace,
+    action:document.querySelector('#unified-garage .workshop-deploy')?.textContent,
+  }));
+  if(garage.workspace!=='garage'||garage.action!=='DEPLOY')
+    throw Error('Taking a contract did not expose Deploy: '+JSON.stringify(garage));
+  await page.locator('#unified-garage .workshop-deploy').click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='setup')
+    throw Error('Deploy did not open sortie setup');
+  await page.screenshot({path:'browser-smoke-artifacts/quick-sortie-setup.png'});
+  if(errors.length)throw Error('Browser runtime errors: '+errors.join('\n'));
+  console.log('PR BROWSER: PASS · first frame, physical garage, contract selection and sortie setup');
+} finally {await browser.close();}
