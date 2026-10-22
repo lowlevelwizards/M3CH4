@@ -10,7 +10,7 @@ export const OLYMPIC_EVENTS=Object.freeze([
   Object.freeze({id:'wall-detour',name:'Blocked-path navigation',group:'mobility',
     description:'Find a physical path around a tall obstruction',seconds:55}),
   Object.freeze({id:'ally-choke',name:'Squad traffic',group:'coordination',
-    description:'Three real machines share a confined route without deadlocking',seconds:55}),
+    description:'Three same-family physical mechs share a confined route without deadlocking',seconds:55}),
   Object.freeze({id:'rear-ambush',name:'Rear-sector ambush',group:'awareness',
     description:'Infer a shot bearing and turn or seek safety without x-ray vision',seconds:16}),
   Object.freeze({id:'contact-dropout',name:'Lost visual contact',group:'awareness',
