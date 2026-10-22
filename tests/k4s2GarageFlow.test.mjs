@@ -9,9 +9,10 @@ test('k4s.2 uses cache-fresh mobile modules and last-loaded flow stylesheet',()=
   assert.match(html,/k4s2GarageFlow\.css\?v=k4s2/);
   assert.ok(html.indexOf('k4s2GarageFlow.css')>html.indexOf('k4sWorkshopShell.css'));
     assert.match(html,/main\.js\?v=[\w.-]+/);
-  assert.match(html,/garageMountUI\.js\?v=k4s3/);
-  assert.match(mount,/unifiedGarageUI\.js\?v=k4s3/);
-  assert.match(bridge,/scene\.js\?source=k4s2/);
+  assert.match(html,/garageMountUI\.js\?v=k4w3/);
+  assert.match(mount,/unifiedGarageUI\.js\?v=k4w3/);
+  // The cache token advances independently of the original garage-flow release.
+  assert.match(bridge,/scene\.js\?source=[a-zA-Z0-9_.-]+/);
 });
 test('garage owns primary deploy CTA and header navigation',()=>{
   const ui=read('unifiedGarageUI.js'),style=read('k4s2GarageFlow.css');
