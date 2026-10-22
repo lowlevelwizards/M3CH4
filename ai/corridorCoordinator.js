@@ -121,11 +121,11 @@ export function coordinateCorridors(orders,actors,world,{
     const switched=!order||order.objectiveId!==pending.objectiveId||
       !actor||actor.capability?.canMove===false;
     const crossed=actor&&pending.corridorPoint&&pending.goal&&
-      d(actor.position,pending.goal)<d(pending.corridorPoint,pending.goal)-4;
+      dist(actor.position,pending.goal)<dist(pending.corridorPoint,pending.goal)-4;
     const predecessor=liveById.get(pending.leaderId);
     const cleared=policy==='clearance'&&predecessor&&pending.leaderPoint&&
-      pending.leaderGoal&&d(predecessor.position,pending.leaderGoal)<
-        d(pending.leaderPoint,pending.leaderGoal)-12;
+      pending.leaderGoal&&dist(predecessor.position,pending.leaderGoal)<
+        dist(pending.leaderPoint,pending.leaderGoal)-12;
     if(expired||switched||crossed||cleared){
       delete waiting[id];released[id]={until:time+45};continue;
     }
