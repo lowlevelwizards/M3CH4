@@ -2016,6 +2016,20 @@ export function createArenaScene(initial, targetAssembly) {
         }
         return impacts;
     }
+    /** Brief electrical contact: geometry and damage are resolved elsewhere.
+     * One cheap warm arc on actual <=6m contact, not an always-on laser ray.
+     */
+    function showCuttingArc(contact) {
+        if(!contact?.muzzle||!contact?.point)return;
+        const offset=contact.normal.clone().multiplyScalar(.027);
+        const tip=contact.point.clone().add(offset);
+        const arc=new THREE.Line(new THREE.BufferGeometry().setFromPoints([contact.muzzle,tip]),
+            new THREE.LineBasicMaterial({color:0x8cebd1,transparent:true,opacity:.78}));
+        arc.frustumCulled=false;
+        arenaPresentationRoot.add(arc);
+        transientFX.push({object:arc,remaining:.105,duration:.105,material:arc.material});
+        flashDamageLight(tip,0x9deac7,4,.075,2.1);
+    }
     function traceShot(spreadX, spreadY, muzzleZ, penetrate=false) {
         camera.updateMatrixWorld();
         cockpit.updateMatrixWorld(true);
@@ -2063,7 +2077,7 @@ export function createArenaScene(initial, targetAssembly) {
         target.exterior.root.updateWorldMatrix(true, true);
         const combatGroup = shooter.exterior.partGroups.get('combat');
         const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : weaponId === 'gun-breaker' ? -1.32 : weaponId === 'gun-rocket' ? -1.08 : -1.58;
+        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : weaponId === 'gun-breaker' ? -1.32 : weaponId === 'gun-rocket' ? -1.08 : weaponId === 'gun-arc' ? -1.14 : -1.58;
         const muzzle = combatGroup
             ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
             : shooter.exterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
@@ -2449,7 +2463,7 @@ export function createArenaScene(initial, targetAssembly) {
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,
-        traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
+        traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
     };
