@@ -397,7 +397,8 @@ export function runBout(seed,settings){
           if(evidence)recordShotEvidence(observer.motion,observer.rig,evidence);
         }
         const projectileHits=settings.physicalEquipment?
-          sampleProxyProjectileHits(a.weaponSpec,a.weaponState.firingCount,distance,chance,rng):
+          sampleProxyProjectileHits(a.weaponSpec,a.weaponState.firingCount,distance,
+            settings.accuracy===0?0:chance,rng):
           (settings.accuracy===0||rng()>chance?0:1);
         if(!projectileHits)continue;
         a.stats.hits+=projectileHits;
