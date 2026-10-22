@@ -179,32 +179,37 @@ export function runBout(seed,settings){
         contestedEvents:0,recaptureEvents:0,deadlocks:0,damagingShots:0,
         scoreByTeam:{friendly:0,hostile:0},actors:[]};
     let oldOwners=['', '', ''],lastClaimedOwners=[null,null,null],oldContest=[false,false,false],
-        oldLeader=null,plans={},snapshot=null,planLeft=0,perceptionLeft=0;
+        oldLeader=null,plans={},snapshot=null,
+        planLeft={friendly:0,hostile:0},perceptionLeft={friendly:0,hostile:0};
     const assaults={friendly:{},hostile:{}};
     const count=team=>actors.filter(a=>a.team===team&&a.active).length;
     // Each trial is independent; no user-managed player is present.
     for(let tick=0;tick<maxSeconds/DT;tick++){
       const t=tick*DT;
-      planLeft-=DT;perceptionLeft-=DT;
-      if(perceptionLeft<=0||!snapshot){
-        snapshot=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
-        perceptionLeft=Math.min(difficulties.friendly.perceptionSeconds,
-          difficulties.hostile.perceptionSeconds);
+      for(const team of ['friendly','hostile']){
+        planLeft[team]-=DT;perceptionLeft[team]-=DT;
       }
-      if(planLeft<=0||!plans.friendly){
-        plans={friendly:planTeam(snapshot,'friendly',{
-            strategy:evaluateStrategy(strategies,snapshot,'friendly'),
-            policy:policies.friendly,previousOrders:plans.friendly?.orders,
-            assaultMemory:assaults.friendly}),
-            hostile:planTeam(snapshot,'hostile',{
-            strategy:evaluateStrategy(strategies,snapshot,'hostile'),
-            policy:policies.hostile,previousOrders:plans.hostile?.orders,
-            assaultMemory:assaults.hostile})};
-        planLeft=Math.min(difficulties.friendly.planningSeconds,
-          difficulties.hostile.planningSeconds);
+      if(!snapshot||perceptionLeft.friendly<=0||perceptionLeft.hostile<=0){
+        const latest=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
+        // Public objectives update together; each team receives new contacts
+        // on its own perception cadence, never the opponent's faster cadence.
+        const knowledge={};
+        for(const team of ['friendly','hostile']){
+          const ready=!snapshot||perceptionLeft[team]<=0;
+          knowledge[team]=ready?latest.knowledge[team]:snapshot.knowledge[team];
+          if(ready)perceptionLeft[team]=difficulties[team].perceptionSeconds;
+        }
+        snapshot={...latest,knowledge};
         if(metrics.firstContactAt===null&&['friendly','hostile'].some(team=>
           snapshot.knowledge[team].contacts.some(c=>c.visible)))
           metrics.firstContactAt=t;
+      }
+      for(const team of ['friendly','hostile'])if(planLeft[team]<=0||!plans[team]){
+        plans[team]=planTeam(snapshot,team,{
+          strategy:evaluateStrategy(strategies,snapshot,team),
+          policy:policies[team],previousOrders:plans[team]?.orders,
+          assaultMemory:assaults[team]});
+        planLeft[team]=difficulties[team].planningSeconds;
       }
       for(const a of actors){
         if(!a.active)continue;
