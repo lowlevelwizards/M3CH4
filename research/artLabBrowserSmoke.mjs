@@ -82,10 +82,23 @@ try{
     const isClipped=child?.geometry.type==='BufferGeometry'&&
       child.geometry.getAttribute('position').count>=3 &&
       !child.geometry.parameters;
+    // An exact repair must conceal the old hole, use a physically lit material,
+    // and cover at least the size of the original breach at that very anchor.
+    const patched=renderer.apply(rig,{
+      event:'service',eventId:'browser-repair-3',serial:'SR01-002',
+      mode:'workshop-repair',coveredEventId:'browser-penetration-2',
+      surfaceId:hit.userData.surface.id,localPoint:mark.localPoint,
+      localNormal:mark.localNormal,timestamp:2000,
+    });
+    const patch=hit.children.find(node=>node.userData.surfaceScarEvent==='browser-repair-3');
+    const repairValid=patched&&!hole.visible&&!!patch&&
+      patch.material.isMeshStandardMaterial&&hole.material.isMeshStandardMaterial&&
+      patch.userData.surfaceDamageSize[0]>hole.userData.surfaceDamageSize[0]&&
+      patch.userData.surfaceDamageSize[1]>hole.userData.surfaceDamageSize[1];
     renderer.clear();
     return {ok:applied&&!duplicate&&!!child&&!pickContamination&&
-      appliedBreach&&roundBreach&&blackCavity&&isClipped&&
-      !child.parent&&!hole.parent,markCount:renderer.counts()};
+      appliedBreach&&roundBreach&&blackCavity&&isClipped&&repairValid&&
+      !child.parent&&!hole.parent&&!patch.parent,markCount:renderer.counts()};
   });
   if(!scar.ok)throw Error('Real articulated scar render failed: '+JSON.stringify(scar));
   const parade=await page.evaluate(async()=>{

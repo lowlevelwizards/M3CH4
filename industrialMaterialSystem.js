@@ -85,7 +85,9 @@ export function applyIndustrialFinish(root,part,history=null) {
   if(!root||!part)return root;
   assignPartSurfaces(root,part.definitionId,part.slot||'');
   const state=appearanceForPart(part,history);
-  root.userData.appearance={serial:state.serial,seed:state.seed};
+  root.userData.appearance={serial:state.serial,seed:state.seed,
+    condition:Number.isFinite(part.condition)?part.condition:null,
+    repairs:Number.isSafeInteger(part.repairs)?part.repairs:0};
   root.traverse(node=>{
     if(!node.isMesh)return;
     const surface=node.userData.surface;
