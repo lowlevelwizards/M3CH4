@@ -1,0 +1,47 @@
+name: k4w6 Campaign AI Balance Cohort
+on:
+  pull_request:
+    paths:
+      - 'research/campaignAiBalanceStudy.mjs'
+      - 'research/headlessDominationStudy.mjs'
+      - 'research/campaignEconomyStudy.mjs'
+      - 'tests/k4w6CampaignAiBalance.test.mjs'
+      - '.github/workflows/k4w6-campaign-ai-balance.yml'
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: 'Mirrored pairs per contract and player strategy'
+        required: true
+        default: '4'
+      seconds:
+        description: 'Maximum simulated seconds per round'
+        required: true
+        default: '135'
+      economy_seeds:
+        description: 'Independent BO3 campaigns per equipment strategy / salvage assumption'
+        required: true
+        default: '24'
+jobs:
+  campaign-ai-proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check model syntax and real objective/equipment regression
+        run: |
+          node --check research/headlessDominationStudy.mjs
+          node --check research/campaignAiBalanceStudy.mjs
+          node --check research/campaignEconomyStudy.mjs
+          node --test tests/k4w6CampaignAiBalance.test.mjs
+      - name: Run six contracts across three AI player equipment strategies, paired side swaps
+        run: |
+          node research/campaignAiBalanceStudy.mjs --pairs=${{ github.event.inputs.pairs || '4' }} --seconds=${{ github.event.inputs.seconds || '135' }} --economy-seeds=${{ github.event.inputs.economy_seeds || '24' }} --out=study-results/k4w6-ai-campaign
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4w6-ai-campaign-full-data
+          path: study-results/k4w6-ai-campaign/
+          if-no-files-found: warn
