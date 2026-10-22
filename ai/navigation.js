@@ -100,7 +100,7 @@ export function nextWaypoint(routeState,position,radius=1.6){
 /** Capture/defense needs ANY safe position inside the scoring circle, not a
  * single exact center coordinate. Distinct entry bearings allow recovery from
  * a blocked segment without changing the physical collision envelope. */
-export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.95,attempt=0,avoid=null){
+export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.95,attempt=0,avoid=null,occupied=[]){
     const maxEntry=Math.max(.2,zoneRadius-collisionRadius-.4);
     const candidates=[{x:center.x,z:center.z}];
     for(let i=0;i<12;i++){
@@ -112,7 +112,17 @@ export function planApproachRoute(world,from,center,zoneRadius,collisionRadius=.
     // evaluates only nearby alternatives, keeping 60Hz phone pacing bounded.
     const sorted=candidates.filter(point=>valid(point,world,collisionRadius+.34))
         .sort((a,b)=> {
-            const penalty=p=>avoid&&length(p,avoid)<3.0?12:0;
+            const penalty=p=>{
+                const retry=avoid&&length(p,avoid)<3.0?12:0;
+                // Nearby crew members already occupying an entry are not
+                // obstacles to scoring: select another spot INSIDE the zone.
+                const crowd=occupied.reduce((sum,item)=>{
+                    const q=item?.position??item?.rig??item;
+                    if(!Number.isFinite(q?.x)||!Number.isFinite(q?.z))return sum;
+                    return sum+Math.max(0,collisionRadius*2.5-length(p,q))*3;
+                },0);
+                return retry+crowd;
+            };
             return length(from,a)+penalty(a)-length(from,b)-penalty(b);
         });
     for(const point of sorted)
