@@ -2398,7 +2398,7 @@ function attemptAiFire(actor, target, shotIndex) {
         const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
         if(contact?.slot&&contact.actorId&&contact.distance<=actor.weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,contact.actorId+'/'+contact.slot,
-                FIXED_DT,actor.weaponSpec.damage);
+                1/actor.weaponSpec.roundsPerSecond,actor.weaponSpec.damage);
             if(consumed%2===1)arena.showCuttingArc(contact);
             resolveAiShotContact(actor,target,contact,thermal.damage);
         }
@@ -2531,7 +2531,7 @@ function attemptFire() {
     if(weaponSpec.fireMode==='continuous') {
         if(center?.slot&&center.actorId&&center.distance<=weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,center.actorId+'/'+center.slot,
-                FIXED_DT,weaponSpec.damage);
+                1/weaponSpec.roundsPerSecond,weaponSpec.damage);
             if(shot%2===1)arena.showCuttingArc(center);
             resolvePlayerShotContact(center,thermal.damage,false,true);
         }
