@@ -6,7 +6,7 @@ import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
-import { buildPartVisual } from './partVisuals.js?v=k4w2';
+import { buildPartVisual } from './partVisuals.js?v=k4w3';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
