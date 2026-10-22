@@ -15,13 +15,21 @@ test('post-bout winners are chosen by authoritative winning side, not survivor c
     ['e1','e2','e3']);
   assert.equal(winningMachines(true,player,allies,hostiles)[2].operational,false);
 });
-test('winner visual cards use actual rig previews and do not change three report pages',()=>{
+test('in-engine winners animate as real physical rigs without a third WebGL renderer',()=>{
   const main=source('main.js'),html=source('index.html'),css=source('winnerTableau.css');
-  assert.match(main,/renderWinningMachines\(winnerTableau,winners,arena\.rigThumbnailDataUrl\)/);
+  const scene=source('scene.js');
+  assert.match(main,/arena\.beginVictoryShowcase\(presentation\)/);
+  assert.match(main,/arena\.updateVictoryShowcase\(frameDt\)/);
+  assert.match(main,/arena\.endVictoryShowcase\(\)/);
+  assert.match(main,/renderWinnerNameplates\(winnerTableau,presentation\)/);
+  assert.match(scene,/poseCombatantExterior\(entry\.record/);
+  assert.match(scene,/createSurfaceScarRenderer\(\{perSerialLimit:4\}\)/);
+  assert.match(scene,/camera\.lookAt\(stage\.root\.position\.x/);
+  assert.doesNotMatch(scene.slice(scene.indexOf('function beginVictoryShowcase'),scene.indexOf('function restoreSurfaceMarks')),/new THREE\.WebGLRenderer/);
   assert.match(main,/aiActors\.filter\(actor=>actor\.team===HOSTILE_TEAM\)/);
   assert.match(html,/id="winner-tableau"/);
   assert.match(html,/data-debrief-target="2"/);
   assert.match(css,/grid-template-columns:repeat\(3/);
-  assert.match(css,/image-rendering:pixelated/);
+  assert.match(css,/\.sortie-outro\.physical-showcase/);
   assert.doesNotMatch(source('winnerTableau.js'),/new THREE\.WebGLRenderer|storeMachine|storeStable/);
 });
