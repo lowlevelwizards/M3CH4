@@ -4,7 +4,6 @@ on:
     paths:
       - "locomotion.js"
       - "combat.js"
-      - "audio.js"
       - "tests/k3v1Brace.test.mjs"
       - ".github/workflows/k3v1-ci.yml"
   push:
