@@ -15,14 +15,23 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
     options={}) {
     state.retryLeft=Math.max(0,(state.retryLeft??0)-dt);
     const finalGoal=intent?.point??{x:rig.x,z:rig.z};
+    // Capture always refers to the actual public scoring center. A reserved
+    // physical arrival INSIDE that circle is only a route destination, never
+    // a second scoring circle with an inflated capture radius.
+    const slot=['CAPTURE','CONTEST'].includes(intent?.goal)&&
+        intent?.arrivalPoint&&Number.isFinite(intent?.radius)&&
+        d(intent.arrivalPoint,finalGoal)<intent.radius-collisionRadius-.20?
+        intent.arrivalPoint:null;
     const viaIdentity=[intent?.goal,intent?.objectiveId??'',
-        Math.round(finalGoal.x),Math.round(finalGoal.z)].join(':');
+        Math.round(finalGoal.x),Math.round(finalGoal.z),
+        Math.round((intent?.viaPoint?.x??0)*2),
+        Math.round((intent?.viaPoint?.z??0)*2)].join(':');
     if(state.viaIdentity!==viaIdentity){
         state.viaIdentity=viaIdentity;state.viaReached=false;
     }
     if(intent?.viaPoint&&d(rig,intent.viaPoint)<1.7)state.viaReached=true;
     const via=!state.viaReached?intent?.viaPoint??null:null;
-    const goal=via??finalGoal;
+    const goal=via??slot??finalGoal;
     // Physical presence already inside an objective is an accomplished
     // approach; stop steering instead of continually seeking a sample point.
     const arrived=(intent?.goal==='CAPTURE'||intent?.goal==='CONTEST')&&
@@ -40,7 +49,8 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
             note:arrived?'SCORING FOOTPRINT':guarding?'HOLD SCORING POSITION':intent?.reason??'HOLD',
             brakeBias:.94};
     }
-    const key=[intent?.goal,intent?.objectiveId??'',Math.round(goal.x),Math.round(goal.z)].join(':');
+    const key=[intent?.goal,intent?.objectiveId??'',
+        Math.round(goal.x*2),Math.round(goal.z*2)].join(':');
     if(state.lastPosition) {
         const waypoint=state.route?.waypoints?.[state.route.index]??goal;
         // Evaluate actual progress per second, not motion per simulation tick.
@@ -64,10 +74,14 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         // chassis outside the actual objective (detected by AI Olympics).
         const territory=['CAPTURE','CONTEST'].includes(intent?.goal)&&
             Number.isFinite(intent?.radius);
-        let route=territory?
+        let route=territory&&!slot&&!via?
             planApproachRoute(world,rig,goal,intent.radius,collisionRadius,state.replanAttempts,
                 failedWaypoint,traffic):
             planRoute(world,rig,goal,collisionRadius);
+        // A reserved position must not make an otherwise reachable actual
+        // scoring zone impossible to enter when a static obstacle blocks it.
+        if(!route.ok&&slot&&!via)route=planApproachRoute(world,rig,finalGoal,
+            intent.radius,collisionRadius,state.replanAttempts,failedWaypoint,traffic);
         // A speculative sheltered via-point must never strand an otherwise
         // valid capture route. Fall back to real destination on route failure.
         if(!route.ok&&via){
