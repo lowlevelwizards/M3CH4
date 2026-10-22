@@ -39,8 +39,8 @@ function inventoryTallies(items){
   }
   return counts;
 }
-export function packFleet(inventory,validRecipes){
-  const stock=inventory.filter(p=>!p.destroyed&&p.condition>=.20);
+export function packFleet(inventory,validRecipes,{includeDisabled=false}={}){
+  const stock=inventory.filter(p=>!p.destroyed&&(includeDisabled||p.condition>=.20));
   const bySerial=new Map(stock.map(p=>[p.serial,p]));
   const remaining=new Set(bySerial.keys()),fleet=[];
   const ordered=[...validRecipes].sort((a,b)=>{
@@ -172,14 +172,33 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
   let campaign=createCampaignState(),credits=STARTING_CREDITS;
   let wins=0,losses=0,roundWins=0,salvages=0,purchases=0,repairPaid=0,
     deferred=0,spentInShop=0,peakFleet=1,firstTwo=null,firstThree=null,
-    fieldableFailures=0,unfinishedSeries=0,lowBalance=0;
+    fieldableFailures=0,unfinishedSeries=0,lowBalance=0,stalledAt=null;
+  let emergencyServicePaid=0;
   const history=[];
   for(let cycle=0;cycle<contracts;cycle++){
+    // Garage may service a disabled but physically assembled rig before deployment.
+    if(!packFleet(inventory,legalRows).length){
+      const repairable=packFleet(inventory,legalRows,{includeDisabled:true});
+      const rescue=serviceInventory(inventory,repairable,credits,armorBySerial);
+      credits=rescue.credits;repairPaid+=rescue.spent;emergencyServicePaid+=rescue.spent;
+      if(!packFleet(inventory,legalRows).length){
+        fieldableFailures++;stalledAt=cycle+1;break;
+      }
+    }
     const contract=contractById(preferredContract(campaign));
     let won=0,lost=0,shots=0,seriesDamage=0,claims=0;
+    let seriesStalled=false;
     while(won<2&&lost<2){
       const roster=packFleet(inventory,legalRows);
-      if(!roster.length){lost=2;fieldableFailures++;break}
+      if(!roster.length){
+        const repairable=packFleet(inventory,legalRows,{includeDisabled:true});
+        const rescue=serviceInventory(inventory,repairable,credits,armorBySerial);
+        credits=rescue.credits;repairPaid+=rescue.spent;emergencyServicePaid+=rescue.spent;
+        if(!packFleet(inventory,legalRows).length){
+          seriesStalled=true;fieldableFailures++;stalledAt=cycle+1;break;
+        }
+        continue;
+      }
       const win=choose(rng,assumptions.winProbability);
       win?won++:lost++;
       if(win)roundWins++;
@@ -196,6 +215,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
         }
       }
     }
+    if(seriesStalled){unfinishedSeries++;break}
     const terminal=won>=2;
     if(terminal)wins++;else losses++;
     const result=settleSortie({credits,victory:terminal,roundsFired:shots,
@@ -206,7 +226,8 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
     campaign=campaignEvent.state;
     let fleet=packFleet(inventory,legalRows);
     // Repair fielded and recently damaged machines; price is a separate garage expense.
-    const repair=serviceInventory(inventory,fleet,credits,armorBySerial);
+    const repairable=packFleet(inventory,legalRows,{includeDisabled:true});
+    const repair=serviceInventory(inventory,repairable,credits,armorBySerial);
     credits=repair.credits;repairPaid+=repair.spent;deferred+=repair.deferred;
     if(purchase){
       const market=buyForFleet(inventory,campaign.sorties,credits,
@@ -227,6 +248,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
     deferredRepairQuoted:deferred,spentInShop,credits,owned:inventory.length,
     uniqueDefinitions:new Set(inventory.map(x=>x.definitionId)).size,
     peakFleet,firstTwo,firstThree,fieldableFailures,lowBalance,
+    stalledAt,contractsCompleted:history.length,emergencyServicePaid,
     requiredClears:campaign.clearedNodes.filter(x=>
       ['yard-dog','cutter','mule','circuit-final'].includes(x)).length,
     history};
@@ -252,6 +274,7 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
       avgRepairPaid:average(runs.map(x=>x.repairPaid)),
       avgDeferredRepair:average(runs.map(x=>x.deferredRepairQuoted)),
       avgLowBalanceContracts:average(runs.map(x=>x.lowBalance)),
+      avgContractsCompleted:average(runs.map(x=>x.contractsCompleted)),
       pctNoFieldableAtSomePoint:pct(runs.filter(x=>x.fieldableFailures>0).length,runs.length),
       pctFourCampaignClears:pct(runs.filter(x=>x.requiredClears===4).length,runs.length),
       sampleRuns:runs.slice(0,2)});
@@ -262,6 +285,7 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     'Salvage claim eligibility is a scenario assumption; maximum one claimed surviving module per won round, using actual draft and acquisition.',
     'Opponent manifests repeat each contract lead recipe; supporting crew mixes, wreck destruction and score-order draft loss are not simulated.',
     'Repairs are paid after terminal BO3 settlement; persistent armor and integrity losses are quoted by the actual economic functions.',
+    'A garage rescue service is attempted on unfieldable hardware. If unaffordable, the modeled career stops: no fictional future loss payouts.',
     'Market turns over each completed contract. One shortage-targeted purchase per contract leaves cash buffer.',
     'No human selling, advanced trading, customization preferences, actor careers or high-end money sinks.',
     'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.']};
@@ -277,9 +301,9 @@ export function reportCampaign(r){
       c.pctThreeRigs+'%',c.medianContractsToThree??'—',c.avgClaims,
       c.avgPurchases,c.avgCash,c.avgRepairPaid].join(' | ')+' |'),
     '', '## Additional pressure indicators','',
-    '| Scenario | Avg credits below 250 (contracts) | Any round without a legal fieldable rig | Average unserviced repair quotes | Four required jobs cleared |',
-    '| --- | ---: | ---: | ---: | ---: |',
-    ...r.cases.map(c=>'| '+[c.name,c.avgLowBalanceContracts,
+    '| Scenario | Avg completed contracts | Avg credits below 250 | Stranded before horizon | Average unserviced repair quotes | Four required jobs cleared |',
+    '| --- | ---: | ---: | ---: | ---: | ---: |',
+    ...r.cases.map(c=>'| '+[c.name,c.avgContractsCompleted,c.avgLowBalanceContracts,
       c.pctNoFieldableAtSomePoint+'%',c.avgDeferredRepair,c.pctFourCampaignClears+'%'].join(' | ')+' |'),
     '', ...r.cautions.map(x=>'- '+x),
     '', 'No payouts, repair prices, salvage terms, market prices, or production enemy strategies are modified.'].join('\n')+'\n';
