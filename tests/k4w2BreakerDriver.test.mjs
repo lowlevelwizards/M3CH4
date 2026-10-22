@@ -34,7 +34,7 @@ test('penetration follows physically ordered contacts, shields cut residual ener
  const a={actorId:'enemy-0',slot:'structure'};
  const b={actorId:'enemy-0',slot:'power'};
  const c={actorId:'enemy-0',slot:'command'};
- const fresh=resolvePenetratingContacts([a,a,b,c],{armorAt:t=>t.slot==='structure'?120:0});
+ const fresh=resolvePenetratingContacts([a,a,b,c],{armorAt:t=>t.slot==='structure'?250:0});
  assert.equal(fresh.length,2,'frame consumes enough energy to stop before third layer');
  assert.equal(fresh[0].contact,a);
  assert.equal(fresh[1].contact,b);
