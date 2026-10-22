@@ -34,7 +34,7 @@ test('actual active electrical draw stresses shared generator bus, without chang
 });
 test('beam cannot damage without a confirmed short-range physical hit',()=>{
  const m=source('main.js');
- assert.match(m,/contact\.distance<=weaponSpec\.rangeMeters/);
+ assert.match(m,/center\.distance<=weaponSpec\.rangeMeters/);
  assert.match(m,/cutContact\(/);
  assert.match(m,/setActiveWeaponLoad\(/);
  assert.match(source('partVisuals.js'),/'gun-arc': buildArcCutterVisual/);
