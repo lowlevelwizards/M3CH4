@@ -7,7 +7,8 @@ const clamp=(x,min,max)=>Math.max(min,Math.min(max,Number.isFinite(x)?x:min));
 export function createWeaponActionState(spec) {
     return spec.fireMode === 'automatic'
         ? { sustainedSeconds:0, sinceLastEmission:99 }
-        : spec.fireMode === 'charged' ? { charge:0, ready:false, latched:false } : null;
+        : spec.fireMode === 'charged' ? { charge:0, ready:false, latched:false }
+        : spec.fireMode === 'projectile' ? { latched:false } : null;
 }
 export function advanceWeaponAction(state,spec,dt) {
     if (!state?.action || spec.fireMode !== 'automatic' || !Number.isFinite(dt) || dt<=0) return;
@@ -48,4 +49,14 @@ export function advanceChargedTrigger(state,spec,held,dt) {
     a.charge=Math.min(Math.max(.01,spec.chargeSeconds??.7),a.charge+dt);
     a.ready=a.charge>=Math.max(.01,spec.chargeSeconds??.7);
     return a.ready;
+}
+
+/** Press-to-launch: never repeat on an unbroken player hold after cooldown.
+ * AI supplies separate decisions through the existing real cooldown authority.
+ */
+export function advanceProjectileTrigger(state,spec,held) {
+    if(spec.fireMode!=='projectile'||!state?.action)return !!held;
+    if(!held){state.action.latched=false;return false;}
+    if(state.action.latched)return false;
+    state.action.latched=true;return true;
 }
