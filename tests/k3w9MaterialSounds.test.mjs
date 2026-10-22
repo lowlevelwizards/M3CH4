@@ -63,7 +63,7 @@ test('approved sounds and per-event choices remain present and game audio untouc
   const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
   assert.match(html,/audioSystemsSynth\.js\?v=k3w11/);
   assert.match(html,/audioSystemsUI\.js\?v=k3w9/);
-  assert.match(html,/0\.0\.1k\.4s\.1 — Workshop Navigation/);
+  assert.match(html,/0\.0\.1k\.4s\.2 — Garage Flow/);
   assert.doesNotMatch(main,/audioSystemsUI/);
   assert.match(main,/soundCombatImpact\(/);
   assert.match(main,/soundWeaponShot\(weaponSpec\.id/);
