@@ -11,7 +11,7 @@ import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './eco
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
-import {winningMachines,renderWinningMachines} from './winnerTableau.js';
+import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
@@ -1888,10 +1888,13 @@ function frame(now) {
     });
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {
+        arena.updateVictoryShowcase(frameDt);
         sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
         if (sortieOutroRemaining === 0 && pendingDebrief) {
             const next = pendingDebrief; pendingDebrief = null; sortiePhase = 'debrief';
+            arena.endVictoryShowcase();
             sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
+            sortieOutro.classList.remove('physical-showcase');
             controls.setEnabled(false);
             assemblyToggle.disabled = false;
             renderDebrief(next.summary, next.reason);
@@ -2243,16 +2246,26 @@ function finishSortie(victory, reason) {
         sortieOutroTitle.textContent = victory ? 'SORTIE COMPLETE' : 'SORTIE FAILED';
         sortieOutroReason.textContent = victory ? reason : `${reason} · RECOVERY CREW INBOUND`;
     }
-    // The five-second physical aftermath now gives the actual winning
-    // machines a lineup. Reuse the cached garage renderer, not another canvas.
+    // The winning side now walks in as physical Three.js machines, assembled
+    // from the same authored serialized parts. No screenshot cards or extra
+    // WebGL canvas are used for the post-match presentation.
     try {
         const winners=winningMachines(victory,{
-            id:'player',label:assembly.name||'YOUR RIG',assembly,active:playerCombatActive,
+            id:'player',label:assembly.name||'YOUR RIG',assembly,
+            active:playerCombatActive,condition:playerCondition,
         },friendlySupportActors,aiActors.filter(actor=>actor.team===HOSTILE_TEAM));
-        renderWinningMachines(winnerTableau,winners,arena.rigThumbnailDataUrl);
+        const presentation=winners.map(w=>({
+            ...w,condition:w.id==='player'?playerCondition:
+                aiActors.find(actor=>actor.id===w.id)?.condition||null,
+        }));
+        const started=arena.beginVictoryShowcase(presentation);
+        sortieOutro.classList.toggle('physical-showcase',started);
+        if(started)renderWinnerNameplates(winnerTableau,presentation);
+        else winnerTableau.replaceChildren();
     } catch(error) {
         winnerTableau.replaceChildren();
-        console.warn('WINNER PORTRAITS UNAVAILABLE',error?.message||error);
+        sortieOutro.classList.remove('physical-showcase');
+        console.warn('PHYSICAL WINNER SHOWCASE UNAVAILABLE',error?.message||error);
     }
     sortieOutro.classList.remove('hidden');
     sortieOutro.classList.toggle('failed', !victory);

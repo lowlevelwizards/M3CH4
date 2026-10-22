@@ -1696,6 +1696,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateCombatantRig('enemy-0', state);
     }
     function setInspection(enabled) {
+        if(enabled)endVictoryShowcase();
         inspecting = enabled;
         exterior.root.visible = enabled && !vendorEnabled;
         vendorRoot.visible = enabled && vendorEnabled;
@@ -1890,6 +1891,143 @@ export function createArenaScene(initial, targetAssembly) {
     const surfaceImpactEvents=[];
     const surfaceMarks=createSurfaceScarRenderer({perSerialLimit:4});
     const knownSurfaceEvents=new Map();
+    // Three physical serialized mechs share the game's existing scene, renderer,
+    // part builders and leg animation. Never create a second live WebGL canvas.
+    let victoryStage=null;
+    function endVictoryShowcase() {
+        if(!victoryStage)return;
+        const old=victoryStage;victoryStage=null;
+        old.scars.clear();
+        scene.remove(old.root);
+        camera.fov=old.cameraFov;
+        camera.updateProjectionMatrix();
+        for(const entry of old.machines)disposePreviewObject(entry.visual.root);
+        old.root.traverse(node=>{
+            if(node.isMesh && !old.machines.some(e=>e.visual.root===node)) {
+                // Stage-only signs and floor have their own disposable geometry.
+                if(node.userData.victoryFixture){
+                    node.geometry?.dispose?.();
+                    node.material?.dispose?.();
+                }
+            }
+        });
+        cockpit.visible=!inspecting&&!spectatorRig;
+        combinerHud.visible=!inspecting&&!spectatorRig;
+    }
+    function beginVictoryShowcase(winners=[]) {
+        endVictoryShowcase();
+        if(inspecting||!Array.isArray(winners)||!winners.length)return false;
+        const root=new THREE.Group();
+        root.name='physical-victory-parade';
+        root.position.set(0,0,-72);
+        const floor=new THREE.Mesh(new THREE.BoxGeometry(14,.13,13),
+          new THREE.MeshStandardMaterial({color:0x493e30,roughness:.93,metalness:.08}));
+        floor.position.set(0,-.09,-1.8);floor.userData.victoryFixture=true;
+        root.add(floor);
+        for(const x of [-3.18,0,3.18]){
+          const lane=new THREE.Mesh(new THREE.BoxGeometry(2.7,.018,.055),
+            new THREE.MeshStandardMaterial({color:0xb28c50,roughness:.84,metalness:.12}));
+          lane.position.set(x,.001,1.1);
+          lane.userData.victoryFixture=true;
+          root.add(lane);
+        }
+        const rail=new THREE.Mesh(new THREE.BoxGeometry(12,1.15,.22),
+          new THREE.MeshStandardMaterial({color:0x24322e,roughness:.88,metalness:.2}));
+        rail.position.set(0,.50,-6.5);rail.userData.victoryFixture=true;root.add(rail);
+        const key=new THREE.DirectionalLight(0xffd5a0,2.2);
+        key.position.set(-5,9,6);root.add(key);
+        const rim=new THREE.DirectionalLight(0x7bc8bc,1.5);
+        rim.position.set(4,6,-4);root.add(rim);
+        const fill=new THREE.HemisphereLight(0xc9cbb4,0x3e3024,.7);
+        root.add(fill);
+        const scars=createSurfaceScarRenderer({perSerialLimit:4});
+        const machines=[];
+        for(const [i,winner] of winners.slice(0,3).entries()){
+          if(!winner?.assembly)continue;
+          const visual=buildExteriorRig(winner.assembly);
+          calibrateExteriorSoles(visual);
+          const x=(i-(Math.min(winners.length,3)-1)/2)*3.18;
+          const operational=winner.operational!==false;
+          root.add(visual.root);
+          for(const event of knownSurfaceEvents.values())
+            scars.apply(visual,event);
+          const shadow=new THREE.Mesh(new THREE.CircleGeometry(.9,16),
+            new THREE.MeshBasicMaterial({color:0x050c09,transparent:true,
+              opacity:.48,depthWrite:false,side:THREE.DoubleSide}));
+          shadow.rotation.x=-Math.PI/2;
+          shadow.scale.set(1.32,.78,1);
+          shadow.position.set(x,.006,-3.8);
+          shadow.userData.victoryFixture=true;
+          root.add(shadow);
+          const record={
+            id:'parade-'+i,assembly:winner.assembly,exterior:visual,
+            active:true,wrecked:false,cleared:false,
+            disabledSlots:new Set(operational?[]:['mobility','combat']),
+            destroyedSlots:new Set(),articulation:captureArticulation(visual),
+            baseParts:capturePartTransforms(visual),
+            recoilKick:0,weaponRecoveryKick:0,weaponServicing:false,
+          };
+          // Functional distress remains visible; never flatten all the winners
+          // to the same clean marketing model after a hard-fought battle.
+          for(const [slot,meshes] of visual.partMeshes){
+            const part=winner.condition?.parts?.[slot];
+            if(!part)continue;
+            const severity=1-THREE.MathUtils.clamp(part.integrity/Math.max(1,part.maxIntegrity),0,1);
+            for(const mesh of meshes){
+              const material=mesh.material;
+              if(!material?.isMeshStandardMaterial)continue;
+              material.color.multiplyScalar(Math.max(.48,1-severity*.44));
+            }
+          }
+          machines.push({record,visual,x,operational,phase:i*.32,shadow});
+        }
+        if(!machines.length){scars.clear();return false;}
+        scene.add(root);
+        victoryStage={root,machines,scars,elapsed:0,cameraFov:camera.fov};
+        camera.fov=52;camera.updateProjectionMatrix();
+        cockpit.visible=false;
+        combinerHud.visible=false;
+        return true;
+    }
+    function updateVictoryShowcase(dt){
+        const stage=victoryStage;
+        if(!stage)return false;
+        stage.elapsed+=Math.max(0,Math.min(.12,dt||0));
+        const elapsed=stage.elapsed;
+        for(const entry of stage.machines){
+          const time=Math.max(0,elapsed-entry.phase);
+          const t=THREE.MathUtils.clamp(time/2.25,0,1);
+          const eased=1-Math.pow(1-t,2.2);
+          const moving=entry.operational&&t<1;
+          const gait=moving?Math.min(1,Math.sin(t*Math.PI)*1.35):0;
+          const z=-3.8+eased*3.9;
+          entry.shadow.position.z=z;
+          poseCombatantExterior(entry.record,{
+            x:entry.x,z,yaw:Math.PI,
+            vx:0,vz:moving?1.7:0,
+            forwardSpeed:moving?1.7:0,lateralSpeed:0,
+            footingLoad:moving?.2:.05,recoilLoad:0,
+          },{
+            dt:Math.min(.10,dt),target:{x:entry.x,z:10,height:2},
+            gait:{phase:time*7.6,gaitWeight:gait},
+            posture:{animationHealth:entry.operational?.95:.22},
+          });
+          // source models have a forward face toward +Z. No gameplay hitboxes
+          // are touched; all parade positions live in the distant stage group.
+          entry.visual.root.rotation.y=0;
+          if(!entry.operational){
+            entry.visual.root.rotation.z=-.095;
+            entry.visual.root.position.y-=.07;
+          }
+        }
+        camera.position.set(stage.root.position.x,3.05,
+          stage.root.position.z+THREE.MathUtils.lerp(10.4,8.6,
+            THREE.MathUtils.clamp(elapsed/4.2,0,1)));
+        camera.lookAt(stage.root.position.x,1.68,stage.root.position.z-.85);
+        cockpit.visible=false;
+        combinerHud.visible=false;
+        return true;
+    }
     function restoreSurfaceMarks(events) {
         for(const event of events||[]) {
             if(!event?.eventId||!event?.serial)continue;
@@ -2349,6 +2487,7 @@ export function createArenaScene(initial, targetAssembly) {
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
+        beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
