@@ -233,6 +233,7 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(vendorRoot);
     const vendorPicks=[],vendorPads=new Map();
     let vendorEnabled=false;
+    let savedWorkshopOrbit=null;
     function clearVendorTable() {
         vendorRoot.traverse(object=>{
             if(!object.isMesh)return;
@@ -289,14 +290,25 @@ export function createArenaScene(initial, targetAssembly) {
         vendorRoot.visible=inspecting&&vendorEnabled;
     }
     function setVendorMode(enabled) {
-        vendorEnabled=!!enabled;
+        enabled=!!enabled;
+        if(enabled===vendorEnabled)return;
+        vendorEnabled=enabled;
         vendorRoot.visible=inspecting&&vendorEnabled;
         exterior.root.visible=inspecting&&!vendorEnabled;
         stagingFixtures.visible=inspecting&&!vendorEnabled;
         if(vendorEnabled) {
-            desiredTarget.set(0,1.30,0);
-            radius=Math.max(radius,9.6);
-        } else focusPart(null);
+            // A separate tabletop viewing station: don't overwrite the player's
+            // garage orbit, so returning to the rig is spatially continuous.
+            savedWorkshopOrbit={azimuth,elevation,radius,target:desiredTarget.clone()};
+            azimuth=.02;elevation=.32;radius=8.4;
+            desiredTarget.set(0,1.45,0);orbitAssist=null;
+        } else if(savedWorkshopOrbit) {
+            azimuth=savedWorkshopOrbit.azimuth;
+            elevation=savedWorkshopOrbit.elevation;
+            radius=savedWorkshopOrbit.radius;
+            desiredTarget.copy(savedWorkshopOrbit.target);
+            savedWorkshopOrbit=null;orbitAssist=null;
+        }
     }
     function selectVendorLot(serial) {
         for(const [id,pad] of vendorPads)
@@ -1717,9 +1729,8 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function focusPart(slot) {
-        // A selected station is an inspector state, NOT a camera focus target.
-        // Paint and part selection must not move, zoom or reset the orbit.
-        desiredTarget.set(0,1.85,0);
+        // No orbit or pivot changes on inspector selection, deselection or
+        // temporary preview; the player's manually chosen view persists.
     }
     function revealPart(slot) {
         // Model taps have already exposed the part. Only explicit shortcut navigation
