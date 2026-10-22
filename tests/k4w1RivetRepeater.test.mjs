@@ -9,7 +9,7 @@ import {basePartValue} from '../partEconomy.js';
 const source=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const spec=WEAPONS['gun-rivet'];
 test('new rivet serial appends after sixteen historical definitions without giving new pilots free hardware',()=>{
-  assert.equal(CATALOG.length,17);
+  assert.ok(CATALOG.length>=17,'subsequent weapons may append after the repeater');
   assert.equal(CATALOG[16].id,'gun-rivet');
   assert.equal(makeTestAssembly().owned[16].serial,'SR01-017');
   assert.equal(BY_ID.get('gun-rivet').slot,'combat');
