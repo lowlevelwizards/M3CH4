@@ -40,6 +40,11 @@ export function deriveRigConfig(assembly) {
         yawDampingNms: DEFAULT_RIG_CONFIG.yawDampingNms * profile.yawDampingScale,
         yawInertiaKgM2: 9200 * massRatio * relativeWidth * (.78 + .22 * (frame.envelope[0] / 1.78) ** 2) * profile.yawInertiaScale,
         turnAuthorityAtZero: profile.turnAuthorityAtZero,
+        // Hauler-only low-speed gearing, still limited by real actuator health,
+        // electrical supply and the fitted footprint's contact moment.
+        pivotTorqueNm: profile.pivotGearTorqueScale
+            ? mover.turnTorqueNm * profile.pivotGearTorqueScale : 0,
+        pivotLeverArmM: mover.envelope[0] / 2,
         collisionRadiusM: Math.max(.95, mover.envelope[0] * .47),
         collisionRestitution: profile.collisionRestitution,
         collisionTangentialDamping: profile.collisionTangentialDamping,

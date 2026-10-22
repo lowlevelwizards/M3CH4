@@ -183,7 +183,7 @@ function runBout(seed,settings){
         const posture=aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),recovery);
         let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??a.rig,DT,
           capability?.canMove??true,DEFAULT_WORLD,config.collisionRadiusM,
-          a.behavior,instruction);
+          a.behavior,instruction,config);
         if(a.fieldService.held||recovery.mode==='SETTLE')
           drive={throttle:0,strafe:0,steer:0,brake:1};
         else drive={...drive,

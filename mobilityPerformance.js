@@ -53,6 +53,9 @@ export const MOBILITY_PERFORMANCE = Object.freeze({
         yawDampingScale: 1.25,
         yawInertiaScale: 1.45,
         turnAuthorityAtZero: .55,
+        // Low-speed reduction gearing: higher yaw torque only once both feet
+        // are planted. No extra angular velocity or canned heading correction.
+        pivotGearTorqueScale: 1.29,
         collisionRestitution: .03,
         collisionTangentialDamping: .55,
         collisionImpactScale: .65,

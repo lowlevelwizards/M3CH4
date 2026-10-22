@@ -1,0 +1,61 @@
+name: M3CH4 Build 1 Pivot Evidence
+on:
+  pull_request:
+    paths:
+      - 'locomotion.js'
+      - 'mobilityPerformance.js'
+      - 'assemblyPhysics.js'
+      - 'enemyMotion.js'
+      - 'main.js'
+      - 'tests/k4v1PlantedPivot.test.mjs'
+      - 'research/balanceMechanicalCohorts.mjs'
+      - '.github/workflows/balance-pivot-ci.yml'
+jobs:
+  planted-pivot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify affected shared physics and command paths
+        run: |
+          node --test tests/k4v1PlantedPivot.test.mjs tests/k3v1Brace.test.mjs tests/k3v2Mobility.test.mjs tests/k4v0MechanicalCohorts.test.mjs
+      - name: Measure pre-change reference rigs on PR base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p pivot-evidence
+          git worktree add --detach /tmp/m3ch4-prepivot "$BASE_SHA"
+          ( cd /tmp/m3ch4-prepivot && node research/balanceMechanicalCohorts.mjs --json ) > pivot-evidence/before.json
+      - name: Measure post-change reference rigs and explain deltas
+        run: |
+          node research/balanceMechanicalCohorts.mjs --json > pivot-evidence/after.json
+          node --input-type=module <<'JS' > pivot-evidence/comparison.md
+          import fs from 'node:fs';
+          const before = JSON.parse(fs.readFileSync('pivot-evidence/before.json','utf8'));
+          const after = JSON.parse(fs.readFileSync('pivot-evidence/after.json','utf8'));
+          const get = (r,n)=>r.cohorts.find(x=>x.name===n);
+          console.log('# Build 1 planted-pivot: 1-second heading in degrees\n');
+          console.log('| Cohort | Before stationary | After stationary | Before moving | After moving |');
+          console.log('| --- | ---: | ---: | ---: | ---: |');
+          for (const name of ['anchor','protected','workhorse','precision','raider','haulerLight','yardLight','kestrelHeavy']) {
+            const b=get(before,name),a=get(after,name);
+            if (!b?.legal||!a?.legal) continue;
+            console.log('| '+[name,b.runs.stationarySteer1s.headingDeg,
+              a.runs.stationarySteer1s.headingDeg,b.runs.movingSteer1s.headingDeg,
+              a.runs.movingSteer1s.headingDeg].join(' | ')+' |');
+          }
+          JS
+          cat pivot-evidence/comparison.md
+      - name: Upload baseline and result separately from rendered-mesh claims
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3ch4-build1-pivot-before-after
+          path: pivot-evidence/
+          if-no-files-found: warn
+          retention-days: 30
