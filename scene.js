@@ -52,7 +52,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     }
     const serial = typeof state.serial==='string'&&state.serial ? state.serial : 'PREVIEW-001';
     const assembly = { serial: 'PREVIEW', name: 'PREVIEW',
-        owned: [{ serial, definitionId, condition: Math.max(0,Math.min(1,Number(state.condition)??1)),
+        owned: [{ serial, definitionId, condition: (Number.isFinite(state.condition)?Math.max(0,Math.min(1,state.condition)):1),
             wear:Math.max(0,Math.min(1,Number(state.wear)||0)),
             repairs:Math.max(0,Math.floor(Number(state.repairs)||0)),paint:normalizePaint(state.paint) }],
         installed: { [definition.slot]: serial },
