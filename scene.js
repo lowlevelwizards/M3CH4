@@ -2082,7 +2082,7 @@ export function createArenaScene(initial, targetAssembly) {
         if(!machines.length){scars.clear();return false;}
         scene.add(root);
         victoryStage={root,machines,scars,elapsed:0,cameraFov:camera.fov};
-        camera.fov=52;camera.updateProjectionMatrix();
+        camera.fov=43;camera.updateProjectionMatrix();
         cockpit.visible=false;
         combinerHud.visible=false;
         return true;
@@ -2112,16 +2112,18 @@ export function createArenaScene(initial, targetAssembly) {
           });
           // source models have a forward face toward +Z. No gameplay hitboxes
           // are touched; all parade positions live in the distant stage group.
-          entry.visual.root.rotation.y=0;
+          // Physical source parts face away at yaw 0 (verified in live mobile
+          // screenshots). Rotate the COMPLETE rig toward the camera at +Z.
+          entry.visual.root.rotation.y=Math.PI;
           if(!entry.operational){
             entry.visual.root.rotation.z=-.095;
             entry.visual.root.position.y-=.07;
           }
         }
-        camera.position.set(stage.root.position.x,3.05,
-          stage.root.position.z+THREE.MathUtils.lerp(10.4,8.6,
+        camera.position.set(stage.root.position.x,2.65,
+          stage.root.position.z+THREE.MathUtils.lerp(8.7,7.3,
             THREE.MathUtils.clamp(elapsed/4.2,0,1)));
-        camera.lookAt(stage.root.position.x,1.68,stage.root.position.z-.85);
+        camera.lookAt(stage.root.position.x,1.48,stage.root.position.z-.6);
         cockpit.visible=false;
         combinerHud.visible=false;
         return true;

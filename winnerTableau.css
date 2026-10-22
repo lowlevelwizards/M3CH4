@@ -1,68 +1,57 @@
-/* Victory machinery is the event: actual serialized rigs rendered as small,
-   cached Three.js portraits. This replaces no report page or live viewport. */
-.sortie-outro:has(.winner-tableau:not(:empty)){
-  width:min(760px,91vw);max-width:91vw;
-  top:42%;padding:11px 15px 12px;
-}
-.winner-tableau{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  width:100%;gap:9px;margin-top:10px;text-align:center;
-}
-.winner-rig{
-  display:grid;grid-template-rows:minmax(60px,1fr) auto auto;
-  min-width:0;padding:4px 6px 5px;
-  background:#1c2b24e6;border:1px solid #77927a;
-  box-shadow:inset 0 -3px 0 #203b2a;
-}
-.winner-rig img{
-  display:block;object-fit:contain;image-rendering:pixelated;
-  width:100%;height:clamp(65px,20vh,112px);min-width:0;
-}
-.winner-rig strong{
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  color:#eccb8e;font:800 10px/1.2 Oxanium,ui-monospace,monospace;
-}
-.winner-rig small{
-  display:block;font:800 7px/1.2 ui-monospace,monospace;
-  color:#93c2a3;letter-spacing:.08em;
-}
-.winner-rig-disabled{border-color:#93634d;background:#28221ce6}
-.winner-rig-disabled img{filter:grayscale(.45) brightness(.7)}
-.winner-rig-disabled small{color:#dd8f73}
-@media(max-height:430px){
-  .sortie-outro:has(.winner-tableau:not(:empty)){
-    top:43%;padding:6px 12px 8px;
-  }
-  .winner-tableau{gap:6px;margin-top:5px}
-  .winner-rig{padding:2px 4px 3px;grid-template-rows:minmax(50px,1fr) auto auto}
-  .winner-rig img{height:clamp(48px,17vh,75px)}
-  .winner-rig strong{font-size:8px}
-  .winner-rig small{font-size:6px}
-}
-
-/* The machine models are now in the real WebGL world below this concise
-   announcement. No thumbnail cards obscure the walk-in or center of frame. */
+/* The Three.js world is the ceremony: names must not hide three real rigs. */
 .sortie-outro.physical-showcase{
-  top:max(8%,env(safe-area-inset-top) + 5px);
-  transform:translate(-50%,0);
-  width:min(760px,89vw);max-width:89vw;min-width:0;
-  padding:8px 15px 9px;background:#101713e3;border-color:#b99152;
+  position:absolute;left:50%;top:max(6%,env(safe-area-inset-top) + 4px);
+  transform:translateX(-50%);
+  width:max-content;max-width:min(82vw,560px);min-width:0;
+  padding:4px 17px 6px;z-index:42;
+  background:rgba(12,20,17,.84);border:1px solid #bd9455;
+  box-shadow:0 2px 15px #0008;letter-spacing:.08em;
+  animation:none;
 }
-.sortie-outro.physical-showcase .winner-tableau{
-  grid-template-columns:repeat(3,minmax(0,1fr));margin-top:7px;
+.sortie-outro.physical-showcase #sortie-outro-title{
+  display:block;color:#eac18a;font:800 clamp(12px,2.5vw,16px)/1.35 Oxanium,monospace;
 }
-.winner-nameplate{display:grid;gap:3px;min-width:0;padding:4px 3px;
-  border-top:1px solid #72846b;background:#26332b5c;
+.sortie-outro.physical-showcase #sortie-outro-reason{
+  display:block;margin-top:0;color:#abc0a3;font:700 clamp(8px,1.4vw,11px)/1.3 Oxanium,monospace;
+  letter-spacing:.025em;
 }
-.winner-nameplate strong{color:#e9ca8c;font:800 10px/1 Oxanium,ui-monospace,monospace;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.winner-nameplate small{color:#8cbba1;font:800 7px/1 monospace}
-.winner-nameplate.is-disabled small{color:#dd9b83}
+/* Unlike the previous scoreboard-sized rectangle, this is THREE individual
+ * unconnected floating captions in front of the real in-world machines. */
+.winner-tableau{
+  position:absolute;z-index:42;left:50%;bottom:clamp(10%,17vh,24%);
+  transform:translateX(-50%);
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:clamp(5px,1.5vw,22px);
+  width:min(80vw,800px);padding:0;pointer-events:none;text-align:center;
+  background:transparent;border:0;box-shadow:none;
+}
+.winner-nameplate{
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  min-width:0;padding:4px 7px 5px;
+  background:rgba(12,24,20,.68);border:1px solid rgba(174,189,146,.45);
+  box-shadow:0 3px 10px #0008;
+}
+.winner-nameplate strong{
+  color:#efcd91;font:800 clamp(9px,1.45vw,13px)/1.15 Oxanium,monospace;
+  white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 2px #000;
+}
+.winner-nameplate small{color:#b1c8ad;font:800 8px/1.2 Oxanium,monospace;letter-spacing:.10em}
+.winner-nameplate.is-disabled{border-color:#91624b;background:rgba(31,24,19,.72)}
+.winner-nameplate.is-disabled small{color:#e6a087}
+/* Clean cutscene: no duplicate score/mission HUD or spectator controls. */
+body.victory-showcase #allied-observation,
+body.victory-showcase #fault-strip,
+body.victory-showcase #shot-report,
+body.victory-showcase #team-status,
+body.victory-showcase #objective-status,
+body.victory-showcase #player-damage-hud,
+body.victory-showcase .round-status,
+body.victory-showcase .spectator-controls{display:none!important}
 @media(max-height:430px){
-  .sortie-outro.physical-showcase{top:max(4%,env(safe-area-inset-top) + 2px);padding:4px 12px 5px}
-  .sortie-outro.physical-showcase strong#sortie-outro-title{font-size:13px}
-  .sortie-outro.physical-showcase .winner-tableau{margin-top:3px;gap:5px}
-  .winner-nameplate{padding:2px}
-  .winner-nameplate strong{font-size:8px}
-  .winner-nameplate small{font-size:6px}
+  .sortie-outro.physical-showcase{top:max(3%,env(safe-area-inset-top) + 2px);padding:2px 12px 3px}
+  .winner-tableau{bottom:clamp(7%,14vh,20%);width:min(83vw,750px);gap:5px}
+  .winner-nameplate{padding:2px 5px}
+  .winner-nameplate strong{font-size:9px}
+  .winner-nameplate small{font-size:7px}
 }

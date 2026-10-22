@@ -1925,6 +1925,8 @@ function frame(now) {
             arena.endVictoryShowcase();
             sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
             sortieOutro.classList.remove('physical-showcase');
+            document.body.classList.remove('victory-showcase');
+            winnerTableau.classList.add('hidden');
             controls.setEnabled(false);
             assemblyToggle.disabled = false;
             renderDebrief(next.summary, next.reason);
@@ -2290,10 +2292,14 @@ function finishSortie(victory, reason) {
         }));
         const started=arena.beginVictoryShowcase(presentation);
         sortieOutro.classList.toggle('physical-showcase',started);
+        document.body.classList.toggle('victory-showcase',started);
+        winnerTableau.classList.toggle('hidden',!started);
         if(started)renderWinnerNameplates(winnerTableau,presentation);
         else winnerTableau.replaceChildren();
     } catch(error) {
         winnerTableau.replaceChildren();
+        winnerTableau.classList.add('hidden');
+        document.body.classList.remove('victory-showcase');
         sortieOutro.classList.remove('physical-showcase');
         console.warn('PHYSICAL WINNER SHOWCASE UNAVAILABLE',error?.message||error);
     }

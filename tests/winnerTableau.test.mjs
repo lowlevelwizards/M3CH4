@@ -31,5 +31,13 @@ test('in-engine winners animate as real physical rigs without a third WebGL rend
   assert.match(html,/data-debrief-target="2"/);
   assert.match(css,/grid-template-columns:repeat\(3/);
   assert.match(css,/\.sortie-outro\.physical-showcase/);
+  assert.match(scene,/entry\.visual\.root\.rotation\.y=Math\.PI/);
+  assert.match(scene,/camera\.fov=43/);
+  assert.match(main,/document\.body\.classList\.toggle\('victory-showcase',started\)/);
+  assert.match(main,/document\.body\.classList\.remove\('victory-showcase'\)/);
+  assert.match(css,/body\.victory-showcase #allied-observation/);
+  assert.match(css,/body\.victory-showcase #fault-strip/);
+  assert.match(html,/<\/div>\s*<div id="winner-tableau"/);
+  assert.doesNotMatch(css,/\.sortie-outro:has\(\.winner-tableau/);
   assert.doesNotMatch(source('winnerTableau.js'),/new THREE\.WebGLRenderer|storeMachine|storeStable/);
 });
