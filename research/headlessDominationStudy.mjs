@@ -21,6 +21,7 @@ import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfil
 import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
 import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
 import {recentThreatTargetId} from '../tacticalAwareness.js';
+import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
@@ -89,6 +90,7 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
             captures:0,zoneSeconds:0,routeErrors:0,serviceCount:0,
             firstContact:null,firstShot:null,deathAt:null,
             targetSwitches:0,trafficYields:0,routeSwitches:0,stallSeconds:0,
+            trafficQueueSeconds:0,
             collisionImpacts:0,underFireSeconds:0,
             attackBySlot:Object.fromEntries(PARTS.map(s=>[s,0]))}};
 }
@@ -146,6 +148,11 @@ function combatWorldFor(me,actors){
   return {...DEFAULT_WORLD,obstacles:[...DEFAULT_WORLD.obstacles,...others]};
 }
 export function runBout(seed,settings){
+    const traffic={friendly:settings.trafficFriendly??'legacy',
+        hostile:settings.trafficHostile??'legacy'};
+    if(!TRAFFIC_POLICIES.includes(traffic.friendly)||
+        !TRAFFIC_POLICIES.includes(traffic.hostile))
+      throw new RangeError('Invalid squad traffic research policy');
     const rng=random(seed),state=createSortieObjective(contractById('domination'));
     const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
         hostile:getAiResearchProfile(settings.policyHostile??'baseline')};
@@ -169,6 +176,7 @@ export function runBout(seed,settings){
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
     const metrics={seed,scenario:settings.name??'research',accuracy:settings.accuracy,
         policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
+        traffic,
         difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
         simulation:'research-approximate-v2',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
@@ -242,7 +250,8 @@ export function runBout(seed,settings){
             retreatPoint:{x:a.rig.x,z:a.team==='friendly'?22:-22}},t);
         if(a.brain.history.length>before)a.stats.goalChanges++;
         const instruction=executeIntent(a.executor,decision,a.rig,physicalWorld,
-          config.collisionRadiusM,DT,nearbyTraffic);
+          config.collisionRadiusM,DT,nearbyTraffic,
+          {trafficPolicy:traffic[a.team],actorId:a.id});
         if(instruction.routeFailure&&!a._lastRouteFailure)a.stats.routeErrors++;
         a._lastRouteFailure=!!instruction.routeFailure;
         if(recovery.begin&&!a.fieldService.held)
@@ -262,6 +271,7 @@ export function runBout(seed,settings){
         const moved=dist(former,a.rig);
         a.stats.travel+=moved;
         a.stats.trafficYields=a.executor.trafficYields;
+        a.stats.trafficQueueSeconds=a.executor.trafficQueueSeconds;
         a.stats.routeSwitches=a.executor.routeSwitches;
         if(a.rig.impact>Math.max(.45,previousImpact+.12))a.stats.collisionImpacts++;
         if(instruction.mode==='ORDER'&&moved<.004&&
