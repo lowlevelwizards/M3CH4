@@ -716,8 +716,11 @@ try {
   // The audio persistence smoke reopened its modal. Close it before testing
   // pointer-driven garage navigation; modal focus must remain authoritative.
   await page.locator('#systems-sound-lab .systems-lab-close').click();
+  // This test deliberately goes from DEV/audio diagnostics back to normal
+  // workshop play. Explicitly restore the closed diagnostics state.
+  await page.locator('#dev-panel').evaluate(panel=>panel.classList.add('hidden'));
   if(await page.locator('#dev-panel').isVisible())
-    await page.locator('#dev-toggle').click();
+    throw Error('DEV diagnostics still overlay the garage contract action');
   // k4s.3 regression: after an earlier BO3 result, accepting a new job must
   // change SELECT JOB to DEPLOY. This exact stale-series state was encountered
   // by a real player after returning from completed contracts.
