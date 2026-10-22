@@ -738,7 +738,10 @@ function renderInventory(stable) {
         panel.append(el('small','',selected.def.massKg+' KG · '+(selected.def.powerKw||0)+' KW · WEAR '+pct(p.wear)));
         panel.append(button(selected.owner?'INSPECT IN BAY':'FIT TO A RIG',()=>{
             const owner=selected.owner;
-            if(owner)viewedId=owner.id;
+            if(owner){
+                viewedId=owner.id;
+                try{session?.setItem(key,viewedId);}catch{/* Viewing remains local. */}
+            }
             openWorkspace('garage');
             selectedSlot=slot;swapExpanded=!owner;
             selectedHardwareSerial=owner?null:p.serial;
