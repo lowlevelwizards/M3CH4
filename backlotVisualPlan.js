@@ -21,7 +21,7 @@ export function backlotVisualPlan(world){
   const floodlightBases=pillars.filter(o=>
     Math.abs((o.minX+o.maxX)/2)>world.maxX*.74 &&
     Math.abs((o.minZ+o.maxZ)/2)>world.maxZ*.70)
-    .filter((_,i)=>i%2===0).slice(0,4).map(o=>({
+    .slice(0,4).map(o=>({
       x:round((o.minX+o.maxX)/2),z:round((o.minZ+o.maxZ)/2),
       y:round(o.height),
     }));
