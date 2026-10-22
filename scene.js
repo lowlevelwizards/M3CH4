@@ -2379,6 +2379,7 @@ export function createArenaScene(initial, targetAssembly) {
     }
     function updatePilotDamage(condition) {
         latestPilotParts=condition?.parts||null;
+        surfaceMarks.reconcile(exterior);
         poseDamagedMachineInGarage();
         for (const [slot, meshes] of exterior.partMeshes) {
             const state = condition.parts[slot];
@@ -2413,6 +2414,10 @@ export function createArenaScene(initial, targetAssembly) {
         updateTargetDamage(condition);
     }
     function updateCombatEffects(dt) {
+        // Cool new perforations to ordinary exposed steel in under a second.
+        // Stored scars and painted repairs remain unlit by artificial emission.
+        surfaceMarks.update();
+        victoryStage?.scars.update();
         muzzleKick = Math.max(0, muzzleKick - dt * (pilotWeaponPresentation.visualRecovery ?? 3.6));
         muzzleFlash = Math.max(0, muzzleFlash - dt);
         for (const record of squadCombatants.values()) record.recoilKick = Math.max(0, (record.recoilKick ?? 0) - dt * (record.recoilRecovery ?? 3.2));

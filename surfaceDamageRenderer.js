@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import {normalizeSurfaceEvent} from './partServiceJournal.js';
 import {surfaceDamageLanguage} from './surfaceDamageLanguage.js';
 import {clipProjectedTriangle} from './surfaceDecalClip.js';
+import {hideBreachAfterService,REPAIR_PATCH_SIZE} from './surfaceRepairPolicy.js';
 
 let shared=null;
 const P=32;
@@ -15,15 +16,16 @@ function pixelTexture(kind) {
   const g=c.getContext('2d');
   g.clearRect(0,0,P,P);
   if(kind==='service-patch'){
-    // A replacement steel panel with deliberately pixelated weld edging.
-    g.fillStyle='#1d2624';g.fillRect(2,5,28,23);
-    g.fillStyle='#ab8a59';g.fillRect(4,7,24,19);
-    g.fillStyle='#68766d';g.fillRect(6,8,20,17);
-    g.fillStyle='#899589';g.fillRect(8,10,16,12);
-    g.fillStyle='#c6ab7b';
-    for(let x=4;x<29;x+=4){g.fillRect(x,5,2,3);g.fillRect(x,25,2,3);}
-    for(let y=7;y<26;y+=4){g.fillRect(2,y,3,2);g.fillRect(27,y,3,2);}
-    g.fillStyle='#393b33';g.fillRect(8,10,2,2);g.fillRect(22,20,2,2);
+    // Entire mapped footprint is a metal repair, not a translucent painted
+    // scrap. It is wider than even the largest catastrophic hole.
+    g.fillStyle='#3b4139';g.fillRect(0,0,32,32);
+    g.fillStyle='#af9062';g.fillRect(1,1,30,30);
+    g.fillStyle='#56665e';g.fillRect(3,3,26,26);
+    g.fillStyle='#859286';g.fillRect(5,5,22,22);
+    g.fillStyle='#b9a57e';
+    for(let x=1;x<32;x+=4){g.fillRect(x,0,2,3);g.fillRect(x,29,2,3);}
+    for(let y=2;y<32;y+=4){g.fillRect(0,y,3,2);g.fillRect(29,y,3,2);}
+    g.fillStyle='#39403a';g.fillRect(7,7,2,2);g.fillRect(23,23,2,2);
   } else if(kind==='armor-scrape'){
     // Exposed steel and a directional paint-chip tail, NOT a puncture.
     g.fillStyle='#242a26';
@@ -36,13 +38,14 @@ function pixelTexture(kind) {
   } else {
     const destroyed=kind==='destroyed-breach';
     const hot=kind==='power-breach';
+    const fresh=kind==='fresh-breach';
     // Intentionally broad blocked pixels: a real black cavity, surrounded by
     // torn primer/steel. At default phone resolution it reads as a hole.
     g.fillStyle=hot?'#34271d':'#514b3c';
     g.fillRect(8,4,16,24);g.fillRect(5,8,22,16);
     g.fillRect(3,12,26,8);
     if(destroyed){g.fillRect(2,9,8,13);g.fillRect(23,11,7,13);}
-    g.fillStyle=hot?'#896044':'#929184';
+    g.fillStyle=fresh?'#dd853c':hot?'#896044':'#929184';
     g.fillRect(8,6,15,3);g.fillRect(5,10,4,12);
     g.fillRect(9,23,14,3);g.fillRect(24,11,3,11);
     g.fillStyle='#202421';
@@ -54,7 +57,7 @@ function pixelTexture(kind) {
     g.fillStyle='#050808';
     g.fillRect(12,12,8,8);g.fillRect(10,14,12,4);
     // A few white exposed-metal chips preserve depth without glow.
-    g.fillStyle=hot?'#ad8663':'#c0baa0';
+    g.fillStyle=fresh?'#f0ad57':hot?'#ad8663':'#c0baa0';
     g.fillRect(10,6,8,2);g.fillRect(6,12,2,5);g.fillRect(22,23,3,2);
     if(hot){g.fillStyle='#423129';g.fillRect(0,13,5,8);g.fillRect(26,16,6,10);}
   }
@@ -66,9 +69,10 @@ function pixelTexture(kind) {
 function resources(){
   if(shared)return shared;
   const materials=new Map();
-  for(const kind of ['armor-scrape','breach','power-breach','destroyed-breach','service-patch']){
-    materials.set(kind,new THREE.MeshBasicMaterial({
+  for(const kind of ['armor-scrape','breach','power-breach','destroyed-breach','service-patch','fresh-breach']){
+    materials.set(kind,new THREE.MeshStandardMaterial({
       map:pixelTexture(kind),transparent:false,alphaTest:.3,
+      roughness:kind==='service-patch'?.70:.91,metalness:kind==='service-patch'?.32:.06,
       polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
       side:THREE.DoubleSide,depthWrite:false,
     }));
@@ -132,7 +136,22 @@ export function geometryForPhysicalScar(target,event,profile){
   return decal;
 }
 export function createSurfaceScarRenderer({perSerialLimit=4}={}){
-  const displayed=new Map(), keys=new Set();
+  const displayed=new Map(), keys=new Set(),hotMarks=new Set();
+  const coveredBySerial=new Map(),lastServiceAt=new Map(),sessionStart=Date.now();
+  function repaired(serial,eventId) {
+    return (coveredBySerial.get(serial)||new Set()).has(eventId);
+  }
+  function appearance(exterior,serial){
+    for(const group of exterior?.partGroups?.values()||[])
+      if(group.userData?.appearance?.serial===serial)return group.userData.appearance;
+    return null;
+  }
+  function context(exterior,serial){
+    const info=appearance(exterior,serial);
+    return {coveredIds:coveredBySerial.get(serial)||new Set(),
+      partCondition:info?.condition,repairs:info?.repairs||0,
+      serviceAt:lastServiceAt.get(serial)??null,sessionStart};
+  }
   function locate(exterior,event){
     if(!exterior?.partGroups)return null;
     for(const group of exterior.partGroups.values()){
@@ -149,31 +168,56 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
   function apply(exterior,raw){
     const event=normalizeSurfaceEvent(raw);
     if(!event||keys.has(event.eventId))return false;
+    if(event.event==='service'){
+      if(event.timestamp!=null)lastServiceAt.set(event.serial,
+        Math.max(lastServiceAt.get(event.serial)||0,event.timestamp));
+      if(event.coveredEventId){
+        if(!coveredBySerial.has(event.serial))coveredBySerial.set(event.serial,new Set());
+        coveredBySerial.get(event.serial).add(event.coveredEventId);
+        for(const old of displayed.get(event.serial)||[])
+          if(old.userData.surfaceScarEvent===event.coveredEventId)old.visible=false;
+      }
+    }
     const target=locate(exterior,event);
+    // A repaired, fully restored serial retains its hit record but NOT a hole.
+    if(event.event==='impact'&&hideBreachAfterService(event,context(exterior,event.serial)))
+      return false;
     if(!target)return false;
     const profile=event.event==='service'
-      ?{kind:'service-patch',width:.31,height:.22}
+      ?{kind:'service-patch',...REPAIR_PATCH_SIZE}
       :surfaceDamageLanguage(event);
     const decal=geometryForPhysicalScar(target,event,profile);
     if(!decal)return false;
     const r=resources();
-    const mark=new THREE.Mesh(decal,r.materials.get(profile.kind)||r.materials.get('breach'));
+    const newHeat=event.event==='impact'&&event.internalDamage>0&&
+      Number.isFinite(event.timestamp)&&Date.now()-event.timestamp<750&&
+      Date.now()-event.timestamp>=0;
+    const kind=newHeat&&profile.kind==='breach'?'fresh-breach':profile.kind;
+    const mark=new THREE.Mesh(decal,r.materials.get(kind)||r.materials.get('breach'));
+    if(kind==='fresh-breach'){
+      mark.userData.coolAt=Date.now()+850;
+      hotMarks.add(mark);
+    }
     mark.renderOrder=event.event==='service'?2:1;
     mark.userData.surfaceDamageSize=[profile.width,profile.height];
     mark.userData.surfaceScarEvent=event.eventId;
+    mark.userData.sourceSurfaceEvent=event;
     mark.userData.surfaceDamageKind=profile.kind;
     // A decal belongs to the specific struck moving physical mesh, not its slot.
     target.add(mark);keys.add(event.eventId);
     const list=displayed.get(event.serial)||[];
-    if(event.event==='service'&&event.coveredEventId){
-      for(const old of list)
-        if(old.userData.surfaceScarEvent===event.coveredEventId)old.visible=false;
-    }
     list.push(mark);
+    // A fully repaired component cannot retain unrelated old open breaches.
+    for(const old of list) {
+      const source=old.userData.sourceSurfaceEvent;
+      if(source?.event==='impact'&&
+          hideBreachAfterService(source,context(exterior,event.serial)))old.visible=false;
+    }
     if(list.length>perSerialLimit){
       const oldest=list.shift();
       keys.delete(oldest.userData.surfaceScarEvent);
       oldest.parent?.remove(oldest);
+      hotMarks.delete(oldest);
       oldest.geometry.dispose();
     }
     displayed.set(event.serial,list);
@@ -183,10 +227,28 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
     for(const list of displayed.values())
       for(const mark of list){
         mark.parent?.remove(mark);
+        hotMarks.delete(mark);
         mark.geometry.dispose();
       }
-    displayed.clear();keys.clear();
+    displayed.clear();keys.clear();coveredBySerial.clear();lastServiceAt.clear();
   }
-  return {apply,clear,counts:()=>Object.fromEntries([...displayed]
+  function update(){
+    const now=Date.now(),r=resources();
+    for(const mark of hotMarks)if(now>=mark.userData.coolAt){
+      mark.material=r.materials.get(mark.userData.surfaceDamageKind);
+      hotMarks.delete(mark);
+    }
+  }
+  function reconcile(exterior){
+    for(const [serial,list] of displayed){
+      const ctx=context(exterior,serial);
+      for(const mark of list){
+        const source=mark.userData.sourceSurfaceEvent;
+        if(source?.event==='impact'&&hideBreachAfterService(source,ctx))
+          mark.visible=false;
+      }
+    }
+  }
+  return {apply,clear,update,reconcile,counts:()=>Object.fromEntries([...displayed]
     .map(([serial,list])=>[serial,list.length]))};
 }
