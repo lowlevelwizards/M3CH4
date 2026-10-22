@@ -387,6 +387,19 @@ function main(){
     profiles:Object.fromEntries(Object.entries(report.byProfile)
       .map(([k,v])=>[k,v.overall]))
   }));
+  for(const event of report.summary.weakest){
+    if(event.meanScore>=75)continue;
+    const worst=report.bouts.filter(b=>b.event===event.id)
+      .sort((a,b)=>a.score-b.score||a.seed-b.seed)[0];
+    console.log('OLYMPICS_ANOMALY '+JSON.stringify({
+      event:event.id,score:worst.score,pass:worst.pass,seed:worst.seed,
+      profile:worst.profile,family:worst.family,
+      initialDistance:worst.initialDistance,finalDistance:worst.finalDistance,
+      arrived:worst.arrived,holdFraction:worst.holdFraction,
+      withdrawSeconds:worst.withdrawSeconds,escapeProgress:worst.escapeProgress,
+      motion:worst.motion,actors:worst.actors
+    }));
+  }
   console.log('Olympics report: '+opts.out+'/report.md');
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
