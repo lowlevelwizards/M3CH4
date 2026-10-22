@@ -14,6 +14,7 @@ import { buildScattergunVisual } from './scattergunVisual.js';
 import { buildRivetRepeaterVisual } from './rivetRepeaterVisual.js';
 import { buildBreakerDriverVisual } from './breakerDriverVisual.js';
 import { buildScrapRocketVisual } from './scrapRocketVisual.js';
+import { buildArcCutterVisual } from './arcCutterVisual.js';
 import { buildCyclopsVisual } from './cyclopsVisual.js';
 import { buildVistaVisual } from './vistaVisual.js';
 import { buildHearthVisual } from './hearthVisual.js';
@@ -36,6 +37,7 @@ const BUILDERS = Object.freeze({
     'gun-rivet': buildRivetRepeaterVisual,
     'gun-breaker': buildBreakerDriverVisual,
     'gun-rocket': buildScrapRocketVisual,
+    'gun-arc': buildArcCutterVisual,
     'cab-cyclops': buildCyclopsVisual,
     'cab-utility': buildVistaVisual,
     'cab-armored': buildHearthVisual,
