@@ -14,6 +14,7 @@ import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
 import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
+import {createPhysicalEvidenceCard} from './physicalEvidenceInspector.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import {queueServiceRecord,flushServiceRecords} from './serviceEventRecorder.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
@@ -1543,6 +1544,9 @@ renderer.domElement.addEventListener('pointermove', event => {
         else arena.orbitSpectatorBy(dx,dy);
     }
 });
+const physicalEvidenceCard=createPhysicalEvidenceCard();
+document.addEventListener('m3ch4:workspace-layout',physicalEvidenceCard.close);
+document.addEventListener('m3ch4:assembly-mutated',physicalEvidenceCard.close);
 const endPointer = (event) => {
     const pointer = pointers.get(event.pointerId);
     if (!pointer)
@@ -1558,6 +1562,13 @@ const endPointer = (event) => {
             if (serial) document.dispatchEvent(new CustomEvent('m3ch4:counter-picked',{detail:{serial}}));
             return;
         }
+        const workspace=document.querySelector('#unified-garage')?.dataset.workspace;
+        if(workspace==='garage'&&!document.querySelector('#unified-garage')?.classList.contains('painting')){
+            const evidence=arena.pickSurfaceEvidence(event.clientX,event.clientY,renderer.domElement);
+            if(evidence&&physicalEvidenceCard.open(evidence,event.clientX,event.clientY))
+                return; // Exact scar inspection never equips or removes hardware.
+        }
+        physicalEvidenceCard.close();
         const slot = arena.pickPart(event.clientX, event.clientY, renderer.domElement);
         if (document.querySelector('#unified-garage')) {
             // The viewed bay may not be the combat-active rig. Let the unified

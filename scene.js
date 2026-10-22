@@ -1941,6 +1941,47 @@ export function createArenaScene(initial, targetAssembly) {
         radius = 6.05;
         focusPart(null);
     }
+    function pickSurfaceEvidence(clientX,clientY,canvas){
+        if(!inspecting||vendorEnabled)return null;
+        const rect=canvas.getBoundingClientRect();
+        if(rect.width<=0||rect.height<=0)return null;
+        const pointer=new THREE.Vector2(
+            ((clientX-rect.left)/rect.width)*2-1,
+            -((clientY-rect.top)/rect.height)*2+1);
+        exterior.root.updateWorldMatrix(true,true);
+        camera.updateMatrixWorld();
+        raycaster.setFromCamera(pointer,camera);
+        const picks=[];
+        exterior.root.traverse(node=>{
+            if(node.isMesh&&node.visible&&
+              (node.userData.sourceSurfaceEvent||node.userData.serviceEvidence))
+                picks.push(node);
+        });
+        if(!picks.length)return null;
+        const physical=raycaster.intersectObjects(exterior.pickMeshes,false)[0];
+        const direct=raycaster.intersectObjects(picks,false)
+            .find(hit=>!physical||hit.distance<=physical.distance+.065);
+        if(direct)return direct.object.userData.sourceSurfaceEvent||
+            {type:'service-tally',...direct.object.userData.serviceEvidence};
+        // Small real holes are hard to tap on an iPhone. Grant a limited
+        // screen-space hit radius ONLY when the real mesh remains in front;
+        // a scar on a hidden back panel must never win through visible metal.
+        let nearest=null,closest=27*27;
+        const test=new THREE.Vector3();
+        for(const node of picks){
+            node.getWorldPosition(test);
+            const distance=raycaster.ray.origin.distanceTo(test);
+            if(physical&&distance>physical.distance+.18)continue;
+            test.project(camera);
+            if(test.z< -1||test.z>1)continue;
+            const sx=rect.left+(test.x+1)*.5*rect.width;
+            const sy=rect.top+(1-test.y)*.5*rect.height;
+            const d=(sx-clientX)**2+(sy-clientY)**2;
+            if(d<closest){nearest=node;closest=d;}
+        }
+        return nearest?(nearest.userData.sourceSurfaceEvent||
+            {type:'service-tally',...nearest.userData.serviceEvidence}):null;
+    }
     function pickPart(clientX, clientY, canvas) {
         if (!inspecting)
             return null;
@@ -2722,7 +2763,7 @@ export function createArenaScene(initial, targetAssembly) {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
-        orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
+        orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
         beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,setPitPresentation,
         traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
