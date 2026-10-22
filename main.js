@@ -12,7 +12,9 @@ import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './eco
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
+import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
+import {queueServiceRecord,flushServiceRecords} from './serviceEventRecorder.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
@@ -375,6 +377,7 @@ const debriefGarage = required('#debrief-garage');
 const sortieOutro = required('#sortie-outro');
 const sortieOutroTitle = required('#sortie-outro-title');
 const sortieOutroReason = required('#sortie-outro-reason');
+const winnerTableau = required('#winner-tableau');
 const fireButton = required('#fire');
 const reloadButton = required('#reload');
 const weaponLabel = required('#weapon-label');
@@ -420,6 +423,15 @@ const arena = createArenaScene(assembly, targetAssembly);
 Promise.all([...new Set(Object.values(assembly.installed||{}))].map(readSurfaceEvents))
     .then(perSerial=>arena.restoreSurfaceMarks(perSerial.flat()))
     .catch(error=>console.warn('SURFACE HISTORY READ UNAVAILABLE:',error?.message||error));
+function preserveSuccessfulService(serial,mode,eventKey) {
+    if(!serial||!eventKey)return;
+    const eventId='service-'+eventKey.replace(/[^a-zA-Z0-9:-]/g,'').slice(0,112);
+    if(queueServiceRecord(saveStorage,{serial,mode,eventId}))
+      flushServiceRecords(saveStorage,event=>arena.restoreSurfaceMarks([event]))
+        .catch(error=>console.warn('SERVICE ARCHIVE RETAINED FOR RETRY',error?.message||error));
+}
+flushServiceRecords(saveStorage,event=>arena.restoreSurfaceMarks([event]))
+    .catch(error=>console.warn('SERVICE HISTORY RESTORE DEFERRED',error?.message||error));
 for (const actor of supportActors)
     arena.addCombatant(actor.id, actor.assembly, actor.team, actor.spawn);
 arena.updateTargetDamage(targetCondition);
@@ -1055,6 +1067,10 @@ function renderPartInfo() {
                 : `${result.serial} SERVICED · −₡${charged}`);
             renderAmmo();
             persistMachine();
+            const repaired=installedPart(assembly,selectedPart)?.instance;
+            if(repaired)preserveSuccessfulService(repaired.serial,
+                result.rebuilt?'workshop-rebuild':'workshop-repair',
+                repaired.serial+'-'+repaired.repairs);
         });
         partInfo.append(repair);
     }
@@ -1268,18 +1284,27 @@ document.addEventListener('m3ch4:bay-module', event => {
 // same serial into the running in-memory authority first: the normal pagehide save
 // must not undo that external, successful field-work transaction.
 document.addEventListener('m3ch4:bay-reconcile-patch', event => {
-    const serial = event.detail?.serial, slot = event.detail?.slot;
-    if (!serial || !SLOTS.includes(slot)) return;
-    const saved = loadMachine(saveStorage);
-    const authoritativePart = saved.assembly.owned.find(part => part.serial === serial);
-    const livePart = assembly.owned.find(part => part.serial === serial);
-    if (!authoritativePart || !livePart) return;
-    Object.assign(livePart, authoritativePart);
-    if (assembly.installed[slot] === serial && saved.assembly.installed[slot] === serial) {
-        const snapshot = saved.playerCondition?.parts?.[slot];
-        if (snapshot && playerCondition.parts[slot]) Object.assign(playerCondition.parts[slot], snapshot);
-        if (slot === 'mobility' && saved.damage?.drives?.[serial])
-            damage.drives[serial] = { ...saved.damage.drives[serial] };
+    const action=event.detail;
+    const items=action?.type==='triage'?action.repairs||[]:[action];
+    if(!items?.length)return;
+    const saved=loadMachine(saveStorage);
+    for(const item of items){
+        const serial=item?.serial,slot=item?.slot;
+        if(!serial||!SLOTS.includes(slot))continue;
+        const authoritativePart=saved.assembly.owned.find(part=>part.serial===serial);
+        const livePart=assembly.owned.find(part=>part.serial===serial);
+        if(authoritativePart&&livePart)Object.assign(livePart,authoritativePart);
+        if(assembly.installed[slot]===serial&&saved.assembly.installed[slot]===serial){
+            const snapshot=saved.playerCondition?.parts?.[slot];
+            if(snapshot&&playerCondition.parts[slot])Object.assign(playerCondition.parts[slot],snapshot);
+            if(slot==='mobility'&&saved.damage?.drives?.[serial])
+                damage.drives[serial]={...saved.damage.drives[serial]};
+        }
+        // The field-work transaction already succeeded and was committed to
+        // both saves. Queue one service fact per truly patched serial now,
+        // before the pit's immediate location.reload().
+        const key='pit-'+action.rigId+'-'+action.afterRound+'-'+serial+'-'+action.at;
+        preserveSuccessfulService(serial,'pit-triage',key);
     }
 });
 // The running v8 machine is authoritative for credits and the global serial
@@ -1344,6 +1369,10 @@ document.addEventListener('m3ch4:bay-service', event => {
             updateFunctionalStatus();
             refreshAssembly(true);
             arena.updatePilotDamage(playerCondition);
+            const serviced=installedPart(assembly,slot)?.instance;
+            if(serviced)preserveSuccessfulService(serviced.serial,
+                destroyed?'workshop-rebuild':'workshop-repair',
+                serviced.serial+'-'+serviced.repairs);
             document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
             request.result = { ok:true, charged, rebuilt:destroyed };
         } else {
@@ -1357,6 +1386,9 @@ document.addEventListener('m3ch4:bay-service', event => {
             economy.credits -= result.charged;
             persistMachine();
             renderEconomy();
+            preserveSuccessfulService(result.serial,
+                result.rebuilt?'workshop-rebuild':'workshop-repair',
+                result.serial+'-'+result.part.repairs);
             request.result = result;
         }
     } catch (error) { request.result = { ok:false, reason:error?.message || 'SERVICE FAILED' }; }
@@ -1887,10 +1919,15 @@ function frame(now) {
     });
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {
+        arena.updateVictoryShowcase(frameDt);
         sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
         if (sortieOutroRemaining === 0 && pendingDebrief) {
             const next = pendingDebrief; pendingDebrief = null; sortiePhase = 'debrief';
+            arena.endVictoryShowcase();
             sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
+            sortieOutro.classList.remove('physical-showcase');
+            document.body.classList.remove('victory-showcase');
+            winnerTableau.classList.add('hidden');
             controls.setEnabled(false);
             assemblyToggle.disabled = false;
             renderDebrief(next.summary, next.reason);
@@ -2241,6 +2278,31 @@ function finishSortie(victory, reason) {
     } else {
         sortieOutroTitle.textContent = victory ? 'SORTIE COMPLETE' : 'SORTIE FAILED';
         sortieOutroReason.textContent = victory ? reason : `${reason} · RECOVERY CREW INBOUND`;
+    }
+    // The winning side now walks in as physical Three.js machines, assembled
+    // from the same authored serialized parts. No screenshot cards or extra
+    // WebGL canvas are used for the post-match presentation.
+    try {
+        const winners=winningMachines(victory,{
+            id:'player',label:assembly.name||'YOUR RIG',assembly,
+            active:playerCombatActive,condition:playerCondition,
+        },friendlySupportActors,aiActors.filter(actor=>actor.team===HOSTILE_TEAM));
+        const presentation=winners.map(w=>({
+            ...w,condition:w.id==='player'?playerCondition:
+                aiActors.find(actor=>actor.id===w.id)?.condition||null,
+        }));
+        const started=arena.beginVictoryShowcase(presentation);
+        sortieOutro.classList.toggle('physical-showcase',started);
+        document.body.classList.toggle('victory-showcase',started);
+        winnerTableau.classList.toggle('hidden',!started);
+        if(started)renderWinnerNameplates(winnerTableau,presentation);
+        else winnerTableau.replaceChildren();
+    } catch(error) {
+        winnerTableau.replaceChildren();
+        winnerTableau.classList.add('hidden');
+        document.body.classList.remove('victory-showcase');
+        sortieOutro.classList.remove('physical-showcase');
+        console.warn('PHYSICAL WINNER SHOWCASE UNAVAILABLE',error?.message||error);
     }
     sortieOutro.classList.remove('hidden');
     sortieOutro.classList.toggle('failed', !victory);

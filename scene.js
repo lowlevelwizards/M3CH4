@@ -4,6 +4,10 @@ import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
+import {physicalFailurePose} from './surfaceDamageLanguage.js';
+import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
+import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
+import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w1';
@@ -166,6 +170,51 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(arenaPresentationRoot);
     const worldSolids = buildWarehouse(arenaRoot);
     const garageRoot = buildGarageBay();
+    // Non-colliding shop hardware appears only when real mounted systems are
+    // disabled, making the workshop/pit feel like a service space.
+    const serviceDressing=buildServiceDressing();
+    garageRoot.add(serviceDressing);
+    serviceDressing.visible=false;
+    let pitPresentation=false,serviceSelectedSlot=null,lastServiceSignature='';
+    function setPitPresentation(pit=false,slot=null){
+        pitPresentation=!!pit;
+        serviceSelectedSlot=SLOTS.includes(slot)?slot:null;
+        lastServiceSignature='';
+        refreshPhysicalServiceBay();
+    }
+    function refreshPhysicalServiceBay(){
+        const policy=serviceBayFocus(latestPilotParts||{},serviceSelectedSlot,pitPresentation);
+        serviceDressing.visible=inspecting&&!vendorEnabled&&policy.visible;
+        if(!serviceDressing.visible)return;
+        const stage=serviceDressing.userData.stage;
+        if(!stage)return;
+        stage.supports.visible=policy.supports;
+        stage.warning.material.emissive.setHex(policy.critical?0xae351a:
+          policy.intensity>.025?0xc78e36:0x245d50);
+        stage.warning.material.color.setHex(policy.critical?0xda7851:
+          policy.intensity>.025?0xe1b862:0x5c9c87);
+        stage.lamp.intensity=pitPresentation?1.65:.8;
+        const station=policy.focus?SLOT_CENTERS[policy.focus]:[0,1.1,0];
+        stage.lamp.target.position.set(station[0],Math.max(.6,station[1]),station[2]);
+        stage.lamp.target.updateMatrixWorld();
+        const signature=[policy.focus,policy.mode,policy.damagedCount,pitPresentation].join(':');
+        if(signature!==lastServiceSignature){
+            lastServiceSignature=signature;
+            const canvas=stage.readout.image;
+            const g=canvas.getContext('2d');
+            g.fillStyle='#111c19';g.fillRect(0,0,128,64);
+            g.fillStyle='#344c43';g.fillRect(2,2,124,60);
+            g.fillStyle='#13221b';g.fillRect(5,5,118,54);
+            g.fillStyle='#b0c4a8';g.font='bold 11px monospace';g.fillText(pitPresentation?'PIT DIAGNOSTIC':'SERVICE BAY',10,19);
+            g.fillStyle=policy.critical?'#eda16c':'#d9b977';
+            g.font='bold 13px monospace';
+            g.fillText(policy.focus?.toUpperCase()?.slice(0,11)||'ALL SYSTEMS',10,37);
+            g.font='bold 10px monospace';
+            g.fillStyle=policy.critical?'#ff9876':'#94bfb2';
+            g.fillText(policy.mode+' / '+policy.damagedCount+' ALERT',10,51);
+            stage.readout.needsUpdate=true;
+        }
+    }
     garageRoot.name = 'garage-bay';
     garageRoot.visible = false;
     scene.add(garageRoot);
@@ -964,12 +1013,9 @@ export function createArenaScene(initial, targetAssembly) {
         wounds.push(local.clone());
         if (wounds.length > 2) wounds.shift();
         record.wounds.set(slot, wounds);
-        const mark = new THREE.Mesh(new THREE.IcosahedronGeometry(.065, 0), new THREE.MeshBasicMaterial({ color: 0x0d100e }));
-        mark.position.copy(local); mark.scale.set(1.35, .32, 1.35); group.add(mark);
-        record.woundMarks.push(mark);
-        if (record.woundMarks.length > 10) {
-            const oldest = record.woundMarks.shift(); oldest.parent?.remove(oldest); oldest.geometry.dispose(); oldest.material.dispose();
-        }
+        // Keep this actual hit point for subsequent smoke and sparks only.
+        // SurfaceDamageRenderer now owns persistent visible scars so one hit
+        // cannot become both a round breach and an old generic black blob.
     }
     function weaponServicePoint(record) {
         const group = record?.exterior.partGroups.get('combat');
@@ -1088,7 +1134,10 @@ export function createArenaScene(initial, targetAssembly) {
                 spin: new THREE.Vector3((Math.random() - .5) * 1.4, (Math.random() - .5) * .65, side * (.8 + Math.random() * 1.1)),
             });
         } else if (slot === 'mobility') {
-            group.rotation.z += side * .42; group.rotation.x += .19;
+            const family=installedPart(record.assembly,'mobility')?.definition.id;
+            const fail=familyFailureAnatomy(family,{mobilityDestroyed:true});
+            group.rotation.z += side * (fail.rootRoll+.20);
+            group.rotation.x += fail.rootPitch+.06;
             settleAttachedPartToFloor(group, .02);
         } else if (slot === 'command') {
             group.position.y -= .18; group.rotation.z += side * .27; group.rotation.x += .14;
@@ -1101,9 +1150,17 @@ export function createArenaScene(initial, targetAssembly) {
         record.wrecked = true;
         record.cleared = false;
         const side = record.id.length % 2 ? 1 : -1;
-        record.exterior.root.rotation.z = side * .075;
-        record.exterior.root.rotation.x = .025;
-        record.exterior.root.position.y = -.06;
+        const family=installedPart(record.assembly,'mobility')?.definition.id;
+        const fail=familyFailureAnatomy(family,{
+            mobilityDisabled:record.disabledSlots.has('mobility'),
+            mobilityDestroyed:record.destroyedSlots.has('mobility'),
+            structureDisabled:record.disabledSlots.has('structure'),
+            structureDestroyed:record.destroyedSlots.has('structure'),
+            active:false,
+        });
+        record.exterior.root.rotation.z = side * (fail.rootRoll+.02);
+        record.exterior.root.rotation.x = fail.rootPitch+.018;
+        record.exterior.root.position.y = -fail.rootDrop;
         for (const slot of ['power', 'structure']) {
             const group = record.exterior.partGroups.get(slot);
             if (!group) continue;
@@ -1257,6 +1314,43 @@ export function createArenaScene(initial, targetAssembly) {
         return colors;
     };
     let pilotColors = captureColors(exterior.pickMeshes);
+    let inspectionBaseParts=capturePartTransforms(exterior);
+    let inspectionJoints=captureArticulation(exterior).joints;
+    function refreshInspectionBase(){
+        // The graph bridge may reposition physical stations after buildExteriorRig.
+        // Capture that final assembled pose, not the temporary pre-graph position.
+        inspectionBaseParts=capturePartTransforms(exterior);
+        inspectionJoints=captureArticulation(exterior).joints;
+    }
+    let latestPilotParts=null;
+    function poseDamagedMachineInGarage() {
+        if(!inspecting||animationPreviewMode!=='off'||!latestPilotParts)return;
+        refreshPhysicalServiceBay();
+        const mobility=installedPart(previewAssembly,'mobility')?.definition.id||'legs-yard';
+        const failure=familyFailureAnatomy(mobility,conditionFailureFlags(latestPilotParts));
+        exterior.root.rotation.x=failure.rootPitch;
+        exterior.root.rotation.z=failure.rootRoll;
+        exterior.root.position.y=(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y-failure.rootDrop;
+        // Reset every joint to its authored rest before applying the damaged
+        // posture: no accumulating rotations, regardless of inspection duration.
+        for(const joint of inspectionJoints){
+            joint.object.rotation.copy(joint.base);
+            const side=joint.side;
+            const leg=failure.legs.find(item=>item.side===side);
+            if(leg && Object.hasOwn(leg,joint.joint))
+                joint.object.rotation.x+=leg[joint.joint];
+        }
+        for(const [slot,group] of exterior.partGroups){
+            const base=inspectionBaseParts.get(slot);
+            if(!base)continue;
+            group.position.copy(base.position);
+            group.rotation.copy(base.rotation);
+            const pose=physicalFailurePose(slot,latestPilotParts[slot]);
+            group.position.y+=pose.y;
+            group.rotation.x+=pose.x;
+            group.rotation.z+=pose.z;
+        }
+    }
     // Empty ports are physical, touchable workshop fixtures, not combat hitboxes.
     // Markers only represent stations that can currently be approached on the rig.
     let emptyMountPicks = [];
@@ -1486,6 +1580,7 @@ export function createArenaScene(initial, targetAssembly) {
             exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
             poseInspectionPreview(dt);
+            poseDamagedMachineInGarage();
             // A hidden rear assembly gets a small, eased reveal from its station
             // shortcut. Never reframe the pivot or fight a manual orbit.
             if (orbitAssist !== null) {
@@ -1572,6 +1667,14 @@ export function createArenaScene(initial, targetAssembly) {
                 const forward=(state.forwardSpeed??0)/3.2;
                 const blocked=record.disabledSlots.has('mobility')||
                     record.destroyedSlots.has('mobility');
+                const damaged=familyFailureAnatomy(mobilityId,{
+                    mobilityDisabled:blocked,
+                    mobilityDestroyed:record.destroyedSlots.has('mobility'),
+                    structureDisabled:record.disabledSlots.has('structure')||
+                        record.destroyedSlots.has('structure'),
+                    structureDestroyed:record.destroyedSlots.has('structure'),
+                    active:record.active&&!record.wrecked,
+                });
                 for(const [side,leg] of motion.legs){
                     if(!leg.hip||!leg.knee||!leg.ankle||!leg.foot)continue;
                     const pose=legPose(leg.upper,leg.lower,{
@@ -1587,6 +1690,13 @@ export function createArenaScene(initial, targetAssembly) {
                     leg.ankle.rotation.z=pose.ankleRoll;
                     leg.foot.rotation.x=pose.foot;
                     leg.foot.rotation.z=pose.footRoll;
+                    const failedLeg=damaged.legs.find(item=>item.side===side);
+                    if(failedLeg){
+                        leg.hip.rotation.x+=failedLeg.hip;
+                        leg.knee.rotation.x+=failedLeg.knee;
+                        leg.ankle.rotation.x+=failedLeg.ankle;
+                        leg.foot.rotation.x+=failedLeg.foot;
+                    }
                 }
             }
             const desired=visual?.target
@@ -1656,6 +1766,20 @@ export function createArenaScene(initial, targetAssembly) {
                 -(state.lateralSpeed??0)*.014-
                 (state.yawRate??0)*speed*.009+
                 damage*Math.sin((motion?.phase??0)*.64)*.032,-.12,.12);
+            // Family-specific mechanical collapse is downstream from game
+            // mobility health: pose only, no collision or speed adjustments.
+            const failed=familyFailureAnatomy(mobilityId,{
+                mobilityDisabled:record.disabledSlots.has('mobility')||
+                    record.destroyedSlots.has('mobility'),
+                mobilityDestroyed:record.destroyedSlots.has('mobility'),
+                structureDisabled:record.disabledSlots.has('structure')||
+                    record.destroyedSlots.has('structure'),
+                structureDestroyed:record.destroyedSlots.has('structure'),
+                active:record.active&&!record.wrecked,
+            });
+            root.position.y-=failed.rootDrop;
+            root.rotation.x+=failed.rootPitch;
+            root.rotation.z+=failed.rootRoll;
         }
         root.updateWorldMatrix(true,true);
     }
@@ -1668,6 +1792,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateCombatantRig('enemy-0', state);
     }
     function setInspection(enabled) {
+        if(enabled)endVictoryShowcase();
         inspecting = enabled;
         exterior.root.visible = enabled && !vendorEnabled;
         vendorRoot.visible = enabled && vendorEnabled;
@@ -1677,6 +1802,8 @@ export function createArenaScene(initial, targetAssembly) {
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
         garageRoot.visible = enabled;
+        if(!enabled)serviceDressing.visible=false;
+        else refreshPhysicalServiceBay();
         stagingFixtures.visible = enabled && !vendorEnabled;
         arenaHemisphere.visible = !enabled;
         sun.visible = !enabled;
@@ -1705,6 +1832,8 @@ export function createArenaScene(initial, targetAssembly) {
         // Detach shared scar geometry before the old rig disposal traversal.
         surfaceMarks.clear();
         exterior = buildExteriorRig(assembly);
+        inspectionBaseParts=capturePartTransforms(exterior);
+        inspectionJoints=captureArticulation(exterior).joints;
         calibrateExteriorSoles(exterior);
         updateGarageFixtures(assembly);
         for (const mesh of exterior.pickMeshes)
@@ -1860,6 +1989,145 @@ export function createArenaScene(initial, targetAssembly) {
     const surfaceImpactEvents=[];
     const surfaceMarks=createSurfaceScarRenderer({perSerialLimit:4});
     const knownSurfaceEvents=new Map();
+    // Three physical serialized mechs share the game's existing scene, renderer,
+    // part builders and leg animation. Never create a second live WebGL canvas.
+    let victoryStage=null;
+    function endVictoryShowcase() {
+        if(!victoryStage)return;
+        const old=victoryStage;victoryStage=null;
+        old.scars.clear();
+        scene.remove(old.root);
+        camera.fov=old.cameraFov;
+        camera.updateProjectionMatrix();
+        for(const entry of old.machines)disposePreviewObject(entry.visual.root);
+        old.root.traverse(node=>{
+            if(node.isMesh && !old.machines.some(e=>e.visual.root===node)) {
+                // Stage-only signs and floor have their own disposable geometry.
+                if(node.userData.victoryFixture){
+                    node.geometry?.dispose?.();
+                    node.material?.dispose?.();
+                }
+            }
+        });
+        cockpit.visible=!inspecting&&!spectatorRig;
+        combinerHud.visible=!inspecting&&!spectatorRig;
+    }
+    function beginVictoryShowcase(winners=[]) {
+        endVictoryShowcase();
+        if(inspecting||!Array.isArray(winners)||!winners.length)return false;
+        const root=new THREE.Group();
+        root.name='physical-victory-parade';
+        root.position.set(0,0,-72);
+        const floor=new THREE.Mesh(new THREE.BoxGeometry(14,.13,13),
+          new THREE.MeshStandardMaterial({color:0x493e30,roughness:.93,metalness:.08}));
+        floor.position.set(0,-.09,-1.8);floor.userData.victoryFixture=true;
+        root.add(floor);
+        for(const x of [-3.18,0,3.18]){
+          const lane=new THREE.Mesh(new THREE.BoxGeometry(2.7,.018,.055),
+            new THREE.MeshStandardMaterial({color:0xb28c50,roughness:.84,metalness:.12}));
+          lane.position.set(x,.001,1.1);
+          lane.userData.victoryFixture=true;
+          root.add(lane);
+        }
+        const rail=new THREE.Mesh(new THREE.BoxGeometry(12,1.15,.22),
+          new THREE.MeshStandardMaterial({color:0x24322e,roughness:.88,metalness:.2}));
+        rail.position.set(0,.50,-6.5);rail.userData.victoryFixture=true;root.add(rail);
+        const key=new THREE.DirectionalLight(0xffd5a0,2.2);
+        key.position.set(-5,9,6);root.add(key);
+        const rim=new THREE.DirectionalLight(0x7bc8bc,1.5);
+        rim.position.set(4,6,-4);root.add(rim);
+        const fill=new THREE.HemisphereLight(0xc9cbb4,0x3e3024,.7);
+        root.add(fill);
+        const scars=createSurfaceScarRenderer({perSerialLimit:4});
+        const machines=[];
+        for(const [i,winner] of winners.slice(0,3).entries()){
+          if(!winner?.assembly)continue;
+          const visual=buildExteriorRig(winner.assembly);
+          calibrateExteriorSoles(visual);
+          const x=(i-(Math.min(winners.length,3)-1)/2)*3.18;
+          const operational=winner.operational!==false;
+          root.add(visual.root);
+          for(const event of knownSurfaceEvents.values())
+            scars.apply(visual,event);
+          const shadow=new THREE.Mesh(new THREE.CircleGeometry(.9,16),
+            new THREE.MeshBasicMaterial({color:0x050c09,transparent:true,
+              opacity:.48,depthWrite:false,side:THREE.DoubleSide}));
+          shadow.rotation.x=-Math.PI/2;
+          shadow.scale.set(1.32,.78,1);
+          shadow.position.set(x,.006,-3.8);
+          shadow.userData.victoryFixture=true;
+          root.add(shadow);
+          const record={
+            id:'parade-'+i,assembly:winner.assembly,exterior:visual,
+            active:true,wrecked:false,cleared:false,
+            disabledSlots:new Set(operational?[]:['mobility','combat']),
+            destroyedSlots:new Set(),articulation:captureArticulation(visual),
+            baseParts:capturePartTransforms(visual),
+            recoilKick:0,weaponRecoveryKick:0,weaponServicing:false,
+          };
+          // Functional distress remains visible; never flatten all the winners
+          // to the same clean marketing model after a hard-fought battle.
+          for(const [slot,meshes] of visual.partMeshes){
+            const part=winner.condition?.parts?.[slot];
+            if(!part)continue;
+            const severity=1-THREE.MathUtils.clamp(part.integrity/Math.max(1,part.maxIntegrity),0,1);
+            for(const mesh of meshes){
+              const material=mesh.material;
+              if(!material?.isMeshStandardMaterial)continue;
+              material.color.multiplyScalar(Math.max(.48,1-severity*.44));
+            }
+          }
+          machines.push({record,visual,x,operational,phase:i*.32,shadow});
+        }
+        if(!machines.length){scars.clear();return false;}
+        scene.add(root);
+        victoryStage={root,machines,scars,elapsed:0,cameraFov:camera.fov};
+        camera.fov=43;camera.updateProjectionMatrix();
+        cockpit.visible=false;
+        combinerHud.visible=false;
+        return true;
+    }
+    function updateVictoryShowcase(dt){
+        const stage=victoryStage;
+        if(!stage)return false;
+        stage.elapsed+=Math.max(0,Math.min(.12,dt||0));
+        const elapsed=stage.elapsed;
+        for(const entry of stage.machines){
+          const time=Math.max(0,elapsed-entry.phase);
+          const t=THREE.MathUtils.clamp(time/2.25,0,1);
+          const eased=1-Math.pow(1-t,2.2);
+          const moving=entry.operational&&t<1;
+          const gait=moving?Math.min(1,Math.sin(t*Math.PI)*1.35):0;
+          const z=-3.8+eased*3.9;
+          entry.shadow.position.z=z;
+          poseCombatantExterior(entry.record,{
+            x:entry.x,z,yaw:Math.PI,
+            vx:0,vz:moving?1.7:0,
+            forwardSpeed:moving?1.7:0,lateralSpeed:0,
+            footingLoad:moving?.2:.05,recoilLoad:0,
+          },{
+            dt:Math.min(.10,dt),target:{x:entry.x,z:10,height:2},
+            gait:{phase:time*7.6,gaitWeight:gait},
+            posture:{animationHealth:entry.operational?.95:.22},
+          });
+          // source models have a forward face toward +Z. No gameplay hitboxes
+          // are touched; all parade positions live in the distant stage group.
+          // Physical source parts face away at yaw 0 (verified in live mobile
+          // screenshots). Rotate the COMPLETE rig toward the camera at +Z.
+          entry.visual.root.rotation.y=Math.PI;
+          if(!entry.operational){
+            entry.visual.root.rotation.z=-.095;
+            entry.visual.root.position.y-=.07;
+          }
+        }
+        camera.position.set(stage.root.position.x,2.65,
+          stage.root.position.z+THREE.MathUtils.lerp(8.7,7.3,
+            THREE.MathUtils.clamp(elapsed/4.2,0,1)));
+        camera.lookAt(stage.root.position.x,1.48,stage.root.position.z-.6);
+        cockpit.visible=false;
+        combinerHud.visible=false;
+        return true;
+    }
     function restoreSurfaceMarks(events) {
         for(const event of events||[]) {
             if(!event?.eventId||!event?.serial)continue;
@@ -2110,6 +2378,8 @@ export function createArenaScene(initial, targetAssembly) {
         }
     }
     function updatePilotDamage(condition) {
+        latestPilotParts=condition?.parts||null;
+        poseDamagedMachineInGarage();
         for (const [slot, meshes] of exterior.partMeshes) {
             const state = condition.parts[slot];
             if (!state)
@@ -2316,7 +2586,8 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
-        drainSurfaceEvents,restoreSurfaceMarks,
+        drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
+        beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,setPitPresentation,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
@@ -2331,6 +2602,62 @@ function box(w, h, d, material) {
     return mesh;
 }
 
+/** Bounded decorative pit-service equipment, no picking, solids or physics. */
+function buildServiceDressing() {
+    const root=new THREE.Group();root.name='physical-service-equipment';
+    const supports=new THREE.Group();supports.name='service-jacks';
+    const steel=mat(0x495650,.81,.35),deep=mat(0x202a28,.90,.10);
+    const warning=mat(0xc79b45,.84,.15),accent=mat(0x5b817b,.72,.25);
+    for(const side of [-1,1]){
+        const x=side*1.42,z=.54;
+        const foot=box(.66,.12,.70,steel);foot.position.set(x,.105,z);supports.add(foot);
+        const mast=box(.14,.68,.14,warning);mast.position.set(x,.49,z);supports.add(mast);
+        const collar=box(.35,.13,.35,deep);collar.position.set(x,.84,z);supports.add(collar);
+        const saddle=box(.54,.08,.22,steel);saddle.position.set(x,.92,z);supports.add(saddle);
+    }
+    root.add(supports);
+    // Oil tray, secondary catch lip, work case. These are shop fixtures rather
+    // than fictional dents or extracted machine parts.
+    const tray=box(.86,.05,.59,deep);tray.position.set(.08,.075,.96);root.add(tray);
+    const trayLip=box(.88,.055,.06,steel);trayLip.position.set(.08,.12,1.23);root.add(trayLip);
+    const toolbox=box(.52,.27,.34,warning);toolbox.position.set(-1.9,.20,1.13);root.add(toolbox);
+    const handle=box(.23,.045,.06,steel);handle.position.set(-1.9,.37,1.13);root.add(handle);
+    // A mobile diagnostic trolley and calibrated mechanical work light.
+    // Everything is static mesh except its low-cost light and CRT readout.
+    const base=box(.73,.12,.49,deep);base.position.set(2.08,.19,-1.02);root.add(base);
+    for(const z of [-1.20,-.83]){
+        const axle=box(.12,.16,.13,steel);axle.position.set(2.08,.12,z);root.add(axle);
+    }
+    const post=box(.11,1.48,.12,steel);post.position.set(2.08,.91,-1.02);root.add(post);
+    const monitor=box(.91,.68,.18,deep);monitor.position.set(1.80,1.48,-1.04);
+    monitor.rotation.y=-.38;root.add(monitor);
+    const canvas=document.createElement('canvas');canvas.width=128;canvas.height=64;
+    const readout=new THREE.CanvasTexture(canvas);
+    readout.colorSpace=THREE.SRGBColorSpace;
+    readout.magFilter=THREE.NearestFilter;readout.minFilter=THREE.NearestFilter;
+    const glass=new THREE.Mesh(new THREE.PlaneGeometry(.80,.55),
+        new THREE.MeshBasicMaterial({map:readout,side:THREE.DoubleSide}));
+    glass.position.set(0,0,.101);monitor.add(glass);
+    const alertMat=new THREE.MeshStandardMaterial({color:0x5c9c87,emissive:0x245d50,
+        emissiveIntensity:.7,roughness:.4});
+    const warningLED=box(.11,.085,.025,alertMat);
+    warningLED.position.set(.33,-.25,.11);monitor.add(warningLED);
+    const arm=box(.58,.095,.095,warning);arm.position.set(1.76,2.08,-1.03);
+    arm.rotation.z=.27;root.add(arm);
+    const lampHousing=box(.30,.16,.27,steel);
+    lampHousing.position.set(1.45,2.18,-1.04);root.add(lampHousing);
+    const lampLens=box(.24,.035,.23,accent);
+    lampLens.position.set(1.45,2.07,-1.04);root.add(lampLens);
+    const lamp=new THREE.SpotLight(0xffce8d,0,4.4,.72,.8,2);
+    lamp.position.set(1.45,2.08,-1.04);lamp.castShadow=false;
+    root.add(lamp);root.add(lamp.target);
+    const cable=box(.035,.48,.035,deep);cable.position.set(2.42,.49,-1.00);
+    cable.rotation.z=.13;root.add(cable);
+    const hose=box(.035,.29,.035,deep);hose.position.set(2.34,.94,-1.07);
+    hose.rotation.z=-.32;root.add(hose);
+    root.userData.stage={supports,warning:warningLED,lamp,readout};
+    return root;
+}
 function buildGarageBay() {
     const root = new THREE.Group();
     const steel = mat(0x2d3431, .72, .55);
@@ -2837,6 +3164,9 @@ export function buildExteriorRig(assembly) {
             // the rig or station. Paint remains authoritative before finishing.
             applyIndustrialFinish(group,{...fitted.instance,slot},
                 assembly.partHistory?.[fitted.instance.serial]||null);
+            // Honest stamped service tally. Precise welded patches come later
+            // from recorded repair events, never from fabricated impact points.
+            addPhysicalServiceStamp(group,fitted.instance);
         }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
