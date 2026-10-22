@@ -33,4 +33,8 @@ jobs:
         run: |
           mapfile -t tests < <(node research/selectRegressionTests.mjs --explain)
           printf 'Checking %s selected regression files\n' "${#tests[@]}"
+          if printf '%s\\n' "${tests[@]}" | grep -q '^tests/k4v9PhysicalEvidence.test.mjs
+; then
+            npm install --no-save --no-package-lock three@0.186.0
+          fi
           node --test "${tests[@]}"
