@@ -15,6 +15,12 @@
  * randomized battle test, NOT equivalent to headless browser playthrough.
  */
 import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
+import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
+import {counterFlankOrder} from '../ai/combatIntelligence.js';
+import {recentThreatTargetId} from '../tacticalAwareness.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
@@ -49,7 +55,7 @@ function random(seed){
     return (value>>>0)/4294967296;};
 }
 const pick=(rng,items)=>items[Math.floor(rng()*items.length)];
-function makeRig(team,n,family,rng,wear=0){
+function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
     const assembly=makeRangeTarget(FAMILIES[family]);
     const condition=createTargetCondition(assembly);
     for(const slot of PARTS){
@@ -67,19 +73,23 @@ function makeRig(team,n,family,rng,wear=0){
     const side=team==='friendly'?1:-1, x=[-9,0,9][n]+(rng()-.5)*4.2,
         z=side*(21+(rng()-.5)*3.4);
     const rig=createRigState({x,z,yaw:team==='friendly'?0:Math.PI});
-    const behavior=contractById(FAMILIES[family]).behavior;
+    const original=contractById(FAMILIES[family]).behavior;
+    const behavior={...original,spreadScale:original.spreadScale*difficulty.spreadScale};
     const id=team==='friendly'?'ally-'+(n+1):'enemy-'+n;
     return {id,team,family,behavior,assembly,condition,rig,
         spawn:{x,z},active:true,killReason:null,
         weaponSpec,weaponState:createWeaponState(weaponSpec),
-        controller:createHostileController(.7+n*.15,behavior),
+        controller:createHostileController(difficulty.acquisitionDelay+n*.15,behavior),
         motion:createEnemyMotion(behavior),baseConfig:deriveRigConfig(assembly),
         driveDamage:{drives:{}},brain:createPilotBrain(),executor:createIntentExecutor(),
-        fieldService:createFieldServiceState(),lastScore:0,
+        fieldService:createFieldServiceState(),lastScore:0,targetId:null,combatMemory:{},
+        lastPosition:{x,z},
         stats:{travel:0,damageDealt:0,armorDamage:0,internalDamage:0,damageTaken:0,
             shotTriggers:0,actualShots:0,hits:0,kills:0,goalChanges:0,
             captures:0,zoneSeconds:0,routeErrors:0,serviceCount:0,
             firstContact:null,firstShot:null,deathAt:null,
+            targetSwitches:0,trafficYields:0,routeSwitches:0,stallSeconds:0,
+            collisionImpacts:0,underFireSeconds:0,
             attackBySlot:Object.fromEntries(PARTS.map(s=>[s,0]))}};
 }
 function configFor(a){
@@ -89,12 +99,15 @@ function configFor(a){
     a.driveDamage.drives[mobility.instance.serial]={left:health,right:health};
     return derateRigConfig(a.baseConfig,functionalOutput(a.assembly,a.driveDamage));
 }
-function nearestVisible(a,roster,snapshot){
+function nearestVisible(a,roster,snapshot,order=null){
     const known=new Set((snapshot?.knowledge?.[a.team]?.contacts??[])
         .filter(c=>c.visible).map(c=>c.id));
     const live=roster.filter(o=>o.active&&o.team!==a.team&&known.has(o.id));
-    live.sort((a1,b1)=>dist(a.rig,a1.rig)-dist(a.rig,b1.rig));
-    return live[0]??null;
+    const selected=prioritizeVisibleTarget(a,live,snapshot,order,a.targetId,
+        recentThreatTargetId(a.motion));
+    if(selected?.id&&a.targetId&&a.targetId!==selected.id)a.stats.targetSwitches++;
+    a.targetId=selected?.id??null;
+    return selected??null;
 }
 function damage(attacker,target,slot,metrics,t,rng){
     const pre=target.condition.parts[slot].integrity;
@@ -119,40 +132,59 @@ function damage(attacker,target,slot,metrics,t,rng){
     }
     return {hit,fault};
 }
-function runBout(seed,settings){
+export function runBout(seed,settings){
     const rng=random(seed),state=createSortieObjective(contractById('domination'));
+    const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
+        hostile:getAiResearchProfile(settings.policyHostile??'baseline')};
+    const difficulties={friendly:getAiResearchDifficulty(settings.difficultyFriendly??'pro'),
+        hostile:getAiResearchDifficulty(settings.difficultyHostile??'pro')};
+    const maxSeconds=Math.min(600,Math.max(2,settings.maxSeconds??MAX_SECONDS));
     state.domination.capturePolicy=settings.policy??'strict';
     const strategies=createStrategicState();
     const teams={friendly:[],hostile:[]};
     for(const team of ['friendly','hostile']){
       let recipe=team===settings.variantTeam?settings.variant:['yard','kestrel','hauler'];
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
-          team===settings.wornTeam?settings.wear:settings.backgroundWear??0));
+          team===settings.wornTeam?settings.wear:settings.backgroundWear??0,
+          difficulties[team]));
       teams[team]=actors;
     }
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
-    const metrics={seed,scenario:settings.name,accuracy:settings.accuracy,
+    const metrics={seed,scenario:settings.name??'research',accuracy:settings.accuracy,
+        policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
+        difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
+        simulation:'research-approximate-v2',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
-        win:null,winReason:null,time:MAX_SECONDS,points:{friendly:0,hostile:0},
+        win:null,winReason:null,time:maxSeconds,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
         firstCaptureAt:null,firstMajorityAt:null,scoreLeadChanges:0,contestedSeconds:0,
         noMajoritySeconds:0,totalScoringSeconds:0,captureEvents:0,
         contestedEvents:0,recaptureEvents:0,deadlocks:0,damagingShots:0,
         scoreByTeam:{friendly:0,hostile:0},actors:[]};
     let oldOwners=['', '', ''],lastClaimedOwners=[null,null,null],oldContest=[false,false,false],
-        oldLeader=null,plans={},snapshot=null,planLeft=0;
+        oldLeader=null,plans={},snapshot=null,planLeft=0,perceptionLeft=0;
+    const assaults={friendly:{},hostile:{}};
     const count=team=>actors.filter(a=>a.team===team&&a.active).length;
     // Each trial is independent; no user-managed player is present.
-    for(let tick=0;tick<MAX_SECONDS/DT;tick++){
+    for(let tick=0;tick<maxSeconds/DT;tick++){
       const t=tick*DT;
-      planLeft-=DT;
-      if(planLeft<=0||!snapshot){
+      planLeft-=DT;perceptionLeft-=DT;
+      if(perceptionLeft<=0||!snapshot){
         snapshot=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
+        perceptionLeft=Math.min(difficulties.friendly.perceptionSeconds,
+          difficulties.hostile.perceptionSeconds);
+      }
+      if(planLeft<=0||!plans.friendly){
         plans={friendly:planTeam(snapshot,'friendly',{
-            strategy:evaluateStrategy(strategies,snapshot,'friendly')}),
+            strategy:evaluateStrategy(strategies,snapshot,'friendly'),
+            policy:policies.friendly,previousOrders:plans.friendly?.orders,
+            assaultMemory:assaults.friendly}),
             hostile:planTeam(snapshot,'hostile',{
-            strategy:evaluateStrategy(strategies,snapshot,'hostile')})};
-        planLeft=.85;
+            strategy:evaluateStrategy(strategies,snapshot,'hostile'),
+            policy:policies.hostile,previousOrders:plans.hostile?.orders,
+            assaultMemory:assaults.hostile})};
+        planLeft=Math.min(difficulties.friendly.planningSeconds,
+          difficulties.hostile.planningSeconds);
         if(metrics.firstContactAt===null&&['friendly','hostile'].some(team=>
           snapshot.knowledge[team].contacts.some(c=>c.visible)))
           metrics.firstContactAt=t;
