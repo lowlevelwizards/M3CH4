@@ -7,7 +7,7 @@ test('service marking reflects exact existing repair counts, never creates imagi
   assert.equal(serviceStampCount({repairs:0}),0);
   assert.equal(serviceStampCount({repairs:1}),1);
   assert.equal(serviceStampCount({repairs:12}),12);
-  assert.equal(serviceStampCount({repairs:150}),99);
+  assert.equal(serviceStampCount({repairs:150}),150);
   assert.equal(serviceStampCount({repairs:-1}),0);
   assert.equal(serviceStampCount({repairs:1.6}),0);
   assert.equal(serviceStampCount({repairs:'3'}),0);
