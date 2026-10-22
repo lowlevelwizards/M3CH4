@@ -755,67 +755,43 @@ function renderCounter(machine) {
     const campaign=loadCampaign(storage);
     const {stock,persisted}=loadCounter(storage,campaign.sorties);
     const offers=stock.offers;
-    const viewing=offers.find(item=>item.serial===selectedLotSerial);
-    if(!viewing) selectedLotSerial=(offers.find(item=>!item.sold)||offers[0]).serial;
-    const chosen=offers.find(item=>item.serial===selectedLotSerial);
-    const heading=el('section','counter-intro');
-    heading.append(el('strong','','THE BACKLOT PARTS COUNTER'));
-    heading.append(el('p','','FOUR AS-IS LOTS. NO GUARANTEES. NO REFUNDS.'));
-    heading.append(el('small','',
-        'NEW STOCK AFTER YOUR NEXT COMPLETED CONTRACT · LOT '+String(campaign.sorties+1).padStart(2,'0')));
-    dock.append(heading);
-    const tiles=el('section','counter-lots part-grid');
     const arena=activePlayerArena()?.arena;
-    for (const offer of offers) {
-        const def=BY_ID.get(offer.definitionId);
-        const card=createPartCard({
-            entry:{id:offer.id,sourceSerial:offer.serial,definitionId:offer.definitionId,
-                name:def.name,slot:def.slot,condition:offer.condition,
-                destroyed:false},
-            thumbnailUrl:arena?.partThumbnailDataUrl?.(offer.definitionId,offer)??null,
-            value:offer.price,source:offer.sold?'SOLD':'AS-IS',
-            selected:offer.serial===selectedLotSerial,claimed:offer.sold,
-            onSelect:()=>{selectedLotSerial=offer.serial;render();},
-        });
-        card.classList.add('counter-lot');
-        card.setAttribute('aria-label',def.name+' · '+offer.serial+' · '+
-            Math.round(offer.condition*100)+' percent · ₡'+offer.price+
-            (offer.sold?' · sold':' · for sale'));
-        tiles.append(card);
-    }
-    dock.append(tiles);
-    const def=BY_ID.get(chosen.definitionId);
-    const yardValue=partCreditValue(def,chosen.condition,{wear:chosen.wear});
-    const details=createPartDetail({
-        entry:{id:chosen.id,sourceSerial:chosen.serial,name:def.name,
-            definitionId:def.id,slot:def.slot,condition:chosen.condition},
-        thumbnailUrl:arena?.partThumbnailDataUrl?.(chosen.definitionId,chosen)??null,
-        value:chosen.price,
-        meta:'CONDITION '+pct(chosen.condition)+' · WEAR '+pct(chosen.wear)+
-            '\nPRIOR REPAIRS '+chosen.repairs+' · YARD VALUE ≈ ₡'+yardValue+
-            '\nASKING ₡'+chosen.price+' · SOLD AS-IS'+
-            (chosen.sold?'\nSOLD · EMPTY TABLE SLOT':''),
-        actionLabel:chosen.sold?'SOLD OUT':!persisted?'COUNTER UNAVAILABLE':
-            machine.economy.credits<chosen.price?
-                'NEED ₡'+(chosen.price-machine.economy.credits)+' MORE':
-                'BUY SERIAL '+chosen.serial+' · ₡'+chosen.price,
-        actionDisabled:chosen.sold||!persisted||machine.economy.credits<chosen.price,
-        onAction:()=>{
+    const chosen=offers.find(p=>p.serial===selectedLotSerial);
+    const placard=el('div','vendor-placard');
+    placard.append(el('strong','','BACKLOT COUNTER'),
+        el('small','','AS-IS HARDWARE · LOT '+String(campaign.sorties+1).padStart(2,'0')));
+    dock.append(placard);
+    const hint=el('p','vendor-hint',chosen?'TAP ANOTHER PART TO INSPECT':'TAP A PART ON THE COUNTER TO INSPECT');
+    dock.append(hint);
+    if(chosen) {
+        const def=BY_ID.get(chosen.definitionId);
+        const detail=el('section','vendor-inspector');
+        const heading=el('div','vendor-inspector-heading');
+        heading.append(el('strong','',def.name),button('×',()=>{
+            selectedLotSerial=null;render();
+        },'vendor-close'));
+        detail.append(heading,el('small','vendor-serial',chosen.serial));
+        const info=el('div','vendor-inspector-info');
+        info.append(createConditionMeter({
+            serial:chosen.serial,condition:chosen.condition,armorRatio:1,
+            wear:chosen.wear,destroyed:false,
+        },{compact:true}));
+        info.append(el('span','',
+            pct(chosen.condition)+' CONDITION · '+pct(chosen.wear)+' WEAR · '+
+            chosen.repairs+' REPAIRS'));
+        detail.append(info);
+        detail.append(el('div','vendor-price','₡'+chosen.price.toLocaleString()));
+        const action=button(chosen.sold?'SOLD':!persisted?'UNAVAILABLE':
+            machine.economy.credits<chosen.price?'NEED ₡'+(chosen.price-machine.economy.credits):
+            'BUY',()=>{
             const result=emitEdit('m3ch4:counter-buy',{serial:chosen.serial});
-            message(result.ok?
-                'PURCHASED '+chosen.serial+' · STORED IN PARTS RACK':result.reason,!result.ok);
-            if(result.ok) {vendorTableSignature='';render();}
-        },
-    });
-    details.classList.add('counter-lot-detail');
-    const asking=details.querySelector('.part-detail-value');
-    if(asking) asking.textContent='ASKING PRICE · ₡'+chosen.price.toLocaleString();
-    dock.append(details);
-    dock.append(el('p','unified-muted',
-        stock.offers.every(lot=>lot.sold)
-            ? 'SOLD OUT. NEW LOTS AFTER YOUR NEXT COMPLETED CONTRACT.'
-            : 'SOME PARTS COST MORE TO REPAIR THAN THEY ARE WORTH. INSPECT BEFORE BUYING.'));
-    const visualKey=stock.cycle+':'+offers.map(offer=>offer.serial+':'+offer.sold).join('|');
+            message(result.ok?'PURCHASED '+def.name+' · STORED':result.reason,!result.ok);
+            if(result.ok){selectedLotSerial=null;vendorTableSignature='';render();}
+        },'vendor-buy',chosen.sold||!persisted||machine.economy.credits<chosen.price);
+        detail.append(action);
+        dock.append(detail);
+    }
+    const visualKey=stock.cycle+':'+offers.map(p=>p.serial+':'+p.sold).join('|');
     if(arena) {
         if(visualKey!==vendorTableSignature){
             arena.setVendorStock(offers);
