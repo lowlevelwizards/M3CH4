@@ -67,7 +67,7 @@ test('a complete contract, not a new round or clock tick, refreshes the whole ta
     const after=recordCampaignSortie(activeCampaign,{nodeId:'yard-dog',victory:false});
     assert.equal(after.state.sorties,1);
     const replenished=loadCounter(storage,after.state.sorties).stock;
-    assert.equal(replenished.offers.length,4);
+    assert.equal(replenished.offers.length,COUNTER_SIZE);
     assert.ok(replenished.offers.every(l=>!l.sold));
     assert.notEqual(replenished.offers[0].serial,before.offers[0].serial);
     assert.equal(loadCounter(storage,after.state.sorties).stock.offers[0].serial,replenished.offers[0].serial);
