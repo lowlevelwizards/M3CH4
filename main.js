@@ -64,6 +64,13 @@ try {
 catch { /* Safari storage may be unavailable. */ }
 const loadedMachine = loadMachine(saveStorage);
 const assembly = loadedMachine.assembly;
+/** Transient material projection of the existing per-serial service ledger.
+ * The rollback-safe v8 machine save remains untouched: no new inventory keys,
+ * economics, or simulation wear are introduced here.
+ */
+try { assembly.partHistory = loadStable(saveStorage).stable.partHistory; }
+catch { assembly.partHistory = {}; }
+
 const damage = loadedMachine.damage;
 const economy = loadedMachine.economy;
 // A separately owned hostile mech built with the same module definitions.
