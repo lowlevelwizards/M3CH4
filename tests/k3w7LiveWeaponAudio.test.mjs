@@ -106,6 +106,6 @@ test('main uses a single round-fire integration and preserves all old feedback a
   assert.match(html,/\.\/audio\.js\?v=k4i/);
   assert.match(html,/\.\/liveWeaponAudio\.js\?v=k4i/);
   assert.match(html,/main\.js\?v=k4s2/);
-  assert.match(html,/0\.0\.1k\.4s\.2 — Garage Flow/);
+  assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
   assert.doesNotMatch(audio,/localStorage|storeMachine/);
 });
