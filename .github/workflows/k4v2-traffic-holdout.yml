@@ -1,0 +1,58 @@
+name: k4v.2 Traffic Holdout and 3v3
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths: [.github/workflows/k4v2-traffic-holdout.yml]
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'Unseen seed base, independent of exploratory tournament'
+        required: true
+        default: '77001'
+      pairs:
+        description: 'Mirrored seed pairs for 3v3'
+        required: true
+        default: '12'
+jobs:
+  holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    env:
+      SEED: ${{ github.event.inputs.seed || '77001' }}
+      PAIRS: ${{ github.event.inputs.pairs || '12' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and physical scenario smoke
+        run: |
+          node --check research/trafficDominationCompare.mjs
+          node --test tests/k4v2Traffic.test.mjs
+      - name: Independent choke-point seeds with all four candidates
+        run: |
+          node research/aiOlympics.mjs \
+            --events=ally-choke \
+            --traffic=legacy,zipper,lanes,hybrid \
+            --profiles=baseline,cautious \
+            --families=yard,kestrel,hauler \
+            --seeds=25 --seed="$SEED" \
+            --out=study-results/traffic-holdout
+      - name: Independent mirrored physical 3v3 Domination bouts
+        run: |
+          node research/trafficDominationCompare.mjs \
+            --challenger=hybrid --pairs="$PAIRS" --seconds=150 \
+            --accuracy=.7 --seed="$SEED" \
+            --out=study-results/traffic-3v3
+      - name: Print holdout report
+        run: |
+          cat study-results/traffic-holdout/report.md
+          cat study-results/traffic-3v3/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: traffic-holdout-${{ github.run_id }}
+          path: |
+            study-results/traffic-holdout
+            study-results/traffic-3v3
+          if-no-files-found: warn
