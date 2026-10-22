@@ -1,0 +1,64 @@
+name: k4v.2 Squad Traffic Trials
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths:
+      - .github/workflows/k4v2-traffic-trials.yml
+      - ai/trafficCoordination.js
+      - ai/intentExecutor.js
+      - research/aiOlympics.mjs
+      - research/aiOlympicsMetrics.mjs
+      - tests/k4v2Traffic.test.mjs
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: 'Matched seeds per family and policy'
+        required: true
+        default: '40'
+      seed:
+        description: 'Starting deterministic seed'
+        required: true
+        default: '46291'
+      profiles:
+        description: 'Profiles'
+        required: true
+        default: 'baseline,cautious'
+concurrency:
+  group: k4v2-traffic-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      SEEDS: ${{ github.event.inputs.seeds || '40' }}
+      SEED: ${{ github.event.inputs.seed || '46291' }}
+      PROFILES: ${{ github.event.inputs.profiles || 'baseline,cautious' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify traffic coordination and course instrumentation
+        run: |
+          node --check ai/trafficCoordination.js
+          node --check ai/intentExecutor.js
+          node --check research/aiOlympics.mjs
+          node --test tests/k4v2Traffic.test.mjs tests/k4v1AiOlympics.test.mjs
+      - name: Mirror identical physical choke cases across policies
+        run: |
+          node research/aiOlympics.mjs \
+            --events=ally-choke \
+            --traffic=legacy,zipper,lanes,hybrid \
+            --families=yard,kestrel,hauler \
+            --profiles="$PROFILES" \
+            --seeds="$SEEDS" --seed="$SEED" \
+            --out=study-results/traffic-trials
+      - name: Present diagnostic comparison
+        run: cat study-results/traffic-trials/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: traffic-trials-${{ github.run_id }}
+          path: study-results/traffic-trials/
+          if-no-files-found: warn
