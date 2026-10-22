@@ -9,6 +9,7 @@ import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
+import {buildBacklotDressing} from './backlotDressing.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
@@ -3145,6 +3146,9 @@ function buildWarehouse(scene) {
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
     sign.position.set(centerX, 5, DEFAULT_WORLD.minZ - .67);
     scene.add(sign);
+    // The second art direction slice completes the yard's venue identity.
+    // Dressing never joins the collision solids list or certified cover map.
+    scene.add(buildBacklotDressing(DEFAULT_WORLD));
     return solids;
 }
 function buildCockpit(scene) {
