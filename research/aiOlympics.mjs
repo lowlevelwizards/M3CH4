@@ -122,7 +122,7 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
     throw new RangeError('Bad duration');
   const spec=configuration(id,random(seed));
   const actors=spec.starts.map((p,i)=>makeActor(
-    spec.kind==='traffic'?['yard','kestrel','hauler'][i]:family,
+    family,
     'ally-'+i,p,policy,tier));
   const player=actors[0];
   const enemies=(spec.contacts??[]).map((p,i)=>makeActor('yard',
@@ -270,8 +270,7 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
   facts.motion=motion;
   const evaluation=gradeOlympicEvent(id,facts);
   return {...facts,...evaluation,motion,actors:actors.map(a=>({
-    id:a.id,family:spec.kind==='traffic'?['yard','kestrel','hauler'][
-      Number(a.id.split('-').at(-1))]:family,
+    id:a.id,family,
     x:round(a.rig.x),z:round(a.rig.z),yaw:round(a.rig.yaw),
     goal:a.lastIntent?.goal,motion:motionSummary(a.diagnostic),
     navigation:a.motion.navigation
