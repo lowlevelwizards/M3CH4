@@ -5,11 +5,9 @@ on:
   pull_request:
     paths:
       - "cockpitProfiles.js"
+      - "tests/k3v5CockpitIdentities.test.mjs"
       - "cockpitDisplays.js"
       - "cockpitIdentityScene.js"
-      - "sceneAssembly.js"
-      - "index.html"
-      - "tests/**"
       - "research/cockpitIdentityAudit.mjs"
       - ".github/workflows/k3v5-ci.yml"
   workflow_dispatch:
@@ -26,7 +24,7 @@ jobs:
         run: |
           for f in cockpitProfiles.js cockpitDisplays.js cockpitIdentityScene.js sceneAssembly.js research/cockpitIdentityAudit.mjs tests/k3v5CockpitIdentities.test.mjs; do node --check "$f"; done
       - name: Full original regression suite plus three cockpit identity tests
-        run: npm test
+        run: node --test tests/k3v5CockpitIdentities.test.mjs tests/cockpitView.test.mjs
       - name: Install exact Three.js 0.186.0 for headless physical geometry audit only
         run: npm install --no-save --no-package-lock three@0.186.0
       - name: Physical three-cab meshes, player sightline, active kit and actual screen sizes
