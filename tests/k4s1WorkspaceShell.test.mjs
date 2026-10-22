@@ -8,8 +8,8 @@ test('k4s.1 ships fresh stylesheet and script identities',()=>{
     assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k4s3/);
-    assert.match(adapter,/unifiedGarageUI\.js\?v=k4s3/);
+    assert.match(html,/garageMountUI\.js\?v=k4w3/);
+    assert.match(adapter,/unifiedGarageUI\.js\?v=k4w3/);
     assert.ok(html.indexOf('k4sWorkshopShell.css')>html.indexOf('interfaceClarity.css'),
         'new shell styles must override older garage panel rules');
 });

@@ -1,0 +1,149 @@
+/* M3CH4 physical pit workspace. Same real 3D scene, picking and camera
+   as the garage; ONLY the field-service controls change between rounds. */
+#unified-garage[data-workspace="pit"]{
+  --pit-rail-width:49px;
+  --pit-footer-width:clamp(246px,36vw,365px);
+}
+#unified-garage[data-workspace="pit"] .workshop-rail{
+  display:block;position:absolute;top:calc(var(--k4s-header,34px) + 10px);
+  left:0;width:var(--pit-rail-width);z-index:4;
+}
+#unified-garage[data-workspace="pit"] .unified-stations{
+  display:flex;flex-direction:column;gap:7px;width:auto;
+}
+#unified-garage[data-workspace="pit"] .unified-station{
+  box-sizing:border-box;width:47px;height:46px;min-height:46px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:5px;padding:3px;background:#17231ddb;
+  border:1px solid #657867af;color:#acc8af;
+  box-shadow:0 3px 9px #0005;position:relative;
+}
+#unified-garage[data-workspace="pit"] .unified-station .rig-station-face{gap:0}
+#unified-garage[data-workspace="pit"] .unified-station .rig-station-label,
+#unified-garage[data-workspace="pit"] .unified-station .rig-condition,
+#unified-garage[data-workspace="pit"] .unified-station .rig-station-empty{display:none}
+#unified-garage[data-workspace="pit"] .unified-station .rig-station-icon{
+  font-size:23px;min-height:0;line-height:1;
+}
+#unified-garage[data-workspace="pit"] .unified-station.selected{
+  background:#4e3a20;color:#f0cb81;border-color:#e1b461;
+  outline:1px solid #e1b461;outline-offset:1px;
+}
+#unified-garage[data-workspace="pit"] .unified-station.state-empty:after{
+  content:'+';position:absolute;bottom:1px;right:3px;color:#9eac9c;font-size:12px
+}
+#unified-garage[data-workspace="pit"] .unified-station.state-critical:after,
+#unified-garage[data-workspace="pit"] .unified-station.state-damaged:after,
+#unified-garage[data-workspace="pit"] .unified-station.state-disabled:after,
+#unified-garage[data-workspace="pit"] .unified-station.state-destroyed:after{
+  content:'●';position:absolute;right:3px;bottom:2px;font-size:9px;color:#f0a276;
+}
+#unified-garage[data-workspace="pit"] .workshop-status{
+  display:flex;align-items:center;gap:7px;position:absolute;
+  top:calc(var(--k4s-header,34px) + 7px);right:2px;z-index:4;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-progress{
+  display:flex;flex-direction:column;align-items:flex-end;gap:2px;
+  background:#101c17df;padding:4px 7px;border:1px solid #677a67a8;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-progress strong{
+  font:900 10px Oxanium,monospace;color:#ebc77f;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-progress small{
+  font:700 8px Oxanium,monospace;color:#a6c6ae;
+}
+/* Explicitly override the legacy centered pit menu. Hidden until selected. */
+#unified-garage[data-workspace="pit"] #unified-garage-dock{
+  display:none;position:absolute;transform:none;
+  top:calc(var(--k4s-header,34px) + 7px);bottom:auto;
+  left:calc(var(--pit-rail-width) + 9px);right:auto;
+  width:clamp(216px,31vw,310px);
+  max-width:calc(100vw - 85px);min-width:0;
+  max-height:min(64dvh,318px);padding:9px;gap:8px;overflow:auto;
+  background:#101b16f3;border:1px solid #819181ae;border-radius:5px;
+  box-shadow:0 7px 22px #0009;z-index:3;
+}
+#unified-garage[data-workspace="pit"].pit-detail-open #unified-garage-dock{
+  display:flex;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-inspector{
+  display:flex;flex-direction:column;gap:8px;min-width:0;flex-shrink:0;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-part-heading{
+  display:flex;justify-content:space-between;align-items:center;gap:6px;
+  font:900 11px Oxanium,monospace;color:#f0cb87;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-close{
+  color:#e8ca8e;background:#28342c;border:1px solid #789080;
+  min-width:28px;min-height:26px;padding:0;font-size:15px;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-part-name{
+  font:900 12px Oxanium,monospace;color:#dce0c9;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-serial{
+  font:800 9px Oxanium,monospace;color:#8eb3a4;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-note{
+  font:700 9px/1.35 Oxanium,monospace;color:#9aab9c;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-readonly{
+  padding:7px;font:800 10px/1.35 Oxanium,monospace;
+  color:#e6a77c;border:1px solid #78523e;background:#251f19;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-queue{
+  padding:9px 6px;min-height:38px;
+  font:900 10px Oxanium,monospace;color:#e4d2a9;
+  border:1px solid #6d806d;background:#2b3a31;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-queue.active{
+  background:#51402a;border-color:#dab368;color:#f6dcaa;
+}
+/* Field triage is a compact footer instead of full-height text panels. */
+#unified-garage[data-workspace="pit"] #unified-garage-action{
+  display:block;position:absolute;right:0;left:auto;bottom:1px;
+  width:var(--pit-footer-width);padding:0;background:none;border:0;
+  max-width:calc(100vw - 15px);z-index:3;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-footer{
+  display:grid;grid-template-columns:1fr 1fr;gap:5px;
+  background:#14201ae8;padding:6px;border:1px solid #697c67;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-budget{
+  grid-column:1/-1;display:flex;justify-content:space-between;gap:5px;
+  font:800 9px Oxanium,monospace;color:#e5c780;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-budget small{
+  font:700 8px Oxanium,monospace;color:#a4baa4;text-align:right;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-commit,
+#unified-garage[data-workspace="pit"] .physical-pit-continue{
+  min-height:38px;padding:6px 5px;
+  font:900 10px Oxanium,monospace;
+  border:1px solid #ad8752;background:#b18a50;color:#102019;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-commit{
+  background:#263e31;color:#edce93;border-color:#74876b;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-continue:last-child:nth-child(2){
+  grid-column:1/-1;
+}
+#unified-garage[data-workspace="pit"] .unified-bay-navigation{
+  position:absolute;bottom:4px;left:50%;right:auto;
+  transform:translateX(-50%);width:clamp(190px,27vw,300px);
+  max-width:34vw;z-index:2;
+}
+#unified-garage[data-workspace="pit"] .bay-arrow{width:38px;height:42px}
+#unified-garage[data-workspace="pit"] .bay-index span{display:none}
+@media(max-height:430px){
+  #unified-garage[data-workspace="pit"] .workshop-rail{top:calc(var(--k4s-header,34px) + 6px)}
+  #unified-garage[data-workspace="pit"] .unified-stations{gap:5px}
+  #unified-garage[data-workspace="pit"] .unified-station{width:44px;height:42px;min-height:42px}
+  #unified-garage[data-workspace="pit"] #unified-garage-dock{
+    top:calc(var(--k4s-header,34px) + 5px);max-height:calc(100% - var(--k4s-header,34px) - 63px);
+  }
+  #unified-garage[data-workspace="pit"] .physical-pit-progress small,
+  #unified-garage[data-workspace="pit"] .physical-pit-budget small{font-size:7px}
+  #unified-garage[data-workspace="pit"] .physical-pit-footer{padding:4px;gap:4px}
+  #unified-garage[data-workspace="pit"] .physical-pit-commit,
+  #unified-garage[data-workspace="pit"] .physical-pit-continue{min-height:32px}
+}

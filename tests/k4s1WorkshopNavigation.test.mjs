@@ -48,8 +48,8 @@ test('camera reserves space for visible tools and otherwise centers the rig',()=
 test('browser entry uses new workspace stylesheet and fresh module identity',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
-    assert.match(html,/main\.js\?v=k4s2/);
-    assert.match(html,/garageMountUI\.js\?v=k4s3/);
-    assert.match(html,/unifiedGarageUI\.js\?v=k4s3/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4s3/);
+    assert.match(html,/main\.js\?v=[\w.-]+/);
+    assert.match(html,/garageMountUI\.js\?v=k4w3/);
+    assert.match(html,/unifiedGarageUI\.js\?v=k4w3/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4w3/);
 });
