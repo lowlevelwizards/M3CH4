@@ -3,6 +3,7 @@ import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
+import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k3z';
@@ -1694,6 +1695,8 @@ export function createArenaScene(initial, targetAssembly) {
         previewRecord=null;
         previewAssembly=assembly;
         const oldRoot = exterior.root;
+        // Detach shared scar geometry before the old rig disposal traversal.
+        surfaceMarks.clear();
         exterior = buildExteriorRig(assembly);
         calibrateExteriorSoles(exterior);
         updateGarageFixtures(assembly);
@@ -1706,6 +1709,7 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.visible = inspecting;
         scene.add(exterior.root);
         scene.remove(oldRoot);
+        restoreSurfaceMarks([...knownSurfaceEvents.values()]);
         // Part swaps can encounter legacy meshes with malformed material
         // data (the original S-6 underbarrel brace had a bare color number).
         // Never crash a player garage while cleaning up a discarded visual.
@@ -1847,11 +1851,23 @@ export function createArenaScene(initial, targetAssembly) {
         };
     }
     const surfaceImpactEvents=[];
+    const surfaceMarks=createSurfaceScarRenderer({perSerialLimit:4});
+    const knownSurfaceEvents=new Map();
+    function restoreSurfaceMarks(events) {
+        for(const event of events||[]) {
+            if(!event?.eventId||!event?.serial)continue;
+            knownSurfaceEvents.set(event.eventId,event);
+            if(surfaceMarks.apply(exterior,event))continue;
+            for(const record of squadCombatants.values()) {
+                if(surfaceMarks.apply(record.exterior,event))break;
+            }
+        }
+    }
     const surfaceSortieId='sortie-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1000000).toString(36);
     function noteSurfaceImpact(contact,outcome) {
         const s=contact?.surfaceHit;
         if(!s || !outcome?.serial || !contact?.actorId)return;
-        surfaceImpactEvents.push({
+        const event={
             eventId:surfaceSortieId+':'+(surfaceImpactEvents.length+1),
             sortieId:surfaceSortieId,serial:outcome.serial,
             surfaceId:s.surfaceId,surfaceVersion:s.surfaceVersion,
@@ -1860,7 +1876,9 @@ export function createArenaScene(initial, targetAssembly) {
             internalDamage:outcome.internalDamage||0,
             disabled:!!outcome.disabled,destroyed:!!outcome.destroyed,
             timestamp:Date.now(),
-        });
+        };
+        surfaceImpactEvents.push(event);
+        restoreSurfaceMarks([event]);
     }
     function drainSurfaceEvents() {return surfaceImpactEvents.splice(0);}
     function traceShot(spreadX, spreadY, muzzleZ) {
@@ -2291,7 +2309,7 @@ export function createArenaScene(initial, targetAssembly) {
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, revealPart,
-        drainSurfaceEvents,
+        drainSurfaceEvents,restoreSurfaceMarks,
         traceShot, showShot, traceHostileShot, showHostileShot, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
