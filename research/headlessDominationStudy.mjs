@@ -7,6 +7,8 @@
  *  - Domination capture, contesting, score and victory
  *  - actual weapon/target condition, armor-first damage, AI cadence, ammo,
  *    field service, damage-aware derating, disabled-state rules
+ *  - optional equipment-fidelity mode: real generator dynamics and six pellets,
+ *    with explicitly APPROXIMATE 3D first-contact selection
  *
  * LIMITATIONS: actual Three.js raycast mesh, recoil visual, target occlusion,
  * shooter accuracy at slot centroid are approximated with explicit chance
@@ -27,6 +29,8 @@ import {CORRIDOR_POLICIES} from '../ai/corridorCoordinator.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
+import { pelletOffsets } from '../scattergun.js';
+import { createPowerSystem,advancePowerSystem,powerConstrainedOutput,registerPowerShot } from '../powerDynamics.js';
 import { createRigState, stepRig, DEFAULT_WORLD } from '../locomotion.js';
 import { deriveRigConfig } from '../assemblyPhysics.js';
 import { installedPart,makeTestAssembly,equip,inspectAssembly,SLOTS } from '../components.js';
@@ -97,6 +101,7 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
     return {id,team,family:identity,behavior,assembly,condition,rig,
         spawn:{x,z},active:true,killReason:null,
         weaponSpec,weaponState:createWeaponState(weaponSpec),
+        power:createPowerSystem(assembly),
         controller:createHostileController(difficulty.acquisitionDelay+n*.15,behavior),
         motion:createEnemyMotion(behavior),baseConfig:deriveRigConfig(assembly),
         driveDamage:{drives:{}},brain:createPilotBrain(),executor:createIntentExecutor(),
@@ -104,6 +109,9 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
         lastPosition:{x,z},
         stats:{travel:0,damageDealt:0,armorDamage:0,internalDamage:0,damageTaken:0,
             shotTriggers:0,actualShots:0,hits:0,kills:0,goalChanges:0,
+            projectilesFired:0,projectilesHit:0,shotRangeSum:0,
+            shotsUnder8m:0,shotsBeyond12m:0,brownoutFrames:0,
+            powerBlockedFrames:0,minBusRatio:1,
             captures:0,zoneSeconds:0,routeErrors:0,serviceCount:0,
             firstContact:null,firstShot:null,deathAt:null,
             targetSwitches:0,trafficYields:0,routeSwitches:0,stallSeconds:0,
@@ -111,12 +119,14 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
             collisionImpacts:0,underFireSeconds:0,
             attackBySlot:Object.fromEntries(PARTS.map(s=>[s,0]))}};
 }
-function configFor(a){
+function configFor(a,physicalEquipment=false){
     const part=a.condition.parts.mobility;
     const mobility=installedPart(a.assembly,'mobility');
     const health=clamp(part.integrity/part.maxIntegrity,0,1);
     a.driveDamage.drives[mobility.instance.serial]={left:health,right:health};
-    return derateRigConfig(a.baseConfig,functionalOutput(a.assembly,a.driveDamage));
+    const output=functionalOutput(a.assembly,a.driveDamage);
+    return derateRigConfig(a.baseConfig,physicalEquipment?
+      powerConstrainedOutput(output,a.power):output);
 }
 function nearestVisible(a,roster,snapshot,order=null){
     const known=new Set((snapshot?.knowledge?.[a.team]?.contacts??[])
@@ -150,6 +160,24 @@ function damage(attacker,target,slot,metrics,t,rng){
         metrics.firstKillAt??=t;
     }
     return {hit,fault};
+}
+/** Exact live pellet angular offsets, with deliberately APPROXIMATE
+ * moving-target contact probabilities (no Three.js scene in this runner).
+ * One shell consumes one round; each successful projectile receives its own
+ * armor-first application. A radial pellet spread is NOT a fabricated damage
+ * multiplier. Explicit model uncertainty: target silhouette and obstructions
+ * remain simplified compared with first-mesh raycasts.
+ */
+export function sampleProxyProjectileHits(spec,shotIndex,distanceM,hitChance,rng){
+  if(!(hitChance>0))return 0;
+  const offsets=spec.pellets>1?pelletOffsets(shotIndex,spec):[[0,0]];
+  let hits=0;
+  for(const [x,y] of offsets){
+    const radialM=Math.hypot(x,y)*Math.max(0,distanceM);
+    const silhouette=Math.exp(-.5*(radialM/.72)**2);
+    if(rng()<hitChance*silhouette)hits++;
+  }
+  return hits;
 }
 /** Reconstruct the nearby dynamic body AABBs from the live collision layer.
  * Physics stays in stepRig; a bot never teleports around another body.
@@ -206,7 +234,7 @@ export function runBout(seed,settings){
         policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
         traffic,arrivals,corridorPolicy,
         difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
-        simulation:'research-approximate-v2',
+        simulation:settings.physicalEquipment?'research-approximate-v3-pellets-power':'research-approximate-v2',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
         win:null,winReason:null,time:maxSeconds,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
@@ -260,7 +288,14 @@ export function runBout(seed,settings){
         if(support)job=support;
         const recovery=aiWeaponRecoveryDirective(a,target);
         const capability=view.allies.find(p=>p.id===a.id)?.capability;
-        const config=configFor(a);
+        if(settings.physicalEquipment){
+          const part=a.condition.parts.power;
+          const health=clamp(part.integrity/part.maxIntegrity,0,1);
+          advancePowerSystem(a.power,a.assembly,a.rig,DT,health);
+          a.stats.brownoutFrames+=Number(a.power.brownout);
+          a.stats.minBusRatio=Math.min(a.stats.minBusRatio,a.power.busRatio);
+        }
+        const config=configFor(a,!!settings.physicalEquipment);
         const physicalWorld=combatWorldFor(a,actors);
         const allies=actors.filter(p=>p.team===a.team&&p!==a&&p.active);
         const nearbyTraffic=allies.filter(p=>dist(p.rig,a.rig)<7)
@@ -321,11 +356,14 @@ export function runBout(seed,settings){
         if(a.weaponState.loaded<=0 && a.weaponState.reloadLeft===0&&a.weaponState.reserve>0)
             startReload(a.weaponState,a.weaponSpec);
         const fireReady=!!target&&a.weaponState.cooldown<=0&&
+          (!settings.physicalEquipment||a.power.weaponReady)&&
           a.weaponState.loaded>0&&a.weaponState.reloadLeft<=0&&
           withinFiringArc(a.rig,target.rig)&&
           tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)&&
           shouldAttemptTacticalShot(a,target);
         // Trigger authority is the real fitted weapon cycle, regardless of policy.
+        if(settings.physicalEquipment&&!a.power.weaponReady&&target&&a.weaponState.loaded>0)
+          a.stats.powerBlockedFrames++;
         const fired=advanceHostileController(a.controller,a.condition,DT,!target,fireReady);
         if(fired===null||!target)continue;
         a.stats.shotTriggers++;
@@ -343,6 +381,13 @@ export function runBout(seed,settings){
           Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
         if(fireWeapon(a.weaponState,a.weaponSpec)===null)continue;
         a.stats.actualShots++;
+        if(settings.physicalEquipment){
+          a.stats.shotRangeSum+=distance;
+          a.stats.shotsUnder8m+=Number(distance<=8);
+          a.stats.shotsBeyond12m+=Number(distance>12);
+          registerPowerShot(a.power,a.assembly);
+          a.stats.projectilesFired+=a.weaponSpec.pellets??1;
+        }
         if(a.stats.firstShot===null)a.stats.firstShot=t;
         const dx=target.rig.x-a.rig.x,dz=target.rig.z-a.rig.z;
         applyRecoil(a.rig,config,dx,dz,a.weaponSpec.recoilImpulseNs);
@@ -355,14 +400,21 @@ export function runBout(seed,settings){
           const evidence=shotThreatEvidence(observer.rig,a.rig,target.rig);
           if(evidence)recordShotEvidence(observer.motion,observer.rig,evidence);
         }
-        if(settings.accuracy===0||rng()>chance)continue;
-        a.stats.hits++;metrics.damagingShots++;
+        const projectileHits=settings.physicalEquipment?
+          sampleProxyProjectileHits(a.weaponSpec,a.weaponState.firingCount,distance,
+            settings.accuracy===0?0:chance,rng):
+          (settings.accuracy===0||rng()>chance?0:1);
+        if(!projectileHits)continue;
+        a.stats.hits+=projectileHits;
+        if(settings.physicalEquipment)a.stats.projectilesHit+=projectileHits;
+        metrics.damagingShots+=projectileHits;
         const contested=!!job?.objectiveId&&state.domination.points.some(p=>
           p.id===job.objectiveId&&p.contested&&dist(target.rig,p)<state.radius);
         const slot=tacticalAimSlot(hostileAimSlot(fired,a.behavior.aimPriority),{
           targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
           contesting:contested,visibleService:!!target.fieldService?.held});
-        damage(a,target,slot,metrics,t,rng);
+        for(let pellet=0;pellet<projectileHits&&target.active;pellet++)
+          damage(a,target,slot,metrics,t,rng);
       }
       const prevScore={friendly:state.friendlyProgress,hostile:state.hostileProgress};
       const outcome=advanceSortieObjective(state,actors,DT);

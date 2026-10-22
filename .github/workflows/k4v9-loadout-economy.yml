@@ -1,0 +1,61 @@
+name: k4v9 Loadout and Economy Evidence
+on:
+  pull_request:
+    paths:
+      - 'research/loadoutEconomyStudy.mjs'
+      - 'research/loadoutPhysicalEvidence.mjs'
+      - 'tests/k4v9LoadoutEconomy.test.mjs'
+      - '.github/workflows/k4v9-loadout-economy.yml'
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: 'Mirrored seeds per equipment matchup'
+        required: true
+        default: '4'
+      seconds:
+        description: '3v3 fight duration seconds'
+        required: true
+        default: '110'
+jobs:
+  inspect-and-simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only equipment and accounting invariants
+        run: |
+          node --check research/loadoutEconomyStudy.mjs
+          node --test tests/k4v9LoadoutEconomy.test.mjs
+      - name: Simulate seven mirrored 3v3 equipment comparisons and 512 vendor rotations
+        run: |
+          node research/loadoutEconomyStudy.mjs --pairs=${{ github.event.inputs.pairs || '4' }} --seconds=${{ github.event.inputs.seconds || '110' }} --cycles=512 --out=study-results/loadout-economy
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4v9-loadout-economy-evidence
+          path: study-results/loadout-economy/
+          if-no-files-found: warn
+  live-systems-corroboration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Real physics and 3D dependency
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0
+          node --check research/loadoutPhysicalEvidence.mjs
+          node --test tests/k4v9PhysicalEvidence.test.mjs
+      - name: Reconcile six-pellet raycasts and production generator transients
+        run: node research/loadoutPhysicalEvidence.mjs --out=study-results/loadout-physical
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k4v9-real-physical-evidence
+          path: study-results/loadout-physical/
+          if-no-files-found: warn
