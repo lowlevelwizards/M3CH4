@@ -96,10 +96,10 @@ test('bundled entry and mobile versions include exact changed assets and no new 
     assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
     assert.match(html,/uiRedesign\.css\?v=k4u/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k4s3/);
+    assert.match(html,/garageMountUI\.js\?v=k4w3/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
     assert.match(html,/uiLanguage\.js\?v=k3w0/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4s3/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4w3/);
     assert.match(mount,/seriesUI\.js\?v=k4q/);
 });
