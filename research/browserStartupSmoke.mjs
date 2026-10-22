@@ -27,6 +27,24 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
+  const backlot=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const arena=activePlayerArena()?.arena;
+    const group=arena?.scene?.getObjectByName('backlot-dustbowl-visuals');
+    const stats=group?.userData?.backlotStats;
+    let objects=0,colliders=0,dynamicLights=0;
+    group?.traverse(node=>{
+      if(node.isMesh)objects++;
+      if(node.userData?.arenaObstacleId)colliders++;
+      if(node.isLight)dynamicLights++;
+    });
+    return {visible:!!group,objects,stats,colliders,dynamicLights};
+  });
+  if(!backlot.visible||backlot.objects<35||backlot.objects>145||
+     backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights)
+    throw Error('Backlot geometry or gameplay cover mismatch: '+JSON.stringify(backlot));
+  console.log('DUSTBOWL: PASS · physical obstacle dressing, instanced fences, 4 floodlights, no new colliders');
+
   // k4s.1: an untouched garage must expose the physical machine, not a
   // permanently expanded management column or another nested modal.
   const workshop=await page.evaluate(()=>({
