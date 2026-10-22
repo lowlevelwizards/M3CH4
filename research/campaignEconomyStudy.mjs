@@ -33,14 +33,14 @@ export const CASES=Object.freeze({
 });
 function inventoryTallies(items){
   const counts=Object.fromEntries(SLOTS.map(x=>[x,0]));
-  for(const p of items){if(p.destroyed||p.condition<.20)continue;
+  for(const p of items){if(p.destroyed||p.condition<=.001)continue;
     const slot=CATALOG.find(x=>x.id===p.definitionId)?.slot;
     if(slot)counts[slot]++;
   }
   return counts;
 }
 export function packFleet(inventory,validRecipes,{includeDisabled=false}={}){
-  const stock=inventory.filter(p=>!p.destroyed&&(includeDisabled||p.condition>=.20));
+  const stock=inventory.filter(p=>!p.destroyed&&(includeDisabled||p.condition>.001));
   const bySerial=new Map(stock.map(p=>[p.serial,p]));
   const remaining=new Set(bySerial.keys()),fleet=[];
   const ordered=[...validRecipes].sort((a,b)=>{
@@ -298,6 +298,7 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     'Garage service is individually quoted per serialized part and prioritizes disabled hardware; if no fieldable rig remains and service is unaffordable, the career stops without fictional payouts.',
     'Market turns over each completed contract. One shortage-targeted purchase per contract leaves cash buffer.',
     'No human selling, advanced trading, customization preferences, actor careers or high-end money sinks.',
+    'Fieldability follows the stable serial condition threshold (>0.001) but this heuristic packs three legal recipes, not the full commission/assignment UX.',
     'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.']};
 }
 export function reportCampaign(r){
