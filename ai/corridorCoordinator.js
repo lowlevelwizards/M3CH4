@@ -91,6 +91,7 @@ function stageBefore(entry,actor,world,radius){
 const keyOfGroup=members=>members.map(x=>x.actor.id).sort().join('|');
 const timed=(policy,index)=>{
   if(policy==='priority')return index*2.7;
+  if(policy==='clearance')return index*8;
   return index*5.4;
 };
 /** Returns {orders,groups,metrics}, never mutates passed orders or actors.
@@ -107,6 +108,30 @@ export function coordinateCorridors(orders,actors,world,{
   if(policy==='legacy'||!world)return {orders,groups:[],metrics:{groups:0,queued:0}};
   const output=Object.fromEntries(Object.entries(orders??{}).map(([id,o])=>
     [id,o?{...o}:o]));
+  const liveById=new Map((actors??[]).filter(a=>a.active!==false).map(a=>[a.id,a]));
+  const waiting=memory?(memory._waiting??={}):{};
+  const released=memory?(memory._released??={}):{};
+  let carried=0;
+  // Preserve existing upstream reservations even after the leader has moved
+  // past the shared route segment and a fresh path-sampling pass no longer
+  // finds the same component. Without this, queued rigs abandon their order.
+  for(const [id,pending] of Object.entries(waiting)){
+    const actor=liveById.get(id),order=output[id];
+    const expired=time>=pending.releaseAt||time>=pending.expiresAt;
+    const switched=!order||order.objectiveId!==pending.objectiveId||
+      !actor||actor.capability?.canMove===false;
+    const crossed=actor&&pending.corridorPoint&&pending.goal&&
+      d(actor.position,pending.goal)<d(pending.corridorPoint,pending.goal)-4;
+    const predecessor=liveById.get(pending.leaderId);
+    const cleared=policy==='clearance'&&predecessor&&pending.leaderPoint&&
+      pending.leaderGoal&&d(predecessor.position,pending.leaderGoal)<
+        d(pending.leaderPoint,pending.leaderGoal)-12;
+    if(expired||switched||crossed||cleared){
+      delete waiting[id];released[id]={until:time+45};continue;
+    }
+    output[id]={...order,corridorReservation:{...pending}};
+    carried++;
+  }
   const eligible=(actors??[]).filter(a=>a.active!==false&&
     a.capability?.canMove!==false&&output[a.id]&&!output[a.id].anchor)
     .sort((a,b)=>String(a.id).localeCompare(String(b.id)));
@@ -160,20 +185,29 @@ export function coordinateCorridors(orders,actors,world,{
       const stage=stageBefore(sample.point,follower.actor,world,collisionRadius);
       if(!stage)continue;
       const earliest=initial.since+timed(policy,rank);
-      if(time>=earliest)continue; // Completed window: no re-queueing.
+      if(time>=earliest||waiting[follower.actor.id]||
+         (released[follower.actor.id]?.until??0)>time)continue;
       const base=output[follower.actor.id];
-      output[follower.actor.id]={...base,corridorReservation:{
-        stagePoint:stage,releaseAt:earliest,
+      const leader=members[rank-1];
+      const proposal={stagePoint:stage,releaseAt:earliest,
         expiresAt:Math.min(initial.expiresAt,earliest+12),
         group:corridorKey,policy,rank,
-        corridorPoint:round(sample.point)
-      }};
+        corridorPoint:round(sample.point),
+        objectiveId:base.objectiveId,goal:{...base.point},
+        leaderId:leader.actor.id,
+        leaderPoint:round(leader.path.samples[0].point),
+        leaderGoal:{...leader.order.point}};
+      waiting[follower.actor.id]=proposal;
+      output[follower.actor.id]={...base,corridorReservation:{...proposal}};
       queued++;
     }
   }
   // Bound persistent research memory: old unrelated route groups expire.
-  if(memory)for(const key of Object.keys(memory))
-    if((memory[key]?.expiresAt??0)<time)delete memory[key];
+  if(memory){
+    for(const key of Object.keys(memory))if(!key.startsWith('_')&&
+      (memory[key]?.expiresAt??0)<time)delete memory[key];
+    for(const [id,p] of Object.entries(released))if(p.until<=time)delete released[id];
+  }
   return {orders:output,groups:groups.map(m=>m.map(e=>e.actor.id)),
-    metrics:{groups:groups.length,queued}};
+    metrics:{groups:groups.length,queued:queued+carried}};
 }
