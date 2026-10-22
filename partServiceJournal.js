@@ -81,7 +81,8 @@ export async function readSurfaceEvents(serial,indexedDBFactory=globalThis.index
     return await new Promise((resolve,reject)=>{
       const tx=db.transaction('events','readonly');
       const query=tx.objectStore('events').index('serial').getAll(serial);
-      query.onsuccess=()=>resolve((query.result||[]).map(normalizeSurfaceEvent).filter(Boolean));
+      query.onsuccess=()=>resolve((query.result||[]).map(normalizeSurfaceEvent).filter(Boolean)
+        .sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)||a.eventId.localeCompare(b.eventId)));
       query.onerror=()=>reject(query.error||new Error('Journal read failed'));
     });
   }finally{db.close();}
