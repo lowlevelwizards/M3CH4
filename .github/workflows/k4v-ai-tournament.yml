@@ -42,9 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      ENTRANTS: ${{ github.event.inputs.entrants || 'baseline@pro,blitz@pro,fortress@pro,skirmish@pro' }}
+      ENTRANTS: ${{ github.event.inputs.entrants || 'baseline@pro,blitz@pro,fortress@pro,wolfpack@pro,skirmish@pro,cautious@pro,reactive@pro,opportunist@pro' }}
       PAIRS: ${{ github.event.inputs.pairs || '2' }}
-      SECONDS: ${{ github.event.inputs.seconds || '60' }}
+      SECONDS: ${{ github.event.inputs.seconds || '180' }}
       ACCURACY: ${{ github.event.inputs.accuracy || '.7' }}
       SEED: ${{ github.event.inputs.seed || '45811' }}
       ROSTER: ${{ github.event.inputs.roster || 'balanced' }}
