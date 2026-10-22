@@ -1,0 +1,78 @@
+name: k4v AI Strategy Tournament
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths:
+      - .github/workflows/k4v-ai-tournament.yml
+  workflow_dispatch:
+    inputs:
+      entrants:
+        description: 'Comma-separated strategy@difficulty entrants'
+        required: true
+        default: 'baseline@pro,blitz@pro,fortress@pro,wolfpack@pro,skirmish@pro,cautious@pro,reactive@pro,opportunist@pro'
+      pairs:
+        description: 'Mirrored seed pairs per strategy matchup and hit cohort'
+        required: true
+        default: '8'
+      seconds:
+        description: 'Maximum simulated seconds per bout'
+        required: true
+        default: '150'
+      accuracy:
+        description: 'Hit sensitivity cohorts, comma-separated'
+        required: true
+        default: '.45,.7,.9'
+      seed:
+        description: 'Starting deterministic seed'
+        required: true
+        default: '45811'
+      roster:
+        description: 'balanced, yard, light, or heavy'
+        required: true
+        default: 'balanced'
+      capture:
+        description: 'strict, superiority, or pressure'
+        required: true
+        default: 'strict'
+concurrency:
+  group: ai-tournament-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ENTRANTS: ${{ github.event.inputs.entrants || 'baseline@pro,blitz@pro,fortress@pro,skirmish@pro' }}
+      PAIRS: ${{ github.event.inputs.pairs || '2' }}
+      SECONDS: ${{ github.event.inputs.seconds || '60' }}
+      ACCURACY: ${{ github.event.inputs.accuracy || '.7' }}
+      SEED: ${{ github.event.inputs.seed || '45811' }}
+      ROSTER: ${{ github.event.inputs.roster || 'balanced' }}
+      CAPTURE: ${{ github.event.inputs.capture || 'strict' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Policy and tournament regression tests
+        run: node --test tests/k4vAiTournament.test.mjs
+      - name: Run mirrored strategy tournament
+        run: |
+          node research/aiTournament.mjs \
+            --entrants="$ENTRANTS" \
+            --pairs="$PAIRS" \
+            --seconds="$SECONDS" \
+            --accuracy="$ACCURACY" \
+            --seed="$SEED" \
+            --roster="$ROSTER" \
+            --capture="$CAPTURE" \
+            --out=study-results/ai-tournament
+      - name: Print ranked results
+        if: success()
+        run: cat study-results/ai-tournament/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-tournament-${{ github.run_id }}
+          path: study-results/ai-tournament/
+          if-no-files-found: warn
