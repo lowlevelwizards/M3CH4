@@ -11,6 +11,7 @@ import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './eco
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
 import { createArenaScene } from './scene.js';
+import {winningMachines,renderWinningMachines} from './winnerTableau.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot } from './powerDynamics.js';
@@ -374,6 +375,7 @@ const debriefGarage = required('#debrief-garage');
 const sortieOutro = required('#sortie-outro');
 const sortieOutroTitle = required('#sortie-outro-title');
 const sortieOutroReason = required('#sortie-outro-reason');
+const winnerTableau = required('#winner-tableau');
 const fireButton = required('#fire');
 const reloadButton = required('#reload');
 const weaponLabel = required('#weapon-label');
@@ -2240,6 +2242,17 @@ function finishSortie(victory, reason) {
     } else {
         sortieOutroTitle.textContent = victory ? 'SORTIE COMPLETE' : 'SORTIE FAILED';
         sortieOutroReason.textContent = victory ? reason : `${reason} · RECOVERY CREW INBOUND`;
+    }
+    // The five-second physical aftermath now gives the actual winning
+    // machines a lineup. Reuse the cached garage renderer, not another canvas.
+    try {
+        const winners=winningMachines(victory,{
+            id:'player',label:assembly.name||'YOUR RIG',assembly,active:playerCombatActive,
+        },friendlySupportActors,aiActors.filter(actor=>actor.team===HOSTILE_TEAM));
+        renderWinningMachines(winnerTableau,winners,arena.rigThumbnailDataUrl);
+    } catch(error) {
+        winnerTableau.replaceChildren();
+        console.warn('WINNER PORTRAITS UNAVAILABLE',error?.message||error);
     }
     sortieOutro.classList.remove('hidden');
     sortieOutro.classList.toggle('failed', !victory);

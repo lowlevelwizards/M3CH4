@@ -58,9 +58,19 @@ try{
     const duplicate=renderer.apply(rig,mark);
     const child=hit.children.find(node=>node.userData.surfaceScarEvent===mark.eventId);
     const pickContamination=rig.pickMeshes.includes(child);
+    const breach={...mark,eventId:'browser-penetration-2',
+      armorAbsorbed:1,internalDamage:34};
+    const appliedBreach=renderer.apply(rig,breach);
+    const hole=hit.children.find(node=>node.userData.surfaceScarEvent===breach.eventId);
+    const rgb=hole?.material.map.image.getContext('2d')
+      .getImageData(16,16,1,1).data;
+    const roundBreach=hole?.userData.surfaceDamageKind==='breach' &&
+      hole.scale.y>child.scale.y*2.0 && hole.scale.x>child.scale.x;
+    const blackCavity=rgb&&rgb[0]<25&&rgb[1]<25&&rgb[2]<25&&rgb[3]>200;
     renderer.clear();
     return {ok:applied&&!duplicate&&!!child&&!pickContamination&&
-      !child.parent,markCount:renderer.counts()};
+      appliedBreach&&roundBreach&&blackCavity&&!child.parent&&!hole.parent,
+      markCount:renderer.counts()};
   });
   if(!scar.ok)throw Error('Real articulated scar render failed: '+JSON.stringify(scar));
   if(errors.length)throw Error('Art Lab browser errors: '+errors.join('\n'));
