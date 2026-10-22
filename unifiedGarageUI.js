@@ -12,7 +12,7 @@ import { activePlayerArena } from './scene.js';
 import { loadMachine } from './persistence.js';
 import { soundWorkshop } from './audio.js';
 import { loadStable, storeStable, commissionRig, renameRig, rigById } from './stable.js';
-import { loadSeries } from './series.js';
+import { loadSeries, clearSeries } from './series.js';
 import { CAMPAIGN_NODES, availableCampaignNodes, loadCampaign } from './campaign.js';
 import { contractById } from './contracts.js';
 import {
@@ -65,7 +65,9 @@ if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
 // A pending q.1 assignment is the authority for restoring sortie setup on reload.
 // Never resurrect an already launched contract as a fresh pre-sortie selection.
 const restoredAssignment = loadSortieAssignment(session);
-if (restoredAssignment?.phase === 'pending' && !loadSeries(storage)) {
+const restoredSeries = loadSeries(storage);
+if (restoredAssignment?.phase === 'pending' &&
+    (!restoredSeries || restoredSeries.phase === 'complete')) {
     const campaign = loadCampaign();
     if (availableCampaignNodes(campaign).includes(restoredAssignment.contractId)) {
         mode = 'setup';
@@ -275,7 +277,11 @@ function renderWorkshopChrome(stable,view) {
         swapExpanded=false;drawerExpanded=false;render();
     },'workshop-status-action'));
     const pending=loadSortieAssignment(session);
-    const job=pending?.phase==='pending'&&!loadSeries(storage)?pending.contractId:null;
+    const series=loadSeries(storage);
+    // A completed match is history, not an active deployment. Its old BO3
+    // record must not conceal a newly selected, session-pending contract.
+    const job=pending?.phase==='pending' &&
+        (!series || series.phase==='complete') ? pending.contractId : null;
     const bottom=el('div','workshop-action-lane');
     const info=el('div','workshop-readiness '+(view.canDeploy?'ready':'blocked'));
     info.append(el('strong','',view.canDeploy?'● READY':'● '+view.state));
@@ -414,7 +420,7 @@ function moduleDetails(stable, view, machine) {
         box.append(body);
         if(def?.description)box.append(el('p','garage-part-description',def.description));
         if(slot==='structure'&&Object.keys(view.rig.installed).some(key=>key!=='structure'))
-            box.append(el('small','unified-owner-note','REMOVE ATTACHED PARTS BEFORE THE FRAME.'));
+            box.append(el('small','unified-owner-note','REMOVE ATTACHED MODULES BEFORE THE FRAME.'));
     }
     if(!installed&&!swapExpanded)box.append(el('small','garage-empty-label','EMPTY SOCKET · CHOOSE A PART'));
     const actions=el('div','garage-part-actions');
@@ -434,8 +440,8 @@ function moduleDetails(stable, view, machine) {
     const choices = el('div','unified-part-gallery part-grid');
     if (!drawerExpanded) {
         const shelfTop=el('div','garage-shelf-title');
-        shelfTop.append(el('strong','',stationLabel(slot)+' · PARTS SHELF'));
-        shelfTop.append(button('ALL PARTS ↗',()=>{drawerExpanded=true;render();},'garage-shelf-expand'));
+        shelfTop.append(el('strong','',stationLabel(slot)+' · MODULE RACK'));
+        shelfTop.append(button('ALL MODULES ↗',()=>{drawerExpanded=true;render();},'garage-shelf-expand'));
         shelf.append(shelfTop);
     } else {
         box.append(button('‹ COMPACT SHELF',()=>{drawerExpanded=false;render();},'garage-drawer-close'));
@@ -443,7 +449,7 @@ function moduleDetails(stable, view, machine) {
     const owned = stable.inventory.filter(part => BY_ID.get(part.definitionId)?.slot === slot);
     if (selectedHardwareSerial && !owned.some(part => part.serial === selectedHardwareSerial))
         selectedHardwareSerial = null;
-    if (!owned.length) choices.append(el('p','unified-muted','NO PARTS · COUNTER'));
+    if (!owned.length) choices.append(el('p','unified-muted','NO MODULES IN STORAGE · VISIT VENDORS'));
 
     const ownerFor = serial => stable.rigs.find(rig =>
         Object.values(rig.installed).includes(serial));
@@ -684,7 +690,7 @@ function renderInventory(stable) {
         return entry;
     }).filter(x=>!!x.def);
     const header=el('header','inventory-heading');
-    header.append(el('strong','',counts.all+' SERIALIZED PARTS'));
+    header.append(el('strong','',counts.all+' SERIALIZED MODULES'));
     header.append(el('small','',counts.stored+' STORED · '+counts.equipped+' EQUIPPED'));
     wrap.append(header);
     const controls=el('div','inventory-filters');
@@ -804,12 +810,23 @@ function renderCounter(machine) {
     }
 }
 function takeContract(stable,jobId) {
+    const series=loadSeries(storage);
+    if(series && series.phase!=='complete'){
+        message('FINISH THE CURRENT SORTIE BEFORE TAKING ANOTHER JOB',true);return;
+    }
     const result=beginSortieAssignment(session,jobId);
     if (!result.ok) {message(result.reason,true);return;}
-    selectedJobId = jobId;
-    assignment(stable,jobId,viewedId);
-    // Choosing a job returns to workshop, deployment commits in sortie setup.
+    // Like terminal debrief dismissal, intentionally accepting a NEW job
+    // retires a completed BO3 record without resetting campaign progression.
+    if(series?.phase==='complete' && !clearSeries(storage)){
+        cancelSortieAssignment(session);
+        message('COULD NOT CLOSE PREVIOUS SORTIE',true);return;
+    }
+    selectedJobId=jobId;
+    const assigned=assignment(stable,jobId,viewedId);
+    if(!assigned.ok){message(assigned.reason,true);return;}
     mode='garage';dock.scrollTop=0;render();
+    message('JOB SELECTED · '+contractById(jobId).name.toUpperCase());
 }
 function renderContracts(stable) {
     const campaign=loadCampaign();
@@ -817,23 +834,21 @@ function renderContracts(stable) {
     if (selectedJobId && unlocked.includes(selectedJobId)) {
         const c=contractById(selectedJobId);
         const detail=el('section','unified-contract-detail');
-        detail.append(el('small','unified-muted','CONTRACT BRIEFING'));
-        detail.append(el('strong','',c.name.toUpperCase()));
-        detail.append(el('div','unified-job-compact',
-            c.objective.label + ' · RISK ' + c.risk.toUpperCase() + ' · ₡' + c.payout));
-        detail.append(el('p','',c.briefing));
-        detail.append(el('div','unified-muted','OBJECTIVE · ' + c.objective.description));
-        /* Opposing crew palettes belong on the battlefield, not on the job briefing. */
-        /* const crew=contractCrew(c.id);
-        const livery=el('div','unified-contract-livery');
-        const band=el('div','unified-crew-swatches');
-        for(const color of Object.values(crew.colors)){
-            const swatch=el('i');swatch.style.background=color;band.append(swatch);
-        }
-        livery.append(el('small','','OPPOSING CREW · '+crew.name),band);
-        detail.append(livery); */
-        detail.append(el('div','unified-muted','KNOWN EQUIPMENT · '+c.knownEquipment.join(' / ')));
-        detail.append(el('div','unified-muted','SALVAGE · '+c.salvageHint));
+        detail.append(el('small','contract-brief-eyebrow','JOB BRIEF · SCRAPYARD CIRCUIT'));
+        const heading=el('div','contract-brief-heading');
+        heading.append(el('strong','',c.name.toUpperCase()));
+        const tags=el('div','contract-brief-tags');
+        tags.append(el('span','',c.risk.toUpperCase()+' RISK'),
+            el('strong','','₡'+c.payout));
+        heading.append(tags);detail.append(heading);
+        detail.append(el('div','contract-brief-mission',
+            c.objective.label.toUpperCase()));
+        detail.append(el('p','contract-brief-description',c.objective.description));
+        detail.append(el('p','contract-brief-flavor',c.briefing));
+        const notes=el('div','contract-brief-notes');
+        notes.append(el('span','','OPPOSITION · '+c.knownEquipment.join(' / ')));
+        notes.append(el('span','','SALVAGE · '+c.salvageHint));
+        detail.append(notes);
         dock.append(detail);
         setPrimary('TAKE CONTRACT · ₡' + c.payout,()=>takeContract(stable,c.id));
         return;
@@ -1042,6 +1057,7 @@ function render() {
     document.dispatchEvent(new CustomEvent('m3ch4:workspace-layout',{detail:{workspace:shell.dataset.workspace}}));
     shell.classList.toggle('has-selection',!!selectedSlot && !paintExpanded && state==='garage');
     shell.classList.toggle('painting',paintExpanded && state==='garage');
+    shell.classList.toggle('briefing-open',state==='contracts'&&!!selectedJobId);
     shelf.classList.toggle('shown',state==='garage' && !paintExpanded && swapExpanded && !drawerExpanded && !!selectedSlot);
 }
 function queueRender() {
