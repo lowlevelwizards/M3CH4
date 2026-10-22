@@ -109,7 +109,8 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
         lastPosition:{x,z},
         stats:{travel:0,damageDealt:0,armorDamage:0,internalDamage:0,damageTaken:0,
             shotTriggers:0,actualShots:0,hits:0,kills:0,goalChanges:0,
-            projectilesFired:0,projectilesHit:0,brownoutFrames:0,
+            projectilesFired:0,projectilesHit:0,shotRangeSum:0,
+            shotsUnder8m:0,shotsBeyond12m:0,brownoutFrames:0,
             powerBlockedFrames:0,minBusRatio:1,
             captures:0,zoneSeconds:0,routeErrors:0,serviceCount:0,
             firstContact:null,firstShot:null,deathAt:null,
@@ -381,6 +382,9 @@ export function runBout(seed,settings){
         if(fireWeapon(a.weaponState,a.weaponSpec)===null)continue;
         a.stats.actualShots++;
         if(settings.physicalEquipment){
+          a.stats.shotRangeSum+=distance;
+          a.stats.shotsUnder8m+=Number(distance<=8);
+          a.stats.shotsBeyond12m+=Number(distance>12);
           registerPowerShot(a.power,a.assembly);
           a.stats.projectilesFired+=a.weaponSpec.pellets??1;
         }
