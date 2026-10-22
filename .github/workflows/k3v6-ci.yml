@@ -8,8 +8,6 @@ on:
       - "tests/k3v6Scattergun.test.mjs"
       - "combat.js"
       - "components.js"
-      - "scene.js"
-      - "audio.js"
       - "partEconomy.js"
       - "research/scattergunStudy.mjs"
       - "research/scattergunGeometryAudit.mjs"
