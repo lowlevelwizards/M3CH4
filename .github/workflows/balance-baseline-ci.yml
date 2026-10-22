@@ -6,6 +6,8 @@ on:
       - 'research/rosterBalanceAudit.mjs'
       - 'research/baselines/**'
       - 'tests/k4v0RosterBalance.test.mjs'
+      - 'tests/k4v0MechanicalCohorts.test.mjs'
+      - 'research/balanceMechanicalCohorts.mjs'
       - '.github/workflows/balance-baseline-ci.yml'
 jobs:
   balance-evidence:
@@ -19,13 +21,15 @@ jobs:
       - name: Catalogue legality and recorded 15-module fixture
         run: |
           mkdir -p balance-evidence/{catalogue,deterministic,geometry,tactical}
-          node --test tests/k4v0RosterBalance.test.mjs > balance-evidence/catalogue/regression.txt
+          node --test tests/k4v0RosterBalance.test.mjs tests/k4v0MechanicalCohorts.test.mjs > balance-evidence/catalogue/regression.txt
           node research/rosterBalanceAudit.mjs --json > balance-evidence/catalogue/all-assemblies.json
           node research/rosterBalanceAudit.mjs > balance-evidence/catalogue/summary.md
       - name: Deterministic movement, weapon and generator evidence
         run: |
           node research/partIdentityBaseline.mjs --json > balance-evidence/deterministic/parts.json
           node research/mobilityTemperamentStudy.mjs --json > balance-evidence/deterministic/mobility.json
+          node research/balanceMechanicalCohorts.mjs --json > balance-evidence/deterministic/controlled-cohorts.json
+          node research/balanceMechanicalCohorts.mjs > balance-evidence/deterministic/controlled-summary.md
           node research/powerResponseStudy.mjs --json > balance-evidence/deterministic/power.json
           node research/scattergunStudy.mjs > balance-evidence/deterministic/scattergun.txt
       - name: Actual Three.js mesh shielding evidence
