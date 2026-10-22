@@ -1,0 +1,30 @@
+name: k4v AI Strategy Holdout Cohort
+on:
+  push:
+    branches: [k4v-ai-tournament-laboratory]
+    paths: [.github/workflows/k4v-ai-holdout.yml]
+  workflow_dispatch:
+jobs:
+  holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Eight-policy holdout - light rigs, low-hit sensitivity, unseen seeds
+        run: |
+          node research/aiTournament.mjs \
+            --entrants=baseline@pro,blitz@pro,fortress@pro,wolfpack@pro,skirmish@pro,cautious@pro,reactive@pro,opportunist@pro \
+            --pairs=2 --seconds=180 --accuracy=.45 \
+            --roster=light --seed=812233 \
+            --out=study-results/ai-holdout
+      - name: Print holdout results
+        run: cat study-results/ai-holdout/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-holdout-${{ github.run_id }}
+          path: study-results/ai-holdout/
+          if-no-files-found: warn
