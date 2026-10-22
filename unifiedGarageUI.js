@@ -352,8 +352,11 @@ function moduleDetails(stable, view, machine) {
     box.classList.toggle('drawer-open',drawerExpanded);
     const state = view.health.find(s => s.slot === slot);
     const heading=el('div','rig-part-identity');
-    heading.append(el('strong','unified-section-name',
-        state?.part ? (BY_ID.get(state.part.definitionId)?.name || stationLabel(slot)) : stationLabel(slot)+' · EMPTY MOUNT'));
+    const partName=state?.part?BY_ID.get(state.part.definitionId)?.name||stationLabel(slot):stationLabel(slot)+' · EMPTY MOUNT';
+    const identity=el('div','workshop-part-heading');
+    identity.append(el('strong','unified-section-name',partName));
+    if(state?.serial)identity.append(el('small','workshop-part-serial',state.serial));
+    heading.append(identity);
     heading.append(button('×',()=>{
         selectedSlot=null;selectedHardwareSerial=null;swapExpanded=false;drawerExpanded=false;detailsExpanded=false;dock.scrollTop=0;render();
     },'unified-close'));
@@ -378,7 +381,7 @@ function moduleDetails(stable, view, machine) {
                 },'unified-service',!affordable));
         }
     }
-    if (installed && slot === 'power' && detailsExpanded && !swapExpanded) {
+    if (installed && slot === 'power' && !swapExpanded) {
         const currentMount = bayGeneratorMount(stable, viewedId);
         const positions = el('section','unified-mount-options');
         positions.append(el('div','unified-section-name','PHYSICAL GENERATOR MOUNT'));
@@ -392,31 +395,38 @@ function moduleDetails(stable, view, machine) {
         box.append(positions);
     }
     if (installed && !swapExpanded) {
-        const quick=el('div','unified-quick-part');
-        quick.append(el('span','unified-part-name',BY_ID.get(installed.definitionId)?.name+' · '+installed.serial));
-        const remove=button('REMOVE',()=>editModule(slot,null),'unified-remove-icon');
-        remove.setAttribute('aria-label','Remove '+installed.serial+' from '+stationLabel(slot));
-        remove.title='REMOVE FROM BAY';quick.append(remove);box.append(quick);
-        box.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
-        if(slot==='structure' && Object.keys(view.rig.installed).some(key=>key!=='structure'))
-            box.append(el('small','unified-owner-note','FRAME SUPPORTS INSTALLED MODULES · REMOVE ATTACHED MODULES FIRST.'));
+        const def=BY_ID.get(installed.definitionId);
+        const picture=activePlayerArena()?.arena.partThumbnailDataUrl?.(installed.definitionId,{
+            condition:state.condition,destroyed:state.destroyed,paint:installed.paint,
+        });
+        const body=el('div','workshop-inspector-body');
+        const image=el('div','workshop-part-preview');
+        if(picture) {
+            const img=el('img');img.src=picture;img.alt=def?.name+' 3D model';
+            img.draggable=false;image.append(img);
+        } else image.append(el('span','',stationGlyph(slot)));
+        body.append(image);
+        const readout=el('div','workshop-part-readout');
+        readout.append(createConditionMeter(conditionFromPart(state),{showNumbers:true,slot}));
+        readout.append(el('div','garage-spec-line',
+            (def?.massKg??0)+' KG · '+Math.abs(def?.powerKw||0)+' KW'));
+        body.append(readout);
+        box.append(body);
+        if(def?.description)box.append(el('p','garage-part-description',def.description));
+        if(slot==='structure'&&Object.keys(view.rig.installed).some(key=>key!=='structure'))
+            box.append(el('small','unified-owner-note','REMOVE ATTACHED PARTS BEFORE THE FRAME.'));
     }
-    if (!installed && !swapExpanded) box.append(el('small','garage-empty-label','EMPTY SOCKET · CHOOSE A PART'));
+    if(!installed&&!swapExpanded)box.append(el('small','garage-empty-label','EMPTY SOCKET · CHOOSE A PART'));
     const actions=el('div','garage-part-actions');
-    const toggle=button(swapExpanded?'‹ INSPECT':installed?'REPLACE':'INSTALL',()=>{
+    actions.append(button(swapExpanded?'‹ INSPECT':installed?'REPLACE':'INSTALL',()=>{
         swapExpanded=!swapExpanded;drawerExpanded=false;selectedHardwareSerial=null;
         rackView='ready';dock.scrollTop=0;render();
-    },'unified-swap-toggle');
-    actions.append(toggle);
-    if (installed && !swapExpanded) actions.append(button(detailsExpanded?'LESS':'DETAILS',()=>{
-        detailsExpanded=!detailsExpanded;render();
-    },'unified-secondary'));
-    box.append(actions);
-    if (installed && detailsExpanded && !swapExpanded) {
-        const def=BY_ID.get(installed.definitionId);
-        box.append(el('div','garage-spec-line',def?.massKg+' KG · '+Math.abs(def?.powerKw||0)+' KW'));
-        if (def?.description) box.append(el('p','garage-part-description',def.description));
+    },'unified-swap-toggle'));
+    if(installed&&!swapExpanded) {
+        const remove=button('REMOVE',()=>editModule(slot,null),'unified-remove-icon');
+        remove.setAttribute('aria-label','Remove '+installed.serial);actions.append(remove);
     }
+    box.append(actions);
     if(!swapExpanded)return box;
     // Reuse the original physical part-gallery components and their cached 3D
     // gameplay-mesh thumbnails. Selection is separate from mounting: a part fitted
