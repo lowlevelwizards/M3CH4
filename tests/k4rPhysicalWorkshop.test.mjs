@@ -57,7 +57,7 @@ test('parts shelf previews but only confirmed action emits the persisted bay edi
 test('camera orbit remains upright and independent of part or paint changes',()=>{
     const scene=source('scene.js'),ui=source('unifiedGarageUI.js');
     assert.match(scene,/camera\.up\.set\(0,1,0\)/);
-    assert.match(scene,/desiredTarget\.set\(0,1\.85,0\)/);
+    assert.match(scene,/function focusPart\(slot\)/);
     assert.match(ui,/arena\.setPreviewPart\?\.\(proposed\?selectedSlot:null\)/);
     assert.match(ui,/onPreview:edits=>\{paintPreviewEdits=edits;previewSignature='';preview/);
     assert.doesNotMatch(ui,/onPreview:[^\n]*resetOrbit/);
