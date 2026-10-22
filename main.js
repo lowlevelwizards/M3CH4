@@ -1974,6 +1974,15 @@ function frame(now) {
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {
         arena.updateVictoryShowcase(frameDt);
+        const nameAnchors=arena.victoryNameplateAnchors();
+        winnerTableau.classList.toggle('spatial',nameAnchors.length>0);
+        for(const [i,label] of [...winnerTableau.children].entries()){
+            const anchor=nameAnchors[i];
+            if(!anchor)continue;
+            label.style.left=anchor.x+'%';
+            label.style.top=anchor.y+'%';
+            label.hidden=!anchor.visible;
+        }
         sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
         if (sortieOutroRemaining === 0 && pendingDebrief) {
             const next = pendingDebrief; pendingDebrief = null; sortiePhase = 'debrief';

@@ -55,3 +55,22 @@ body.victory-showcase .spectator-controls{display:none!important}
   .winner-nameplate strong{font-size:9px}
   .winner-nameplate small{font-size:7px}
 }
+
+/* During the in-world walk, these captions are attached to the projected
+   position of each mech, not evenly divided screen columns. Their container
+   has no painted background and never consumes touch input. */
+.winner-tableau.spatial{
+  inset:0;width:100%;max-width:none;height:100%;bottom:auto;
+  transform:none;display:block;pointer-events:none;
+}
+.winner-tableau.spatial .winner-nameplate{
+  position:absolute;transform:translate(-50%,-50%);
+  width:clamp(95px,19vw,230px);max-width:27vw;
+  min-height:24px;
+  pointer-events:none;
+}
+.winner-tableau.spatial .winner-nameplate[hidden]{display:none}
+@media(max-height:430px){
+  .winner-tableau.spatial{inset:0;width:100%;height:100%}
+  .winner-tableau.spatial .winner-nameplate{width:clamp(94px,19vw,190px)}
+}

@@ -8,6 +8,7 @@ import {normalizeSurfaceEvent} from './partServiceJournal.js';
 import {surfaceDamageLanguage} from './surfaceDamageLanguage.js';
 import {clipProjectedTriangle} from './surfaceDecalClip.js';
 import {hideBreachAfterService,REPAIR_PATCH_SIZE} from './surfaceRepairPolicy.js';
+import {keepPhysicalScars} from './scarPresentationPolicy.js';
 
 let shared=null;
 const P=32;
@@ -213,14 +214,16 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
       if(source?.event==='impact'&&
           hideBreachAfterService(source,context(exterior,event.serial)))old.visible=false;
     }
-    if(list.length>perSerialLimit){
-      const oldest=list.shift();
-      keys.delete(oldest.userData.surfaceScarEvent);
-      oldest.parent?.remove(oldest);
-      hotMarks.delete(oldest);
-      oldest.geometry.dispose();
+    // Select by meaningful physical history, not insertion order. A repair
+    // shouldn't disappear because several trivial surface scratches followed.
+    const keep=new Set(keepPhysicalScars(list,perSerialLimit));
+    for(const old of list)if(!keep.has(old)){
+      keys.delete(old.userData.surfaceScarEvent);
+      old.parent?.remove(old);
+      hotMarks.delete(old);
+      old.geometry.dispose();
     }
-    displayed.set(event.serial,list);
+    displayed.set(event.serial,list.filter(item=>keep.has(item)));
     return true;
   }
   function clear(){
