@@ -49,7 +49,7 @@ test('the first-hit mounting and eligibility authority is inspected, not simulat
             assert.equal(row.combatWinRate, undefined);
         }
     }
-    assert.equal(get('mobility', 'legs-hauler').length, 72);
+    assert.equal(get('mobility', 'legs-hauler').length, 108);
     assert.ok(report.combinations.some(row => !row.ready &&
         row.reasons.some(r => r.check === 'power')));
     assert.ok(report.combinations.some(row => !row.ready &&
