@@ -50,6 +50,9 @@ export class Controls {
             throw new Error('Drive ring is required');
         this.driveRing = ring;
         this.driveKnob = driveKnob;
+        this.driveZone = driveZone;
+        this.lookZone = lookZone;
+        this.brakeButton = brakeButton;
         // Floating neutral point: wherever the thumb first lands is 0/0.
         // This prevents touching above the decorative ring from secretly commanding reverse.
         driveZone.addEventListener('pointerdown', (event) => {
@@ -99,7 +102,7 @@ export class Controls {
         });
         const lookEnd = (event) => {
             if (event.pointerId === this.lookPointer)
-                this.lookPointer = null;
+                this.clearLook();
         };
         lookZone.addEventListener('pointerup', lookEnd);
         lookZone.addEventListener('pointercancel', lookEnd);
@@ -126,11 +129,26 @@ export class Controls {
                 event.preventDefault();
         }, { passive: false });
         window.addEventListener('keyup', (event) => this.keyboard.delete(event.code));
-        window.addEventListener('blur', () => {
-            this.keyboard.clear();
-            this.clearDrive();
-            this.lookPointer = null;
-            setBrake(false);
+        // Safari/trackpads can release outside the original element without
+        // delivering its captured pointerup. A window-level fallback prevents
+        // the last drive/fire command from becoming a permanent held input.
+        const endAnywhere = event => {
+            if (event.pointerId === this.drivePointer) this.clearDrive();
+            if (event.pointerId === this.lookPointer) this.clearLook();
+            if (this.brake && event.type !== 'pointermove') setBrake(false);
+        };
+        window.addEventListener('pointerup', endAnywhere, true);
+        window.addEventListener('pointercancel', endAnywhere, true);
+        window.addEventListener('pointermove', event => {
+            if (event.pointerType === 'touch' || event.buttons !== 0) return;
+            if (event.pointerId === this.drivePointer) this.clearDrive();
+            if (event.pointerId === this.lookPointer) this.clearLook();
+            if (this.brake) setBrake(false);
+        }, true);
+        window.addEventListener('blur', () => this.cancelPointers());
+        window.addEventListener('pagehide', () => this.cancelPointers());
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') this.cancelPointers();
         });
     }
     sample() {
@@ -164,14 +182,23 @@ export class Controls {
     }
     setEnabled(enabled) {
         this.enabled = enabled;
-        if (!enabled) {
-            this.clearDrive();
-            this.lookPointer = null;
-            this.brake = 0;
-            this.keyboard.clear();
-        }
+        if (!enabled) this.cancelPointers();
+    }
+    clearLook() {
+        const captured = this.lookPointer;
+        this.lookPointer = null;
+        if (captured !== null && this.lookZone.hasPointerCapture?.(captured))
+            this.lookZone.releasePointerCapture(captured);
+    }
+    cancelPointers() {
+        this.keyboard.clear();
+        this.clearDrive();
+        this.clearLook();
+        this.brake = 0;
+        this.brakeButton.classList.remove('active');
     }
     clearDrive() {
+        const captured = this.drivePointer;
         this.drivePointer = null;
         this.throttle = 0;
         this.strafe = 0;
@@ -180,6 +207,8 @@ export class Controls {
         this.driveRing.style.top = '';
         this.driveRing.style.bottom = '';
         this.driveRing.style.transform = '';
+        if (captured !== null && this.driveZone.hasPointerCapture?.(captured))
+            this.driveZone.releasePointerCapture(captured);
     }
     updateDrive(event) {
         const rect = this.driveRing.getBoundingClientRect();
