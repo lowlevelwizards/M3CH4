@@ -1,0 +1,45 @@
+name: M3CH4 Build 0 Balance Evidence
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'research/rosterBalanceAudit.mjs'
+      - 'research/baselines/**'
+      - 'tests/k4v0RosterBalance.test.mjs'
+      - '.github/workflows/balance-baseline-ci.yml'
+jobs:
+  balance-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Catalogue legality and recorded 15-module fixture
+        run: |
+          mkdir -p balance-evidence/{catalogue,deterministic,geometry,tactical}
+          node --test tests/k4v0RosterBalance.test.mjs > balance-evidence/catalogue/regression.txt
+          node research/rosterBalanceAudit.mjs --json > balance-evidence/catalogue/all-assemblies.json
+          node research/rosterBalanceAudit.mjs > balance-evidence/catalogue/summary.md
+      - name: Deterministic movement, weapon and generator evidence
+        run: |
+          node research/partIdentityBaseline.mjs --json > balance-evidence/deterministic/parts.json
+          node research/mobilityTemperamentStudy.mjs --json > balance-evidence/deterministic/mobility.json
+          node research/powerResponseStudy.mjs --json > balance-evidence/deterministic/power.json
+          node research/scattergunStudy.mjs > balance-evidence/deterministic/scattergun.txt
+      - name: Actual Three.js mesh shielding evidence
+        run: |
+          npm install --no-save --no-package-lock three@0.186.0
+          node research/frameShieldingAudit.mjs --assert --json > balance-evidence/geometry/shielding.json
+      - name: Small, distinctly labelled headless tactical smoke
+        run: |
+          node research/headlessDominationStudy.mjs 4 > balance-evidence/tactical/domination-proxy.txt
+      - name: Upload separate evidence categories
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3ch4-build0-balance-evidence
+          path: balance-evidence/
+          if-no-files-found: warn
+          retention-days: 30
