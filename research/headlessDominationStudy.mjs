@@ -233,7 +233,9 @@ export function runBout(seed,settings){
         const physicalWorld=combatWorldFor(a,actors);
         const allies=actors.filter(p=>p.team===a.team&&p!==a&&p.active);
         const nearbyTraffic=allies.filter(p=>dist(p.rig,a.rig)<7)
-          .map(p=>({id:p.id,position:p.rig,radius:p.baseConfig?.collisionRadiusM??1}));
+          .map(p=>({id:p.id,position:p.rig,radius:p.baseConfig?.collisionRadiusM??1,
+            active:p.active,speed:Math.hypot(p.rig.vx??0,p.rig.vz??0),
+            velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
         const before=a.brain.history.length;
         const decision=decidePilot(a.brain,{id:a.id,position:{x:a.rig.x,z:a.rig.z}},
           job,{capability,weaponRecovery:recovery,world:DEFAULT_WORLD,
