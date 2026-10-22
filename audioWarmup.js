@@ -21,7 +21,7 @@ export function beginAudioWarmup(){
     return;
   }
   try {
-    worker=new Worker(new URL('./audioWarmWorker.js?v=k4w3',import.meta.url),{type:'module'});
+    worker=new Worker(new URL('./audioWarmWorker.js?v=k4w4',import.meta.url),{type:'module'});
     worker.onmessage=({data})=>{
       if(data?.ready){finished=true;worker.terminate();worker=null;return;}
       if(data?.pcm instanceof Float32Array){
