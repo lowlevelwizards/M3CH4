@@ -88,6 +88,25 @@ try{
       !child.parent&&!hole.parent,markCount:renderer.counts()};
   });
   if(!scar.ok)throw Error('Real articulated scar render failed: '+JSON.stringify(scar));
+  const parade=await page.evaluate(async()=>{
+    const [{createArenaScene},{makeTestAssembly}]=await Promise.all([
+      import('./scene.js'),import('./components.js'),
+    ]);
+    const assembly=makeTestAssembly();
+    const arena=createArenaScene(assembly,makeTestAssembly());
+    const winners=[0,1,2].map(i=>({
+      id:'show-'+i,assembly:makeTestAssembly(),operational:true,
+    }));
+    const started=arena.beginVictoryShowcase(winners);
+    for(let i=0;i<125;i++)arena.updateVictoryShowcase(1/60);
+    const visible=!!arena.scene.getObjectByName('physical-victory-parade');
+    const cameraZ=arena.camera.position.z;
+    arena.endVictoryShowcase();
+    return {started,visible,cameraZ,removed:!arena.scene.getObjectByName('physical-victory-parade')};
+  });
+  if(!parade.started||!parade.visible||!parade.removed||parade.cameraZ>-60)
+    throw Error('3D victory show failed '+JSON.stringify(parade));
+
   if(errors.length)throw Error('Art Lab browser errors: '+errors.join('\n'));
   // Small-device portrait inspection: no unusable horizontal document overflow.
   await page.setViewportSize({width:390,height:844});
