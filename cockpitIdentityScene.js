@@ -5,6 +5,7 @@
  * the existing five canvas surfaces when a real command module is installed.
  */
 import * as THREE from 'three';
+import { whenGameFontsReady } from './typography.js';
 import { installedPart } from './components.js';
 import { SCREEN_DIMENSIONS, resolveCockpitProfile, cockpitFailurePresentation } from './cockpitProfiles.js';
 import { drawCockpitChannel } from './cockpitDisplays.js';
@@ -101,7 +102,7 @@ export function installCockpitIdentities(arena,assembly){
     const updateBaseMotion=arena.updateCockpitMotion.bind(arena);
     let current=resolveCockpitProfile(installedPart(assembly,'command')?.definition.id);
     let lastInstrumentKey='',lastMotionKey='',commandHealth=1,powerHealth=1,busRatio=1;
-    let lastInstrumentData=null,hitFlashTimer=null;
+    let lastInstrumentData=null,lastMotionData=null,hitFlashTimer=null;
     function apply(assembly){
         current=resolveCockpitProfile(installedPart(assembly,'command')?.definition.id);
         for(const [id,kit] of Object.entries(kits))kit.visible=id===current.id;
@@ -130,7 +131,8 @@ export function installCockpitIdentities(arena,assembly){
             drawCockpitChannel(screens[channel],channel,data,current,faults);
     };
     arena.updateCockpitMotion=data=>{
-        updateBaseMotion(data); // existing motion/footing, cockpit effects
+        updateBaseMotion(data);
+        lastMotionData=data; // existing motion/footing, cockpit effects
         const key=current.id+'|'+JSON.stringify(data);
         if(key===lastMotionKey)return;
         lastMotionKey=key;
@@ -139,6 +141,13 @@ export function installCockpitIdentities(arena,assembly){
         for(const channel of ['motion','drive'])
             drawCockpitChannel(screens[channel],channel,data,current,faults);
     };
+    // Instrument CanvasTextures may have been first painted with fallback fonts.
+    // Repaint the last truthful snapshot after the three real font faces load.
+    whenGameFontsReady(()=>{
+        lastInstrumentKey=lastMotionKey='';
+        if(lastInstrumentData) arena.updateCockpitInstruments(lastInstrumentData);
+        if(lastMotionData) arena.updateCockpitMotion(lastMotionData);
+    });
     const triggerBase=typeof arena.triggerCockpitHit==='function' ?
         arena.triggerCockpitHit.bind(arena) : ()=>{}; // headless view-only audit
     arena.triggerCockpitHit=(slot,profile={})=>{

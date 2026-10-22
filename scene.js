@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import { normalizePaint } from './factoryPaint.js';
@@ -265,12 +266,16 @@ export function createArenaScene(initial, targetAssembly) {
         signCanvas.width=512;signCanvas.height=128;
         const paint=signCanvas.getContext('2d');
         if(paint){
-            paint.fillStyle='#243229';paint.fillRect(0,0,512,128);
-            paint.fillStyle='#d5b474';paint.font='bold 54px monospace';
-            paint.textAlign='center';paint.fillText('BACKLOT',256,65);
-            paint.font='bold 25px monospace';paint.fillText('SALVAGE  /  AS-IS',256,105);
+            const drawVendorSign=()=>{
+                paint.fillStyle='#243229';paint.fillRect(0,0,512,128);
+                paint.fillStyle='#d5b474';paint.font = canvasFont(54, 'identity');
+                paint.textAlign='center';paint.fillText('BACKLOT',256,65,485);
+                paint.font = canvasFont(25, 'ui');paint.fillText('SALVAGE  /  AS-IS',256,105,485);
+            };
+            drawVendorSign();
             const texture=new THREE.CanvasTexture(signCanvas);
             texture.colorSpace=THREE.SRGBColorSpace;
+            whenGameFontsReady(()=>{drawVendorSign();texture.needsUpdate=true;});
             const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.14,.87),
                 new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
             sign.position.set(0,3.50,2.94);sign.rotation.y=Math.PI;
@@ -712,9 +717,9 @@ export function createArenaScene(initial, targetAssembly) {
             const y = row * index;
             if (index) { ctx.strokeStyle = 'rgba(120,154,126,.20)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(7,y); ctx.lineTo(w-7,y); ctx.stroke(); }
             ctx.fillStyle = conditionColor(value);
-            ctx.font = 'bold 25px monospace'; ctx.textBaseline = 'middle';
+            ctx.font = canvasFont(25, 'ui'); ctx.textBaseline = 'middle';
             ctx.fillText(systemGlyphs[slot], 10, y + row * .48);
-            ctx.font = 'bold 16px monospace';
+            ctx.font = canvasFont(16, 'data');
             ctx.textAlign = 'right'; ctx.fillText(String(value).padStart(3,' '), w - 9, y + row * .48); ctx.textAlign = 'left';
             ctx.fillStyle = 'rgba(150,196,158,.20)'; ctx.fillRect(9, y + row - 7, w - 18, 3);
             ctx.fillStyle = conditionColor(value); ctx.fillRect(9, y + row - 7, (w - 18) * value / 100, 3);
@@ -749,18 +754,18 @@ export function createArenaScene(initial, targetAssembly) {
         const tone = state === 'LOST' ? 'red' : state === 'DAMAGED' || state === 'FAULT' || state === 'PWR SAG' ? 'amber' : 'green';
         const ctx = panelBase(screen, tone, .66); if (!ctx) return;
         ctx.fillStyle = tone === 'red' ? '#f08a70' : tone === 'amber' ? '#e4bd70' : '#a6d7ad';
-        ctx.font = 'bold 14px monospace'; ctx.textBaseline = 'middle'; ctx.fillText(weaponAbbrev(data.weapon), 9, 16);
-        ctx.font = 'bold 29px monospace'; ctx.fillText(String(data.ammo ?? '—'), 9, 43);
-        ctx.font = 'bold 10px monospace'; ctx.fillStyle = tone === 'green' ? '#789c80' : ctx.fillStyle; ctx.fillText(state, 10, 66);
+        ctx.font = canvasFont(14, 'data'); ctx.textBaseline = 'middle'; ctx.fillText(weaponAbbrev(data.weapon), 9, 16);
+        ctx.font = canvasFont(29, 'data'); ctx.fillText(String(data.ammo ?? '—'), 9, 43);
+        ctx.font = canvasFont(10, 'data'); ctx.fillStyle = tone === 'green' ? '#789c80' : ctx.fillStyle; ctx.fillText(state, 10, 66);
         screen.texture.needsUpdate = true;
     }
     function drawMotionScreen(screen, data) {
         const ctx = panelBase(screen, 'green', .54); if (!ctx) return;
         ctx.fillStyle = '#a8d5ad'; ctx.textBaseline = 'middle';
-        ctx.font = 'bold 18px monospace'; ctx.fillText(`${data.speed ?? '0.0'} m/s`, 9, 18);
-        ctx.font = 'bold 12px monospace'; ctx.fillStyle = '#d5b66d'; ctx.fillText(data.brace >= 1 ? 'BRACED' : data.brace > 0 ? 'PLANT' : String(data.direction ?? 'IDLE'), 132, 18);
+        ctx.font = canvasFont(18, 'data'); ctx.fillText(`${data.speed ?? '0.0'} m/s`, 9, 18);
+        ctx.font = canvasFont(12, 'data'); ctx.fillStyle = '#d5b66d'; ctx.fillText(data.brace >= 1 ? 'BRACED' : data.brace > 0 ? 'PLANT' : String(data.direction ?? 'IDLE'), 132, 18);
         ctx.fillStyle = '#83a68a'; ctx.fillText(`TURN ${data.turnRate ?? 0}°/s`, 9, 43);
-        ctx.font = 'bold 11px monospace';
+        ctx.font = canvasFont(11, 'data');
         ctx.fillStyle = data.slip > .35 ? '#efb06f' : data.recoil > .2 ? '#e5be77' : '#8ca994';
         ctx.fillText(data.slip > .35 ? 'FOOT SCRAPE' : data.recoil > .2 ? 'RECOIL LOAD' : data.footing > .8 ? 'FEET LOADED' : 'GRIP NOMINAL', 9, 65);
         screen.texture.needsUpdate = true;
@@ -769,20 +774,20 @@ export function createArenaScene(initial, targetAssembly) {
         const value = Math.max(0, Math.min(1, Number(load) || 0));
         const ctx = panelBase(screen, power?.busRatio < .95 || value > .9 ? 'amber' : 'green', .48); if (!ctx) return;
         const w = screen.canvas.width;
-        ctx.fillStyle = '#789a7e'; ctx.font = 'bold 10px monospace'; ctx.textBaseline = 'middle'; ctx.fillText('DRIVE', 9, 12);
+        ctx.fillStyle = '#789a7e'; ctx.font = canvasFont(10, 'data'); ctx.textBaseline = 'middle'; ctx.fillText('DRIVE', 9, 12);
         ctx.fillStyle = 'rgba(132,163,136,.18)'; ctx.fillRect(9, 23, w - 18, 10);
         ctx.fillStyle = value > .9 ? '#e2ae59' : '#89c492'; ctx.fillRect(9, 23, (w - 18) * value, 10);
         ctx.fillStyle = '#a9c7ac'; ctx.textAlign = 'right'; ctx.fillText(`${Math.round(value * 100)}%`, w - 9, 12); ctx.textAlign = 'left';
         if (power) {
             const warn = power.busRatio < .95;
-            ctx.font = 'bold 12px monospace';
+            ctx.font = canvasFont(12, 'data');
             ctx.fillStyle = warn ? '#f4ad68' : '#a9c7ac';
             ctx.fillText(warn ? 'BUS SAG' : 'POWER BUS', 9, 49);
             ctx.textAlign = 'right';
             ctx.fillText(`${Math.round(power.busRatio * 100)}%`, w - 9, 49);
             ctx.textAlign = 'left';
             ctx.fillStyle = '#87a997';
-            ctx.font = 'bold 10px monospace';
+            ctx.font = canvasFont(10, 'data');
             ctx.fillText(`${Math.round(power.generationKw)} / ${Math.round(power.demandKw)} kW`, 9, 67);
             ctx.textAlign = 'right';
             ctx.fillText(`RES ${Math.round(power.reserveFraction * 100)}%`, w - 9, 67);
@@ -1177,12 +1182,16 @@ export function createArenaScene(initial, targetAssembly) {
         const canvas=document.createElement('canvas');
         canvas.width=128;canvas.height=128;
         const ctx=canvas.getContext('2d');
-        ctx.clearRect(0,0,128,128);
-        ctx.fillStyle='#142019';ctx.fillRect(8,8,112,112);
-        ctx.strokeStyle='#d6ae62';ctx.lineWidth=8;ctx.strokeRect(9,9,110,110);
-        ctx.fillStyle='#f3d28b';ctx.font='bold 86px monospace';
-        ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(id,64,70);
+        const drawMarker=()=>{
+            ctx.clearRect(0,0,128,128);
+            ctx.fillStyle='#142019';ctx.fillRect(8,8,112,112);
+            ctx.strokeStyle='#d6ae62';ctx.lineWidth=8;ctx.strokeRect(9,9,110,110);
+            ctx.fillStyle='#f3d28b';ctx.font = canvasFont(86, 'identity');
+            ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(id,64,70,104);
+        };
+        drawMarker();
         const tex=new THREE.CanvasTexture(canvas);
+        whenGameFontsReady(()=>{drawMarker();tex.needsUpdate=true;});
         const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
             map:tex,transparent:true,depthTest:false,
         }));
@@ -2507,14 +2516,17 @@ function buildWarehouse(scene) {
     signCanvas.width = 384;
     signCanvas.height = 64;
     const ctx = signCanvas.getContext('2d');
-    if (ctx) {
+    const drawYardSign=()=>{
+        if (!ctx) return;
         ctx.fillStyle = '#161a18';
         ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
         ctx.fillStyle = '#d6a64a';
-        ctx.font = 'bold 23px monospace';
-        ctx.fillText('SCRAPYARD BEGINNER YARD', 20, 39);
-    }
+        ctx.font = canvasFont(23, 'identity');
+        ctx.fillText('SCRAPYARD BEGINNER YARD', 20, 39, signCanvas.width - 40);
+    };
+    drawYardSign();
     const texture = new THREE.CanvasTexture(signCanvas);
+    whenGameFontsReady(()=>{drawYardSign();texture.needsUpdate=true;});
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));

@@ -1,0 +1,83 @@
+/* M3CH4 k4t.1 — Three-role typography system.
+ * Edit ONLY these three variables to try a different combination.
+ * Loaded last to beat legacy font shorthands without disturbing geometry,
+ * sizing, weights, or touch targets throughout the older stylesheets.
+ * Font files load from Google Fonts; fallback stacks keep the game usable offline.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Quantico:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --m3-font-identity: 'Quantico', 'Arial Narrow', sans-serif;
+  --m3-font-ui: 'Oxanium', Arial, sans-serif;
+  --m3-font-data: 'Share Tech Mono', 'Courier New', monospace;
+  font-family: var(--m3-font-ui);
+}
+
+/* Legacy UI components declare ui-monospace inside shorthand font rules.
+ * The font-family-only overrides intentionally leave those established mobile
+ * font sizes / line heights intact, including 2-thumb combat controls. */
+body,
+body * {
+  font-family: var(--m3-font-ui) !important;
+}
+
+/* Machine identity, navigation hierarchy, workshop / equipment titles. */
+body :is(h1, h2, h3, .garage-brand strong, .unified-title,
+  .unified-panel-name, .unified-section-name, .inventory-heading strong,
+  .inventory-detail strong, .unified-part-detail h3, .part-model,
+  .sheet-content h1, .paint-booth-title, .audio-lab-mast h2,
+  .forge-heading strong, .systems-lab-identity strong,
+  .debrief-page-result h1, .k4n-return strong, .k4o-score-heading strong,
+  .rig-part-focus h3, .campaign-head strong, .campaign-summary h2,
+  .bay-index strong, .unified-contract-detail > strong,
+  .workshop-rig-name, .workshop-heading, .shop-title,
+  .k4s-rig-name, .rig-name) {
+  font-family: var(--m3-font-identity) !important;
+  letter-spacing: .025em;
+}
+
+/* Some compact labels are never titles; keep Oxanium for clarity. */
+body :is(button, input, textarea, select, option, label, summary,
+  .unified-station strong, .unified-installed, .campaign-node strong,
+  .workshop-top-link, .workshop-link, .workshop-deploy,
+  .forge-work button, .systems-lab-work button,
+  .audio-lab-actions button, .paint-booth button) {
+  font-family: var(--m3-font-ui) !important;
+}
+
+/* Instrumentation, values, asset metadata, timers, scores and debug records. */
+body :is(pre, code, kbd, samp, output, .dev-panel pre,
+  .dev-panel header span, .instrument-value, .unit, .rig-tag,
+  .weapon-hud strong, #ammo-count, #speed, #yaw-rate, #dev-version,
+  .part-stat, .part-specs, .part-detail-value, .rig-part-meta,
+  .rig-meter-numbers, .rig-part-delta, .rig-repair-estimate,
+  .unified-credits, .unified-metrics, .unified-station-readout,
+  .unified-part-metrics, .unified-part-stats, .workshop-credits,
+  .campaign-summary-grid b, .k4p-score, .k4o-score-match strong,
+  .k4o-stats, .k4o-standing strong, .k4n-match, .k4n-status,
+  .bo3-combat-hud strong, .bo3-series-score, .debrief-value,
+  .sortie-assignment-footer span, .paint-booth-hex,
+  .forge-control-top output, .audio-lab-slider output,
+  .systems-lab-export-text, .forge-export-text, .audio-lab-export) {
+  font-family: var(--m3-font-data) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .015em;
+}
+
+/* Status banners are meant to read like equipment annunciators. */
+body :is(.fault-strip, .field-status, .k4p-zone,
+  .unified-pit-lock, .rig-part-alert) {
+  font-family: var(--m3-font-ui) !important;
+}
+
+/* Compact headers previously carried extremely wide monospace tracking. */
+body :is(.unified-title, .unified-panel-name, .inventory-heading strong,
+  .workshop-rig-name, .garage-brand strong) {
+  letter-spacing: .02em;
+}
+
+/* Mono is deliberately never the default prose font. */
+body :is(.sheet-content p, .part-purpose, .unified-contract-detail p,
+  .unified-warning, .audio-lab-note, .orbit-help) {
+  font-family: var(--m3-font-ui) !important;
+}
