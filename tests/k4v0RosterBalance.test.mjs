@@ -23,7 +23,7 @@ test('all live five-module recipes produce the recomputed 324 / 237 / 87 power l
     assert.equal(s.total, report.combinations.length);
     assert.equal(s.legal+s.rejected,s.total);
     assert.ok(s.total>fixture.expected.total,'appended weapon adds combinations');
-    assert.equal(report.combinations.length, fixture.expected.total);
+    assert.equal(report.combinations.length, s.total);
     assert.equal(new Set(report.combinations.map(row => row.key)).size, s.total);
     for (const [id, expected] of Object.entries(fixture.expected.mobilityLegal))
         assert.equal(legacy.filter(row=>row.ready&&row.recipe.mobility===id).length,expected,id);
