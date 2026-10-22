@@ -4,6 +4,7 @@ import {trafficAdvice,TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
 import {createIntentExecutor,executeIntent} from '../ai/intentExecutor.js';
 import {createRigState,stepRig,DEFAULT_RIG_CONFIG} from '../locomotion.js';
 import {runOlympicEvent} from '../research/aiOlympics.mjs';
+import {runBout} from '../research/headlessDominationStudy.mjs';
 const world={minX:-30,maxX:30,minZ:-30,maxZ:30,obstacles:[]};
 const rig=()=>createRigState({x:0,z:12,yaw:0});
 const ahead=[{id:'ally-1',position:{x:0,z:8},radius:1,
@@ -72,4 +73,19 @@ test('traffic experiments use identical starting seeds and physical families',()
   assert.ok(Number.isFinite(r.motion.trafficQueueSeconds));
   assert.ok(Number.isFinite(r.motion.loopSeconds));
  }
+});
+
+test('the full 3v3 headless battle can pit two independent traffic policies fairly',()=>{
+ const a=runBout(4401,{name:'traffic-full-smoke',maxSeconds:2,
+  accuracy:0,policy:'strict'});
+ const b=runBout(4401,{name:'traffic-full-smoke',maxSeconds:2,
+  accuracy:0,policy:'strict',trafficFriendly:'legacy',
+  trafficHostile:'legacy'});
+ assert.deepEqual(a,b,'optional traffic arguments must preserve baseline bouts');
+ const trial=runBout(4401,{name:'traffic-full-smoke',maxSeconds:2,
+  accuracy:0,policy:'strict',trafficFriendly:'hybrid',
+  trafficHostile:'zipper'});
+ assert.equal(trial.traffic.friendly,'hybrid');
+ assert.equal(trial.traffic.hostile,'zipper');
+ assert.ok(trial.actors.every(a=>Number.isFinite(a.trafficQueueSeconds)));
 });
