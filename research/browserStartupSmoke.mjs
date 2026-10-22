@@ -713,6 +713,38 @@ try {
     throw Error('Combat PCM was not prepared by the background worker: '+JSON.stringify(cachedPrep));
   console.log('AUDIO PREWARM: PASS · worker delivered ',cachedPrep.status.received,' samples');
 
+  // k4s.3 regression: after an earlier BO3 result, accepting a new job must
+  // change SELECT JOB to DEPLOY. This exact stale-series state was encountered
+  // by a real player after returning from completed contracts.
+  await page.evaluate(async()=>{
+    const {createSeries,storeSeries}=await import('./series.js');
+    const {clearSortieAssignment}=await import('./sortieAssignment.js');
+    clearSortieAssignment(sessionStorage);
+    const old=createSeries('yard-dog','rig-01');
+    old.phase='complete';old.finalVictory=true;old.completedAt=Date.now();
+    if(!storeSeries(localStorage,old))throw Error('Could not seed previous complete BO3');
+  });
+  const openJobs=page.locator('#unified-garage .workshop-deploy');
+  await openJobs.click();
+  await page.locator('#unified-garage .campaign-node-tile[data-node="yard-dog"]').click();
+  await page.locator('#unified-garage-action .unified-primary').click();
+  const accepted=await page.evaluate(async()=>{
+    const {loadSeries}=await import('./series.js');
+    const {loadSortieAssignment}=await import('./sortieAssignment.js');
+    return {workspace:document.querySelector('#unified-garage')?.dataset.workspace,
+      button:document.querySelector('#unified-garage .workshop-deploy')?.textContent,
+      pending:loadSortieAssignment(sessionStorage)?.contractId,
+      oldSeries:loadSeries(localStorage)?.phase||null};
+  });
+  if(accepted.workspace!=='garage'||accepted.button!=='DEPLOY'||
+      accepted.pending!=='yard-dog'||accepted.oldSeries!==null)
+    throw Error('Taking a new job did not promote garage Deploy after previous BO3: '+JSON.stringify(accepted));
+  await page.locator('#unified-garage .workshop-deploy').click();
+  if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='setup')
+    throw Error('Garage Deploy did not open sortie setup after selecting a contract');
+  console.log('CONTRACT DEPLOY: PASS · stale BO3 retired, job persists, garage Deploy enters setup');
+
+
 
 
 
