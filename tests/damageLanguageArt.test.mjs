@@ -45,6 +45,8 @@ test('damage art uses one shared family material, keeps actual hit anchors and a
   assert.match(renderer,/perSerialLimit=4/);
   assert.match(scene,/poseDamagedMachineInGarage\(\)/);
   assert.match(scene,/inspectionBaseParts=capturePartTransforms\(exterior\)/);
+  assert.match(scene,/function refreshInspectionBase\(\)/);
+  assert.match(source('sceneAssembly.js'),/arena\.refreshInspectionBase\?\.\(\)/);
   assert.doesNotMatch(scene,/new THREE\.IcosahedronGeometry\(\.065, 0\)/);
   assert.match(scene,/recordDamageWound\(actorId, slot, worldPoint\)/);
 });
