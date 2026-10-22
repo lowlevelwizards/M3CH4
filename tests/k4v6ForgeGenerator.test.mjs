@@ -37,9 +37,11 @@ test('real heavy load constraints still forbid overweight or poorly powered conf
     assert.equal(enabled.adapters[0].massKg,110);
     assert.equal(enabled.massKg,4605);
     const baseline=runRosterBalanceAudit();
-    assert.equal(baseline.summary.definitions,16);
-    assert.equal(baseline.summary.total,324);
-    assert.equal(baseline.summary.legal,237);
+    assert.equal(baseline.summary.definitions,CATALOG.length);
+    assert.equal(baseline.summary.total,baseline.combinations.length);
+    const legacy=baseline.combinations.filter(row=>row.recipe.combat!=='gun-rivet');
+    assert.equal(legacy.length,324,'historic pre-expansion combinations remain represented');
+    assert.equal(legacy.filter(row=>row.ready).length,237,'new gun does not change historic build legality');
 });
 test('Forge remains a finite slow-response electrical machine using shared actuator rules',()=>{
     const a=makeTestAssembly();equip(a,'power','power-forge');
