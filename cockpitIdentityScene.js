@@ -126,7 +126,7 @@ export function installCockpitIdentities(arena,assembly){
         lastInstrumentKey=key;
         commandHealth=Math.max(0,Math.min(1,(Number(data.systems?.command)??100)/100));
         powerHealth=Math.max(0,Math.min(1,(Number(data.systems?.power)??100)/100));
-        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio);
+        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio,current.id);
         for(const channel of ['systems','weapon','team'])
             drawCockpitChannel(screens[channel],channel,data,current,faults);
     };
@@ -137,7 +137,7 @@ export function installCockpitIdentities(arena,assembly){
         if(key===lastMotionKey)return;
         lastMotionKey=key;
         busRatio=data.power?.busRatio??1;
-        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio);
+        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio,current.id);
         for(const channel of ['motion','drive'])
             drawCockpitChannel(screens[channel],channel,data,current,faults);
     };
@@ -159,7 +159,7 @@ export function installCockpitIdentities(arena,assembly){
         // The flash overlays the correct row of the genuine cab monitor.
         const penetrating=Number(profile.internalDamage)>0;
         if(hitFlashTimer!==null)clearTimeout(hitFlashTimer);
-        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio);
+        const faults=cockpitFailurePresentation(commandHealth,powerHealth,busRatio,current.id);
         drawCockpitChannel(screen,'systems',lastInstrumentData,current,faults);
         ctx.fillStyle=penetrating?'#da795d':'#e6b966';
         ctx.globalAlpha=.88;
@@ -169,7 +169,7 @@ export function installCockpitIdentities(arena,assembly){
         hitFlashTimer=setTimeout(()=>{
             hitFlashTimer=null;
             drawCockpitChannel(screen,'systems',lastInstrumentData,current,
-                cockpitFailurePresentation(commandHealth,powerHealth,busRatio));
+                cockpitFailurePresentation(commandHealth,powerHealth,busRatio,current.id));
         },380);
     };
     return { apply, getProfile:()=>current, kits, screens, displayGroup };
