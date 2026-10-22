@@ -37,7 +37,7 @@ jobs:
         run: |
           node research/aiOlympics.mjs \
             --events=ally-choke \
-            --traffic=legacy,zipper,lanes,hybrid \
+            --traffic=legacy,zipper,lanes,hybrid,gated \
             --profiles=baseline,cautious \
             --families=yard,kestrel,hauler \
             --seeds=25 --seed="$SEED" \
