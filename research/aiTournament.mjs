@@ -106,10 +106,12 @@ export function tournament(config,{onProgress=null}={}){
     onProgress?.(i+1,schedule.length,record);
   }
   const scores=summarizeTournament(config.entries,results);
+  const decisiveBouts=results.filter(r=>r.winner!=='draw').length;
   return {meta:{createdAt:new Date().toISOString(),
     version:'k4v-policy-laboratory-1',commit:process.env.GITHUB_SHA??null,
     node:process.version,entries:config.entries,pairsPerMatchup:config.pairs,
-    pairCount:results.length/2,boutCount:results.length,seed:config.baseSeed,
+    pairCount:results.length/2,boutCount:results.length,
+    decisiveBouts,comparisonInconclusive:decisiveBouts===0,seed:config.baseSeed,
     maxSeconds:config.seconds,accuracies:config.accuracy,
     roster:config.rosterName,wear:config.wear,capturePolicy:config.capture,
     gradeWeights:GRADE_WEIGHTS,
@@ -139,11 +141,13 @@ export function toMarkdown(report){
   const m=report.meta;
   const lines=['# M3CH4 AI Tournament', '',
     'Simulation version: '+m.version+'; '+m.boutCount+' bouts ('+m.pairCount+' mirrored seed pairs).',
+    'Decisive bouts: '+(m.decisiveBouts??'not counted')+'.',
     'Capture: '+m.capturePolicy+'; roster: '+m.roster+'; '+m.maxSeconds+
       's maximum; hit sensitivity: '+m.accuracies.join(', ')+'.','',
     '## Experimental rankings','',
     '| Rank | Entrant | Wins / Draws / Losses | Win-equivalent | Approx. 95% | Quality / 100 | Mean stalls (s) | Route errors |',
     '|---:|---|---:|---:|---:|---:|---:|---:|'];
+  if(m.comparisonInconclusive)lines.push('','**INCONCLUSIVE: all matches drew. Rankings below reflect only exploratory quality scores, not demonstrated competitive superiority.**','');
   report.ranking.forEach((r,i)=>lines.push(
     '| '+(i+1)+' | '+r.id+' | '+r.wins+' / '+r.draws+' / '+r.losses+
     ' | '+(100*r.winEquivalent).toFixed(1)+'% | '+
