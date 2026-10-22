@@ -34,6 +34,7 @@ const MOUNT_FACES = Object.freeze({
     'gun-rivet': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
     'gun-breaker': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
     'gun-rocket': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
+    'gun-arc': { socketId: 'combat', faceNormal: [-1, 0, 0], face: 'weapon left-side trunnion mount', forward: [0, 0, -1] },
 });
 
 function faceCenter(normal, bounds) {
