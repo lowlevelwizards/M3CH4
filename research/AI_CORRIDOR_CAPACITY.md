@@ -113,3 +113,55 @@ artifacts. Workflow: `k4x Shared Corridor Olympics` and
   may support parallel safe travel.
 - k4x is stacked on k4w, which is stacked on k4v, and must be
   reconciled with newer main before merge.
+
+## Independent holdout and 3v3 validation — October 22, 2026
+
+The second trial uses *different seeds* (`91841` instead of `70831`).
+25 seeds × three hardware families × two pilot profiles = **150
+separately scored physical trials per policy**, 600 total:
+
+| Policy | Holdout completion | Collision impacts / trial | No-net-progress | Queued seconds |
+| --- | ---: | ---: | ---: | ---: |
+| legacy | 81.3% | 1.444 | 14.344s | 0 |
+| priority | 94.7% | 0.218 | 2.758s | 0 |
+| stagger | 98.7% | 0.151 | 0.839s | 1.169s |
+| clearance | **100.0%** | **0.102** | **0.248s** | 3.014s |
+
+The longer queue in `clearance` is a real tactical cost, not rewarded
+as productive defense. It paid off in this narrow gate case, but
+should never be generalized to open-field travel without a new test.
+
+A 16-pair / **32-bout side-swapped 3v3 Domination validation**
+pitted `stagger` against `legacy`: Legacy won 15, Stagger won 15,
+with two draws. Both sides averaged 31.806 objective points, 67.95s
+of scoring occupation, and 0.375 recorded contact impacts per bout.
+**No corridor reservation actually waited in those matches.**
+
+Thus the objective-based default arena currently has no meaningful
+activation of the new shared-corridor behavior (with its existing
+layouts and assignments). **Do not infer a match-level advantage.**
+This mechanism may be valuable in future industrial maps and
+contracts with long shared approaches or multiple contested gates.
+
+Validation:
+- Exploration: GitHub Actions `39826053479`
+- Independent physical course + scored 3v3: `39826364661`
+- Full logs and raw data in workflow artifacts.
+
+**Promotion decision:** The live game remains `legacy`. The
+clearance-aware and staggered options are experimental scenario
+candidates, not unlocked difficulty settings or faction personalities.
+
+## Next questions
+
+1. Which actual competitive map features make multiple routes share a
+   real one-lane gate? Integrate the same corridor diagnostics into
+   live-map route audits rather than designing only synthetic challenges.
+2. Can teams choose *alternative routes* when the queue would cost
+   more time than a slightly longer physically passable detour?
+3. Can an oncoming hostile team or a destroyed wreck turn a previously
+   clear gate into a physical conflict, without granting AI knowledge
+   it should not have?
+4. Can an elite team manage corridor reservations while a rookie team
+   crowds the doorway — without arbitrary changes to vehicle speed
+   or damage?
