@@ -40,7 +40,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     if (!definition) return null;
     const condition = Math.max(0, Math.min(1, Number(state.condition) || 0));
     const destroyed = !!state.destroyed || state.status === 'destroyed';
-    const key = `k4a:${definitionId}:${destroyed ? 'x' : Math.round(condition * 10)}:${JSON.stringify(normalizePaint(state.paint))}`;
+    const key = `k4a:${definitionId}:${state.serial||'PREVIEW'}:${destroyed ? 'x' : Math.round(condition * 10)}:${Math.round((state.wear||0)*20)}:${state.repairs||0}:${state.history?.deployments||0}:${JSON.stringify(normalizePaint(state.paint))}`;
     if (partThumbnailCache.has(key)) return partThumbnailCache.get(key);
     if (!partThumbnailRenderer) {
         partThumbnailRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
@@ -50,8 +50,13 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
         partThumbnailRenderer.setSize(96, 72, false);
         partThumbnailRenderer.setPixelRatio(1);
     }
-    const serial = 'PREVIEW-001';
-    const assembly = { serial: 'PREVIEW', name: 'PREVIEW', owned: [{ serial, definitionId, condition: 1, wear: 0, repairs: 0, paint:normalizePaint(state.paint) }], installed: { [definition.slot]: serial } };
+    const serial = typeof state.serial==='string'&&state.serial ? state.serial : 'PREVIEW-001';
+    const assembly = { serial: 'PREVIEW', name: 'PREVIEW',
+        owned: [{ serial, definitionId, condition: Math.max(0,Math.min(1,Number(state.condition)??1)),
+            wear:Math.max(0,Math.min(1,Number(state.wear)||0)),
+            repairs:Math.max(0,Math.floor(Number(state.repairs)||0)),paint:normalizePaint(state.paint) }],
+        installed: { [definition.slot]: serial },
+        partHistory:state.history?{[serial]:state.history}:{} };
     const exterior = buildExteriorRig(assembly);
     exterior.root.position.set(-definition.center[0], -definition.center[1], -definition.center[2]);
     const damageTint = new THREE.Color(0x6f2d24);
@@ -93,7 +98,9 @@ export function rigThumbnailDataUrl(assembly){
     const key=JSON.stringify({
         installed:assembly.installed,
         paint:(assembly.owned||[]).filter(p=>Object.values(assembly.installed||{}).includes(p.serial))
-            .map(p=>[p.serial,p.definitionId,normalizePaint(p.paint)]),
+            .map(p=>[p.serial,p.definitionId,normalizePaint(p.paint),
+                Math.round((p.wear||0)*20),p.repairs||0,
+                assembly.partHistory?.[p.serial]?.deployments||0]),
     });
     if(rigThumbnailCache.has(key))return rigThumbnailCache.get(key);
     // Keep browser cache bounded when people tune pigments continuously.
