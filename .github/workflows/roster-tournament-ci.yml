@@ -1,0 +1,44 @@
+name: M3CH4 Build 8 Roster Tactical Proxy
+on:
+  pull_request:
+    paths:
+      - 'research/rosterCompetitiveStudy.mjs'
+      - 'research/headlessDominationStudy.mjs'
+      - 'tests/k4v8RosterTournament.test.mjs'
+      - '.github/workflows/roster-tournament-ci.yml'
+  workflow_dispatch:
+    inputs:
+      pairs:
+        description: 'Paired seeds per cohort; use 30+ for exploratory confidence'
+        required: true
+        default: '2'
+      seconds:
+        description: 'Simulated seconds per 3v3 bout (1–210)'
+        required: true
+        default: '12'
+jobs:
+  tactical-physics-proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Legacy/extended runner and non-invented assembly validation
+        run: |
+          node --check research/headlessDominationStudy.mjs
+          node --check research/rosterCompetitiveStudy.mjs
+          node --test tests/k4v8RosterTournament.test.mjs tests/k3u7CombatCompetency.test.mjs
+      - name: Three read-only 3v3 recipe cohorts, paired sides
+        run: |
+          mkdir -p roster-tournament
+          node research/rosterCompetitiveStudy.mjs --pairs=${{ github.event.inputs.pairs || '2' }} --seconds=${{ github.event.inputs.seconds || '12' }} > roster-tournament/report.md
+          node research/rosterCompetitiveStudy.mjs --pairs=${{ github.event.inputs.pairs || '2' }} --seconds=${{ github.event.inputs.seconds || '12' }} --json > roster-tournament/paired-bouts.json
+          cat roster-tournament/report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build8-legal-roster-tactical-proxy
+          path: roster-tournament/
+          if-no-files-found: warn

@@ -1,5 +1,12 @@
 /** Holding brake plants the feet once nearly stationary. This is a shared,
  * deterministic controller state: no extra button and no special AI exceptions. */
+export const PLANTED_PIVOT = Object.freeze({
+    settleSpeedMps: .42,
+    intentDeadzone: .12,
+    steerDeadzone: .12,
+    transitionSeconds: .32,
+    releaseSeconds: .18,
+});
 export const BRACE = Object.freeze({
     brakeThreshold: .85, settleSpeedMps: .26, settleYawRadS: .22,
     transitionSeconds: .30, intentDeadzone: .12,
@@ -82,6 +89,8 @@ export function createRigState(spawn = PLAYER_SPAWN) {
         impact: 0,
         brace: 0,
         braceHoldSeconds: 0,
+        plantedPivot: 0,
+        pivotActive: false,
         braced: false,
         recoilLoad: 0,
         tractionUse: 0,
@@ -173,11 +182,35 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const az = (forwardZ * longitudinalForce + rightZ * lateralForce) / config.massKg;
     state.vx += ax * dt;
     state.vz += az * dt;
-    const speedFraction = clamp(Math.abs(previousForwardSpeed) / config.maxForwardSpeedMps, 0, 1);
+    const speedFraction = clamp(Math.abs(previousForwardSpeed) / Math.max(.001, config.maxForwardSpeedMps), 0, 1);
     const zeroSpeedAuthority = clamp(config.turnAuthorityAtZero ?? .68, 0, 1);
     const turnAuthority = zeroSpeedAuthority + speedFraction * (1 - zeroSpeedAuthority);
     const directionalTurnScale = steer >= 0 ? (config.turnRightScale ?? 1) : (config.turnLeftScale ?? 1);
-    const yawTorque = steer * config.turnTorqueNm * turnAuthority * directionalTurnScale
+    const regularYawTorque = config.turnTorqueNm * turnAuthority;
+    // A heavy leg's reduction gearing offers extra drive moment only after a
+    // low-speed planted-foot transition. This is NOT a heading-rate override:
+    // all movement, inertia, yaw damping, component damage and bus derating still
+    // pass through the same torque integrator for players and AI.
+    const pivotEligible = (config.pivotTorqueNm ?? 0) > 0 &&
+        Math.abs(steer) > PLANTED_PIVOT.steerDeadzone &&
+        Math.abs(throttle) < PLANTED_PIVOT.intentDeadzone &&
+        Math.abs(strafe) < PLANTED_PIVOT.intentDeadzone &&
+        Math.hypot(state.vx, state.vz) <= PLANTED_PIVOT.settleSpeedMps &&
+        config.driveForceN > .01 && config.lateralDriveForceN > .01 &&
+        directionalTurnScale > .05 && !state.braced;
+    state.plantedPivot = pivotEligible
+        ? Math.min(1, (state.plantedPivot ?? 0) + dt / PLANTED_PIVOT.transitionSeconds)
+        : Math.max(0, (state.plantedPivot ?? 0) - dt / PLANTED_PIVOT.releaseSeconds);
+    state.pivotActive = pivotEligible && state.plantedPivot > 0;
+    // The same finite contact force budget used for translation also limits
+    // turning moment. Braking/sliding and pivoting cannot both consume full grip.
+    const contactForYaw = Math.sqrt(Math.max(0, 1 - state.tractionUse ** 2));
+    const plantedTorque = Math.min(config.pivotTorqueNm ?? 0,
+        groundBudgetN * Math.max(.1, config.pivotLeverArmM ?? config.collisionRadiusM));
+    const pivotBoost = pivotEligible
+        ? Math.max(0, plantedTorque - regularYawTorque) * state.plantedPivot * contactForYaw
+        : 0;
+    const yawTorque = steer * (regularYawTorque + pivotBoost) * directionalTurnScale
         + throttle * (config.driveAsymmetryTorqueNm ?? 0)
         - state.yawRate * config.yawDampingNms * (1 + 1.7 * state.brace);
     state.yawRate += (yawTorque / config.yawInertiaKgM2) * dt;
@@ -201,7 +234,7 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const propulsionLoad = config.driveForceN > 0
         ? Math.abs(opposingThrottle ? 0 : requestedForce) / config.driveForceN : 0;
     const lateralLoad = config.lateralDriveForceN > 0 ? Math.abs(lateralForce) / config.lateralDriveForceN * .55 : 0;
-    const turningLoad = Math.abs(steer) * 0.26;
+    const turningLoad = Math.abs(steer) * (0.26 + (state.pivotActive ? .18 * state.plantedPivot : 0));
     const brakingLoad = brake * 0.18;
     state.driveLoad = clamp(propulsionLoad + lateralLoad + turningLoad + brakingLoad, 0, 1);
 }

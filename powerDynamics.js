@@ -9,6 +9,8 @@ const PROFILE = Object.freeze({
         reserveKJ: 36, dischargeKw: 95, rechargeKw: 24 }),
     'power-air': Object.freeze({ label: 'DRAFT A-1', responseSeconds: .20, fallSeconds: .24,
         reserveKJ: 6, dischargeKw: 65, rechargeKw: 17 }),
+    'power-forge': Object.freeze({ label: 'FORGE H-4', responseSeconds: .90, fallSeconds: 1.05,
+        reserveKJ: 24, dischargeKw: 86, rechargeKw: 18 }),
 });
 const profileFor = id => PROFILE[id] ?? PROFILE['power-dynamo'];
 const rating = (assembly, slot) => installedPart(assembly,slot)?.definition?.powerKw ?? 0;

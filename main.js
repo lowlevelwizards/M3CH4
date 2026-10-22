@@ -1793,7 +1793,7 @@ function frame(now) {
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
-                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent);
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig);
                 if (actor.fieldService.held || recovery.mode === 'SETTLE')
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else

@@ -24,6 +24,7 @@ export function createEnemyMotion(behavior = selectedContract().behavior) {
         waypoint: null,
         lastSide: 1,
         scanBaseYaw:null,emergencySeconds:0,
+        pivotDefending:false,
         awareness: createTacticalAwareness(),
         behavior,
     };
@@ -197,7 +198,7 @@ export function tacticalManeuver(motion, enemy, player, behavior = activeBehavio
 /** One deterministic fixed simulation step. Pass the SAME obstacle map used by stepRig.
  * The optional behavior argument is mainly for tests/tools; gameplay defaults to the
  * currently selected contract profile captured by createEnemyMotion(). */
-export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null, teamIntent = null) {
+export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null, teamIntent = null, liveConfig = null) {
     if (!Number.isFinite(dt) || dt <= 0)
         return { throttle: 0, strafe: 0, steer: 0, brake: 1 };
     const profile = activeBehavior(motion, behavior);
@@ -448,6 +449,35 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
             motion.phase = 'BYPASS';
             motion.waypoint = inside;
         }
+    }
+    // This is only an AI choice of EXISTING inputs. A Hauler with an actual
+    // planted-pivot drivetrain prefers holding its footprint and facing a
+    // visible flanker rather than accelerating through a broad forward arc.
+    // Damage, grip, bus power and the real yaw integrator retain full authority.
+    const threatDistance = player ? distance(enemy, player) : Infinity;
+    const error = player && threatDistance > .3 ? headingError(enemy, player) : 0;
+    const holdingGround = teamIntent?.mode === 'ANCHOR' ||
+        (teamIntent?.mode === 'ORDER' && (teamIntent.brakeBias ?? 0) >= .6 &&
+            teamIntent.point && distance(enemy, teamIntent.point) < 2) ||
+        ['BRACE', 'TAKE COVER'].includes(motion.phase);
+    const defensiveContact = threatDistance < 15 &&
+        (holdingGround || (profile.id === 'bruiser' && threatDistance < 8));
+    const pivotCandidate = !!liveConfig?.pivotTorqueNm && defensiveContact &&
+        Math.hypot(enemy.vx, enemy.vz) < .60 &&
+        Math.abs(error) > (motion.pivotDefending ? .14 : .44) &&
+        !motion.route && motion.phase !== 'RECOVER' &&
+        motion.phase !== 'SEEK COVER';
+    if (pivotCandidate) {
+        motion.pivotDefending = true;
+        motion.phase = 'PIVOT';
+        motion.navigation = 'PLANTED TURN · FACE THREAT';
+        command = {
+            throttle: 0, strafe: 0,
+            steer: clamp(error * profile.steerGain - enemy.yawRate * profile.yawRateDamping),
+            brake: .90,
+        };
+    } else {
+        motion.pivotDefending = false;
     }
     return command;
 }

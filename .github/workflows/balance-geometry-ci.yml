@@ -1,0 +1,33 @@
+name: M3CH4 Balance Build 2 Geometry
+on:
+  pull_request:
+    paths:
+      - 'bruiserFrameVisual.js'
+      - 'hearthVisual.js'
+      - 'research/frameShieldingAudit.mjs'
+      - 'research/matchedShieldingMatrix.mjs'
+      - '.github/workflows/balance-geometry-ci.yml'
+  workflow_dispatch:
+jobs:
+  matched-raycasts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-package-lock three@0.186.0
+      - name: Original directional first-hit assertions
+        run: node research/frameShieldingAudit.mjs --assert
+      - name: Matched frame, cab and generator combinations
+        run: |
+          mkdir -p balance-geometry
+          node research/matchedShieldingMatrix.mjs --assert > balance-geometry/matrix.md
+          node research/matchedShieldingMatrix.mjs --json > balance-geometry/matrix.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build2-matched-real-mesh-raycasts
+          path: balance-geometry/
+          if-no-files-found: warn

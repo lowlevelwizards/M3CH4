@@ -1,4 +1,4 @@
-/** k.3t.0 — The Parts Counter. Four real, individually serialized used components.
+/** k.3t.0 — The Parts Counter. Six new-cycle real, individually serialized used components.
  * Listings turn over only when a complete contract records its campaign sortie.
  * No wall-clock waiting, paid refresh, rarity tiers, free stock, or price guarantees.
  */
@@ -7,8 +7,8 @@ import { partCreditValue, basePartValue } from './partEconomy.js';
 import { loadMachine, storeMachine } from './persistence.js';
 
 export const COUNTER_KEY = 'm3ch4-used-counter-v1';
-export const COUNTER_VERSION = 1;
-export const COUNTER_SIZE = 4;
+export const COUNTER_VERSION = 2;
+export const COUNTER_SIZE = 6;
 const clamp01 = n => Math.max(0,Math.min(1,Number(n)||0));
 const copy = v => JSON.parse(JSON.stringify(v));
 function prng(seed) {
@@ -26,13 +26,15 @@ export function generateCounterStock(cycle=0) {
     const choices = [...CATALOG];
     const offers = [];
     for (let i=0;i<COUNTER_SIZE;i++) {
-        // This common welded yard-gun is the featured fourth-family part.
-        // Reserve ONE real used listing each stock rotation so owners of old
-        // saves can acquire it after their next completed contract. The
-        // remaining three lots keep their established deterministic lottery.
-        const at=i===0 ? choices.findIndex(def=>def.id==='gun-scatter') :
-            Math.floor(random()*choices.length);
-        const definition=choices.splice(at,1)[0];
+        // One introductory S-6 only on a new campaign's first rotation;
+        // later cycles draw it normally rather than permanently reserving a slot.
+        // Lightweight category coverage guarantees usable variety but not tiers.
+        const pool=i===0 ? (index===0
+            ? choices.filter(part=>part.id==='gun-scatter')
+            : choices.filter(part=>part.slot==='combat')) :
+            i===1 ? choices.filter(part=>part.slot==='mobility') : choices;
+        const definition=pool[Math.floor(random()*pool.length)];
+        choices.splice(choices.indexOf(definition),1);
         const roll=random();
         // Most are worn; occasionally a decent module slips through. A seller
         // can have an intact but badly worn component, or a cheap disabled one.
@@ -52,8 +54,11 @@ export function generateCounterStock(cycle=0) {
     return {version:COUNTER_VERSION,cycle:index,offers};
 }
 function validStock(state,cycle) {
-    if(state?.version!==COUNTER_VERSION||state.cycle!==cycle||
-        !Array.isArray(state.offers)||state.offers.length!==COUNTER_SIZE) return false;
+    // Active four-lot v1 rotations must remain byte-for-byte readable. Their
+    // sold status, serials, price and condition persist until the next contract.
+    const legacy=state?.version===1&&state?.offers?.length===4;
+    const current=state?.version===COUNTER_VERSION&&state?.offers?.length===COUNTER_SIZE;
+    if((!legacy&&!current)||state.cycle!==cycle||!Array.isArray(state.offers)) return false;
     const ids=new Set();
     return state.offers.every(offer=>{
         if(!offer||offer.id!==offer.serial||ids.has(offer.serial)||!BY_ID.has(offer.definitionId)||

@@ -115,12 +115,12 @@ test('destroyed drive does not create phantom positive traction or extra power',
 
 test('there are no new slots/serial IDs and mobile controls still use existing movement/brake surfaces', () => {
     assert.equal(new Set(CATALOG.map(p=>p.id)).size, CATALOG.length);
-    assert.equal(CATALOG.length,15);
+    assert.equal(CATALOG.length,16);
     const read = file => fs.readFileSync(new URL(file,import.meta.url),'utf8');
     const html = read('../index.html'), controls = read('../controls.js');
     const main = read('../main.js'), scene = read('../scene.js');
     assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
-    assert.match(html,/main\.js\?v=k4s2/);
+    assert.match(html,/main\.js\?v=[\w.-]+/);
     assert.match(html,/audio\.js\?v=k4i/);
     assert.match(controls,/this\.keyboard\.has\('Space'\)/);
     assert.match(html,/id="drive-zone"/);

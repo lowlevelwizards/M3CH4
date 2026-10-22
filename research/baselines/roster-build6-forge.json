@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "build6-forge170-after-hauler110",
+  "baselineParent": "research/baselines/roster-build4-hauler110.json",
+  "originalIds": [
+    "frame-sr",
+    "legs-yard",
+    "legs-hauler",
+    "power-dynamo",
+    "cab-cyclops",
+    "cab-armored",
+    "gun-cannon",
+    "gun-short",
+    "frame-utility",
+    "legs-compact",
+    "power-air",
+    "cab-utility",
+    "gun-light",
+    "frame-wedge",
+    "gun-scatter",
+    "power-forge"
+  ],
+  "expected": {
+    "definitions": 16,
+    "total": 324,
+    "legal": 237,
+    "rejected": 87,
+    "mobilityLegal": {
+      "legs-compact": 95,
+      "legs-yard": 93,
+      "legs-hauler": 49
+    }
+  }
+}

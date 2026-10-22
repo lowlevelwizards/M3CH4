@@ -27,7 +27,7 @@ import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     applyRecoil } from '../combat.js';
 import { createRigState, stepRig, DEFAULT_WORLD } from '../locomotion.js';
 import { deriveRigConfig } from '../assemblyPhysics.js';
-import { installedPart } from '../components.js';
+import { installedPart,makeTestAssembly,equip,inspectAssembly,SLOTS } from '../components.js';
 import { createSortieObjective, advanceSortieObjective } from '../sortieObjectives.js';
 import { contractById } from '../contracts.js';
 import { createHostileController, hostileOutput, advanceHostileController,
@@ -57,7 +57,22 @@ function random(seed){
 }
 const pick=(rng,items)=>items[Math.floor(rng()*items.length)];
 function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
-    const assembly=makeRangeTarget(FAMILIES[family]);
+    // Balance research can use a full five-station fitted assembly.
+    // Respect actual hardware validity; never invent functional rigs.
+    const custom=family&&typeof family==='object';
+    const identity=custom?family.name:family;
+    const pilot=custom?(family.pilot??'yard'):family;
+    if(!Object.hasOwn(FAMILIES,pilot))throw Error('Unknown research pilot: '+pilot);
+    const assembly=custom?makeTestAssembly():makeRangeTarget(FAMILIES[pilot]);
+    if(custom){
+      for(const slot of SLOTS){
+        if(!family.recipe?.[slot])throw Error('Missing recipe slot '+slot);
+        equip(assembly,slot,family.recipe[slot]);
+      }
+      const check=inspectAssembly(assembly);
+      if(!check.ready)throw Error('Illegal research rig '+identity+': '+
+        check.checks.filter(x=>!x.passes).map(x=>x.reason).join('; '));
+    }
     const condition=createTargetCondition(assembly);
     for(const slot of PARTS){
         const part=condition.parts[slot];
@@ -74,10 +89,10 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
     const side=team==='friendly'?1:-1, x=[-9,0,9][n]+(rng()-.5)*4.2,
         z=side*(21+(rng()-.5)*3.4);
     const rig=createRigState({x,z,yaw:team==='friendly'?0:Math.PI});
-    const original=contractById(FAMILIES[family]).behavior;
+    const original=contractById(FAMILIES[pilot]).behavior;
     const behavior={...original,spreadScale:original.spreadScale*difficulty.spreadScale};
     const id=team==='friendly'?'ally-'+(n+1):'enemy-'+n;
-    return {id,team,family,behavior,assembly,condition,rig,
+    return {id,team,family:identity,behavior,assembly,condition,rig,
         spawn:{x,z},active:true,killReason:null,
         weaponSpec,weaponState:createWeaponState(weaponSpec),
         controller:createHostileController(difficulty.acquisitionDelay+n*.15,behavior),
@@ -166,7 +181,8 @@ export function runBout(seed,settings){
       let recipe=settings.rosters?.[team]??(team===settings.variantTeam?
         settings.variant:['yard','kestrel','hauler']);
       if(!Array.isArray(recipe)||recipe.length!==3||
-          recipe.some(family=>!Object.hasOwn(FAMILIES,family)))
+          recipe.some(family=>!(typeof family==='object'&&family!==null)||!family.recipe ?
+            !Object.hasOwn(FAMILIES,family):!Object.hasOwn(FAMILIES,family.pilot??'yard')))
         throw new RangeError('Invalid three-rig roster for '+team);
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
           team===settings.wornTeam?settings.wear:settings.backgroundWear??0,
@@ -261,7 +277,7 @@ export function runBout(seed,settings){
         const posture=aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),recovery);
         let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??null,DT,
           capability?.canMove??true,physicalWorld,config.collisionRadiusM,
-          a.behavior,instruction);
+          a.behavior,instruction,config);
         if(a.fieldService.held||recovery.mode==='SETTLE')
           drive={throttle:0,strafe:0,steer:0,brake:1};
         else drive={...drive,

@@ -13,6 +13,7 @@ const BASE_VALUES = Object.freeze({
     'legs-compact': 1600,
     'power-dynamo': 980,
     'power-air': 820,
+    'power-forge': 1680,
     'cab-cyclops': 850,
     'cab-armored': 1100,
     'cab-utility': 760,

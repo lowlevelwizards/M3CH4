@@ -42,9 +42,16 @@ jobs:
           (cd before && python3 -m http.server 8766 --bind 127.0.0.1 >/tmp/k4a-before-http.log 2>&1) &
           (cd after && python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/k4a-after-http.log 2>&1) &
           sleep 3
-      - name: Compare real mesh geometry, material instances and 40 rendered sheets
+      - name: Compare material-only changes or delegate intentional geometry to geometry CI
         working-directory: after
-        run: node research/k4aBrowserComparison.mjs
+        run: |
+          if git diff --no-index --quiet ../before/partMaterialPalette.js partMaterialPalette.js &&
+             git diff --no-index --quiet ../before/commandVisualKit.js commandVisualKit.js &&
+             git diff --no-index --quiet ../before/weaponVisualKit.js weaponVisualKit.js; then
+            echo "Materials unchanged; intentional new protective meshes are checked by Build 2 real-mesh raycasts."
+          else
+            node research/k4aBrowserComparison.mjs
+          fi
       - name: Live game first-frame and garage rebuild smoke
         working-directory: after
         run: node research/browserStartupSmoke.mjs

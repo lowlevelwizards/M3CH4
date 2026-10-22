@@ -106,7 +106,7 @@ function motion(ctx,w,h,data,p,theme){
     const speed=Number(data.speed??0).toFixed(1),turn=integer(data.turnRate),
         slip=Number(data.slip)||0,load=clamp(data.footing),recoil=clamp(data.recoil);
     const state=Number(data.brace)>=1?'BRACED':Number(data.brace)>0?'PLANT':String(data.direction??'IDLE');
-    const alert=slip>.35?'FOOT SCRAPE':recoil>.2?'RECOIL LOAD':load>.8?'FEET LOADED':'GRIP NOMINAL';
+    const alert=slip>.35?'FOOT SCRAPE':recoil>.2?'RECOIL LOAD':!data.secondaryDiagnostics?'DIAG SERVICE':load>.8?'FEET LOADED':'GRIP NOMINAL';
     if(theme==='workhorse'){
         label(ctx,'SPEED',8,12,10,p.muted);
         label(ctx,`${speed} m/s`,9,34,20,p.ok);
@@ -161,7 +161,7 @@ export function drawCockpitChannel(screen,channel,data,profile,damage=null){
     const p=specs[profile?.theme]??specs.workhorse;
     const w=screen.canvas.width,h=screen.canvas.height;
     start(ctx,w,h,p,damage?.busSag&&channel==='drive'?'warn':'ok');
-    RENDERERS[channel](ctx,w,h,data,p,profile?.theme??'workhorse');
+    RENDERERS[channel](ctx,w,h,{...data,secondaryDiagnostics:damage?.diagnosticsAvailable!==false},p,profile?.theme??'workhorse');
     // Harmless, deterministic screenwear: overlay does NOT modify any data
     // or touch reliable DOM warnings outside the cockpit glass.
     if(damage?.staticStrength>.30 && channel==='systems'){

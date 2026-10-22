@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sourceMainSha": "pending-build-4-merge",
+  "baselineParent": "cbad74e65bb2d3c23671202167589a8707e249f3",
+  "note": "Hauler nominal drivetrain -110kW, all 15 original definitions, real automatic adapter.",
+  "originalIds": [
+    "frame-sr",
+    "legs-yard",
+    "legs-hauler",
+    "power-dynamo",
+    "cab-cyclops",
+    "cab-armored",
+    "gun-cannon",
+    "gun-short",
+    "frame-utility",
+    "legs-compact",
+    "power-air",
+    "cab-utility",
+    "gun-light",
+    "frame-wedge",
+    "gun-scatter"
+  ],
+  "expected": {
+    "definitions": 15,
+    "total": 216,
+    "legal": 152,
+    "rejected": 64,
+    "mobilityLegal": {
+      "legs-compact": 70,
+      "legs-yard": 57,
+      "legs-hauler": 25
+    }
+  }
+}
