@@ -16,7 +16,8 @@ test('rebalanced catalogue preserves the original October 22 identities', () => 
 test('all live five-module recipes produce the recomputed 324 / 237 / 87 power legality', () => {
     const report = runRosterBalanceAudit(), s = report.summary;
     assert.equal(s.definitions, CATALOG.length);
-    const legacy = report.combinations.filter(row => row.recipe.combat !== 'gun-rivet');
+    const originalGuns=new Set(CATALOG.slice(0,fixture.originalIds.length).filter(p=>p.slot==='combat').map(p=>p.id));
+    const legacy = report.combinations.filter(row => originalGuns.has(row.recipe.combat));
     assert.equal(legacy.length, fixture.expected.total, 'original 324 configurations are preserved');
     assert.equal(legacy.filter(row=>row.ready).length, fixture.expected.legal,'original 237 legal recipes remain legal');
     assert.equal(legacy.filter(row=>!row.ready).length, fixture.expected.rejected);
@@ -53,7 +54,8 @@ test('the first-hit mounting and eligibility authority is inspected, not simulat
             assert.equal(row.combatWinRate, undefined);
         }
     }
-    assert.equal(get('mobility', 'legs-hauler').filter(row=>row.recipe.combat!=='gun-rivet').length,108);
+    const originalGuns=new Set(CATALOG.slice(0,fixture.originalIds.length).filter(p=>p.slot==='combat').map(p=>p.id));
+    assert.equal(get('mobility', 'legs-hauler').filter(row=>originalGuns.has(row.recipe.combat)).length,108);
     assert.ok(report.combinations.some(row => !row.ready &&
         row.reasons.some(r => r.check === 'power')));
     assert.ok(report.combinations.some(row => !row.ready &&
