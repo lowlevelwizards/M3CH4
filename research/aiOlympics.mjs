@@ -195,7 +195,8 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
         DT,cap.canMove,world,actor.config.collisionRadiusM,
         actor.behavior,instruction);
       stepRig(actor.rig,command,DT,actor.config,world);
-      sampleMotion(actor.diagnostic,actor.rig,command,instruction,
+      sampleMotion(actor.diagnostic,actor.rig,command,
+        {...instruction,missionPoint:decision.point},
         actor.executor,spec.world,DT,actors.filter(a=>a!==actor),t);
       // Objective defenders succeed by physically holding INSIDE the
       // authored scoring circle. They need not touch the exact centre.
@@ -262,7 +263,8 @@ export function runOlympicEvent(id,{seed=1717,family='yard',
   const motion={...aggregate[0]};
   if(spec.kind==='traffic'){
     for(const field of ['realStall','allyStall','obstacleStall',
-      'intentionalHold','routeFailure','collisions','oscillations']){
+      'intentionalHold','routeFailure','collisions','oscillations',
+      'loopSeconds','peakNoAdvance']){
       motion[field]=round(aggregate.reduce((s,a)=>s+(a[field]??0),0)/
         aggregate.length);
     }
@@ -308,11 +310,12 @@ function parseOpts(args){
 function csv(bouts){
   const cols=['event','family','profile','difficulty','seed','score','pass',
     'mission','safety','seconds','timeToGoal','reactionSeconds','realStall',
-    'intentionalHold','obstacleStall','allyStall','collisions','oscillations',
+    'intentionalHold','obstacleStall','allyStall','loopSeconds','collisions','oscillations',
     'routeSwitches','trafficYields','completed','finalDistance'];
   return [cols.join(','),...bouts.map(b=>cols.map(k=>{
     const val=['realStall','intentionalHold','obstacleStall','allyStall',
-      'collisions','oscillations','routeSwitches','trafficYields'].includes(k)?
+      'collisions','oscillations','routeSwitches','trafficYields',
+      'loopSeconds'].includes(k)?
       b.motion[k]:b[k];
     return val??'';
   }).join(','))].join('\n')+'\n';
@@ -354,13 +357,13 @@ export function olympicsMarkdown(report){
     'Families: '+meta.families.join(', ')+' · Policies: '+meta.profiles.join(', ')+
       ' · Skill tiers: '+meta.difficulties.join(', ')+'.','',
     '## Event medals (diagnostic, not competitive ranks)','',
-    '| Event | Group | Trials | Pass | Score / 100 | True stalled seconds | Deliberate hold seconds |',
-    '|---|---|---:|---:|---:|---:|---:|'];
+    '| Event | Group | Trials | Pass | Score / 100 | Hard stall (s) | No-net-advance (s) | Deliberate hold (s) |',
+    '|---|---|---:|---:|---:|---:|---:|---:|'];
   for(const e of summary.events){
     if(e.n===0)continue;
     s.push('| '+e.name+' | '+e.group+' | '+e.n+' | '+
       (e.passRate*100).toFixed(1)+'% | '+e.meanScore+' | '+
-      e.meanStall+' | '+e.meanIntentionalHold+' |');
+      e.meanStall+' | '+e.meanLoop+' | '+e.meanIntentionalHold+' |');
   }
   s.push('','## Lowest-scoring capabilities','',
     ...summary.weakest.filter(x=>x.n).map(x=>'- '+x.name+
