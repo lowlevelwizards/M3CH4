@@ -132,6 +132,19 @@ function damage(attacker,target,slot,metrics,t,rng){
     }
     return {hit,fault};
 }
+/** Reconstruct the nearby dynamic body AABBs from the live collision layer.
+ * Physics stays in stepRig; a bot never teleports around another body.
+ * Sampling is sequential as in the browser and side-swapped in tournaments.
+ */
+function combatWorldFor(me,actors){
+  const others=actors.filter(a=>a!==me&&a.active).map(a=>{
+    const radius=a.baseConfig?.collisionRadiusM??1;
+    return {id:'rig-'+a.id,dynamic:true,
+      minX:a.rig.x-radius,maxX:a.rig.x+radius,
+      minZ:a.rig.z-radius,maxZ:a.rig.z+radius};
+  });
+  return {...DEFAULT_WORLD,obstacles:[...DEFAULT_WORLD.obstacles,...others]};
+}
 export function runBout(seed,settings){
     const rng=random(seed),state=createSortieObjective(contractById('domination'));
     const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
@@ -191,30 +204,43 @@ export function runBout(seed,settings){
       }
       for(const a of actors){
         if(!a.active)continue;
-        const target=nearestVisible(a,actors,snapshot);
+        const view=snapshot.knowledge[a.team];
+        let job=plans[a.team].orders[a.id]??null;
+        const target=nearestVisible(a,actors,snapshot,job);
+        const support=counterFlankOrder(view.allies.find(p=>p.id===a.id),
+          job,view.allies,view.contacts,DEFAULT_WORLD,t);
+        if(support)job=support;
         const recovery=aiWeaponRecoveryDirective(a,target);
-        const capability=snapshot.knowledge[a.team].allies
-          .find(p=>p.id===a.id)?.capability;
-        const job=plans[a.team].orders[a.id]??null;
+        const capability=view.allies.find(p=>p.id===a.id)?.capability;
+        const config=configFor(a);
+        const physicalWorld=combatWorldFor(a,actors);
+        const allies=actors.filter(p=>p.team===a.team&&p!==a&&p.active);
+        const nearbyTraffic=allies.filter(p=>dist(p.rig,a.rig)<7)
+          .map(p=>({id:p.id,position:p.rig,radius:p.baseConfig?.collisionRadiusM??1}));
         const before=a.brain.history.length;
         const decision=decidePilot(a.brain,{id:a.id,position:{x:a.rig.x,z:a.rig.z}},
           job,{capability,weaponRecovery:recovery,world:DEFAULT_WORLD,
-            personality:a.behavior.id,preferredRangeM:a.behavior.preferredRangeM,
+            policy:policies[a.team],personality:a.behavior.id,
+            preferredRangeM:a.behavior.preferredRangeM,
+            collisionRadius:config.collisionRadiusM+.3,
+            enemySeen:!!view.contacts.some(c=>c.visible),
+            uncertain:!view.contacts.some(c=>c.visible),
+            nearbyAllies:allies.map(p=>({position:p.rig})),
+            threatPosition:target?.rig??null,
+            preserveMajority:state.domination.points.filter(p=>
+              p.owner===a.team&&!p.contested).length>=2,
             underFireSeconds:a.motion.awareness?.underFireSeconds??0,
             retreatPoint:{x:a.rig.x,z:a.team==='friendly'?22:-22}},t);
         if(a.brain.history.length>before)a.stats.goalChanges++;
-        const config=configFor(a);
-        const instruction=executeIntent(a.executor,decision,a.rig,DEFAULT_WORLD,
-          config.collisionRadiusM,DT);
-        if(instruction.routeFailure&&!a._lastRouteFailure){
-          a.stats.routeErrors++;
-        }
+        const instruction=executeIntent(a.executor,decision,a.rig,physicalWorld,
+          config.collisionRadiusM,DT,nearbyTraffic);
+        if(instruction.routeFailure&&!a._lastRouteFailure)a.stats.routeErrors++;
         a._lastRouteFailure=!!instruction.routeFailure;
         if(recovery.begin&&!a.fieldService.held)
           beginFieldService(a.condition,a.fieldService,a.rig);
         const posture=aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),recovery);
-        let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??a.rig,DT,
-          capability?.canMove??true,DEFAULT_WORLD,config.collisionRadiusM,
+        let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??null,DT,
+          capability?.canMove??true,physicalWorld,config.collisionRadiusM,
           a.behavior,instruction);
         if(a.fieldService.held||recovery.mode==='SETTLE')
           drive={throttle:0,strafe:0,steer:0,brake:1};
@@ -222,9 +248,16 @@ export function runBout(seed,settings){
           throttle:drive.throttle*Math.max(.66,posture.paceScale),
           strafe:(drive.strafe??0)*Math.max(.56,posture.strafeScale),
           steer:drive.steer*Math.max(.62,posture.steerScale)};
-        const former={x:a.rig.x,z:a.rig.z};
-        stepRig(a.rig,drive,DT,config,DEFAULT_WORLD);
-        a.stats.travel+=dist(former,a.rig);
+        const former={x:a.rig.x,z:a.rig.z},previousImpact=a.rig.impact??0;
+        stepRig(a.rig,drive,DT,config,physicalWorld);
+        const moved=dist(former,a.rig);
+        a.stats.travel+=moved;
+        a.stats.trafficYields=a.executor.trafficYields;
+        a.stats.routeSwitches=a.executor.routeSwitches;
+        if(a.rig.impact>Math.max(.45,previousImpact+.12))a.stats.collisionImpacts++;
+        if(instruction.mode==='ORDER'&&moved<.004&&
+            Math.hypot(a.rig.vx,a.rig.vz)<.2)a.stats.stallSeconds+=DT;
+        if(a.motion.awareness?.underFireSeconds>.1)a.stats.underFireSeconds+=DT;
         if(recovery.mode==='SETTLE'&&!a.fieldService.held&&fieldServiceStationary(a.rig))
             beginFieldService(a.condition,a.fieldService,a.rig);
         const serviceStep=advanceFieldService(a.condition,a.fieldService,a.rig,DT);
@@ -234,15 +267,14 @@ export function runBout(seed,settings){
         advanceWeapon(a.weaponState,a.weaponSpec,DT);
         if(a.weaponState.loaded<=0 && a.weaponState.reloadLeft===0&&a.weaponState.reserve>0)
             startReload(a.weaponState,a.weaponSpec);
-        if(!target)continue;
-        // Production k3u7 fire rate: the actual fitted weapon's loaded,
-        // reload and physical cooldown state are authoritative. No separate
-        // contract personality trigger interval or fake 60Hz attempts.
-        const ready=a.weaponState.cooldown<=0&&a.weaponState.loaded>0&&
-            a.weaponState.reloadLeft<=0&&withinFiringArc(a.rig,target.rig)&&
-            tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD);
-        const fired=advanceHostileController(a.controller,a.condition,DT,false,ready);
-        if(fired===null)continue;
+        const fireReady=!!target&&a.weaponState.cooldown<=0&&
+          a.weaponState.loaded>0&&a.weaponState.reloadLeft<=0&&
+          withinFiringArc(a.rig,target.rig)&&
+          tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)&&
+          shouldAttemptTacticalShot(a,target);
+        // Trigger authority is the real fitted weapon cycle, regardless of policy.
+        const fired=advanceHostileController(a.controller,a.condition,DT,!target,fireReady);
+        if(fired===null||!target)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
@@ -252,11 +284,10 @@ export function runBout(seed,settings){
         const distance=dist(a.rig,target.rig);
         const errors=hostileOutput(a.condition,a.behavior);
         const spread=hostileSpread(fired,errors.spreadRadians);
-        // The sprite/mesh raycast cannot run in Node: represent its probability
-        // of striking a true exposed target with scenario-defined sensitivity.
-        const chance=clamp(settings.accuracy-(Math.max(0,distance-8)*.006)-
-            Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
-        // Fired rounds cost ammunition and recoil even on misses.
+        // Three.js raycast is unavailable: approximate the exposed target hit.
+        const chance=clamp((settings.accuracy??.7)-
+          (Math.max(0,distance-8)*.006)-
+          Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
         if(fireWeapon(a.weaponState,a.weaponSpec)===null)continue;
         a.stats.actualShots++;
         if(a.stats.firstShot===null)a.stats.firstShot=t;
@@ -264,7 +295,11 @@ export function runBout(seed,settings){
         applyRecoil(a.rig,config,dx,dz,a.weaponSpec.recoilImpulseNs);
         if(settings.accuracy===0||rng()>chance)continue;
         a.stats.hits++;metrics.damagingShots++;
-        const slot=hostileAimSlot(fired,a.behavior.aimPriority);
+        const contested=!!job?.objectiveId&&state.domination.points.some(p=>
+          p.id===job.objectiveId&&p.contested&&dist(target.rig,p)<state.radius);
+        const slot=tacticalAimSlot(hostileAimSlot(fired,a.behavior.aimPriority),{
+          targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
+          contesting:contested,visibleService:!!target.fieldService?.held});
         damage(a,target,slot,metrics,t,rng);
       }
       const prevScore={friendly:state.friendlyProgress,hostile:state.hostileProgress};
