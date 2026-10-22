@@ -60,7 +60,7 @@ test('briefing is one screen, rig name and utility buttons are grouped',()=>{
 });
 test('mobile page loads fresh k4s.3 CSS and the deploy fix JS',()=>{
     const html=src('index.html'),adapter=src('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
+    assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|y\.1 — Input & Repair Stability)/);
     assert.match(html,/k4s3Layout\.css\?v=k4s3/);
     assert.match(html,/unifiedGarageUI\.js\?v=k4w5/);
     assert.match(adapter,/unifiedGarageUI\.js\?v=k4w5/);
