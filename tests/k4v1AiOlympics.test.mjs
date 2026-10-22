@@ -103,17 +103,17 @@ test('scripted contact loss preserves an actual pre-drop visual observation',()=
   assert.ok(run.noGhostFraction>.8,'ghost visibility should be rejected');
 });
 
-test('simulator honors researched cautious wounded retreat vs unchanged baseline',()=>{
+test('both profiles physically retreat under critical structural damage',()=>{
   const baseline=runOlympicEvent('wounded-withdrawal',{
     seed:188,profile:'baseline',seconds:12});
   const cautious=runOlympicEvent('wounded-withdrawal',{
     seed:188,profile:'cautious',seconds:12});
-  assert.equal(baseline.withdrawSeconds,null);
+  // The drill demands universally competent survival, not a threshold-based
+  // personality preference. Mere WITHDRAW selection is not enough.
+  assert.ok(baseline.withdrawSeconds!==null);
   assert.ok(cautious.withdrawSeconds!==null);
-  // Selection and physical execution are distinct competencies. The Olympics
-  // records a failed escape instead of silently assuming that an order works.
-  assert.ok(Number.isFinite(cautious.escapeProgress));
-  assert.ok(Number.isFinite(baseline.escapeProgress));
+  assert.ok(baseline.escapeProgress>.1,'baseline must physically flee');
+  assert.ok(cautious.escapeProgress>.1,'cautious must physically flee');
 });
 
 test('small Olympics report aggregates scenarios without ranking a single long event higher',()=>{
@@ -155,4 +155,11 @@ test('wounded explicit WITHDRAW route overrides repeated unseen-fire turn comman
   assert.equal(motion.phase,'ORDER','defensive turning must not erase retreat');
   assert.equal(motion.navigation.includes('WITHDRAW'),true);
   assert.ok(Math.hypot(command.throttle,command.strafe)>0);
+});
+
+test('objective anchoring is evaluated inside physical zone rather than an arbitrary centre pixel',()=>{
+  const a=runOlympicEvent('objective-anchor',{seed:46291,family:'yard'});
+  assert.equal(a.arrived,true);
+  assert.ok(a.finalDistance<4.7);
+  assert.ok(a.holdFraction>.8);
 });
