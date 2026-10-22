@@ -19,7 +19,7 @@ test('service plate is graphical only and attached after authentic owner paint',
   assert.match(scene,/addPhysicalServiceStamp\(group,fitted\.instance\)/);
   assert.match(scene,/applyPartFinish\(group,fitted\.definition\.id,fitted\.instance\.paint\)/);
   assert.match(visuals,/selected\.add\(mark\)/);
-  assert.match(visuals,/serviceEvidence=\{serial:part\.serial,repairs:Math\.floor\(repairs\)\}/);
+  assert.match(visuals,/serviceEvidence=\{serial:part\.serial,repairs,label:serviceStampLabel\(part\)\}/);
   assert.doesNotMatch(visuals,/damageInstalledPart|storeStable|storeMachine|applyTargetHit/);
 });
 test('pit equipment appears only on real disabled machines and has no collision authority',()=>{
