@@ -1863,7 +1863,7 @@ export function createArenaScene(initial, targetAssembly) {
             }
         }
     }
-    const surfaceSortieId='sortie-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1000000).toString(36);
+    const surfaceSortieId='sortie-'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36));
     function noteSurfaceImpact(contact,outcome) {
         const s=contact?.surfaceHit;
         if(!s || !outcome?.serial || !contact?.actorId)return;
