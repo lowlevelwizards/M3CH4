@@ -1,6 +1,7 @@
 import { zoneOpportunity, casualtyAssignment, assaultStagingPoint } from './adaptiveTactics.js';
 import { scoreForecast,reserveAnchors,assignmentSwitchCost,canStageAssault,teamPosture } from './objectiveDiscipline.js';
 import {coordinateSquadArrivals} from './squadPositioning.js';
+import {coordinateCorridors} from './corridorCoordinator.js';
 /** Small exhaustive team assignment planner. Six rigs total makes a full general
  * scheduler unnecessary. Jobs are real tactical consequences of the objective.
  * No path, transform, ammo or damage mutation happens here.
@@ -224,7 +225,13 @@ export function planTeam(snapshot,team,options={}) {
             policy:options.arrivalPolicy??'legacy',world:options.world??null,
             zoneRadius:snapshot.zoneRadius??4.7,previousOrders:previous,
             player:player??null,collisionRadius:options.collisionRadius??1.12});
-        return {team,orders:coordinated,reason:strategy?.reason??'TERRITORY MAJORITY',
+        const passage=coordinateCorridors(coordinated,actors,options.world??null,{
+            policy:options.corridorPolicy??'legacy',time:snapshot.time??0,
+            collisionRadius:options.collisionRadius??1.15,
+            memory:options.corridorMemory??null});
+        return {team,orders:passage.orders,
+            ...(options.corridorPolicy&&options.corridorPolicy!=='legacy'?{corridors:passage.metrics}:{}),
+            reason:strategy?.reason??'TERRITORY MAJORITY',
             strategy:strategy?.phase??'TAKE_GROUND',
             target:strategy?.target??null,stalledFor:strategy?.stalledFor??0,
             scoring:Math.floor(snapshot.score[team]),
