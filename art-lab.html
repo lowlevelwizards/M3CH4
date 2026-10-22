@@ -39,6 +39,14 @@
    <label for="comparison">COMPARE</label>
    <select id="comparison"><option value="compare">SIDE BY SIDE</option><option value="candidate">CANDIDATE ONLY</option><option value="current">CURRENT ONLY</option></select>
   </div>
+  <div class="control">
+   <label for="age">COMPONENT HISTORY (SIMULATED)</label>
+   <select id="age">
+    <option value="0">FACTORY NEW</option>
+    <option value="1" selected>WORKING CONDITION</option>
+    <option value="2">VETERAN SERVICE</option>
+   </select>
+  </div>
   <div class="control slider">
    <label for="wear">SURFACE WEAR <output id="wear-value">3 / 5</output></label>
    <input id="wear" type="range" min="0" max="5" step="1" value="3">
@@ -57,7 +65,7 @@
    <button id="reset" type="button">RESET</button>
   </div>
   <textarea id="export-result" readonly aria-label="Exported preset JSON" hidden></textarea>
-  <p class="note">Real catalogue-built rig geometry. Candidate finishes are experimental and never alter your saved machines, paint, combat, or inventory. The two cameras are identical.</p>
+  <p class="note">Real catalogue-built rig geometry. Candidate wear histories are simulated and never alter your saved machines, paint, combat, or inventory. The two cameras are identical.</p>
  </section>
 </main>
 <script type="module" src="./artLab.js"></script>
