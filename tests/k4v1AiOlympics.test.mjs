@@ -171,3 +171,23 @@ test('traffic Olympics meaningfully changes fitted rig families between cohorts'
  assert.deepEqual(hauler.actors.map(a=>a.family),['hauler','hauler','hauler']);
  assert.notDeepEqual(yard.actors.map(a=>a.z),hauler.actors.map(a=>a.z));
 });
+
+test('endless turning with a moving order is a mission-level loop, not a hard motor stall',()=>{
+ const m=createMotionDiagnostic(),rig=stationaryRig();
+ for(let i=0;i<480;i++){
+   rig.yaw+=.012;rig.yawRate=.72;
+   sampleMotion(m,rig,{throttle:.4,steer:.85},{
+     ...moving,missionPoint:{x:0,z:-10}
+   },{},emptyWorld,1/60,[],i/60);
+ }
+ assert.equal(m.realStall,0,'turning is not a stopped motor');
+ assert.ok(m.loopSeconds>3,'spinning without mission progress is a loop');
+ const successful=createMotionDiagnostic(),traveler=stationaryRig();
+ for(let i=0;i<480;i++){
+   traveler.z-=.025;traveler.vz=-1.5;
+   sampleMotion(successful,traveler,{throttle:.4},{
+     ...moving,missionPoint:{x:0,z:-20}
+   },{},emptyWorld,1/60,[],i/60);
+ }
+ assert.equal(successful.loopSeconds,0,'steady objective progress is not a loop');
+});
