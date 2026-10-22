@@ -7,8 +7,8 @@ import {makeTestAssembly,equip} from './components.js';
 import {applyArtWeathering,createYardGroundTexture} from './artStyleProcedural.js';
 
 const $=id=>document.getElementById(id);
-const CONTROLS=['rig','angle','comparison','wear','contrast','terrain'];
-const defaults=Object.freeze({rig:'yard',angle:'quarter',comparison:'compare',wear:3,contrast:65,terrain:'dirt'});
+const CONTROLS=['rig','angle','comparison','age','wear','contrast','terrain'];
+const defaults=Object.freeze({rig:'yard',angle:'quarter',comparison:'compare',age:'1',wear:3,contrast:65,terrain:'dirt'});
 const choices={
   yard:['frame-sr','legs-yard','power-dynamo','cab-cyclops','gun-cannon'],
   kestrel:['frame-utility','legs-compact','power-air','cab-utility','gun-light'],
@@ -54,9 +54,19 @@ function makeScene(candidate){
 const stages=[makeScene(false),makeScene(true)];
 function settings(){return Object.fromEntries(CONTROLS.map(id=>[id,
   id==='wear'||id==='contrast'?Number($(id).value):$(id).value]));}
-function makeRig(name){
+function makeRig(name,candidate=false){
   const assembly=makeTestAssembly();
   choices[name].forEach((id,i)=>equip(assembly,slots[i],id));
+  if(candidate){
+    // Simulated history only: never writes actual inventory or service records.
+    const age=Math.max(0,Math.min(2,Number($('age').value)||0));
+    assembly.partHistory=Object.fromEntries(assembly.owned.map(part=>{
+      part.wear=age===0?0:age===1?.20:.70;
+      part.repairs=age===2?2:0;
+      return [part.serial,{deployments:age*18,distanceTravelledM:age*12500,
+        roundsFired:age*650,timesFieldServiced:age===2?2:0}];
+    }));
+  }
   const model=buildExteriorRig(assembly).root;
   model.updateWorldMatrix(true,true);
   const box=new THREE.Box3().setFromObject(model);
@@ -68,7 +78,7 @@ function makeRig(name){
 function loadRig(){
   for(const stage of stages){
     if(stage.model)stage.scene.remove(stage.model);
-    stage.model=makeRig($('rig').value);
+    stage.model=makeRig($('rig').value,stage.candidate);
     stage.scene.add(stage.model);
   }
   yawOffset=0;
@@ -137,7 +147,7 @@ function draw(){
 }
 for(const id of CONTROLS){
   $(id).addEventListener('input',()=>{
-    if(id==='rig')loadRig();
+    if(id==='rig'||id==='age')loadRig();
     updateArt();
   });
 }
