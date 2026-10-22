@@ -125,19 +125,19 @@ test('3D counter uses actual part meshes on four separate table stalls with touc
     assert.match(ui,/m3ch4:counter-picked/);
     assert.match(ui,/createPartCard\(/);
     assert.match(ui,/createPartDetail\(/);
-    assert.match(ui,/BUY SERIAL/);
-    assert.match(ui,/NO GUARANTEES\. NO REFUNDS/);
+    assert.match(ui,/vendor-buy/);
+    assert.match(ui,/AS-IS HARDWARE/);
 });
 test('counter is only accessible from normal garage, and cannot bypass BO3 pit restrictions',()=>{
     const ui=code('unifiedGarageUI.js'),main=code('main.js');
     assert.match(ui,/if\(workspace==='garage'\)/);
-    assert.match(ui,/currentMode === 'vendor'/);
+    assert.match(ui,/workspace==='vendor'/);
     assert.match(ui,/actualMode\(series\)/);
     assert.match(main,/dataset\.mode!=='vendor'/);
     assert.match(ui,/loadCampaign\(storage\)/);
     assert.match(ui,/stock\.cycle/);
     const mount=code('garageMountUI.js'),html=code('index.html');
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4s1/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4s2/);
     assert.match(mount,/stableUI\.js\?v=k3t0/);
-    assert.match(html,/sceneAssembly\.js\?v=k4r/);
+    assert.match(html,/sceneAssembly\.js\?v=k4s2/);
 });
