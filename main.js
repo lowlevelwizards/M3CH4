@@ -16,7 +16,7 @@ import { createArenaScene } from './scene.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot, setActiveWeaponLoad } from './powerDynamics.js';
-import { createThermalCombat, coolThermalCombat, cutContact } from './thermalCombat.js';
+import { createThermalCombat, coolThermalCombat, cutContact, moduleHeatKey } from './thermalCombat.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
@@ -1665,6 +1665,7 @@ function frame(now) {
                 const powerWasReady=playerPower.weaponReady;
                 setActiveWeaponLoad(playerPower,
                     weaponSpec?.fireMode==='continuous'&&fireHeld&&playerCombatActive&&
+                    (weaponState?.loaded??0)>0&&(weaponState?.reloadLeft??0)<=0&&
                     (weaponState?.action?.ventLeft??0)<=0&&output.weaponOperational
                         ? weaponSpec.activeKw : 0);
                 advancePowerSystem(playerPower, assembly, rig, FIXED_DT,
@@ -1750,7 +1751,8 @@ function frame(now) {
                 const canManeuver=actorOutput.structure>.05&&actorOutput.command>.05&&
                     actorOutput.power>.12&&actorOutput.mobility>.05;
                 setActiveWeaponLoad(actor.powerSystem,
-                    actor.weaponSpec?.fireMode==='continuous'&&target&&
+                    actor.weaponSpec?.fireMode==='continuous'&&actor.active&&target&&
+                    (actor.weaponState?.loaded??0)>0&&(actor.weaponState?.reloadLeft??0)<=0&&
                     Math.hypot(target.rig.x-actor.rig.x,target.rig.z-actor.rig.z)<=actor.weaponSpec.rangeMeters&&
                     actor.motion?.awareness?.lineOfSight!==false&&
                     (actor.weaponState?.action?.ventLeft??0)<=0 ? actor.weaponSpec.activeKw : 0);
@@ -2349,6 +2351,13 @@ function warnNearbyAiFromShot(firingTeam,contact){
         if(evidence)recordShotEvidence(defender.motion,defender.rig,evidence);
     }
 }
+/** A heated surface is the installed serial, never just a reused station/slot. */
+function thermalKeyForContact(contact) {
+    if(!contact?.actorId||!contact?.slot)return null;
+    const target=contact.actorId==='player'
+        ? playerCondition : actorById(contact.actorId)?.condition;
+    return moduleHeatKey(contact.actorId,contact.slot,target);
+}
 function armorForPenetratingContact(contact) {
     const target=contact.actorId==='player' ? playerCondition : actorById(contact.actorId)?.condition;
     return target?.parts?.[contact.slot]?.armor??0;
@@ -2396,8 +2405,9 @@ function attemptAiFire(actor, target, shotIndex) {
         contesting,visibleService:!!target.fieldService?.held});
     if(actor.weaponSpec.fireMode==='continuous') {
         const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
-        if(contact?.slot&&contact.actorId&&contact.distance<=actor.weaponSpec.rangeMeters) {
-            const thermal=cutContact(thermalCombat,contact.actorId+'/'+contact.slot,
+        const thermalKey=thermalKeyForContact(contact);
+        if(thermalKey&&contact.distance<=actor.weaponSpec.rangeMeters) {
+            const thermal=cutContact(thermalCombat,thermalKey,
                 1/actor.weaponSpec.roundsPerSecond,actor.weaponSpec.damage);
             if(consumed%2===1)arena.showCuttingArc(contact);
             resolveAiShotContact(actor,target,contact,thermal.damage);
@@ -2529,8 +2539,9 @@ function attemptFire() {
         : [arena.traceShot(baseX,baseY,weaponSpec.muzzleZ,weaponSpec.fireMode==='charged')];
     const center=contacts[0];
     if(weaponSpec.fireMode==='continuous') {
-        if(center?.slot&&center.actorId&&center.distance<=weaponSpec.rangeMeters) {
-            const thermal=cutContact(thermalCombat,center.actorId+'/'+center.slot,
+        const thermalKey=thermalKeyForContact(center);
+        if(thermalKey&&center.distance<=weaponSpec.rangeMeters) {
+            const thermal=cutContact(thermalCombat,thermalKey,
                 1/weaponSpec.roundsPerSecond,weaponSpec.damage);
             if(shot%2===1)arena.showCuttingArc(center);
             resolvePlayerShotContact(center,thermal.damage,false,true);

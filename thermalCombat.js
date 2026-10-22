@@ -13,3 +13,13 @@ export function cutContact(state,key,dt,nominal=5) {
  state.set(key,heat);
  return {heat,damage:Math.round((nominal*(1+heat*1.18))*100)/100};
 }
+
+/** The heat belongs to physical hardware, not a reusable station identifier.
+ * Prefix actor ID so independently assembled machines with inherited/imported
+ * serial labels never share temporary heat through an arena slot.
+ */
+export function moduleHeatKey(actorId,slot,condition) {
+ const serial=condition?.parts?.[slot]?.serial;
+ return typeof actorId==='string'&&actorId.length>0&&
+   typeof serial==='string'&&serial.length>0 ? actorId+'/'+serial : null;
+}

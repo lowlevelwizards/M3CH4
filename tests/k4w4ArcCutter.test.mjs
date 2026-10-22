@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {CATALOG,makeTestAssembly,equip,inspectAssembly} from '../components.js';
 import {WEAPONS,createWeaponState,advanceWeapon,fireWeapon,startReload} from '../combat.js';
-import {createThermalCombat,coolThermalCombat,cutContact} from '../thermalCombat.js';
+import {createThermalCombat,coolThermalCombat,cutContact,moduleHeatKey} from '../thermalCombat.js';
 import {setActiveWeaponLoad,createPowerSystem,advancePowerSystem} from '../powerDynamics.js';
 const source=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const w=WEAPONS['gun-arc'];
@@ -38,4 +38,26 @@ test('beam cannot damage without a confirmed short-range physical hit',()=>{
  assert.match(m,/cutContact\(/);
  assert.match(m,/setActiveWeaponLoad\(/);
  assert.match(source('partVisuals.js'),/'gun-arc': buildArcCutterVisual/);
+});
+
+test('replacing a physical serial does not inherit the previous module\'s heat',()=>{
+ const map=createThermalCombat();
+ const original={parts:{combat:{serial:'WPN-017'}}};
+ const replacement={parts:{combat:{serial:'WPN-043'}}};
+ const oldKey=moduleHeatKey('enemy-0','combat',original);
+ const newKey=moduleHeatKey('enemy-0','combat',replacement);
+ assert.notEqual(oldKey,newKey);
+ assert.equal(moduleHeatKey('enemy-0','combat',{parts:{}}),null);
+ cutContact(map,oldKey,.1,5);
+ assert.ok(map.get(oldKey)>0);
+ assert.equal(cutContact(map,newKey,.1,5).heat,cutContact(createThermalCombat(),newKey,.1,5).heat);
+ assert.notEqual(moduleHeatKey('enemy-0','combat',original),moduleHeatKey('enemy-1','combat',original));
+});
+test('Arc Cutter powers down its active 42kW working load during electrode change',()=>{
+ const sourceText=source('main.js');
+ assert.match(sourceText,/weaponState\?\.loaded\?\?0/);
+ assert.match(sourceText,/weaponState\?\.reloadLeft\?\?0/);
+ assert.match(sourceText,/actor\.weaponState\?\.loaded\?\?0/);
+ assert.match(sourceText,/thermalKeyForContact\(contact\)/);
+ assert.match(sourceText,/thermalKeyForContact\(center\)/);
 });
