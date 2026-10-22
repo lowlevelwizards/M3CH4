@@ -109,11 +109,13 @@ function candidateClaims(playerAssembly,contract,rng){
     manifests.push(wreckManifest({id:'enemy-'+i,assembly,condition:target,active:false}));
   }
   const draft=createSalvageDraft({draftOrder:['player'],manifests});
-  const counts=inventoryTallies(playerAssembly.owned);
+  const counts=inventoryTallies(playerAssembly.owned),
+    needs=desiredShortages(playerAssembly.owned);
   const candidates=availableClaims(draft);
   candidates.sort((a,b)=>{
     const score=e=>100*(2-counts[e.slot])+e.condition*25+
-      (playerAssembly.owned.some(p=>p.definitionId===e.definitionId)?0:10);
+      (playerAssembly.owned.some(p=>p.definitionId===e.definitionId)?0:10)+
+      (needs.get(e.definitionId)>0?70:0);
     return score(b)-score(a)||a.id.localeCompare(b.id);
   });
   if(!candidates.length)return null;
@@ -164,29 +166,43 @@ function serviceInventory(inventory,rigs,credits,armorBySerial){
   }
   return {credits:credits-spent,spent,deferred,repaired};
 }
+function desiredShortages(inventory){
+  const need=new Map();
+  for(const recipe of DESIRED_THREE_RIGS)
+    for(const id of recipe)need.set(id,(need.get(id)??0)+1);
+  for(const part of inventory){
+    if(part.destroyed||part.condition<=.001)continue;
+    if(need.has(part.definitionId))
+      need.set(part.definitionId,Math.max(0,need.get(part.definitionId)-1));
+  }
+  return need;
+}
 function buyForFleet(inventory,cycle,credits,reserve,rng,validRecipes){
-  const fleet=packFleet(inventory,validRecipes);
-  if(fleet.length===3)return {credits,bought:0};
-  const counts=inventoryTallies(inventory);
+  const fleet=packFleet(inventory,validRecipes),counts=inventoryTallies(inventory),
+    needs=desiredShortages(inventory),filled=fleet.length>=3;
   const lots=generateCounterStock(cycle).offers.filter(l=>l.price<=credits-reserve);
   lots.sort((a,b)=>{
-    const sa=CATALOG.find(x=>x.id===a.definitionId)?.slot;
-    const sb=CATALOG.find(x=>x.id===b.definitionId)?.slot;
-    return counts[sa]-counts[sb]||a.price-b.price;
+    const sa=CATALOG.find(x=>x.id===a.definitionId)?.slot,
+      sb=CATALOG.find(x=>x.id===b.definitionId)?.slot;
+    if(filled){
+      return (needs.get(b.definitionId)??0)-(needs.get(a.definitionId)??0)
+        ||a.price-b.price;
+    }
+    return counts[sa]-counts[sb]||
+      (needs.get(b.definitionId)??0)-(needs.get(a.definitionId)??0)||
+      a.price-b.price;
   });
   for(const lot of lots){
+    const slot=CATALOG.find(x=>x.id===lot.definitionId)?.slot;
+    if(filled&&!(needs.get(lot.definitionId)>0))continue;
+    if(!filled&&counts[slot]>=3&&!(needs.get(lot.definitionId)>0))continue;
+    if(inventory.some(x=>x.serial===lot.serial))continue;
     const before=fleet.length;
     const part={serial:lot.serial,definitionId:lot.definitionId,
       condition:lot.condition,wear:lot.wear,repairs:lot.repairs,destroyed:false};
-    if(inventory.some(x=>x.serial===lot.serial))continue;
     inventory.push(part);
-    // Buy for the next slot needed; unfinished spare modules remain owned.
-    const slot=CATALOG.find(x=>x.id===lot.definitionId)?.slot;
-    if(counts[slot]<3){
-      return {credits:credits-lot.price,bought:1,price:lot.price,
-        definitionId:lot.definitionId,immediatelyFieldable:packFleet(inventory,validRecipes).length>before};
-    }
-    inventory.pop();
+    return {credits:credits-lot.price,bought:1,price:lot.price,
+      definitionId:lot.definitionId,immediatelyFieldable:packFleet(inventory,validRecipes).length>before};
   }
   return {credits,bought:0};
 }
@@ -328,7 +344,7 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     'Opponent manifests repeat each contract lead recipe; supporting crew mixes, wreck destruction and score-order draft loss are not simulated.',
     'Repairs are paid after terminal BO3 settlement; persistent armor and integrity losses are quoted by the actual economic functions.',
     'Garage service is individually quoted per serialized part and prioritizes disabled hardware; if no fieldable rig remains and service is unaffordable, the career stops without fictional payouts.',
-    'Market turns over each completed contract. One shortage-targeted purchase per contract leaves cash buffer.',
+    'Market turns over each completed contract. Up to one shortage-targeted purchase per contract, then one preferred-recipe piece, leaves the service buffer intact.',
     'No human selling, advanced trading, customization preferences, actor careers or high-end money sinks.',
     'Fieldability follows the stable serial condition threshold (>0.001) but this heuristic packs three legal recipes, not the full commission/assignment UX.',
     'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.',
