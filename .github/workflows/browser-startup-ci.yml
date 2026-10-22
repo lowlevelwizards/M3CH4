@@ -1,7 +1,18 @@
 name: M3CH4 Browser Startup Smoke
 on:
   pull_request:
-    paths: ['main.js', 'index.html', 'scene.js', 'sceneAssembly.js', 'tests/**', 'research/browserStartupSmoke.mjs', '.github/workflows/browser-startup-ci.yml']
+    paths:
+      - 'main.js'
+      - 'index.html'
+      - 'scene.js'
+      - 'sceneAssembly.js'
+      - 'unifiedGarageUI.js'
+      - 'garageMountUI.js'
+      - 'k4s*.css'
+      - 'research/browserQuickSmoke.mjs'
+      - '.github/workflows/browser-startup-ci.yml'
+  schedule:
+    - cron: '0 9 * * 0'
   workflow_dispatch:
 jobs:
   browser-startup:
@@ -20,9 +31,14 @@ jobs:
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/m3ch4-http.log 2>&1 &
           sleep 2
-      - name: Assert main scene renders its first frame
+      - name: Fast PR first-frame and deploy smoke
+        if: github.event_name == 'pull_request'
+        run: node research/browserQuickSmoke.mjs
+      - name: Full browser/paint/vendor/audio regression (weekly or manual)
+        if: github.event_name != 'pull_request'
         run: node research/browserStartupSmoke.mjs
-      - name: Render weapon anatomy gallery in Chromium
+      - name: Render weapon anatomy gallery (weekly or manual)
+        if: github.event_name != 'pull_request'
         run: node research/weaponLabSmoke.mjs
       - name: Save screenshot and errors
         if: always()
