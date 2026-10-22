@@ -2399,6 +2399,7 @@ function attemptAiFire(actor, target, shotIndex) {
         if(contact?.slot&&contact.actorId&&contact.distance<=actor.weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,contact.actorId+'/'+contact.slot,
                 FIXED_DT,actor.weaponSpec.damage);
+            if(consumed%2===1)arena.showCuttingArc(contact);
             resolveAiShotContact(actor,target,contact,thermal.damage);
         }
         return;
@@ -2531,6 +2532,7 @@ function attemptFire() {
         if(center?.slot&&center.actorId&&center.distance<=weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,center.actorId+'/'+center.slot,
                 FIXED_DT,weaponSpec.damage);
+            if(shot%2===1)arena.showCuttingArc(center);
             resolvePlayerShotContact(center,thermal.damage,false,true);
         }
         shotsFired++;sortieRoundsFired++;
