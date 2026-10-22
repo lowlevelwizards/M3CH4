@@ -3,6 +3,7 @@
  * replacement for actual weld/patch events. Fits authored painted flat panels.
  */
 import * as THREE from 'three';
+import {serviceStampCount,serviceStampLabel} from './serviceEvidencePolicy.js';
 const plates=new Map();
 function stampTexture(count) {
   const key=count>99?'99+':Math.max(1,Math.floor(count));
@@ -22,10 +23,6 @@ function stampTexture(count) {
   map.colorSpace=THREE.SRGBColorSpace;
   map.magFilter=THREE.NearestFilter;map.minFilter=THREE.NearestFilter;
   plates.set(key,map);return map;
-}
-export function serviceStampCount(part) {
-  const repairs=Number(part?.repairs);
-  return Number.isSafeInteger(repairs)&&repairs>0?repairs:0;
 }
 export function addPhysicalServiceStamp(root,part) {
   const repairs=serviceStampCount(part);
@@ -50,7 +47,7 @@ export function addPhysicalServiceStamp(root,part) {
   // The label is physically printed on an existing flat box-facing service
   // panel; it follows any articulation, never enters the raycast pick list.
   mark.position.set(Math.max(0,d.width*.12),0,-d.depth/2-.008);
-  mark.userData.serviceEvidence={serial:part.serial,repairs:Math.floor(repairs)};
+  mark.userData.serviceEvidence={serial:part.serial,repairs,label:serviceStampLabel(part)};
   selected.add(mark);
   root.userData.serviceStamped=true;
   return true;
