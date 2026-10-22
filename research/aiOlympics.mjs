@@ -42,8 +42,13 @@ const block=(id,minX,maxX,minZ,maxZ)=>({id,minX,maxX,minZ,maxZ,
   height:3.5,kind:'building'});
 const trainingWorld=obstacles=>({minX:-29,maxX:29,minZ:-27,maxZ:27,obstacles});
 function configuration(id,rng){
-  const jitter=()=>.5*(rng()-.5);
-  const p=(x,z,yaw=0)=>({x:x+jitter(),z:z+jitter(),yaw});
+  // Matched seeds vary initial lane placement and heading without
+  // changing machine capability, target geometry, or the course's solutions.
+  // Stress real steering/traffic rather than repeating effectively identical
+  // spawns dozens of times.
+  const jitter=()=>1.9*(rng()-.5);
+  const p=(x,z,yaw=0)=>({x:x+jitter(),z:z+jitter(),
+    yaw:yaw+.20*(rng()-.5)});
   switch(id){
     case 'open-transit':return {world:trainingWorld([]),
       starts:[p(0,19)],goal:{x:0,z:-17},kind:'route'};
