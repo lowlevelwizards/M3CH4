@@ -11,13 +11,13 @@ node --test tests/k4v2Traffic.test.mjs tests/k4v1AiOlympics.test.mjs
 node research/aiOlympics.mjs \
   --events=ally-choke --families=yard,kestrel,hauler \
   --profiles=baseline,cautious \
-  --traffic=legacy,zipper,lanes,hybrid \
+  --traffic=legacy,zipper,lanes,hybrid,gated \
   --seeds=40 --seed=46291 \
   --out=study-results/traffic-trials
 ```
 
-This is 960 *real physical scenario evaluations* (40 seeds × 3
-families × 2 profiles × 4 policy variants). For any fixed event, seed,
+This is 1,200 *real physical scenario evaluations* (40 seeds × 3
+families × 2 profiles × 5 policy variants). For any fixed event, seed,
 family and personality the start positions and fitted rig hardware
 remain identical. Three actors have real dynamic collision bodies
 and proceed through the same narrow gateway.
@@ -33,7 +33,28 @@ and proceed through the same narrow gateway.
   must be within the physical world, out of static obstacles and clear
   of nearby peer collision envelopes before being accepted.
 - **hybrid:** bounded front-to-back queue first, then a stable passing
-  candidate, followed by the legacy fallback.
+  candidate, followed by the legacy fallback. It is a global candidate,
+  *not* the live default.
+- **gated:** experimental variation on hybrid activated only when bilateral
+  static geometry indicates a nearby corridor. Early trials underperformed
+  severely because the constraint was detected too late. It is kept as a
+  negative control rather than silently overwriting the stronger hybrid.
+
+## What the initial experiments taught us
+
+On the exploratory seeds, unrestricted hybrid passed 85.0% against the
+legacy 78.3%. On independent seeds, unrestricted hybrid passed 92.0%
+versus legacy 81.3%. The speed and precision of these narrow-passage
+improvements are real, but **a 24-bout 3v3 comparison did not demonstrate
+better match wins**; it reported 10 wins for hybrid and 11 for legacy,
+with 3 draws, and more collisions for hybrid in open play.
+
+A terrain-gated hybrid with a short lookahead then reduced choke success
+to roughly 65–70%, while yielding near-identical 3v3 results to baseline.
+Increasing lookahead alone did not recover choke success. For auditability
+that failed idea is now named `gated`, and the original `hybrid` remains
+separately testable. Simulator/live nearby-ally snapshots now both include
+real physical ally velocity; unvalidated results must not be promoted.
 
 ## Do not optimize merely for a "high score"
 
