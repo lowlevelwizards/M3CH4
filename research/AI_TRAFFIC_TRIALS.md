@@ -96,3 +96,42 @@ Workflows: **Actions → k4v.2 Squad Traffic Trials**.
 **Next gate:** only promote the physically best and stable policy to
 default after verifying that no adverse change to human combat,
 objective defense, and other mobility families is introduced.
+
+## Final reproducible results on experimental branch
+
+Two seed sets were measured with 40 and 25 matched seeds respectively,
+across three physical mobility families and two pilot profiles.
+The corrected `loopSeconds` diagnostic does not penalize intentional
+scoring holds. Per-policy completion rates for `ally-choke`:
+
+| Policy | Exploratory 240 trials | Holdout 150 trials |
+| --- | ---: | ---: |
+| legacy | 78.3% | 81.3% |
+| zipper | 76.7% | 77.3% |
+| lanes | 74.2% | 81.3% |
+| hybrid | **85.0%** | **92.0%** |
+| gated | 70.0% | 69.3% |
+
+The unrestricted `hybrid` also reduced collision event frequency in
+the gate, from 0.806 to 0.119 per trial (exploratory cohort), and
+no-net-objective advancement from 14.473 to 6.012 seconds.
+
+**The 48-bout mirrored 3v3 holdout did not establish a match advantage:**
+Legacy won 22, Hybrid 22, with 4 draws. Average collision counts
+were higher for Hybrid (0.417 vs 0.063 per bout), even though Hybrid
+had marginally more combined zone occupancy
+(72.157 vs 70.450 seconds per side).
+
+This is a **non-promotion result**. The game remains on the
+`legacy` traffic default. A faction or local navigation planner may
+be given an explicit traffic override only after future validation
+across multiple full-match maps and human playtests.
+
+### Experiment references
+
+- Explorer: GitHub Actions run `39818520035`
+- Independent holdout and 3v3: GitHub Actions run `39818529893`
+- The holdout archives `results.json` and `report.md`.
+- On a future feature branch, only promote a traffic override after
+  demonstrating improved objective completion without higher
+  unintended collisions or unproductive team waiting.
