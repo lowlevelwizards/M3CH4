@@ -107,3 +107,21 @@ test('full 3v3 baseline remains identical and independent corridor options are r
  assert.equal(variant.corridorPolicy.friendly,'stagger');
  assert.equal(variant.corridorPolicy.hostile,'priority');
 });
+
+test('reservation persists after leader route no longer overlaps the choke',()=>{
+ const memory={};
+ const first=coordinateCorridors(independent(),actors,world,{
+  policy:'stagger',time:0,memory});
+ const chosen=Object.entries(first.orders).find(([,o])=>o.corridorReservation);
+ assert.ok(chosen);
+ const [id,order]=chosen;
+ const moved=actors.map(a=>a.id===id?
+  {...a,position:{...order.corridorReservation.stagePoint}}:
+  {...a,position:p(-9,-17)});
+ const later=coordinateCorridors(independent(),moved,world,{
+  policy:'stagger',time:1.2,memory});
+ assert.deepEqual(later.orders[id].corridorReservation.stagePoint,
+  order.corridorReservation.stagePoint);
+ assert.equal(later.orders[id].corridorReservation.releaseAt,
+  order.corridorReservation.releaseAt);
+});
