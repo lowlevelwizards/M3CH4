@@ -7,7 +7,7 @@ export function hideBreachAfterService(event,{coveredIds=new Set(),
   partCondition=null,repairs=0,serviceAt=null,sessionStart=0}={}){
   if(event?.event==='service'||!(Number(event?.internalDamage)>0))return false;
   if(coveredIds.has(event.eventId))return true;
-  if(!(partCondition>=.995)||!(repairs>0))return false;
+  if(!(partCondition>=.995)||!(repairs>0||Number.isFinite(serviceAt)))return false;
   // A freshly shot rebuilt machine can show a NEW penetration until serviced.
   // Archived impacts on a currently fully restored serial must not display
   // as open holes after that physical repair, even on a legacy save.
