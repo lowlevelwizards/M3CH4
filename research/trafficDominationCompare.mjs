@@ -96,7 +96,7 @@ export function toMarkdown(report){
     report.config.pairs+' mirrored seed pairs. Seed '+report.config.seed+
     ', maximum '+report.config.seconds+'s.', '',
   'Win results: legacy '+r.wins.legacy+', '+c+' '+r.wins[c]+
-    ', draws '+r.wins.draws+'.','',
+    ', draws '+r.wins.draw+'.','',
   '| Metric | Legacy | '+c+' |','|---|---:|---:|',
   ...Object.keys(r.metrics.legacy).map(k=>
     '| '+k+' | '+r.metrics.legacy[k]+' | '+r.metrics[c][k]+' |'),
