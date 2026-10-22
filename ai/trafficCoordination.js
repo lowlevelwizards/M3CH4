@@ -67,15 +67,22 @@ export function isPhysicalChoke(rig,waypoint,world,radius=1){
   const lateral=Math.max(3.6,2*radius+1.8);
   const inside=(p,o)=>p.x>=o.minX&&p.x<=o.maxX&&
     p.z>=o.minZ&&p.z<=o.maxZ;
-  for(const advance of [0,2.5,5,7.5]){
+  // Look far enough ahead to stage passage BEFORE rigs are touching a
+  // gate; the original 7.5m lookahead was too late and produced deadlocks.
+  // Probe neighbouring lane centres as well: a wingman approaching on the
+  // left edge of a doorway is still approaching the same two-sided choke.
+  const centreShift=Math.max(1.6,radius*1.8);
+  for(const advance of [0,3,6,9,12,16]){
     const along=Math.min(advance,length);
-    const center={x:rig.x+nx*along,z:rig.z+nz*along};
-    // Different boxes can form the sides of the same gap. Require BOTH
-    // probes at the same forward station, so a single wall does not count.
-    const left={x:center.x-nz*lateral,z:center.z+nx*lateral};
-    const right={x:center.x+nz*lateral,z:center.z-nx*lateral};
-    if(staticBoxes.some(o=>inside(left,o))&&
-       staticBoxes.some(o=>inside(right,o)))return true;
+    for(const shift of [-centreShift,0,centreShift]){
+      const center={x:rig.x+nx*along-nz*shift,
+        z:rig.z+nz*along+nx*shift};
+      // Both probes must be obstructed at the same station.
+      const left={x:center.x-nz*lateral,z:center.z+nx*lateral};
+      const right={x:center.x+nz*lateral,z:center.z-nx*lateral};
+      if(staticBoxes.some(o=>inside(left,o))&&
+         staticBoxes.some(o=>inside(right,o)))return true;
+    }
   }
   return false;
 }
