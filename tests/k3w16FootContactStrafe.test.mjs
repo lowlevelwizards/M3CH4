@@ -69,5 +69,5 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(html,/sceneAssembly\.js\?v=k4s2/);
  assert.match(html,/main\.js\?v=k4s2/);
  assert.match(source('sceneAssembly.js'),/scene\.js\?source=k4s2/);
- assert.match(html,/0\.0\.1k\.4s\.2 — Garage Flow/);
+ assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
 });

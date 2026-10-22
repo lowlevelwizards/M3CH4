@@ -118,7 +118,7 @@ test('new mobile assets load instead of cached pre-clarity cockpit and garage sc
     assert.match(html,/sceneAssembly\.js\?v=k4s2/);
     assert.match(html,/styles\.css\?v=k4q/);
     assert.match(html,/uiRedesign\.css\?v=k4q/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4s2/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4s3/);
     assert.match(bridge,/scene\.js\?source=k4s2/);
 });
 
