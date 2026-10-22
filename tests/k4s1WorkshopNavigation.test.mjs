@@ -19,7 +19,7 @@ test('workspace navigation has dedicated paint, counter, contract, setup and pit
     const ui=source('unifiedGarageUI.js'),css=source('k4sWorkshopShell.css');
     assert.match(ui,/function openWorkspace\(target\)/);
     assert.match(ui,/function goBack\(\)/);
-    assert.match(ui,/const links=\[\['paint','PAINT'\],\['vendor','PARTS'\]/);
+    assert.match(ui,/workshop-top-links/);
     assert.match(ui,/shell\.dataset\.workspace=state==='garage' && paintExpanded\?'paint':state/);
     for(const state of ['paint','vendor','contracts','setup','pit'])
         assert.ok(css.includes('[data-workspace="'+state+'"] #unified-garage-dock'),state);
@@ -40,7 +40,7 @@ test('selected machine parts and inventory shelf only appear when explicitly ope
 
 test('camera reserves space for visible tools and otherwise centers the rig',()=>{
     const main=source('main.js');
-    assert.match(main,/workspace==='paint' \|\| \(workspace==='garage' && shell\.classList\.contains\('tool-open'\)\)/);
+    assert.match(main,/const reserve=inspecting && !!bayDock && workspace==='paint'/);
     assert.match(main,/const panelRight=reserve \? bayDock\.getBoundingClientRect\(\)\.right-rect\.left\+8 : 0/);
     assert.match(main,/m3ch4:workspace-layout/);
 });
@@ -48,8 +48,8 @@ test('camera reserves space for visible tools and otherwise centers the rig',()=
 test('browser entry uses new workspace stylesheet and fresh module identity',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
-    assert.match(html,/main\.js\?v=k4s1/);
-    assert.match(html,/garageMountUI\.js\?v=k4s1/);
-    assert.match(html,/unifiedGarageUI\.js\?v=k4s1/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k4s1/);
+    assert.match(html,/main\.js\?v=k4s2/);
+    assert.match(html,/garageMountUI\.js\?v=k4s2/);
+    assert.match(html,/unifiedGarageUI\.js\?v=k4s2/);
+    assert.match(mount,/unifiedGarageUI\.js\?v=k4s2/);
 });
