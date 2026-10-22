@@ -11,8 +11,28 @@ const vec=(value)=>Array.isArray(value)&&value.length===3&&
   value.every(n=>finite(n)&&Math.abs(n)<100)?
   value.map(n=>Math.round(n*10000)/10000):null;
 export function normalizeSurfaceEvent(event){
-  if(!event||!text(event.eventId,140)||!text(event.serial,80)||
-     !text(event.surfaceId,220)||!text(event.sortieId,100))return null;
+  if(!event||!text(event.eventId,140)||!text(event.serial,80))return null;
+  const timestamp=finite(event.timestamp)?
+    Math.floor(clamp(event.timestamp,0,Number.MAX_SAFE_INTEGER)):null;
+  if(event.event==='service'){
+    if(!['workshop-repair','workshop-rebuild','pit-triage'].includes(event.mode))
+      return null;
+    const coveredEventId=event.coveredEventId||null;
+    const surfaceId=event.surfaceId||null;
+    const localPoint=vec(event.localPoint),localNormal=vec(event.localNormal);
+    // No physical evidence, no guessed location: location is all-or-nothing.
+    if(coveredEventId && (!text(coveredEventId,140)||!text(surfaceId,220)||
+        !localPoint||!localNormal||!localNormal.some(n=>Math.abs(n)>.001)))
+      return null;
+    if(!coveredEventId && (surfaceId||event.localPoint||event.localNormal))return null;
+    return Object.freeze({
+      schema:SURFACE_JOURNAL_SCHEMA,event:'service',
+      eventId:event.eventId,serial:event.serial,
+      mode:event.mode,coveredEventId,surfaceId,
+      surfaceVersion:1,localPoint,localNormal,timestamp,
+    });
+  }
+  if(!text(event.surfaceId,220)||!text(event.sortieId,100))return null;
   const localPoint=vec(event.localPoint),localNormal=vec(event.localNormal);
   if(!localPoint||!localNormal||!localNormal.some(n=>Math.abs(n)>.001))return null;
   if(!finite(event.armorAbsorbed)||!finite(event.internalDamage)||
@@ -26,16 +46,22 @@ export function normalizeSurfaceEvent(event){
     armorAbsorbed:Math.round(event.armorAbsorbed*100)/100,
     internalDamage:Math.round(event.internalDamage*100)/100,
     destroyed:!!event.destroyed,disabled:!!event.disabled,
-    timestamp:finite(event.timestamp)?Math.floor(clamp(event.timestamp,0,Number.MAX_SAFE_INTEGER)):null,
+    timestamp,
   });
 }
 export function summarizeSurfaceEvents(events,serial){
-  const out={serial,hits:0,armorStrikes:0,penetrations:0,lastImpactAt:null,scars:[]};
+  const out={serial,hits:0,services:0,armorStrikes:0,penetrations:0,lastImpactAt:null,scars:[]};
   const seen=new Set();
   for(const raw of events||[]){
     const e=normalizeSurfaceEvent(raw);
     if(!e||e.serial!==serial||seen.has(e.eventId))continue;
-    seen.add(e.eventId);out.hits++;
+    seen.add(e.eventId);
+    if(e.event==='service') {
+      out.services++;
+      if(e.coveredEventId)out.scars.push(e);
+      continue;
+    }
+    out.hits++;
     if(e.kind==='penetration')out.penetrations++;else out.armorStrikes++;
     if(e.timestamp!=null)out.lastImpactAt=Math.max(out.lastImpactAt||0,e.timestamp);
     out.scars.push(e);

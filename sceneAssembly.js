@@ -80,6 +80,8 @@ function alignAssemblyMeshes(arena, assembly) {
     // Graph placement may have adjusted the true foot-sole elevation.
     // Re-measure only on assembly changes, never in the frame loop.
     arena.recalibratePlayerSoles?.();
+    // Use post-graph assembled station locations for physical damage postures.
+    arena.refreshInspectionBase?.();
     arena.scene.updateMatrixWorld(true);
 }
 
