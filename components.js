@@ -32,6 +32,8 @@ export const CATALOG = [
     { id: 'gun-scatter', name: 'Scrapyard S-6 scattergun', slot: 'combat', massKg: 375, center: SLOT_CENTERS.combat, envelope: [1.10, 1.00, 1.92], accepts: 'U1', description: 'Welded six-pellet industrial scattergun: fat choke, four-shell box, exposed cycle lever and heavy single-shell recoil. Short-range armor stripping; every pellet strikes physically.', powerKw: -12, functionReady: true },
     // Forge H-4 is appended after all fifteen protected factory serial definitions.
     { id: 'power-forge', name: 'Forge H-4 industrial generator', slot: 'power', massKg: 680, center: SLOT_CENTERS.power, envelope: [1.34, 1.15, 1.05], accepts: 'U1', description: 'Massive continuous-duty industrial generation in a welded cradle with exposed heat exchangers. 170 kW sustained, slow transient response and substantial handling penalty.', powerKw: 170, functionReady: true },
+    // k4w.1: append after all sixteen historical serials, retaining save and fixture identities.
+    { id: 'gun-rivet', name: 'RR-4 Rivet Repeater', slot: 'combat', massKg: 440, center: SLOT_CENTERS.combat, envelope: [1.46, 1.02, 1.88], accepts: 'U1', description: 'Salvaged industrial belt-feed tool converted for sustained fire. Immediate automatic rivets, strong progressive mounting wander, high ammunition consumption and slow belt change.', powerKw: -24, functionReady: true },
 ];
 // Independent mechanical mounting metadata; mesh geometry and hit envelopes remain unchanged.
 for (const part of CATALOG) {
