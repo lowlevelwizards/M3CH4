@@ -25,8 +25,8 @@ test('named moving surfaces retain stable IDs and unknown meshes are not falsely
   const root=fake('mobility-visual',[fake('left shin',[left]),fake('right shin',[right])]);
   const ids=assignPartSurfaces(root,'legs-yard','mobility');
   assert.equal(ids,2);
-  assert.equal(left.userData.surface.id,'legs-yard/mobility-visual/left-shin/outer-guard');
-  assert.equal(right.userData.surface.id,'legs-yard/mobility-visual/right-shin/outer-guard');
+  assert.equal(left.userData.surface.id,'legs-yard/left-shin/outer-guard');
+  assert.equal(right.userData.surface.id,'legs-yard/right-shin/outer-guard');
   assert.equal(left.userData.surface.exposure,'lower-exterior');
   const unnamed=fake('');
   const anonymous=fake('named',[unnamed]);
