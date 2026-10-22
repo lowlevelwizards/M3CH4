@@ -22,6 +22,7 @@ import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from 
 import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
 import {recentThreatTargetId} from '../tacticalAwareness.js';
 import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
+import {ARRIVAL_POLICIES} from '../ai/squadPositioning.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
@@ -150,6 +151,11 @@ function combatWorldFor(me,actors){
 export function runBout(seed,settings){
     const traffic={friendly:settings.trafficFriendly??'legacy',
         hostile:settings.trafficHostile??'legacy'};
+    const arrivals={friendly:settings.arrivalFriendly??'legacy',
+      hostile:settings.arrivalHostile??'legacy'};
+    if(!ARRIVAL_POLICIES.includes(arrivals.friendly)||
+      !ARRIVAL_POLICIES.includes(arrivals.hostile))
+      throw new RangeError('Invalid squad destination policy');
     if(!TRAFFIC_POLICIES.includes(traffic.friendly)||
         !TRAFFIC_POLICIES.includes(traffic.hostile))
       throw new RangeError('Invalid squad traffic research policy');
@@ -176,7 +182,7 @@ export function runBout(seed,settings){
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
     const metrics={seed,scenario:settings.name??'research',accuracy:settings.accuracy,
         policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
-        traffic,
+        traffic,arrivals,
         difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
         simulation:'research-approximate-v2',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
@@ -216,6 +222,7 @@ export function runBout(seed,settings){
         plans[team]=planTeam(snapshot,team,{
           strategy:evaluateStrategy(strategies,snapshot,team),
           policy:policies[team],previousOrders:plans[team]?.orders,
+          arrivalPolicy:arrivals[team],world:DEFAULT_WORLD,
           assaultMemory:assaults[team]});
         planLeft[team]=difficulties[team].planningSeconds;
       }
