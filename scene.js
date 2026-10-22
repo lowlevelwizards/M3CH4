@@ -10,7 +10,7 @@ import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import { normalizePaint } from './factoryPaint.js';
-import { buildPartVisual } from './partVisuals.js?v=k3z';
+import { buildPartVisual } from './partVisuals.js?v=k4w1';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
@@ -2201,7 +2201,7 @@ export function createArenaScene(initial, targetAssembly) {
         target.exterior.root.updateWorldMatrix(true, true);
         const combatGroup = shooter.exterior.partGroups.get('combat');
         const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : -1.58;
+        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : -1.58;
         const muzzle = combatGroup
             ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
             : shooter.exterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));

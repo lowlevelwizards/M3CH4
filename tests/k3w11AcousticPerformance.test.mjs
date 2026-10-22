@@ -76,7 +76,7 @@ test('worker can supply already-rendered PCM before audio starts; sample rate re
   const old=globalThis.Worker;
   let constructed=false,terminated=false;
   class FakeWorker{
-    constructor(url,opts){constructed=true;assert.match(String(url),/audioWarmWorker\.js\?v=k3w11/);assert.equal(opts.type,'module');}
+    constructor(url,opts){constructed=true;assert.match(String(url),/audioWarmWorker\.js\?v=k4w1/);assert.equal(opts.type,'module');}
     terminate(){terminated=true;}
   }
   try{
@@ -113,8 +113,8 @@ test('startup gesture prepares sound, worker boot does not corrupt machine save 
   assert.match(audio,/export function soundReload\(\)/);
   assert.doesNotMatch(worker,/localStorage|storeMachine/);
   assert.doesNotMatch(audio,/storeMachine/);
-  assert.match(html,/audioWarmup\.js\?v=k3w11/);
+  assert.match(html,/audioWarmup\.js\?v=k4w1/);
   assert.match(html,/audioRoom\.js\?v=k3w11/);
   assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
-  assert.equal(Object.keys(LIVE_WEAPON_RECIPES).length,4);
+  assert.equal(Object.keys(LIVE_WEAPON_RECIPES).length,5);
 });

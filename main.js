@@ -3,6 +3,7 @@ import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceMotionSound } from './liveSystemsEvents.js';
 import { shotContacts } from './scattergun.js';
+import { weaponActionSpreadRadians } from './weaponController.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
@@ -2402,7 +2403,9 @@ function attemptAiFire(actor, target, shotIndex) {
     });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
-    const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians);
+    const mountSpread=actor.weaponSpec.fireMode==='automatic'
+        ? weaponActionSpreadRadians(actor.weaponSpec,actor.weaponState,actor.rig.brace??0):0;
+    const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians+mountSpread);
     const assigned=aiPlans[actor.team]?.orders?.[actor.id]??null;
     const contesting=!!assigned?.objectiveId&&sortieObjective.domination?.points?.some(p=>
         p.id===assigned.objectiveId && p.contested &&
@@ -2499,7 +2502,7 @@ function attemptFire() {
     const degradedSpread=weaponSpreadMultiplier(output);
     const multi=weaponSpec.pellets>1;
     const [baseX,baseY]=shotSpread(shot,multi ? .004*degradedSpread :
-        weaponSpec.spread*degradedSpread);
+        weaponActionSpreadRadians(weaponSpec,weaponState,rig.brace??0)*degradedSpread);
     const contacts=multi
         ? shotContacts(shot,weaponSpec,degradedSpread,
             (x,y)=>arena.traceShot(baseX+x,baseY+y,weaponSpec.muzzleZ))

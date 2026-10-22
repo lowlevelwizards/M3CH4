@@ -2,6 +2,7 @@
  * Pure data and math: Three.js decides which physical mesh was hit; this module
  * resolves only the owned component serial behind that mesh. No AI or repairs. */
 import { equip, installedPart, makeTestAssembly, SLOTS } from './components.js';
+import { createWeaponActionState, advanceWeaponAction, recordWeaponEmission } from './weaponController.js';
 import { mobilityPerformance } from './mobilityPerformance.js';
 import { contractById, selectedContract } from './contracts.js';
 import { applyDestructionOverflow, hydrateDamageFate } from './damageFate.js';
@@ -10,13 +11,14 @@ export const WEAPONS = {
     'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 2550, spread: .012, muzzleZ: -1.31, visualRecoil: 1.38, visualRecovery: 2.25, muzzleFlashSeconds: .135, handling: 'CLUNKY / HEAVY KICK' },
     'gun-light': { id: 'gun-light', label: 'NEEDLE CANNON', magazine: 16, spareRounds: 80, roundsPerSecond: 3.5, reloadSeconds: 2.8, damage: 28, recoilImpulseNs: 1050, spread: .002, muzzleZ: -2.73, visualRecoil: .56, visualRecovery: 4.8, muzzleFlashSeconds: .065, handling: 'LIGHT / FAST RECOVERY' },
     'gun-scatter': { id: 'gun-scatter', label: 'S-6 SCATTERGUN', magazine: 4, spareRounds: 28, roundsPerSecond: 1.0, reloadSeconds: 3.0, pellets: 6, damage: 21, recoilImpulseNs: 3550, spread: .115, muzzleZ: -1.46, visualRecoil: 1.60, visualRecovery: 2.0, muzzleFlashSeconds: .20, handling: 'CLOSE / SIX PHYSICAL PELLETS' },
+    'gun-rivet': { id: 'gun-rivet', label: 'RR-4 RIVET REPEATER', fireMode: 'automatic', magazine: 60, spareRounds: 216, roundsPerSecond: 8.5, reloadSeconds: 4.2, damage: 10, recoilImpulseNs: 470, spread: .014, sustainedSpread: .034, muzzleZ: -1.60, visualRecoil: .26, visualRecovery: 9.0, muzzleFlashSeconds: .045, handling: 'AUTOMATIC / LANE PRESSURE' },
 };
 export function weaponFor(assembly) {
     const id = installedPart(assembly, 'combat')?.definition.id;
     return id ? (WEAPONS[id] ?? null) : null;
 }
 export function createWeaponState(spec) {
-    return { loaded: spec.magazine, reserve: spec.spareRounds, cooldown: 0, reloadLeft: 0, firingCount: 0 };
+    return { loaded: spec.magazine, reserve: spec.spareRounds, cooldown: 0, reloadLeft: 0, firingCount: 0, action: createWeaponActionState(spec) };
 }
 export function startReload(state, spec) {
     if (state.reloadLeft > 0 || state.loaded >= spec.magazine || state.reserve <= 0)
@@ -28,6 +30,7 @@ export function advanceWeapon(state, spec, dt) {
     if (!Number.isFinite(dt) || dt <= 0)
         return;
     state.cooldown = Math.max(0, state.cooldown - dt);
+    advanceWeaponAction(state, spec, dt);
     if (state.reloadLeft > 0) {
         state.reloadLeft = Math.max(0, state.reloadLeft - dt);
         if (state.reloadLeft === 0) {
@@ -43,6 +46,7 @@ export function fireWeapon(state, spec) {
         return null;
     state.loaded--;
     state.cooldown = 1 / spec.roundsPerSecond;
+    recordWeaponEmission(state, spec);
     return ++state.firingCount;
 }
 /** Deterministic spread allows a failed target test to be reproduced. */

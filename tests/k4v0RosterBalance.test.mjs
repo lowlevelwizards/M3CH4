@@ -10,19 +10,24 @@ const fixture = JSON.parse(readFileSync(new URL('../research/baselines/roster-bu
 test('rebalanced catalogue preserves the original October 22 identities', () => {
     assert.deepEqual(CATALOG.slice(0, fixture.originalIds.length).map(p => p.id), fixture.originalIds);
     assert.equal(new Set(CATALOG.map(p => p.id)).size, CATALOG.length);
-    assert.equal(CATALOG.length, fixture.expected.definitions);
+    assert.ok(CATALOG.length>=fixture.expected.definitions,'dated fixture covers the sixteen original definitions');
 });
 
 test('all live five-module recipes produce the recomputed 324 / 237 / 87 power legality', () => {
     const report = runRosterBalanceAudit(), s = report.summary;
-    assert.equal(s.definitions, fixture.expected.definitions);
-    assert.equal(s.total, fixture.expected.total);
-    assert.equal(s.legal, fixture.expected.legal);
-    assert.equal(s.rejected, fixture.expected.rejected);
-    assert.equal(report.combinations.length, fixture.expected.total);
+    assert.equal(s.definitions, CATALOG.length);
+    const originalGuns=new Set(CATALOG.slice(0,fixture.originalIds.length).filter(p=>p.slot==='combat').map(p=>p.id));
+    const legacy = report.combinations.filter(row => originalGuns.has(row.recipe.combat));
+    assert.equal(legacy.length, fixture.expected.total, 'original 324 configurations are preserved');
+    assert.equal(legacy.filter(row=>row.ready).length, fixture.expected.legal,'original 237 legal recipes remain legal');
+    assert.equal(legacy.filter(row=>!row.ready).length, fixture.expected.rejected);
+    assert.equal(s.total, report.combinations.length);
+    assert.equal(s.legal+s.rejected,s.total);
+    assert.ok(s.total>fixture.expected.total,'appended weapon adds combinations');
+    assert.equal(report.combinations.length, s.total);
     assert.equal(new Set(report.combinations.map(row => row.key)).size, s.total);
     for (const [id, expected] of Object.entries(fixture.expected.mobilityLegal))
-        assert.equal(s.bySlot.mobility[id].legal, expected, id);
+        assert.equal(legacy.filter(row=>row.ready&&row.recipe.mobility===id).length,expected,id);
     for (const slot of SLOTS)
         assert.equal(Object.values(s.bySlot[slot]).reduce((n, row) => n + row.total, 0), s.total);
 });
@@ -49,7 +54,8 @@ test('the first-hit mounting and eligibility authority is inspected, not simulat
             assert.equal(row.combatWinRate, undefined);
         }
     }
-    assert.equal(get('mobility', 'legs-hauler').length, 108);
+    const originalGuns=new Set(CATALOG.slice(0,fixture.originalIds.length).filter(p=>p.slot==='combat').map(p=>p.id));
+    assert.equal(get('mobility', 'legs-hauler').filter(row=>originalGuns.has(row.recipe.combat)).length,108);
     assert.ok(report.combinations.some(row => !row.ready &&
         row.reasons.some(r => r.check === 'power')));
     assert.ok(report.combinations.some(row => !row.ready &&
