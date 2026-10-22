@@ -123,3 +123,13 @@ test('production integration passes null no-contact and coarse suppressed-fire p
  assert.match(main,/\.48, target\.rig\)/);
  assert.match(service,/const covered = !!target && awareness\.lineOfSight === false/);
 });
+
+test('incoming rear fire interrupts pursuit of a stale last-known contact',()=>{
+ const a=createTacticalAwareness(),me=fakeRig();
+ advanceTacticalAwareness(a,me,pos(0,-10),.1,world,1,{id:'pressure',preferredRangeM:6});
+ noteIncomingFire(a,pos(0,18),'rear-shooter',1.5,me);
+ const decision=advanceTacticalAwareness(a,me,null,.1,world,1,
+   {id:'pressure',preferredRangeM:6});
+ assert.equal(decision.mode,'UNDER_FIRE');
+ assert.ok(decision.point.z>0,'threat bearing should face behind');
+});
