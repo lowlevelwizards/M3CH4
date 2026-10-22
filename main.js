@@ -1797,7 +1797,7 @@ function frame(now) {
                         enemySeen:!!alliedView?.contacts?.some(c=>c.visible),
                         uncertain:!alliedView?.contacts?.some(c=>c.visible),
                         world:DEFAULT_WORLD,
-                        preferredRangeM:actor.behavior?.preferredRangeM,
+                        preferredRangeM:actor.weaponSpec?.fireMode==='continuous'?4.3:actor.behavior?.preferredRangeM,
                         collisionRadius:actorConfig.collisionRadiusM+.3,
                         threatPosition:target?.rig??null,
                         nearbyAllies:participants.filter(p=>p.team===actor.team&&p.id!==actor.id&&p.active).map(p=>({position:p.rig})),
