@@ -102,27 +102,31 @@ function candidateClaims(playerAssembly,contract,rng){
 function assembledForRig(inventory,rig){
   return {serial:'SIM',owned:inventory,installed:rig.installed};
 }
-function damageRig(inventory,rig,fraction,rng){
+function damageRig(inventory,rig,fraction,rng,armorBySerial){
   const assembly=assembledForRig(inventory,rig);
   const state=createTargetCondition(assembly,true);
   for(const p of Object.values(state.parts)){
+    p.armor=armorBySerial.get(p.serial)??p.armor;
     const loss=fraction*(.55+rng()*.90);
     p.armor=Math.max(0,p.armor-p.maxArmor*loss);
     p.integrity=Math.max(0,p.integrity-p.maxIntegrity*loss*.60);
+    armorBySerial.set(p.serial,p.armor);
   }
   mirrorTargetCondition(assembly,state);
   return {assembly,state};
 }
-function serviceInventory(inventory,rigs,credits){
+function serviceInventory(inventory,rigs,credits,armorBySerial){
   let spent=0,deferred=0;
   for(const rig of rigs){
     const assembly=assembledForRig(inventory,rig),condition=createTargetCondition(assembly,true);
+    for(const p of Object.values(condition.parts))p.armor=armorBySerial.get(p.serial)??p.armor;
     const quote=totalRepairQuote(condition);
     if(quote<=credits-spent){
       spent+=quote;
       for(const p of Object.values(condition.parts)){
         const owned=inventory.find(x=>x.serial===p.serial);
         if(owned)owned.condition=1;
+        armorBySerial.set(p.serial,p.maxArmor);
       }
     }else deferred+=quote;
   }
@@ -162,7 +166,8 @@ function buyForFleet(inventory,cycle,credits,reserve,rng,validRecipes){
  */
 export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-scrap-often'],purchase=true}={}){
   if(!Number.isInteger(contracts)||contracts<1||contracts>100)throw Error('contracts 1-100');
-  const rng=rngFor(seed),inventory=makeStarterAssembly().owned;
+  const rng=rngFor(seed),inventory=makeStarterAssembly().owned,
+    armorBySerial=new Map();
   const legalRows=runRosterBalanceAudit().combinations.filter(r=>r.ready);
   let campaign=createCampaignState(),credits=STARTING_CREDITS;
   let wins=0,losses=0,roundWins=0,salvages=0,purchases=0,repairPaid=0,
@@ -181,7 +186,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
       shots+=Math.round(12+rng()*13);
       const chosen=roster[(won+lost-1)%roster.length];
       const damageFraction=assumptions.damageFraction*(win?.82:1.2);
-      damageRig(inventory,chosen,damageFraction,rng);
+      damageRig(inventory,chosen,damageFraction,rng,armorBySerial);
       seriesDamage+=damageFraction;
       if(win&&choose(rng,assumptions.claimEligibility)){
         const offer=candidateClaims({owned:inventory},contract,rng);
@@ -201,7 +206,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
     campaign=campaignEvent.state;
     let fleet=packFleet(inventory,legalRows);
     // Repair fielded and recently damaged machines; price is a separate garage expense.
-    const repair=serviceInventory(inventory,fleet,credits);
+    const repair=serviceInventory(inventory,fleet,credits,armorBySerial);
     credits=repair.credits;repairPaid+=repair.spent;deferred+=repair.deferred;
     if(purchase){
       const market=buyForFleet(inventory,campaign.sorties,credits,
@@ -256,7 +261,7 @@ export function runCampaignScenarios({seeds=48,contracts=30}={}){
     cautions:['The victory and damage probabilities are transparent assumptions, not real player or AI outcomes.',
     'Salvage claim eligibility is a scenario assumption; maximum one claimed surviving module per won round, using actual draft and acquisition.',
     'Opponent manifests repeat each contract lead recipe; supporting crew mixes, wreck destruction and score-order draft loss are not simulated.',
-    'Repairs are paid after terminal BO3 settlement; per-round damage persists and generators retain their nominal stats.',
+    'Repairs are paid after terminal BO3 settlement; persistent armor and integrity losses are quoted by the actual economic functions.',
     'Market turns over each completed contract. One shortage-targeted purchase per contract leaves cash buffer.',
     'No human selling, advanced trading, customization preferences, actor careers or high-end money sinks.',
     'A 3-mech result means three simultaneously legal distinct-serial sets, NOT proof of 3 tactically strong fighters.']};
