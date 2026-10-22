@@ -1,3 +1,4 @@
+import { equip, inspectAssembly } from './components.js';
 /** Campaign-specific physical weapon fits and AI positioning preferences.
  * All arms use the same real combat authority, parts and ammunition.
  */
@@ -35,4 +36,15 @@ const DOCTRINES=Object.freeze({
 export function weaponDoctrine(base,weaponId) {
  const profile=DOCTRINES[weaponId];
  return profile ? Object.freeze({...base,...profile}) : base;
+}
+
+/** Install both the selected weapon and any required real generator upgrade.
+ * Both AI runtime and headless audits call this same physical fitter.
+ */
+export function fitEncounterWeapon(assembly,combatId) {
+ if(!combatId)return assembly;
+ equip(assembly,'combat',combatId);
+ const powerCheck=inspectAssembly(assembly).checks.find(check=>check.id==='power');
+ if(powerCheck&&!powerCheck.passes) equip(assembly,'power','power-dynamo');
+ return assembly;
 }

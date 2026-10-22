@@ -5,7 +5,7 @@ import {CONTRACTS,contractById} from '../contracts.js';
 import {makeRangeTarget,weaponFor,createTargetCondition} from '../combat.js';
 import {equip,inspectAssembly,installedPart} from '../components.js';
 import {hostileSupportRecipes} from '../squadBattle.js';
-import {encounterWingArms,weaponDoctrine} from '../campaignArsenal.js';
+import {encounterWingArms,weaponDoctrine,fitEncounterWeapon} from '../campaignArsenal.js';
 import {wreckManifest} from '../salvageDraft.js';
 import {createCampaignState} from '../campaign.js';
 import {makeStarterAssembly} from '../acquisition.js';
@@ -28,7 +28,7 @@ test('each authored enemy squad fields distinct serial combat hardware without s
   const rigs=[makeRangeTarget(contract.id)];
   for(let i=0;i<arms.length;i++){
    const rig=makeRangeTarget(wingFamilies[i]);
-   equip(rig,'combat',arms[i]);
+   fitEncounterWeapon(rig,arms[i]);
    rig.serial=contract.id+'-WING-'+i;
    rigs.push(rig);
   }
@@ -101,7 +101,7 @@ test('live encounter composition and counter cache are used by browser entrypoin
  const main=src('main.js');
  assert.match(main,/encounterWingArms\(targetAssembly.contractId\)/);
  assert.match(main,/weaponDoctrine\(activeContract.behavior,hostileWeaponSpec.id\)/);
- assert.match(main,/equip\(actorAssembly,'combat',combatId\)/);
+ assert.match(main,/fitEncounterWeapon/);
  assert.match(src('usedPartsCounter.js'),/generateCounterStock\(number,loadCampaign\(storage\)\)/);
  assert.match(src('index.html'),/main\.js\?v=k4w5/);
 });

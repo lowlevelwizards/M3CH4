@@ -42,7 +42,7 @@ import { advanceHostileController, createHostileController, disabledReason, host
 import { contractById } from './contracts.js';
 import { applyEnemyCrewPaint, applyFriendlyCrewPaint } from './crewLivery.js';
 import { FRIENDLY_SUPPORTS, HOSTILE_SUPPORT_SPAWNS, FRIENDLY_TEAM, HOSTILE_TEAM, chooseSquadTarget, hostileSupportRecipes, squadCounts, squadOutcome } from './squadBattle.js';
-import { encounterWingArms, weaponDoctrine } from './campaignArsenal.js';
+import { encounterWingArms, weaponDoctrine, fitEncounterWeapon } from './campaignArsenal.js';
 import { damageWreckIntegrity, shoveWreck, wreckCollisionRadius } from './wreckPhysics.js';
 import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from './combatPresentation.js';
 import { createBoutLedger, recordBoutHit, recordMissionKill, scoreBout } from './boutScoring.js';
@@ -118,13 +118,7 @@ const primaryEnemyActor = {
 };
 function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex=1, combatId=null) {
     const actorAssembly = makeRangeTarget(contractId);
-    if (combatId) {
-        equip(actorAssembly,'combat',combatId);
-        // A heavier electrical load demands an actual upgraded generator.
-        // Choose from owned physical hardware; do not bypass the power check.
-        const powerCheck=inspectAssembly(actorAssembly).checks.find(check=>check.id==='power');
-        if(powerCheck&&!powerCheck.passes) equip(actorAssembly,'power','power-dynamo');
-    }
+    if (combatId) fitEncounterWeapon(actorAssembly,combatId);
     if(team===FRIENDLY_TEAM)
         applyFriendlyCrewPaint(actorAssembly,saveStorage,assembly,rosterIndex);
     else
