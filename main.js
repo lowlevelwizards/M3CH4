@@ -1450,6 +1450,8 @@ function toggleInspection(force) {
     if (inspecting) {
         leaveAlliedObservation();
         sortiePhase = 'garage';
+        document.body.classList.remove('sortie-outro-active', 'victory-showcase');
+        winnerTableau.classList.add('hidden');
         sortieOutro.classList.add('hidden');
         sortieOutro.setAttribute('aria-hidden', 'true');
         devPanel.classList.add('hidden');
@@ -1466,6 +1468,8 @@ function toggleInspection(force) {
         debriefSheet.setAttribute('aria-hidden', 'true');
         sortieOutro.classList.add('hidden');
         sortieOutro.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('sortie-outro-active', 'victory-showcase');
+        winnerTableau.classList.add('hidden');
         sortiePhase = 'combat'; sortieOutroRemaining = 0; pendingDebrief = null;
         reportFade = 0; shotReport.textContent = ''; shotReport.className = 'shot-report faded';
         hitConfirm.className = 'hit-confirm'; rangeCrosshair.classList.remove('confirmed-hit', 'breach-hit', 'disable-hit');
@@ -1691,10 +1695,19 @@ else if (loadedMachine.status === 'unavailable')
     showStatus('LOCAL STORAGE UNAVAILABLE · PROGRESS WILL NOT SAVE');
 // Backup flush when iPhone Safari suspends the web-app without a page unload.
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden')
+    if (document.visibilityState === 'hidden') {
+        stopFireInput();
+        stopFieldServiceInput();
+        controls.cancelPointers();
         persistMachine();
+    }
 });
-window.addEventListener('pagehide', persistMachine);
+window.addEventListener('pagehide', () => {
+    stopFireInput();
+    stopFieldServiceInput();
+    controls.cancelPointers();
+    persistMachine();
+});
 function frame(now) {
     const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);
     previousTime = now;
@@ -1989,7 +2002,7 @@ function frame(now) {
             arena.endVictoryShowcase();
             sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
             sortieOutro.classList.remove('physical-showcase');
-            document.body.classList.remove('victory-showcase');
+            document.body.classList.remove('victory-showcase', 'sortie-outro-active');
             winnerTableau.classList.add('hidden');
             controls.setEnabled(false);
             assemblyToggle.disabled = false;
@@ -2184,13 +2197,20 @@ function renderAmmo() {
         !playerPower.weaponReady ? 'PWR SAG' :
         weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
             `${weaponState.loaded} / ${weaponState.reserve}`;
+    // The slider fills from the actual weapon timer (or service timer), never
+    // an independent animation clock that can drift from combat state.
+    const isReloading = !!weaponSpec && !!weaponState && weaponState.reloadLeft > 0;
+    const progress = fieldService.held ? fieldService.progress / FIELD_SERVICE_SECONDS :
+        isReloading ? 1 - weaponState.reloadLeft / Math.max(.01, weaponSpec.reloadSeconds) : 0;
+    reloadButton.classList.toggle('reloading', isReloading || fieldService.held);
+    reloadButton.style.setProperty('--reload-progress', `${Math.round(Math.max(0,Math.min(1,progress))*100)}%`);
     if (serviceAvailable) {
-        reloadButton.textContent = fieldService.held ? `FIELD SERVICE ${servicePercent}%` : stationary ? 'HOLD FIELD SERVICE' : 'STOP TO FIELD SERVICE';
+        reloadButton.textContent = fieldService.held ? `SERVICE ${servicePercent}%` : stationary ? 'HOLD FIELD SERVICE' : 'STOP TO FIELD SERVICE';
         reloadButton.disabled = inspecting || testEnded || !stationary;
         reloadButton.classList.toggle('servicing', fieldService.held);
     }
     else {
-        reloadButton.textContent = 'RELOAD';
+        reloadButton.textContent = isReloading ? 'RELOADING' : 'RELOAD';
         reloadButton.classList.remove('servicing');
         reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
     }
@@ -2283,9 +2303,10 @@ function finishSortie(victory, reason) {
     stopFireInput();
     stopFieldServiceInput();
     arena.clearRockets();
-    // The bout state is final, but a surviving pilot gets a short physical aftermath
-    // before the report covers the yard. Fire/service stay locked by testEnded.
-    controls.setEnabled(victory && playerCombatActive && appSheet.classList.contains('hidden'));
+    // A result tableau is not a playable screen; all pointer/keyboard commands
+    // must be released even if the pilot survived the bout.
+    controls.setEnabled(false);
+    leaveAlliedObservation();
     const winningTeam = victory ? FRIENDLY_TEAM : HOSTILE_TEAM;
     const survivors = { player: playerCombatActive };
     for (const actor of aiActors) survivors[actor.id] = actor.active;
@@ -2328,6 +2349,7 @@ function finishSortie(victory, reason) {
     renderSquadStatus();
     reportFade = 0;
     sortiePhase = 'outro';
+    document.body.classList.add('sortie-outro-active');
     // A complete squad wipe resolves immediately; territory/score outcomes keep
     // their short physical aftermath. This does not bypass rewards or BO3 scoring.
     sortieOutroRemaining = 5; // Retain the aftermath even on a complete squad wipe.
@@ -2792,6 +2814,12 @@ const endFirePointer = (event) => {
 fireButton.addEventListener('pointerup', endFirePointer);
 fireButton.addEventListener('pointercancel', endFirePointer);
 fireButton.addEventListener('lostpointercapture', endFirePointer);
+window.addEventListener('pointerup', endFirePointer, true);
+window.addEventListener('pointercancel', endFirePointer, true);
+window.addEventListener('pointermove', event => {
+    if (event.pointerId === firePointerId && event.pointerType !== 'touch' && event.buttons === 0)
+        stopFireInput();
+}, true);
 fireButton.addEventListener('click', event => {
     if (event.detail === 0)
         attemptFire(); // keyboard accessibility
