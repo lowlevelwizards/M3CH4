@@ -19,7 +19,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
 import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
-import {counterFlankOrder} from '../ai/combatIntelligence.js';
+import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
 import {recentThreatTargetId} from '../tacticalAwareness.js';
 import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
@@ -302,6 +302,15 @@ export function runBout(seed,settings){
         if(a.stats.firstShot===null)a.stats.firstShot=t;
         const dx=target.rig.x-a.rig.x,dz=target.rig.z-a.rig.z;
         applyRecoil(a.rig,config,dx,dz,a.weaponSpec.recoilImpulseNs);
+        // A physically fired but missed/blocked round still creates threat
+        // evidence. Lacking 3D ballistics, use the estimated muzzle-to-target
+        // segment, not invented coordinates or privileged shooter awareness.
+        noteIncomingFire(target.motion,a.rig,a.id,.48,target.rig);
+        for(const observer of actors)if(observer.active&&observer.team!==a.team&&
+            observer.id!==target.id){
+          const evidence=shotThreatEvidence(observer.rig,a.rig,target.rig);
+          if(evidence)recordShotEvidence(observer.motion,observer.rig,evidence);
+        }
         if(settings.accuracy===0||rng()>chance)continue;
         a.stats.hits++;metrics.damagingShots++;
         const contested=!!job?.objectiveId&&state.domination.points.some(p=>
