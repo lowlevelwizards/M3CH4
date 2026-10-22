@@ -1888,7 +1888,35 @@ export function createArenaScene(initial, targetAssembly) {
         restoreSurfaceMarks([event]);
     }
     function drainSurfaceEvents() {return surfaceImpactEvents.splice(0);}
-    function traceShot(spreadX, spreadY, muzzleZ) {
+    /** Return only successive distinct physical modules on a single muzzle ray.
+     * World meshes or certified arena cover terminate the shot; overlap meshes
+     * belonging to the same physical module are never counted as extra layers.
+     */
+    function penetrationContacts(primary,intersections,cover,muzzle,bore) {
+        if(cover||!primary.actorId||!primary.slot)return [primary];
+        const contacts=[primary],seen=new Set([primary.actorId+'/'+primary.slot]);
+        for(const hit of intersections.slice(1)) {
+            if(contacts.length>=3)break;
+            const slot=hit.object.userData.slot,actorId=hit.object.userData.actorId;
+            if(!slot||!actorId||hit.object.userData.arenaObstacleId)break;
+            const key=actorId+'/'+slot;
+            if(seen.has(key))continue;
+            seen.add(key);
+            const normal=hit.face?.normal
+                ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+                : bore.clone().negate();
+            let driveSide;
+            if(slot==='mobility') {
+                const hitRoot=actorId==='player'?exterior.root:squadCombatants.get(actorId)?.exterior.root;
+                if(hitRoot)driveSide=hitRoot.worldToLocal(hit.point.clone()).x<0?'left':'right';
+            }
+            contacts.push({actorId,slot,blockedBy:null,shieldedSlot:null,
+                point:hit.point.clone(),normal,muzzle,distance:muzzle.distanceTo(hit.point),
+                surfaceHit:surfaceContact(hit,hit.point,normal),driveSide});
+        }
+        return contacts;
+    }
+    function traceShot(spreadX, spreadY, muzzleZ, penetrate=false) {
         camera.updateMatrixWorld();
         cockpit.updateMatrixWorld(true);
         targetExterior.root.updateWorldMatrix(true, true);
@@ -1917,12 +1945,14 @@ export function createArenaScene(initial, targetAssembly) {
         const slot = cover ? null : actual?.object.userData.slot;
         const actorId = cover ? null : actual?.object.userData.actorId ?? null;
         const blockedBy = cover?.id ?? actual?.object.userData.arenaObstacleId ?? null;
-        return { actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
+        const contact={ actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
             shieldedSlot: cover ? null : shieldedSlot,
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+        if(penetrate)contact.penetrationContacts=penetrationContacts(contact,intersections,cover,muzzle,bore);
+        return contact;
     }
-    function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY) {
+    function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY, penetrate=false) {
         const shooter = squadCombatants.get(shooterId);
         const target = targetId === 'player'
             ? { id: 'player', assembly: initial, exterior }
@@ -1933,7 +1963,7 @@ export function createArenaScene(initial, targetAssembly) {
         target.exterior.root.updateWorldMatrix(true, true);
         const combatGroup = shooter.exterior.partGroups.get('combat');
         const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : -1.58;
+        const muzzleLocalZ = weaponId === 'gun-light' ? -2.16 : weaponId === 'gun-short' ? -1.03 : weaponId==='gun-scatter' ? -1.12 : weaponId === 'gun-rivet' ? -1.30 : weaponId === 'gun-breaker' ? -1.32 : -1.58;
         const muzzle = combatGroup
             ? combatGroup.localToWorld(new THREE.Vector3(0, -.05, muzzleLocalZ))
             : shooter.exterior.root.localToWorld(new THREE.Vector3(1.17, 2.03, -1.55));
@@ -1969,13 +1999,15 @@ export function createArenaScene(initial, targetAssembly) {
                 driveSide = local.x < 0 ? 'left' : 'right';
             }
         }
-        return {
+        const contact={
             actorId: slot ? actorId : null,
             slot: slot ?? null, blockedBy, shieldedSlot: cover ? null : shieldedSlot,
             point, normal: surfaceNormal, muzzle,
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             distance: muzzle.distanceTo(point), driveSide,
         };
+        if(penetrate)contact.penetrationContacts=penetrationContacts(contact,intersections,cover,muzzle,bore);
+        return contact;
     }
     function traceHostileShot(state, aimSlot, spreadX, spreadY) {
         return traceCombatantShot('enemy-0', 'player', aimSlot, spreadX, spreadY);
