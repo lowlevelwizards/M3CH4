@@ -48,10 +48,20 @@ try{
       if(!hit&&node.isMesh&&node.userData.surface?.persistable)hit=node;
     });
     if(!hit)return {ok:false,reason:'No named mobility surface'};
+    const geo=hit.geometry,attr=geo.getAttribute('position'),ids=geo.getIndex();
+    const idx=n=>ids?ids.getX(n):n;
+    const pa=[attr.getX(idx(0)),attr.getY(idx(0)),attr.getZ(idx(0))];
+    const pb=[attr.getX(idx(1)),attr.getY(idx(1)),attr.getZ(idx(1))];
+    const pc=[attr.getX(idx(2)),attr.getY(idx(2)),attr.getZ(idx(2))];
+    const ab=pb.map((v,i)=>v-pa[i]),ac=pc.map((v,i)=>v-pa[i]);
+    const nn=[ab[1]*ac[2]-ab[2]*ac[1],
+      ab[2]*ac[0]-ab[0]*ac[2],ab[0]*ac[1]-ab[1]*ac[0]];
+    const l=Math.hypot(...nn)||1;
     const mark={
       eventId:'browser-mobility-hit-1',sortieId:'browser-smoke',serial:'SR01-002',
       surfaceId:hit.userData.surface.id,
-      localPoint:[0,0,0],localNormal:[0,0,1],
+      localPoint:pa.map((v,i)=>(v+pb[i]+pc[i])/3),
+      localNormal:nn.map(x=>x/l),
       armorAbsorbed:12,internalDamage:0,timestamp:1000,
     };
     const applied=renderer.apply(rig,mark);
@@ -65,12 +75,17 @@ try{
     const rgb=hole?.material.map.image.getContext('2d')
       .getImageData(16,16,1,1).data;
     const roundBreach=hole?.userData.surfaceDamageKind==='breach' &&
-      hole.scale.y>child.scale.y*2.0 && hole.scale.x>child.scale.x;
+      hole.userData.surfaceDamageSize[1]>child.userData.surfaceDamageSize[1]*2;
     const blackCavity=rgb&&rgb[0]<25&&rgb[1]<25&&rgb[2]<25&&rgb[3]>200;
+    // Every generated vertex must come from the actual target's triangles,
+    // never the free-floating billboard that used to overhang narrow shins.
+    const isClipped=child?.geometry.type==='BufferGeometry'&&
+      child.geometry.getAttribute('position').count>=3 &&
+      !child.geometry.parameters;
     renderer.clear();
     return {ok:applied&&!duplicate&&!!child&&!pickContamination&&
-      appliedBreach&&roundBreach&&blackCavity&&!child.parent&&!hole.parent,
-      markCount:renderer.counts()};
+      appliedBreach&&roundBreach&&blackCavity&&isClipped&&
+      !child.parent&&!hole.parent,markCount:renderer.counts()};
   });
   if(!scar.ok)throw Error('Real articulated scar render failed: '+JSON.stringify(scar));
   if(errors.length)throw Error('Art Lab browser errors: '+errors.join('\n'));
