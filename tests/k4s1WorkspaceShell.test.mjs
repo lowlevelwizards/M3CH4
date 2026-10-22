@@ -5,11 +5,11 @@ const source=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 
 test('k4s.1 ships fresh stylesheet and script identities',()=>{
     const html=source('index.html'),adapter=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.4s\.1 — Workshop Navigation/);
+    assert.match(html,/0\.0\.1k\.4s\.2 — Garage Flow/);
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
-    assert.match(html,/main\.js\?v=k4s1/);
-    assert.match(html,/garageMountUI\.js\?v=k4s1/);
-    assert.match(adapter,/unifiedGarageUI\.js\?v=k4s1/);
+    assert.match(html,/main\.js\?v=k4s2/);
+    assert.match(html,/garageMountUI\.js\?v=k4s2/);
+    assert.match(adapter,/unifiedGarageUI\.js\?v=k4s2/);
     assert.ok(html.indexOf('k4sWorkshopShell.css')>html.indexOf('interfaceClarity.css'),
         'new shell styles must override older garage panel rules');
 });
@@ -30,8 +30,8 @@ test('workspace navigation is centralized and leaves gameplay commitments untouc
     assert.match(js,/function openWorkspace\(target\)/);
     assert.match(js,/function goBack\(\)/);
     assert.match(js,/\['paint','PAINT'\]/);
-    assert.match(js,/\['vendor','PARTS'\]/);
-    assert.match(js,/\['contracts','CONTRACTS  ›'\]/);
+    assert.match(js,/\['vendor','VENDORS'\]/);
+    assert.match(js,/workshop-deploy/);
     assert.match(js,/state==='garage' && paintExpanded\?'paint':state/);
     assert.match(js,/if \(actualMode\(loadSeries\(storage\)\) === 'pit'\) return;/);
     assert.match(js,/oldDeploy\.click\(\)/);
@@ -41,7 +41,7 @@ test('workspace navigation is centralized and leaves gameplay commitments untouc
 });
 test('camera reserves area only for an actual visible editor/toolbox',()=>{
     const main=source('main.js'),css=source('k4sWorkshopShell.css');
-    assert.match(main,/workspace==='paint' \|\| \(workspace==='garage' && shell\.classList\.contains\('tool-open'\)\)/);
+    assert.match(main,/const reserve=inspecting && !!bayDock && workspace==='paint'/);
     assert.match(main,/m3ch4:workspace-layout/);
     assert.match(main,/Math\.max\(0,panelRight\)/);
     assert.match(css,/#unified-garage\[data-workspace="paint"\] #unified-garage-dock/);
