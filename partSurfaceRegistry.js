@@ -42,7 +42,7 @@ export function assignPartSurfaces(root,definitionId,slot) {
       if(child.isMesh){
         const role=child.material?.userData?.materialRole||
           child.userData?.materialRole||'structure';
-        const exposure=classifySurface({name:child.name,role,slot});
+        const exposure=classifySurface({name:next.join('/'),role,slot});
         const stable=!!raw;
         const id=stable?[clean(definitionId),...next].join('/') : null;
         child.userData.surface={
