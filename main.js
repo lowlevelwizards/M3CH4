@@ -118,7 +118,13 @@ const primaryEnemyActor = {
 };
 function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex=1, combatId=null) {
     const actorAssembly = makeRangeTarget(contractId);
-    if (combatId) equip(actorAssembly,'combat',combatId);
+    if (combatId) {
+        equip(actorAssembly,'combat',combatId);
+        // A heavier electrical load demands an actual upgraded generator.
+        // Choose from owned physical hardware; do not bypass the power check.
+        const powerCheck=inspectAssembly(actorAssembly).checks.find(check=>check.id==='power');
+        if(powerCheck&&!powerCheck.passes) equip(actorAssembly,'power','power-dynamo');
+    }
     if(team===FRIENDLY_TEAM)
         applyFriendlyCrewPaint(actorAssembly,saveStorage,assembly,rosterIndex);
     else

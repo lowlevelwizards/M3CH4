@@ -84,7 +84,7 @@ export const CONTRACTS = Object.freeze([
     Object.freeze({
         id: 'domination', name: 'THREE POINT LOCK', opponentSerial: 'DOM-01', serialPrefix: 'DOM01',
         role: 'TERRITORY CREW', payout: 1100, risk: 'MODERATE', kind: 'DOMINATION CONTRACT',
-        loadout: Object.freeze({...yardLoadout, combat:'gun-rivet'}), behavior: YARD_DOG_BEHAVIOR,
+        loadout: Object.freeze({...yardLoadout, power:'power-dynamo', combat:'gun-rivet'}), behavior: YARD_DOG_BEHAVIOR,
         objective: Object.freeze({
             type:'domination',label:'SECURE TWO OF THREE',description:
                 'Capture A, B and C. Hold two uncontested points to score; first to 60 wins. Contested zones stop paying.',
