@@ -23,8 +23,12 @@ function stampTexture(count) {
   map.magFilter=THREE.NearestFilter;map.minFilter=THREE.NearestFilter;
   plates.set(key,map);return map;
 }
+export function serviceStampCount(part) {
+  const repairs=Number(part?.repairs);
+  return Number.isSafeInteger(repairs)&&repairs>0?Math.min(99,repairs):0;
+}
 export function addPhysicalServiceStamp(root,part) {
-  const repairs=Number(part?.repairs)||0;
+  const repairs=serviceStampCount(part);
   if(!root||repairs<1||root.userData.serviceStamped)return false;
   let selected=null,area=0;
   root.traverse(node=>{
