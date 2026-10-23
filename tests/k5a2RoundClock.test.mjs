@@ -79,7 +79,7 @@ test('live battle integrates round clock once, and still resolves through normal
  assert.match(main,/if\(timeout\)finishSortie\(timeout.victory,timeout.reason\)/);
  assert.match(main,/renderRoundClock\(\)/);
  assert.match(html,/roundClock\.js\?v=k5a2/);
- assert.match(html,/main\.js\?v=k5p6/);
+ assert.match(html,/main\.js\?v=k5p7/);
 });
 
 test('time decisions do not falsely claim the opposition was eliminated',()=>{
