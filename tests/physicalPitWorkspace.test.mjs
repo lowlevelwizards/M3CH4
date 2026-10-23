@@ -38,5 +38,5 @@ test('landscape layout preserves physical machine and places work units in a com
  assert.match(css,/#unified-garage\[data-workspace="pit"\] #unified-garage-action\{/);
  assert.match(css,/\.physical-pit-footer\{/);
  assert.match(css,/transform:translateX\(-50%\);width:clamp\(190px/);
- assert.match(src('index.html'),/physicalPitWorkspace\.css\?v=k4w3/);
+ assert.match(src('index.html'),/physicalPitWorkspace\.css\?v=k5p8/);
 });
