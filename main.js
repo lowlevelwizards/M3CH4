@@ -3,6 +3,7 @@ import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
 import {advanceFootContacts} from './footContactController.js?v=k5b2';
+import {groundFootprint} from './groundFootprintEvidence.js?v=k5b3';
 import { shotContacts } from './scattergun.js';
 import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
@@ -463,6 +464,10 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     const family=soundFamilyFor(familyId);
     const speed=Math.hypot(machineRig.vx,machineRig.vz);
     acoustic.contactFeet=advanceFootContacts(acoustic.contactFeet,machineRig,familyId,dt);
+    if(local||distance<24){
+        const mark=groundFootprint(acoustic.contactFeet,machineRig,familyId);
+        if(mark)arena.recordFootprint(mark);
+    }
     const events=advanceContactMotionSound(acoustic,family,speed,dt,acoustic.contactFeet);
     if(!local&&distance>17)return acoustic;
     for(const id of events) {

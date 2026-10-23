@@ -119,7 +119,7 @@ test('there are no new slots/serial IDs and mobile controls still use existing m
     const read = file => fs.readFileSync(new URL(file,import.meta.url),'utf8');
     const html = read('../index.html'), controls = read('../controls.js');
     const main = read('../main.js'), scene = read('../scene.js');
-    assert.match(html,/0\.0\.1k\.(?:4(?:s\.3 — Deploy and Layout|y\.1 — Input & Repair Stability|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)|(?:5a\.[0578]|5b\.[12]))/);
+    assert.match(html,/0\.0\.1k\.(?:4(?:s\.3 — Deploy and Layout|y\.1 — Input & Repair Stability|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)|(?:5a\.[0578]|5b\.[123]))/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
     assert.match(html,/audio\.js\?v=k4i/);
     assert.match(controls,/this\.keyboard\.has\('Space'\)/);

@@ -8,11 +8,13 @@ import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
-import {createArenaScene} from './sceneAssembly.js?v=b2';
+import {createArenaScene} from './sceneAssembly.js?v=b3';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
 import {advanceFootContacts} from './footContactController.js?v=k5b2';
+import {groundFootprint} from './groundFootprintEvidence.js?v=k5b3';
+import {createPilotChallenge,advancePilotChallenge,PILOT_CHALLENGES,challengePrompt} from './pilotChallenges.js?v=k5b3';
 import {soundSystemEvent} from './audio.js';
 const $=id=>document.getElementById(id);
 const machine=makeTestAssembly();
@@ -29,6 +31,8 @@ arena.setInspection(false);
 arena.setPilotingLab(true);
 let state=createRigState(),gait=createMotionSoundState(),config=deriveRigConfig(machine);
 let soundOn=false,frameCount=0,worstGap=0,hitches=0,travel=0,lastTime=0,accumulator=0,fps=60;
+let challengeState=createPilotChallenge();
+const challengeBests=new Map();
 const DT=1/60;
 const controls=new Controls($('drive-zone'),$('drive-knob'),$('look-zone'),$('brake'));
 const turn={left:false,right:false};
@@ -51,6 +55,17 @@ for(const [id,side] of [['quick-left',-1],['quick-right',1]]){
  });
 }
 const markers=new THREE.Group();arena.scene.add(markers);
+const challengeMarkers=new THREE.Group();arena.scene.add(challengeMarkers);
+const gateMaterial=new THREE.MeshBasicMaterial({color:0xe1b55d,
+ side:THREE.DoubleSide,transparent:true,opacity:.78,depthWrite:false});
+function syncChallengeMarkers(){
+ challengeMarkers.clear();
+ const gate=PILOT_CHALLENGES[$('challenge').value]?.checkpoints?.[challengeState.progress];
+ if(!gate||challengeState.complete)return;
+ const circle=new THREE.Mesh(new THREE.RingGeometry(gate.radius*.87,gate.radius,32),gateMaterial);
+ circle.rotation.x=-Math.PI/2;circle.position.set(gate.x,.066,gate.z);
+ challengeMarkers.add(circle);
+}
 // Paint visible patches over the real existing arena floor. The meshes have
 // no collision geometry; groundMaterialAt supplies the authoritative grip.
 const terrainVisuals=new THREE.Group();
@@ -113,6 +128,8 @@ function setCamera(){
 function reset(){
  state=createRigState();
  gait=createMotionSoundState();
+ challengeState=createPilotChallenge($('challenge').value);
+ syncChallengeMarkers();
  quickstep={side:0,remaining:0};
  travel=0;worstGap=0;hitches=0;frameCount=0;propImpacts=0;
  resetLabProps(looseProps);
@@ -130,6 +147,12 @@ function fit(){
  reset();
 }
 $('family').addEventListener('change',fit);
+$('challenge').addEventListener('change',()=>{
+ // No props in precision/slalom, but hauling needs the existing tool chest.
+ $('props-mode').value=$('challenge').value==='haul'?'on':'off';
+ loosePropRoot.visible=$('props-mode').value==='on';
+ reset();
+});
 $('handling').addEventListener('change',reset);
 $('props-mode').addEventListener('change',()=>{
  loosePropRoot.visible=$('props-mode').value==='on';
@@ -188,6 +211,15 @@ function loop(now){
     }
     travel+=Math.hypot(state.x-beforeX,state.z-beforeZ);
     gait.contactFeet=advanceFootContacts(gait.contactFeet,state,$('family').value,DT);
+    const mark=groundFootprint(gait.contactFeet,state,$('family').value,ground.id);
+    if(mark)arena.recordFootprint(mark);
+    const previousGate=challengeState.progress,wasComplete=challengeState.complete;
+    advancePilotChallenge(challengeState,state,looseProps,DT);
+    if(challengeState.progress!==previousGate)syncChallengeMarkers();
+    if(challengeState.complete&&!wasComplete){
+      const old=challengeBests.get(challengeState.id);
+      challengeBests.set(challengeState.id,Math.min(old??Infinity,challengeState.elapsed));
+    }
     const events=advanceContactMotionSound(gait,soundFamilyFor($('family').value),Math.hypot(state.vx,state.vz),DT,gait.contactFeet);
     if(soundOn)for(const id of events)soundSystemEvent(id,{
       cockpit:$('view').value==='cockpit',
@@ -234,6 +266,8 @@ function loop(now){
     'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',
     'DIST     '+travel.toFixed(1)+' m',
     'SCRAP    '+($('props-mode').value==='on'?looseProps.length+' REACTIVE · '+propImpacts+' CONTACTS':'CLEAR'),
+    'COURSE   '+challengePrompt(challengeState),
+    'TIME     '+challengeState.elapsed.toFixed(2)+'s · BEST '+(challengeBests.has(challengeState.id)?challengeBests.get(challengeState.id).toFixed(2)+'s':'—'),
     'HITCHES  '+hitches+' (>40ms) · '+worstGap.toFixed(0)+' ms',
    ].join('\n');
   }
