@@ -8,7 +8,7 @@ import { contractById } from './contracts.js';
 import { stationLabel } from './uiLanguage.js';
 import { BY_ID } from './components.js';
 import { clearCombatRecords, combatAccuracy, loadCombatRecords } from './combatRecords.js';
-import { reconcileMatchOnBoot, retireUnfinishedMatch } from './matchRecovery.js';
+import { reconcileMatchOnBoot, retireUnfinishedMatch } from './matchRecovery.js?v=k5p8';
 import { createModuleIcon } from './moduleIcons.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
