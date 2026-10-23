@@ -163,3 +163,14 @@ test('a capturer keeps physically moving until the waypoint is inside the scorin
    geometry,1.1,null,{...order,goal:'SEARCH'});
  assert.ok(other.brake>0,'generic searching must keep previous safe arrival tolerance');
 });
+
+test('hybrid right-of-way is reserved for a true two-sided physical corridor',()=>{
+ const choke={...geometry,obstacles:[
+  {id:'left',minX:-12,maxX:-3,minZ:-7,maxZ:7},
+  {id:'right',minX:3,maxX:12,minZ:-7,maxZ:7},
+ ]};
+ const command={goal:'CAPTURE',point:pos(0,-16)};
+ assert.equal(trafficPolicyForIntent(command,'adaptive',pos(0,16),pos(0,-16),choke,1.1),'hybrid');
+ assert.equal(trafficPolicyForIntent(command,'adaptive',pos(0,16),pos(0,-16),geometry,1.1),'lanes');
+ assert.equal(trafficPolicyForIntent({...command,arrivalPoint:pos(0,-15)},'adaptive',pos(0,16),pos(0,-16),choke,1.1),'gated');
+});
