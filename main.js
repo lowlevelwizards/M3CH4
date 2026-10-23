@@ -6,6 +6,7 @@ import {advanceFootContacts} from './footContactController.js?v=k5b5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
 import { shotContacts } from './scattergun.js';
 import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
+import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityShot,resetWeaponStabilizer } from './weaponStability.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
@@ -122,6 +123,7 @@ const primaryEnemyActor = {
     weaponSpec: hostileWeaponSpec, weaponState: hostileWeaponState,
     controller: hostileController, motion: hostileMotion,
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
+    stabilizer:createWeaponStabilizer(),
     powerSystem: createPowerSystem(targetAssembly),
     behavior: leadBehavior,
     spawn: hostileSpawn, active: true, targetId: 'player', killReason: null,
@@ -152,6 +154,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex
         weaponSpec: actorWeaponSpec, weaponState: createWeaponState(actorWeaponSpec),
         controller: createHostileController(team === FRIENDLY_TEAM ? .38 : .52, behavior),
         motion: createEnemyMotion(behavior), baseConfig, driveDamage: { drives: {} },
+        stabilizer:createWeaponStabilizer(),
         powerSystem: createPowerSystem(actorAssembly),
         behavior, spawn, active: true, targetId: null, killReason: null,
         fieldService: createFieldServiceState(),
@@ -485,6 +488,7 @@ for (const actor of supportActors)
     arena.updateCombatantDamage(actor.id, actor.condition);
 arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState(playerSpawn);
+const playerMount=createWeaponStabilizer();
 let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
 // Sound cadence is isolated from the physics integrator. Do not mutate drive,
 // foot contacts or any persistent machine state to produce these events.
@@ -949,6 +953,7 @@ function resetAiActor(actor) {
     actor.wreckAge = 0;
     actor.wreckIntegrity = 1;
     actor.wreckCleared = false;
+    resetWeaponStabilizer(actor.stabilizer);
     actor.driveDamage.drives = {};
     actor.powerSystem = createPowerSystem(actor.assembly);
     arena.setCombatantActive(actor.id, true);
@@ -957,6 +962,9 @@ function resetAiActor(actor) {
 }
 function resetSquadBattle() {
     playerMissionKillReason=null;
+    // Each round starts with a settled mount; cosmetic recoil does not leak
+    // across the repair pit, nor into the next squad match.
+    resetWeaponStabilizer(playerMount);
     leaveAlliedObservation();
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;
     squadCounterOrders={friendly:{},hostile:{}};
@@ -1317,7 +1325,9 @@ function refreshAssembly(save = false) {
     if (nextSpec?.id !== weaponSpec?.id)
         weaponState = nextSpec ? createWeaponState(nextSpec) : null;
     weaponSpec = nextSpec;
+    resetWeaponStabilizer(playerMount);
     arena.setPilotWeapon(weaponSpec);
+    arena.setPilotStabilizer(playerMount);
     renderAmmo();
     reconcileTargetCondition(playerCondition, assembly);
     arena.rebuildAssembly(assembly);
@@ -1821,6 +1831,15 @@ function frame(now) {
                 effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
                 emitMachineMotionSound(assembly,rig,FIXED_DT,true);
+                advanceWeaponStabilizer(playerMount,weaponSpec?.id,rig,
+                    movementSoundStates.get(rig),{
+                        combat:weaponIntegrityRatio(playerCondition),
+                        command:playerCondition.parts.command.integrity/
+                            Math.max(1,playerCondition.parts.command.maxIntegrity),
+                        mobility:playerCondition.parts.mobility.integrity/
+                            Math.max(1,playerCondition.parts.mobility.maxIntegrity),
+                        massKg:rigConfig.massKg,
+                    },FIXED_DT);
                 if (rig.braced && !wasBraced) soundBrace();
                 // Threshold-crossing sounds rather than per-frame synth loops.
                 // Disabled/inspection/garage rigs never emit footing feedback.
@@ -2057,6 +2076,16 @@ function frame(now) {
                 if (settledToShoot) maneuver = { ...maneuver, brake: 1 };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
                 if(actor.active)actor.visualGait=emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false);
+                advanceWeaponStabilizer(actor.stabilizer,actor.weaponSpec?.id,actor.rig,
+                    actor.visualGait,{
+                        combat:actor.condition.parts.combat.integrity/
+                            Math.max(1,actor.condition.parts.combat.maxIntegrity),
+                        command:actor.condition.parts.command.integrity/
+                            Math.max(1,actor.condition.parts.command.maxIntegrity),
+                        mobility:actor.condition.parts.mobility.integrity/
+                            Math.max(1,actor.condition.parts.mobility.maxIntegrity),
+                        massKg:actor.baseConfig.massKg,
+                    },FIXED_DT);
                 shoveDisabledWrecks(actor.rig, actorConfig);
                 if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
                     beginFieldService(actor.condition, actor.fieldService, actor.rig);
@@ -2065,7 +2094,7 @@ function frame(now) {
                 arena.updateCombatantRig(actor.id, actor.rig, {
                     target: target?.rig ?? null, posture, dt: FIXED_DT,
                     weaponFault: recovery.active, weaponServicing: actor.fieldService.held,
-                    gait:actor.visualGait,
+                    gait:actor.visualGait,stability:actor.stabilizer,
                     reloadLeft:actor.weaponState?.reloadLeft??0,
                     reloadSeconds:actor.weaponSpec?.reloadSeconds??0,
                 });
@@ -2079,6 +2108,12 @@ function frame(now) {
                         !!target&&actor.fireLane?.clear===true&&
                         withinFiringArc(actor.rig,target.rig)&&
                         actor.motion?.awareness?.lineOfSight!==false&&
+                        // At range, a disturbed weapon can settle behind cover.
+                        // Close, urgent and contested shots remain possible.
+                        (actor.stabilizer.settled>.32 ||
+                            Math.hypot(target.rig.x-actor.rig.x,
+                                target.rig.z-actor.rig.z)<11 ||
+                            !!sortieObjective.domination?.points?.some(p=>p.contested))&&
                         shouldAttemptTacticalShot(actor,target,{urgent:
                             !!sortieObjective.domination?.points?.some(p=>
                                 Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<
@@ -2156,7 +2191,7 @@ function frame(now) {
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
         weaponFault: playerRecoveryState === 'faulted',
         weaponServicing: fieldService.held,
-        gait:movementSoundStates.get(rig),
+        gait:movementSoundStates.get(rig),stability:playerMount,
         reloadLeft:weaponState?.reloadLeft??0,
         reloadSeconds:weaponSpec?.reloadSeconds??0,
     });
@@ -2225,6 +2260,12 @@ function frame(now) {
     reportFade = Math.max(0, reportFade - frameDt);
     rangeCrosshair.classList.toggle('confirmed-hit', hitConfirmTimer !== null);
     rangeCrosshair.classList.toggle('scatter-sight',weaponSpec?.id==='gun-scatter');
+    // The reticle denotes the actual mechanical zero-spread ray, not the
+    // camera center. Angular offset uses the live vertical camera FOV.
+    const sightHeight=renderer.domElement.clientHeight||window.innerHeight;
+    const sightScale=sightHeight/(2*Math.tan(THREE.MathUtils.degToRad(arena.camera.fov)*.5));
+    rangeCrosshair.style.left=`calc(50% + ${Math.round(Math.tan(playerMount.yaw)*sightScale)}px)`;
+    rangeCrosshair.style.top=`calc(50% - ${Math.round(Math.tan(playerMount.pitch)*sightScale)}px)`;
     shotSafetyTimer-=frameDt;
     if(shotSafetyTimer<=0){
         shotSafetyTimer=.12;
@@ -2782,6 +2823,7 @@ function attemptAiFire(actor, target, shotIndex) {
     });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
+    // The shot samples the existing state. Only its NEXT shot inherits kick.
     const mountSpread=actor.weaponSpec.fireMode==='automatic'
         ? weaponActionSpreadRadians(actor.weaponSpec,actor.weaponState,actor.rig.brace??0):0;
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians+mountSpread);
@@ -2794,6 +2836,8 @@ function attemptAiFire(actor, target, shotIndex) {
         contesting,visibleService:!!target.fieldService?.held});
     if(actor.weaponSpec.fireMode==='continuous') {
         const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
+        registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
+            brace:actor.rig.brace,condition:actorOutput.weapon,massKg:actor.baseConfig.massKg});
         const thermalKey=thermalKeyForContact(contact);
         if(thermalKey&&contact.distance<=actor.weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,thermalKey,
@@ -2805,6 +2849,8 @@ function attemptAiFire(actor, target, shotIndex) {
     }
     if(actor.weaponSpec.fireMode==='projectile') {
         const aim=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
+        registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
+            brace:actor.rig.brace,condition:actorOutput.weapon,massKg:actor.baseConfig.massKg});
         arena.launchRocket({ownerId:actor.id,muzzle:aim.muzzle,point:aim.point,
             speed:actor.weaponSpec.projectileSpeed,radius:actor.weaponSpec.blastRadius,
             damage:actor.weaponSpec.damage});
@@ -2818,6 +2864,8 @@ function attemptAiFire(actor, target, shotIndex) {
         : actor.weaponSpec.fireMode==='charged'
             ? [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY,true)]
             : [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY)];
+    registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
+        brace:actor.rig.brace,condition:actorOutput.weapon,massKg:actor.baseConfig.massKg});
     const packets=actor.weaponSpec.fireMode==='charged'
         ? resolvePenetratingContacts(contacts[0]?.penetrationContacts??contacts,{
             energy:actor.weaponSpec.penetrationEnergy,damage:actor.weaponSpec.damage,
@@ -2926,6 +2974,7 @@ function attemptFire() {
         const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
         applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
+        registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         shotsFired++;sortieRoundsFired++;sortieProjectiles++;
         presentPlayerDischarge(aim,shot);
         soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
@@ -2954,6 +3003,7 @@ function attemptFire() {
             resolvePlayerShotContact(center,thermal.damage,false,true);
         }
         shotsFired++;sortieRoundsFired++;
+        registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         presentPlayerDischarge(center,shot);
         if(shot%3===1)soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
         renderAmmo();
@@ -2964,6 +3014,7 @@ function attemptFire() {
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
     applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
+    registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
     shotsFired++;
     sortieRoundsFired++;
     presentPlayerDischarge(center,shot);
