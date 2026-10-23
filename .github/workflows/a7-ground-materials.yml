@@ -1,0 +1,22 @@
+name: A.7 Physical Ground Material Trials
+on:
+  push:
+    branches: [feat/a7-ground-surface-piloting-lab]
+  pull_request:
+    paths:
+      - 'groundSurfaceMaterials.js'
+      - 'locomotion.js'
+      - 'pilotingLab.js'
+      - 'tests/a7GroundSurface.test.mjs'
+jobs:
+  terrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in groundSurfaceMaterials.js locomotion.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/a7GroundSurface.test.mjs tests/a0a1Walking.test.mjs tests/a2a4GroundedGait.test.mjs tests/a5ContactAudio.test.mjs
