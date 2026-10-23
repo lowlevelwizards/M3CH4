@@ -1471,6 +1471,36 @@ export function createArenaScene(initial, targetAssembly) {
                 mechanism.cassette.position.copy(mechanism.rest.cassette);
         }
     }
+    // Standalone DEV proving ground uses the actual player model with no AI,
+    // combat, expenses or persistent state. A chase camera can inspect feet.
+    let pilotingLab=false,labRecord=null;
+    function setPilotingLab(enabled){
+        pilotingLab=!!enabled;
+        labRecord=null;
+        targetExterior.root.visible=!pilotingLab;
+        exterior.root.visible=pilotingLab||inspecting;
+        for(const record of squadCombatants.values()){
+            record.exterior.root.visible=!pilotingLab&&!inspecting;
+            record.marker.visible=!pilotingLab&&!inspecting;
+        }
+    }
+    function updatePilotingLabRig(state,gait,dt){
+        if(!pilotingLab)return;
+        if(!labRecord||labRecord.exterior!==exterior){
+            labRecord={
+                id:'piloting-lab',active:true,wrecked:false,cleared:false,
+                assembly:previewAssembly,exterior,disabledSlots:new Set(),
+                destroyedSlots:new Set(),articulation:captureArticulation(exterior),
+                baseParts:capturePartTransforms(exterior),recoilKick:0,
+                weaponRecoveryKick:0,
+            };
+        }
+        poseCombatantExterior(labRecord,state,{
+            dt,gait,posture:{animationHealth:1},weaponFault:false,
+        });
+        // Preserve the measured sole offset on the separate full-body preview.
+        exterior.root.position.y+=exterior.groundOffset??0;
+    }
     function setAnimationPreview(mode='off',speed=3){
         const safe=['off','walk','strafe-left','strafe-right','turn','reload','disabled'].includes(mode)?mode:'off';
         if(animationPreviewMode!==safe){
@@ -2846,6 +2876,7 @@ export function createArenaScene(initial, targetAssembly) {
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
+        setPilotingLab, updatePilotingLabRig,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
