@@ -18,7 +18,7 @@ import {buildBacklotDressing} from './backlotDressing.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
-import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b4';
+import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
@@ -1540,6 +1540,7 @@ export function createArenaScene(initial, targetAssembly) {
             planted:contacts.stanceCount,loadShift:contacts.weightShift,
             effort:contacts.actuatorEffort,compression:contacts.bodyCompression,
             gaitMode:contacts.gaitMode,maneuver:contacts.maneuver,recovery:contacts.recovery,
+            flow:contacts.flow,catchSteps:contacts.catchStepCount,
             preparing:contacts.preparingSide,
         }:null;
     }

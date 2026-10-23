@@ -8,11 +8,11 @@ import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
-import {createArenaScene} from './sceneAssembly.js?v=b4';
+import {createArenaScene} from './sceneAssembly.js?v=b5';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
-import {advanceFootContacts} from './footContactController.js?v=k5b4';
+import {advanceFootContacts} from './footContactController.js?v=k5b5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
 import {LOADING_DOCK,loadingDockHeight,advanceLabElevation} from './loadingDockTraversal.js?v=k5b4';
 import {createPilotChallenge,advancePilotChallenge,PILOT_CHALLENGES,challengePrompt} from './pilotChallenges.js?v=k5b4';
@@ -290,7 +290,8 @@ function loop(now){
     'CONTACT  '+(feet?.feet.map(f=>(f.side<0?'L':'R')+':'+(f.mode==='stance'?'PLANT':'STEP')).join(' / ')??'—'),
     'WEIGHT   '+((feet?.loadShift??0)*100).toFixed(0)+'% R · EFFORT '+((feet?.effort??0)*100).toFixed(0)+'%',
     'GAIT     '+(feet?.gaitMode??'IDLE')+' · '+(feet?.maneuver??'STANDING'),
-    'BALANCE  '+((feet?.recovery??0)*100).toFixed(0)+'% RECOVERY',
+    'BALANCE  '+((feet?.recovery??0)*100).toFixed(0)+'% RECOVERY · '+(feet?.catchSteps??0)+' CATCHES',
+    'FLOW     '+((feet?.flow??0)*100).toFixed(0)+'% CLEAN STRIDE',
     'HEIGHT   '+(state.groundHeightM??0).toFixed(2)+' m · CLIMB '+((state.verticalDemand??0)*100).toFixed(0)+'%',
     'PREP     '+(feet?.preparing?(feet.preparing<0?'LEFT':'RIGHT'):'—')+' · COMP '+((feet?.compression??0)*100).toFixed(1)+' cm',
     'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',

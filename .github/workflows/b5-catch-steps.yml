@@ -1,0 +1,22 @@
+name: B.5 Catch Steps and Mechanical Flow
+on:
+  push:
+    branches: [feat/b5-physical-catch-steps-and-flow]
+  pull_request:
+    paths:
+      - 'footContactController.js'
+      - 'scene.js'
+      - 'pilotingLab.js'
+      - 'tests/b5CatchStepFlow.test.mjs'
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in footContactController.js scene.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/b5CatchStepFlow.test.mjs tests/b4VerticalTraversal.test.mjs tests/b3HandlingChallenges.test.mjs tests/b1SupportLoad.test.mjs
