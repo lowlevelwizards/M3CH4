@@ -45,33 +45,28 @@ export function reloadPhase(left,total,id='gun-cannon'){
  return {active:true,progress:t,stage,index,slide,bolt,cassette,
     feed,feedVisible:t>=.24&&t<.84,lock,ram,settle,mass:p.mass};
 }
-/** Deliberately composed FIRST-PERSON service layouts. All groups attach
- * to the same physical weapon visual used on exterior rigs. Local -Z faces
- * the enemy, +Y is the visible top deck, -X is the pilot-facing inboard edge.
- * Never alter ballistic muzzle, sighting offsets, ammunition or timers.
+/** k5r.7 — Subtractive, physically integrated reload actions.
+ * One service port per gun, placed directly on its EXISTING rear receiver,
+ * not another detached miniature machine above it. Side-fed Scatter and
+ * Rivet exterior rigs ALREADY have real mounted magazines: reuse those.
+ *
+ * feed is the center of the receiver opening (meters, gun-local).
+ * camera draws the *whole original gun* slightly inboard, never past the
+ * crosshair; the original muzzle/aim pose is restored before firing resumes.
+ * travel is bounded by the carrier's own receiver overlap.
  */
-const view=(feed,spent,latch,guide,camera,lidAngle,step)=>Object.freeze({
- feed:Object.freeze(feed),spent:Object.freeze(spent),
- latch:Object.freeze(latch),guide:Object.freeze(guide),
- camera:Object.freeze(camera),lidAngle,step,
+const view=(feed,camera,step,travel,exposed=false)=>Object.freeze({
+ feed:Object.freeze(feed),camera:Object.freeze(camera),step,travel,exposed,
 });
 export const RELOAD_VISUAL_LAYOUTS=Object.freeze({
- 'gun-cannon':view([-.06,.38,.22],[-.06,.37,.30],[0,.57,.18],[0,.28,.18],
-   [-.34,-.34,-.41,-.10,-.045],-.62,'top tray'),
- 'gun-short':view([0,.55,.18],[0,.50,.24],[0,.73,.05],[0,.43,.02],
-   [-.50,-.045,-.62,-.14,.035],-.90,'massive top-opening shell ram'),
- 'gun-light':view([-.07,.40,.21],[-.09,.39,.26],[-.05,.54,.14],[-.06,.29,.11],
-   [-.30,-.22,-.40,-.095,-.025],-.54,'precision clip'),
- 'gun-scatter':view([-.19,.34,.15],[-.19,.34,.27],[-.19,.55,.11],[-.18,.24,.12],
-   [-.42,-.33,-.49,-.115,.055],-.80,'hinged six-shell cassette'),
- 'gun-rivet':view([-.24,.33,.22],[-.21,.32,.30],[-.24,.55,.14],[-.22,.23,.18],
-   [-.35,-.25,-.52,-.09,-.035],-.68,'inboard rotary drum'),
- 'gun-breaker':view([0,.60,.14],[0,.57,.25],[0,.83,.05],[0,.47,.05],
-   [-.51,-.05,-.65,-.145,.070],-1.04,'hydraulic penetrator ram'),
- 'gun-rocket':view([-.06,.43,.19],[-.06,.43,.27],[-.06,.66,.12],[-.06,.32,.14],
-   [-.47,-.20,-.58,-.12,.050],-.75,'triple rocket loading rack'),
- 'gun-arc':view([-.15,.41,.25],[-.15,.42,.32],[-.16,.63,.18],[-.14,.30,.20],
-   [-.34,-.28,-.45,-.11,-.030],-.65,'insulated power cell'),
+ 'gun-cannon':view([-.02,.255,.22],[-.30,-.12,-.36,-.075,-.015],'single shell tray',.18),
+ 'gun-short':view([0,.325,.205],[-.40,-.08,-.43,-.09,.025],'heavy breech shell',.21),
+ 'gun-light':view([-.025,.21,.18],[-.28,-.13,-.37,-.065,-.01],'fine sliding bolt',.12),
+ 'gun-scatter':view([-.25,.24,.14],[-.32,-.14,-.35,-.07,.025],'integral side cassette',.14,true),
+ 'gun-rivet':view([-.25,.205,.20],[-.29,-.16,-.36,-.07,-.015],'integral rotary drum',.14,true),
+ 'gun-breaker':view([0,.38,.28],[-.38,-.055,-.42,-.085,.035],'enormous penetrator',.21),
+ 'gun-rocket':view([0,.275,.32],[-.36,-.12,-.39,-.08,.02],'single ordnance carrier',.18),
+ 'gun-arc':view([-.08,.295,.34],[-.34,-.11,-.38,-.075,-.01],'plug-in power cell',.15,true),
 });
 export function reloadVisualLayout(id){
  return RELOAD_VISUAL_LAYOUTS[id]??RELOAD_VISUAL_LAYOUTS['gun-cannon'];

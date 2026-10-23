@@ -19,7 +19,7 @@ import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironme
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
-import {attachReloadHardware,poseReloadHardware} from './weaponVisualKit.js';
+import {attachReloadHardware,poseReloadHardware,poseExistingReloadMagazine} from './weaponVisualKit.js';
 import {reloadMechanism,reloadCockpitPresentation} from './reloadMechanism.js';
 import {WEAPONS} from './combat.js';
 import {advanceFootContacts,createFootContacts,footPresentation,registerFootImpact} from './footContactController.js?v=k5r5';
@@ -1978,7 +1978,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         gunPivot.position.y=2.04+reloadView.y;
         cockpit.userData.gunBreech.position.z=-.19+reload.slide+pilotFiringPose.bolt*.105;
         cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
-        cockpit.userData.scatterGreebles.position.y=-reload.cassette-pilotFiringPose.feeder*.052;
+        cockpit.userData.scatterGreebles.position.y=0;
         const activeKit=cockpit.userData.weaponKits[pilotWeaponPresentation.id];
         if(activeKit?.visible){
             activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13+reload.slide*.68;
@@ -2210,8 +2210,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
                     (discharge?.travel??0)*.085+reload.settle*.027;
                 const mechanism=combat.userData.weaponMechanism;
-                const reloadMechProfile=reloadMechanism(
-                    installedPart(record.assembly,'combat')?.definition.id);
+                const weaponId=installedPart(record.assembly,'combat')?.definition.id;
                 if(mechanism){
                     const rest=mechanism.rest;
                     mechanism.carriage.position.z=rest.carriage.z+reload.slide+
@@ -2219,18 +2218,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14;
                     mechanism.bolt.position.z=rest.bolt.z+reload.bolt+
                         (discharge?.bolt??0)*.12;
-                    if(mechanism.cassette && rest.cassette){
-                        mechanism.cassette.position.y=rest.cassette.y-reload.cassette;
-                        if(reload.active){
-                            if(reloadMechProfile.feedAxis==='x')
-                                mechanism.cassette.position.x=rest.cassette.x+reload.cassette*.8;
-                            if(reloadMechProfile.feedAxis==='z')
-                                mechanism.cassette.position.z=rest.cassette.z+reload.cassette*.40;
-                        }else{
-                            mechanism.cassette.position.x=rest.cassette.x;
-                            mechanism.cassette.position.z=rest.cassette.z;
-                        }
-                    }
+                    // Existing side drums/cassettes slide ONLY a short
+                    // distance on their authored mount. Never fabricate a
+                    // duplicate "reload" drum hovering above the weapon.
+                    poseExistingReloadMagazine(mechanism,reload,weaponId);
                     poseReloadHardware(mechanism,reload);
                 }
             }
@@ -4079,12 +4070,9 @@ export function buildCockpit(scene) {
     chokeRing.rotation.x=Math.PI/2;
     chokeRing.position.set(0,-.04,-1.15);
     scatterGreebles.add(chokeRing);
-    const cassette=box(.50,.26,.34,metal);
-    cassette.position.set(-.06,-.34,.08);
-    scatterGreebles.add(cassette);
-    const rib=box(.52,.09,.66,teal);
-    rib.position.set(0,.19,-.55);
-    scatterGreebles.add(rib);
+    // No extra floating cockpit cassette or decorative cover: the single
+    // real loading cassette now lives in this gun's weaponVisualKit receiver.
+    // Retain only its chunky muzzle choke as part of the fixed silhouette.
     scatterGreebles.visible=false;
     gunPivot.add(scatterGreebles);
     cockpit.userData.gunBarrel = barrel;
