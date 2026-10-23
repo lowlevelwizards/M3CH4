@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
 import {buildBacklotObstacleKit} from './backlotObstacleKits.js';
 import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
+import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
+import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -482,6 +484,44 @@ export function buildBacklotPropCatalog(world){
    group:comparison,
    experiment:{newPart,oldPart,collisionOverlay}});
 
+ // Every family receives the very same A/B controls used by the tractor.
+ // We deliberately use production constructors for the OLD half, and
+ // do not pretend the inherited AABBs describe the new hollow machines.
+ const extraExhibits=[...MACHINE_EXHIBITS,...SALVAGE_EXHIBITS];
+ for(const exhibit of extraExhibits){
+  const parts=world.obstacles.filter(exhibit.match);
+  if(!parts.length)throw Error('Missing live Backlot reference: '+exhibit.id);
+  const oldRoot=new THREE.Group();
+  oldRoot.name='LIVE BACKLOT '+exhibit.id;
+  for(const o of parts)createWreck(oldRoot,o,collisionMeshes);
+  const bounds=new THREE.Box3().setFromObject(oldRoot);
+  const center=bounds.getCenter(new THREE.Vector3());
+  oldRoot.position.set(-center.x,-bounds.min.y,-center.z);
+  const oldPart=new THREE.Group();oldPart.add(oldRoot);oldPart.visible=false;
+  const newPart=new THREE.Group();exhibit.build(newPart);
+  const collisionOverlay=new THREE.Group();
+  collisionOverlay.name='EXISTING LIVE COLLIDERS ONLY '+exhibit.id;
+  for(const o of parts){
+   const edges=new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(
+     o.maxX-o.minX,o.height,o.maxZ-o.minZ)),
+    new THREE.LineBasicMaterial({
+     color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
+    }));
+   edges.position.set((o.minX+o.maxX)/2-center.x,o.height*.5,
+      (o.minZ+o.maxZ)/2-center.z);
+   edges.name='current-map-collider-'+o.id;
+   edges.userData.colliderOverlay=true;
+   collisionOverlay.add(edges);
+  }
+  collisionOverlay.visible=false;
+  const group=new THREE.Group();
+  group.name='EXPERIMENT '+exhibit.id;
+  group.add(newPart,oldPart,collisionOverlay);
+  catalog.push({id:'experiment-'+exhibit.id+'-anatomy',category:'experiment',
+   label:exhibit.label,detail:exhibit.details+' · NOT YET IN MATCHES',
+   group,experiment:{newPart,oldPart,collisionOverlay}});
+ }
  const describe=o=>o.artKit||o.art||(
    o.kind==='pillar'?'floodlight mast':'salvage cover');
  // Hero composites: all component colliders exactly as assembled in a real
@@ -576,6 +616,6 @@ export function buildBacklotPropCatalog(world){
    specimen.height=Math.max(.25,b.max.y-b.min.y);
  }
  return {specimens:catalog,coverCount:world.obstacles.length,
-   experimentCount:1,showcaseCount:featured.length,sceneryAssemblyCount:scenicShows.length,
+   experimentCount:1+extraExhibits.length,showcaseCount:featured.length,sceneryAssemblyCount:scenicShows.length,
    sceneryArchetypes:scenicNames.size};
 }
