@@ -593,15 +593,23 @@ export function createArenaScene(initial, targetAssembly) {
     const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0, arc: 0 }]));
     const squadCombatants = new Map();
     function makeSquadMarker(team) {
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(-.72, -.72, 0), new THREE.Vector3(.72, -.72, 0),
-            new THREE.Vector3(.72, .72, 0), new THREE.Vector3(-.72, .72, 0),
+        // Friendlies need a persistent location cue. Hostiles get a tiny
+        // acquisition chevron only while genuinely visible, never a wallhack box.
+        const friendly=team==='friendly';
+        const geometry=new THREE.BufferGeometry().setFromPoints(friendly?[
+            new THREE.Vector3(-.35,0,0),new THREE.Vector3(0,.25,0),
+            new THREE.Vector3(.35,0,0),new THREE.Vector3(0,-.25,0),
+        ]:[
+            new THREE.Vector3(-.33,.16,0),new THREE.Vector3(0,-.11,0),
+            new THREE.Vector3(.33,.16,0),
         ]);
         const material = new THREE.LineBasicMaterial({
-            color: team === 'friendly' ? 0x73e29a : 0xf0a05d,
-            transparent: true, opacity: .92, depthTest: true, depthWrite: false,
+            color: friendly ? 0x73e29a : 0xeaa575,
+            transparent: true, opacity: friendly?.88:.74,
+            depthTest: true, depthWrite: false,
         });
-        const marker = new THREE.LineLoop(geometry, material);
+        const marker = friendly?new THREE.LineLoop(geometry,material):
+            new THREE.Line(geometry,material);
         marker.frustumCulled = false;
         marker.renderOrder = 8;
         arenaPresentationRoot.add(marker);
@@ -716,14 +724,36 @@ export function createArenaScene(initial, targetAssembly) {
             }
         }
     }
-    function updateSquadMarkers() {
+    const markerSightRay=new THREE.Raycaster();
+    const markerSightPoint=new THREE.Vector3();
+    const markerDirection=new THREE.Vector3();
+    let markerSightAge=0;
+    function updateSquadMarkers(dt=1/60) {
+        markerSightAge+=Number.isFinite(dt)?Math.max(0,dt):0;
+        // One collision-only visibility query every 0.12s avoids five expensive
+        // geometry traversals per 60Hz frame, while reacting promptly to cover.
+        const refresh=markerSightAge>=.12;
+        if(refresh)markerSightAge=0;
         for (const record of squadCombatants.values()) {
-            record.marker.visible = !inspecting && !record.cleared;
-            if (inspecting || record.cleared) continue;
-            const point = new THREE.Vector3();
-            record.exterior.root.getWorldPosition(point);
-            point.y += 3.55;
-            record.marker.position.copy(point);
+            const friendly=record.team==='friendly';
+            const eligible=!inspecting&&!record.cleared&&(friendly||record.active);
+            if(!eligible){record.marker.visible=false;continue;}
+            record.exterior.root.getWorldPosition(markerSightPoint);
+            const position=markerSightPoint.clone();
+            // Mark the mech's upper physical silhouette, not empty sky overhead.
+            markerSightPoint.y+=1.7;
+            if(!friendly && (refresh || record.iffVisible===undefined)){
+                const distance=markerDirection.subVectors(markerSightPoint,camera.position).length();
+                const blocked=distance>.3 && (()=>{
+                    markerSightRay.set(camera.position,markerDirection.normalize());
+                    markerSightRay.far=Math.max(0,distance-.25);
+                    return markerSightRay.intersectObjects(worldSolids,false).length>0;
+                })();
+                record.iffVisible=!blocked;
+            }
+            record.marker.visible=friendly||!!record.iffVisible;
+            position.y+=friendly?2.65:2.45;
+            record.marker.position.copy(position);
             record.marker.quaternion.copy(camera.quaternion);
         }
     }

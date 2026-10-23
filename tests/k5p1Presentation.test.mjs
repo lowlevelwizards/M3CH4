@@ -44,3 +44,11 @@ test('garage selection and report statistics remain rooted in real serial and le
     assert.match(score,/picked\.armorPercent/);
     assert.match(score,/picked\.internalPercent/);
 });
+
+test('hostile IFF markers use physical cover raycasts, friendlies keep orientation cues',()=>{
+    const scene=source('scene.js');
+    assert.match(scene,/const friendly=team==='friendly'/);
+    assert.match(scene,/const markerSightRay=new THREE\.Raycaster\(\)/);
+    assert.match(scene,/markerSightRay\.intersectObjects\(worldSolids,false\)/);
+    assert.match(scene,/record\.marker\.visible=friendly\|\|!!record\.iffVisible/);
+});
