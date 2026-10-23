@@ -1,0 +1,45 @@
+name: k5a3 Squad Intelligence & Route Coordination
+on:
+  pull_request:
+    paths:
+      - 'ai/worldModel.js'
+      - 'ai/advantageTactics.js'
+      - 'ai/teamPlanner.js'
+      - 'ai/pilotBrain.js'
+      - 'ai/squadPositioning.js'
+      - 'main.js'
+      - 'index.html'
+      - 'research/headlessDominationStudy.mjs'
+      - 'tests/k5a3SquadIntelligence.test.mjs'
+      - '.github/workflows/k5a3-squad-intelligence.yml'
+jobs:
+  squad-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check main.js
+          node --check research/headlessDominationStudy.mjs
+          for f in ai/*.js; do node --check "$f"; done
+      - name: Squad perception, tactical and existing AI tests
+        run: node --test tests/k5a3SquadIntelligence.test.mjs tests/k5a1CombatJudgment.test.mjs tests/k3u7CombatCompetency.test.mjs tests/k4v1AiOlympics.test.mjs tests/k4w6CampaignAiBalance.test.mjs
+      - name: Matched old coordination physics — 3 mobility families
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=legacy --arrivals=legacy --corridors=legacy --out=/tmp/k5a3-baseline
+      - name: Matched new coordination physics — same seeds and families
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=gated --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-enhanced
+      - name: Compare paired movement pass rates
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const b=JSON.parse(fs.readFileSync('/tmp/k5a3-baseline/results.json'));
+          const n=JSON.parse(fs.readFileSync('/tmp/k5a3-enhanced/results.json'));
+          console.log('SQUAD_A_B '+JSON.stringify({
+            baseline:b.summary.events.map(e=>[e.id,e.passRate,e.meanScore]),
+            enhanced:n.summary.events.map(e=>[e.id,e.passRate,e.meanScore])
+          }));
+          "
