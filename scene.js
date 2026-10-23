@@ -1797,8 +1797,13 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     // Presenting foot plants through a damped cab gives actual walking load
     // cues, without the old unrelated wall-clock sine bob.
     let pilotFeet=null,pilotLandingKick=0,cockpitLagX=0,cockpitLagZ=0;
+    // Live reference to the same fixed-step state used by the projectile ray.
+    // No interpolated second accuracy state and no new raycasts per frame.
+    let pilotStabilityPose=null;
+    function setPilotStabilizer(state){pilotStabilityPose=state;}
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         footEvidenceRoot.visible=!inspecting;
+        if(serviceVisual?.stability)pilotStabilityPose=serviceVisual.stability;
         const wasServicing = pilotWeaponServicing;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
         pilotWeaponServicing = !!serviceVisual?.weaponServicing;
@@ -1855,7 +1860,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             'YXZ');
         const pilotServiceSag = pilotWeaponFault ? (pilotWeaponServicing ? .20 : .13) : 0;
         const pilotRecoveryLift = pilotWeaponRecoveryKick * .09;
-        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotHitResponse.mount*.62 + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16 + pilotHitResponse.roll*.22, 'YXZ');
+        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotHitResponse.mount*.62 + pilotServiceSag - pilotRecoveryLift + (pilotStabilityPose?.pitch??0), lookYaw * .85 + (pilotStabilityPose?.yaw??0), gunDamageKick * damageWave * .16 + pilotHitResponse.roll*.22, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + pilotFiringPose.travel * .19;
         // Actual reload timer drives the pilot-visible breech. A moving
@@ -1955,6 +1960,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             const mobilityId=installedPart(record.assembly,'mobility')?.definition.id??'legs-yard';
             const spec=familyAnimation(mobilityId);
             const visualGait=visual?.gait;
+            if(visual?.stability)record.stabilityPose=visual.stability;
             if(motion){
                 if(visualGait){
                     motion.phase=visualGait.phase??motion.phase;
@@ -2068,10 +2074,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 const reload=reloadArticulation(visual?.reloadLeft??0,
                     visual?.reloadSeconds??0,
                     installedPart(record.assembly,'combat')?.definition.id);
-                combat.rotation.y=combatBase.rotation.y+aim.gun;
+                combat.rotation.y=combatBase.rotation.y+aim.gun+(record.stabilityPose?.yaw??0);
                 combat.rotation.x=combatBase.rotation.x+aim.elevation+
                     (fault?.20:0)-(recovery*.12)+(discharge?.mount??0)+
-                    (record.hitResponse?.mount??0)*.56;
+                    (record.hitResponse?.mount??0)*.56+(record.stabilityPose?.pitch??0);
                 combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
                 combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
@@ -2748,7 +2754,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const sightDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
         const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-        sightDir.addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
+        sightDir.addScaledVector(right, spreadX+(pilotStabilityPose?.yaw??0))
+            .addScaledVector(up, spreadY+(pilotStabilityPose?.pitch??0)).normalize();
         raycaster.set(camera.position, sightDir);
         raycaster.far = 100;
         const visible = raycaster.intersectObjects([...combatPickMeshes(), ...worldSolids], false)[0];
@@ -2816,7 +2823,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         let right = new THREE.Vector3().crossVectors(forward, worldUp);
         if (right.lengthSq() < 1e-6) right.set(1, 0, 0); else right.normalize();
         const up = new THREE.Vector3().crossVectors(right, forward).normalize();
-        const bore = forward.clone().addScaledVector(right, spreadX).addScaledVector(up, spreadY).normalize();
+        const bore = forward.clone()
+            .addScaledVector(right, spreadX+(shooter.stabilityPose?.yaw??0))
+            .addScaledVector(up, spreadY+(shooter.stabilityPose?.pitch??0)).normalize();
         raycaster.set(muzzle, bore);
         raycaster.far = 100;
         const blockers = [...combatPickMeshes(shooterId), ...exterior.pickMeshes, ...worldSolids];
@@ -3370,7 +3379,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
-        setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout, recordFootprint,
+        setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout, recordFootprint, setPilotStabilizer,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
