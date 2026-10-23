@@ -35,7 +35,7 @@ export function stepLabProps(props,rig,{massKg=4200,radiusM=.95}={},dt=1/60){
   const dx=prop.x-(rig.x??0),dz=prop.z-(rig.z??0);
   const distance=Math.hypot(dx,dz),minimum=collisionRadius+prop.radius;
   if(distance>=minimum){
-    prop.spin+=Math.hypot(prop.x-preX,prop.z-preZ)/prop.radius;
+    prop.spin+=(prop.z-preZ)/prop.radius;
     continue;
   }
   let nx,nz;
@@ -59,13 +59,21 @@ export function stepLabProps(props,rig,{massKg=4200,radiusM=.95}={},dt=1/60){
     rig.vx-=nx*j/rigMass;rig.vz-=nz*j/rigMass;
     prop.vx+=nx*j/prop.massKg;prop.vz+=nz*j/prop.massKg;
     prop.lastImpact=clamp(j/(rigMass*2),0,1);
+    rig.impact=Math.max(rig.impact??0,clamp(approaching/6,0,1));
     if(prop.cooldown<=0&&approaching>.22){
       prop.contactCount++;
       events.push({id:prop.id,strength:clamp(approaching/4,.10,.85),impulse:j});
       prop.cooldown=.24;
     }
   }
-  prop.spin+=Math.hypot(prop.x-preX,prop.z-preZ)/prop.radius;
+  prop.spin+=(prop.z-preZ)/prop.radius;
+ }
+ // StepRig already integrated motion this tick. Collision response updates
+ // the derived readouts immediately rather than leaving a stale frame.
+ if(Number.isFinite(rig.forwardSpeed)||Number.isFinite(rig.lateralSpeed)){
+   const yaw=rig.yaw??0,c=Math.cos(yaw),s=Math.sin(yaw);
+   rig.forwardSpeed=(rig.vx??0)*s-(rig.vz??0)*c;
+   rig.lateralSpeed=(rig.vx??0)*c+(rig.vz??0)*s;
  }
  return events;
 }
