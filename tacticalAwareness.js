@@ -189,6 +189,9 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
     else {
         state.underFireElapsed = 0;
         state.recentAttackerId = null;
+        state.shotSequence=0;
+        state.shotWarnings=0;
+        state.lastShotEvidenceAt=null;
     }
 
     const blocker = target ? tacticalCoverBlocker(enemy, target, world) : null;
