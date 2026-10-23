@@ -83,7 +83,7 @@ test('garage, audio and spectator flows retain all expected feedback hooks',()=>
  assert.match(ui,/REPLACE/);
  assert.match(ui,/unified-remove-icon/);
  assert.match(ui,/applyIntermissionTriage/);
- assert.match(main,/sortieOutroRemaining = 5/);
+ assert.match(main,/sortieOutroRemaining=SORTIE_BREATHER_SECONDS\+SORTIE_SHOWCASE_SECONDS/);
  assert.match(main,/orbitSpectatorBy/);
  assert.match(scene,/const illuminated=paintSelectedSlots \? false/);
  assert.match(audio,/soundWorkshop/);
