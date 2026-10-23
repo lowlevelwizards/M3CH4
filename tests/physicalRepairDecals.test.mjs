@@ -34,7 +34,7 @@ test('all permanent scars respond to scene lighting, hot breach rim is temporary
   assert.match(renderer,/new THREE\.MeshStandardMaterial/);
   assert.doesNotMatch(renderer,/new THREE\.MeshBasicMaterial/);
   assert.match(renderer,/roughness:kind==='service-patch'/);
-  assert.match(renderer,/const kind=newHeat&&profile\.kind==='breach'\?'fresh-breach':profile\.kind/);
+  assert.match(renderer,/const kind=newHeat&&\['breach','destroyed-breach'\]\.includes\(profile\.kind\)/);
   assert.match(renderer,/mark\.userData\.coolAt=event\.timestamp\+FRESH_BREACH_MS/);
   assert.match(renderer,/mark\.material=r\.materials\.get\(mark\.userData\.surfaceDamageKind\)/);
   assert.match(renderer,/const profile=event\.event==='service'/);
