@@ -7,10 +7,15 @@ export const GRAINHOUSE=Object.freeze({
  {id:'feed-conveyor',minX:-20,maxX:-12,minZ:0,maxZ:3.3,height:2.65,kind:'container'},
  {id:'packing-press',minX:-9,maxX:-3.5,minZ:-6.4,maxZ:-2,height:3.6,kind:'building'},
  {id:'central-meal-hopper',minX:-2.1,maxX:2.1,minZ:-11.1,maxZ:-7.0,height:3.7,kind:'building'},
- // The east silo yard has two large hard-cover banks with broad gaps.
- {id:'silo-north',minX:13,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
- {id:'silo-south',minX:14,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
+ // Two balanced silo banks flank a central service court. Each staging lane has
+ // matching hard cover but retains a full heavy-rig route around its silo.
+ {id:'silo-north',minX:14,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
+ {id:'silo-south',minX:15,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
  {id:'silo-utility-bank',minX:7.5,maxX:10.5,minZ:-4.2,maxZ:-.9,height:2.9,kind:'container'},
+ // North/south service carts break shooting lanes at the two silo approaches.
+ // Both can be bypassed either side; neither seals the central court.
+ {id:'north-service-cart',minX:16,maxX:18.5,minZ:-18.5,maxZ:-16,height:2.5,kind:'container'},
+ {id:'south-service-cart',minX:16,maxX:18.5,minZ:15,maxZ:17.5,height:2.5,kind:'container'},
   {id:'silo-service',minX:26,maxX:29.5,minZ:-3.5,maxZ:1.3,height:2.7,kind:'container'},
  // Structural partition has TWO actual openings: z=-9..-2 and z=6..13.
  {id:'mill-divider-top',minX:4.3,maxX:6.3,minZ:-24,maxZ:-12.3,height:5,kind:'barrier'},
@@ -32,7 +37,7 @@ export const GRAINHOUSE=Object.freeze({
  },
  sites:{
  recovery:{x:-12,z:7},control:{x:-12,z:-9},
- domination:[{id:'A',x:-10,z:-13},{id:'B',x:24.5,z:-8},{id:'C',x:11,z:19}],
+ domination:[{id:'A',x:-10,z:-13},{id:'B',x:19,z:-1},{id:'C',x:11,z:19}],
  breakthrough:{friendlyGoal:{x:0,z:-21},hostileGoal:{x:0,z:22}},
  },
 });
