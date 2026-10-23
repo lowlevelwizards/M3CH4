@@ -81,6 +81,8 @@ test('subtractive geometry uses existing breech and real magazines, not detachab
  assert.ok(!kit.includes('RELOAD / withdrawn'));
  assert.ok(!kit.includes('RELOAD / battery locking jaw'));
  assert.ok(!kit.includes('RELOAD / fixed ammunition feed track'));
+ assert.ok(!scene.includes('scatterGreebles.add(cassette)'));
+ assert.ok(!scene.includes('scatterGreebles.add(rib)'));
  assert.match(scene,/poseExistingReloadMagazine\(mechanism,reload,weaponId\)/);
  assert.match(scene,/poseReloadHardware\(activeKit\.userData\.reloadMechanism,reload\)/);
  assert.match(scene,/reloadCockpitPresentation\(reload,pilotWeaponPresentation\.id\)/);
