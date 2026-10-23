@@ -9,6 +9,11 @@ on:
       - 'backlotEnvironmentPass.js'
       - 'backlotObstacleKits.js'
       - 'backlotAnatomicalTractor.js'
+      - 'backlotAnatomicalMachines.js'
+      - 'backlotAnatomicalSalvage.js'
+      - 'backlotSceneryAnatomy.js'
+      - 'tests/backlotSceneryAnatomy.test.mjs'
+      - 'tests/backlotAnatomyCollection.test.mjs'
       - 'propAnatomyPrimitives.js'
       - 'tests/backlotTractorAnatomy.test.mjs'
       - 'index.html'
@@ -34,7 +39,7 @@ jobs:
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/backlot-gallery-http.log 2>&1 &
           sleep 2
       - name: Verify anatomy source and unaffected production colliders
-        run: node --test tests/backlotTractorAnatomy.test.mjs tests/backlotEnvironmentPass.test.mjs
+        run: node --test tests/backlotTractorAnatomy.test.mjs tests/backlotAnatomyCollection.test.mjs tests/backlotSceneryAnatomy.test.mjs tests/backlotEnvironmentPass.test.mjs
       - name: Inspect every actual Backlot prop at iPhone viewport
         run: node research/backlotPropGallerySmoke.mjs
       - name: Save phone screenshot evidence

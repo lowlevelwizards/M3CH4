@@ -21,8 +21,13 @@ try{
   canvas:!!document.querySelector('#stage canvas'),
   errors:document.querySelector('#gallery-error')?.textContent,
  }));
+ if(stats.experimentalIds?.length!==14||
+  !stats.experimentalIds.includes('experiment-loader-anatomy')||
+  !stats.experimentalIds.includes('experiment-combine-anatomy')||
+  !stats.experimentalIds.includes('experiment-container-anatomy'))
+  throw Error('Anatomy exhibits incomplete '+JSON.stringify(stats.experimentalIds));
  if(stats.mapVersion!==3||stats.coverCount!==34||
-   stats.showcaseCount!==4||stats.experimentCount!==1||
+   stats.showcaseCount!==4||stats.experimentCount!==14||
    stats.experimentId!=='experiment-tractor-anatomy'||
    stats.total!==stats.options||
    stats.sceneryArchetypes<20||!stats.canvas||!stats.hasFreeCamera)
@@ -52,7 +57,18 @@ try{
  if(!next||first===next)throw Error('Next prop navigation not working');
  await page.locator('#gallery-overview').click();
  await page.screenshot({path:'gallery-smoke-artifacts/prop-grid-overview.png'});
- await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount));
+ // Inspect the NEXT full machinery family, including a new/old transition.
+ await page.locator('#gallery-select').selectOption('1');
+ if(!(await page.locator('#gallery-current').textContent()).includes('LOADER'))
+  throw Error('Loader experiment absent at expected gallery index');
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-new.png'});
+ await page.locator('#gallery-before-after').click();
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-old.png'});
+ await page.locator('#gallery-before-after').click();
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-both.png'});
+ await page.locator('#gallery-select').selectOption('2');
+ await page.screenshot({path:'gallery-smoke-artifacts/combine-harvester.png'});
+ await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount+stats.experimentCount));
  await page.screenshot({path:'gallery-smoke-artifacts/scenery-sample.png'});
  // Navigating back out of the DEV lab must always preserve the live app link.
  const back=await page.locator('#gallery-exit').getAttribute('href');

@@ -35,7 +35,7 @@ test('comparison renders live source separately from prototype and exposes true 
  assert.match(gallery,/GREY_MAT/);
  assert.match(gallery,/expState\.view==='both'/);
  assert.match(gallery,/collisionOverlay\.visible=expState\.colliders/);
- assert.match(gallery,/if\(!entry\.experiment\)batchBacklotDerbyDecorations/);
+ assert.match(gallery,/batchBacklotDerbyDecorations\(entry\.experiment\.newPart\)/);
 });
 test('production Backlot collider set remains unchanged until physics review',()=>{
  assert.equal(BACKLOT.version,3);

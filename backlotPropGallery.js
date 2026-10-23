@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import {BACKLOT} from './maps/backlot.js';
-import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js';
+import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r4';
 const $=id=>{const node=document.getElementById(id);if(!node)throw Error('Missing #'+id);return node;};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const stage=$('stage'),speed=$('gallery-speed'),selectEl=$('gallery-select');
@@ -54,6 +54,10 @@ function plaque(entry,index){
  return p;
 }
 function buildGrid(){
+ // One invisible bounded pick proxy per specimen. Unlike raycasting every
+ // tread, bolt and plate, this remains O(specimen count) on touch devices.
+ const pickGeometry=new THREE.BoxGeometry(1,1,1);
+ const pickMaterial=new THREE.MeshBasicMaterial({visible:false});
  const catalog=buildBacklotPropCatalog(BACKLOT.world);
  const specimens=catalog.specimens;
  const coverCount=catalog.coverCount;
@@ -74,7 +78,12 @@ function buildGrid(){
    carrier.add(entry.group);
    // Batch repeated real kit fittings to make 100+ specimens practical on
    // mobile; original geometries and surface materials remain unchanged.
-   if(!entry.experiment)batchBacklotDerbyDecorations(entry.group);
+   if(entry.experiment){
+     // Batch each half INDEPENDENTLY, keeping old/new visibility and
+     // grey-material control intact and avoiding thousands of mobile draws.
+     batchBacklotDerbyDecorations(entry.experiment.newPart);
+     batchBacklotDerbyDecorations(entry.experiment.oldPart);
+   }else batchBacklotDerbyDecorations(entry.group);
    const plate=new THREE.Mesh(planeGeometry,plateMat);
    plate.name='sample-pad';plate.rotation.x=-Math.PI/2;
    plate.position.y=-.028;plate.userData.galleryPad=true;carrier.add(plate);
@@ -83,6 +92,13 @@ function buildGrid(){
     new THREE.Vector3(7,.025,7),new THREE.Vector3(-7,.025,7)
    ]),boundaryMat);
    carrier.add(boundary);carrier.add(plaque(entry,i));
+   const proxy=new THREE.Mesh(pickGeometry,pickMaterial);
+   proxy.name='gallery-pick-proxy';
+   proxy.scale.set(Math.min(13,Math.max(1.2,entry.width)),
+      Math.max(.7,entry.height),Math.min(13,Math.max(1.2,entry.depth)));
+   proxy.position.y=Math.max(.7,entry.height)*.5;
+   proxy.userData.galleryIndex=i;
+   carrier.add(proxy);picking.push(proxy);
    root.add(carrier);
    entries.push({...entry,x,z,row,col,carrier});
  }
@@ -121,9 +137,10 @@ function applyExperimentPresentation(e){
  const both=expState.view==='both';
  newPart.visible=expState.view!=='old';
  oldPart.visible=expState.view!=='new';
- newPart.position.x=both?-4:0;
- oldPart.position.x=both?4:0;
- collisionOverlay.position.x=both?4:0;
+ const spread=clamp(Math.max(e.width*.70,4),4,8);
+ newPart.position.x=both?-spread:0;
+ oldPart.position.x=both?spread:0;
+ collisionOverlay.position.x=both?spread:0;
  collisionOverlay.visible=expState.colliders;
  for(const root of [newPart,oldPart])root.traverse(obj=>{
   if(!obj.isMesh)return;
@@ -136,7 +153,7 @@ function applyExperimentPresentation(e){
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
   new:'Experimental anatomy only · not in combat yet',
-  old:'Original live k5q3 tractor · same camera position',
+  old:'Unmodified current Backlot production prop · same camera',
   both:'New at LEFT · original at RIGHT',
  }[expState.view]+' · collider wireframes = CURRENT LIVE MAP AABBs';
 }
@@ -153,13 +170,17 @@ compareBtn.addEventListener('click',()=>{
  if(expState.view==='both'){
    // Both models must be readable from one camera angle, not a near-field
    // giant old box with the rebuilt tractor tiny behind it.
-   setPose(new THREE.Vector3(entry.x,4.5,entry.z+11.6),
-     new THREE.Vector3(entry.x,1.45,entry.z));
+   const wide=Math.max(entry.width*2.5,entry.depth*2.0,14);
+   const facing=entry.experiment?.front==='-z'?-1:1;
+   setPose(new THREE.Vector3(entry.x,clamp(entry.height*1.4,4.5,9.5),
+      entry.z+facing*clamp(wide,14,30)),
+     new THREE.Vector3(entry.x,entry.height*.5,entry.z));
  }else{
    // Restore the same authored three-quarter angle for fair OLD/NEW swaps.
    const distance=clamp(Math.max(entry.depth*1.4,entry.width*.85,5.4),5.4,21);
    const height=clamp(entry.height*.74+1.1,1.7,8);
-   setPose(new THREE.Vector3(entry.x+distance*.36,height,entry.z+distance),
+   const facing=entry.experiment?.front==='-z'?-1:1;
+   setPose(new THREE.Vector3(entry.x+distance*.36,height,entry.z+facing*distance),
      new THREE.Vector3(entry.x,entry.height*.5,entry.z));
  }
 });
@@ -182,7 +203,12 @@ function setPose(position,target){
  camera.rotation.set(pitch,yaw,0,'YXZ');
 }
 function focus(index){
+ const last=entries[active];
  active=(index+entries.length)%entries.length;
+ if(last!==entries[active]){
+  expState.view='new';expState.grey=false;expState.colliders=false;
+  if(last?.experiment)applyExperimentPresentation(last);
+ }
  const e=entries[active];
  selectEl.value=String(active);
  $('gallery-current').textContent=e.label;
@@ -193,7 +219,8 @@ function focus(index){
  updateExperimentControls(e);
  const distance=clamp(Math.max(e.depth*1.4,e.width*.85,5.4),5.4,21);
  const y=clamp(e.height*.74+1.1,1.7,8);
- setPose(new THREE.Vector3(e.x+distance*.36,y,e.z+distance),
+ const facing=e.experiment?.front==='-z'?-1:1;
+ setPose(new THREE.Vector3(e.x+distance*.36,y,e.z+facing*distance),
    new THREE.Vector3(e.x,e.height*.5,e.z));
 }
 function overview(){
@@ -320,13 +347,11 @@ function render(time){
 }
 try{
  const stats=buildGrid();
- entries.forEach(entry=>entry.carrier.traverse(mesh=>{
-  if(mesh.isMesh&&!mesh.userData.galleryLabel&&!mesh.userData.galleryPad&&!mesh.userData.colliderOverlay)
-   picking.push(mesh);
- }));
+ // Picking is performed only against the per-specimen proxies built above.
  resize();focus(0);
  window.__backlotGalleryReady={...stats,mapVersion:BACKLOT.version,
-  hasFreeCamera:true,experimentId:entries.find(e=>e.experiment)?.id||null};
+  hasFreeCamera:true,experimentId:entries.find(e=>e.experiment)?.id||null,
+  experimentalIds:entries.filter(e=>e.experiment).map(e=>e.id)};
  requestAnimationFrame(render);
 }catch(error){
  $('gallery-error').hidden=false;
