@@ -292,29 +292,37 @@ function dirtMarks(root,w){
  * while the repeated planks, tyres, spectators and scrap stay purely visual.
  */
 export function batchBacklotDerbyDecorations(root){
- const buckets=new Map();let sourceMeshes=0;
- for(const node of [...root.children]){
-   if(!node.isMesh||node.userData?.arenaObstacleId||
-      node.material?.transparent)continue;
-   sourceMeshes++;
-   const key=node.geometry.uuid+':'+node.material.uuid;
-   if(!buckets.has(key))buckets.set(key,[]);
-   buckets.get(key).push(node);
- }
- let batches=0,instances=0;
- for(const items of buckets.values()){
-   if(items.length<2)continue;
-   const mesh=new THREE.InstancedMesh(items[0].geometry,items[0].material,items.length);
-   mesh.name='batched-outdoor-props';
-   mesh.castShadow=false;mesh.receiveShadow=true;
-   for(let i=0;i<items.length;i++){
-     const item=items[i];
-     item.updateMatrix();
-     mesh.setMatrixAt(i,item.matrix);
-     root.remove(item);
+ // Batch static siblings at EVERY authored hierarchy level, not just the
+ // world root. All instances use local transforms, so rotated rails, scaled
+ // cladding, distant barns and bleachers remain exactly where built.
+ const groups=[];
+ root.traverse(node=>{if(node.isGroup)groups.push(node);});
+ let sourceMeshes=0,batches=0,instances=0;
+ for(const group of groups){
+   const buckets=new Map();
+   for(const node of [...group.children]){
+     if(!node.isMesh||node.userData?.arenaObstacleId||
+        node.material?.transparent||!node.visible)continue;
+     sourceMeshes++;
+     const key=node.geometry.uuid+':'+node.material.uuid;
+     if(!buckets.has(key))buckets.set(key,[]);
+     buckets.get(key).push(node);
    }
-   mesh.instanceMatrix.needsUpdate=true;
-   root.add(mesh);batches++;instances+=items.length;
+   for(const items of buckets.values()){
+     if(items.length<2)continue;
+     const mesh=new THREE.InstancedMesh(items[0].geometry,items[0].material,items.length);
+     mesh.name='batched-outdoor-props';
+     mesh.userData.visualOnly=true;
+     mesh.castShadow=false;mesh.receiveShadow=true;
+     for(let i=0;i<items.length;i++){
+       const item=items[i];
+       item.updateMatrix();
+       mesh.setMatrixAt(i,item.matrix);
+       group.remove(item);
+     }
+     mesh.instanceMatrix.needsUpdate=true;
+     group.add(mesh);batches++;instances+=items.length;
+   }
  }
  return Object.freeze({sourceMeshes,batches,instances,
    callsSaved:instances-batches});
