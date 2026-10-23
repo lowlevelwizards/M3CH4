@@ -35,5 +35,5 @@ test('sound pans by listener facing without leaking exact source identity',()=>{
  assert.ok(soundBearing({x:4,z:0},listener,0)>.99);
  assert.ok(soundBearing({x:-4,z:0},listener,0)<-.99);
  assert.ok(Math.abs(soundBearing({x:0,z:-4},listener,0))<.01);
- assert.equal(coverProximity({x:3,y:2,z:0},{x:0,y:2,z:0}),2/3);
+ assert.ok(Math.abs(coverProximity({x:3,y:2,z:0},{x:0,y:2,z:0})-2/3)<1e-12);
 });
