@@ -45,6 +45,27 @@ export function reloadPhase(left,total,id='gun-cannon'){
  return {active:true,progress:t,stage,index,slide,bolt,cassette,
     feed,feedVisible:t>=.24&&t<.84,lock,ram,settle,mass:p.mass};
 }
+/** Stump's rear loader lives to the far right of the pilot's eye at rest.
+ * Bring its ACTUAL weapon assembly inboard and forward just for the loading
+ * interval. The complete physical muzzle pose returns to exactly zero offset
+ * before the authoritative reload finishes; steering and shot math do not
+ * receive any secondary aim error or invented gameplay disturbance.
+ */
+export function reloadCockpitPresentation(phase,id){
+ if(id!=='gun-short'||!phase?.active)return {x:0,y:0,z:0,yaw:0,tilt:0};
+ const t=phase.progress;
+ const display=hold(.025,.18,.78,.98,t);
+ const unlock=hold(.05,.19,.71,.93,t);
+ const lockImpact=hold(.81,.86,.89,.97,t);
+ return {
+   x:-.50*display,
+   y:-.045*unlock+.014*lockImpact,
+   z:-.62*display,
+   yaw:-.14*display,
+   tilt:.035*unlock-.026*lockImpact,
+ };
+}
+
 /** One-stage-at-a-time cue gate. Independent per gun / per AI actor.
  * A skipped render frame does not invent extra events; a new cycle resets.
  * Completion is emitted on actual reloadLeft=0, not by the animated lock.
