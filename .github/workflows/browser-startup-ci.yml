@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'main.js'
+      - 'test-yard.html'
+      - 'testYard.js'
+      - 'testYard.css'
+      - 'maps/testYard.js'
+      - 'research/testYardBrowserSmoke.mjs'
       - 'index.html'
       - 'scene.js'
       - 'backlotDressing.js'
@@ -37,7 +42,9 @@ jobs:
           sleep 2
       - name: Fast PR first-frame and deploy smoke
         if: github.event_name == 'pull_request'
-        run: node research/browserQuickSmoke.mjs
+        run: |
+          node research/browserQuickSmoke.mjs
+          node research/testYardBrowserSmoke.mjs
       - name: Full browser/paint/vendor/audio regression (weekly or manual)
         if: github.event_name != 'pull_request'
         run: node research/browserStartupSmoke.mjs
