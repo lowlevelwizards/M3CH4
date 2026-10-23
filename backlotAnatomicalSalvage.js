@@ -18,12 +18,15 @@ export function buildAnatomicalGenerator(root){
   for(const z of [-1.18,1.22])b(g,'generator-ground-mount',.50,.28,.63,s*.82,.18,z,D);
  }
  b(g,'diesel-engine-crankcase',1.66,1.11,1.48,0,.91,-.73,I);
+ b(g,'generator-coupled-machinery-bed',1.65,.36,2.70,0,.38,.03,C.clay);
+ b(g,'generator-drive-link-casing',1.21,.61,.75,0,.90,-.08,R);
  for(let i=0;i<3;i++){
   const z=-1.14+i*.45;
   cylinder(g,'diesel-generator-head',.31,.38,-.20,1.55,z,C.clay,'y',9);
   b(g,'head-cooling-fin',1.04,.12,.30,0,1.64,z,S);
  }
  cylinder(g,'dynamo-rotor-core',.79,1.34,0,.98,.61,C.clay,'z',12);
+ b(g,'generator-alternator-bottom-cradle',1.40,.41,1.31,0,.51,.60,I);
  for(let i=0;i<5;i++)b(g,'alternator-cooling-rib',1.69,.15,.16,
    0,.98+Math.sin(i*.95)*.63,.17+i*.21,S);
  for(const z of [.13,1.15])ring(g,'generator-rotor-housing',
@@ -52,6 +55,9 @@ export function buildAnatomicalTurbine(root){
    [Math.cos(a)*1.08,1.42+Math.sin(a)*1.08,-.54],
    [Math.cos(a)*1.08,1.42+Math.sin(a)*1.08,.56],.13,C.clay);
  }
+ // A cast pedestal physically supports the heavy circular turbine housing.
+ b(g,'turbine-structural-bearing-stand',1.45,.96,1.05,0,.65,0,C.clay);
+ b(g,'turbine-centre-bearing-case',.95,.54,1.10,0,1.08,0,I);
  cylinder(g,'impeller-shaft',.27,1.67,0,1.42,.12,S,'z',12);
  for(let i=0;i<5;i++){
   const a=i*Math.PI*2/5;
@@ -142,6 +148,8 @@ export function buildAnatomicalFlatbed(root){
  f(g,'trailer-a-frame-drawbar',[.90,.69,2.91],[0,.66,3.92],.15,S);
  // Scrap cargo is coherent dismantled machinery, not a welded cube.
  for(const zz of [-1.51,1.24]){
+  // Actual bolted sleeper keeps this junk from appearing to float.
+  b(g,'gear-cargo-support-cradle',1.54,.37,.66,0,1.29,zz,C.clay);
   ring(g,'salvaged-gear-rim',.81,.21,0,1.87,zz,I,'z',11);
   cylinder(g,'salvaged-wheel-hub',.30,.23,0,1.87,zz,S,'z',10);
  }
@@ -155,6 +163,8 @@ export function buildAnatomicalFlatbed(root){
 }
 export function buildAnatomicalScrapWall(root){
  const g=shell(root,'WELDED RURAL SCRAP BARRICADE');
+ // Structural bottom girder, beneath the individual salvaged panels.
+ b(g,'continuous-scrap-wall-foundation',4.91,.30,.41,0,.22,0,I);
  const plates=[
   [-1.94,1.52,1.25,R],[-.67,1.94,1.43,I],
   [.79,1.73,1.47,C.olive],[2.05,1.35,1.29,P]
@@ -179,6 +189,8 @@ export function buildAnatomicalScrapWall(root){
 }
 export function buildAnatomicalContainer(root){
  const g=shell(root,'CRUSHED ISO SHIPPING CONTAINER');
+ // Real shell and corner posts support a single roof, not floating planks.
+ b(g,'continuous-container-roof-deck',2.42,.12,5.76,0,2.64,0,C.clay);
  // Actual corrugated shell: four open-sided panels close in a hollow tube.
  for(const s of [-1,1]){
   b(g,'container-long-corrugated-sheet',.16,2.37,5.70,s*1.24,1.38,0,C.olive);
@@ -224,20 +236,20 @@ export function buildAnatomicalConcrete(root){
  return g;
 }
 export const SALVAGE_EXHIBITS=Object.freeze([
- {id:'generator',label:'GENERATOR · CHUNK V4',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
+ {id:'generator',label:'GENERATOR · SOLID V5',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
   match:o=>o.artKit==='generator-unit',build:buildAnatomicalGenerator},
- {id:'turbine',label:'TURBINE HOUSING · CHUNK V4',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
+ {id:'turbine',label:'TURBINE HOUSING · SOLID V5',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
   match:o=>o.artKit==='turbine-housing',build:buildAnatomicalTurbine},
  {id:'tyres',label:'TYRE STACK · SOLID V5',details:'THREE GROUNDED HOLLOW TYRES · NO RACK',
   match:o=>o.artKit==='tire-stack',build:buildAnatomicalTyreStack},
- {id:'barrels',label:'OIL DRUM PALLET · CHUNK V4',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
+ {id:'barrels',label:'OIL DRUM PALLET · SOLID V5',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
   match:o=>o.artKit==='barrel-cluster',build:buildAnatomicalDrums},
- {id:'flatbed',label:'FLATBED TRAILER · CHUNK V4',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
+ {id:'flatbed',label:'FLATBED TRAILER · SOLID V5',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
   match:o=>o.artKit==='flatbed-fragment',build:buildAnatomicalFlatbed},
- {id:'barricade',label:'WELDED SCRAP WALL · CHUNK V4',details:'IRREGULAR WELDED PANELS · BRACING',
+ {id:'barricade',label:'WELDED SCRAP WALL · SOLID V5',details:'IRREGULAR WELDED PANELS · BRACING',
   match:o=>o.artKit==='scrap-barricade',build:buildAnatomicalScrapWall},
- {id:'container',label:'SHIPPING CONTAINER · CHUNK V4',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
+ {id:'container',label:'SHIPPING CONTAINER · SOLID V5',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
   match:o=>o.artKit==='shipping-container',build:buildAnatomicalContainer},
- {id:'concrete',label:'CONCRETE BARRIER · CHUNK V4',details:'TRUE CAST SLOPES · CHIPPED REBAR',
+ {id:'concrete',label:'CONCRETE BARRIER · SOLID V5',details:'TRUE CAST SLOPES · CHIPPED REBAR',
   match:o=>o.artKit==='concrete-barrier',build:buildAnatomicalConcrete},
 ]);
