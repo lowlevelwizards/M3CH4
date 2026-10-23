@@ -36,6 +36,7 @@ import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
 import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
 import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
 import { prioritizeVisibleTarget, shouldAttemptTacticalShot, tacticalAimSlot } from './ai/adaptiveTactics.js';
+import { aiWeaponEngagement } from './ai/weaponTactics.js';
 import { createFaultSupportState, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
 import { advanceSortieObjective, createSortieObjective, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
@@ -1858,6 +1859,11 @@ function frame(now) {
                 let order=aiPlans[actor.team]?.orders?.[actor.id]??null;
                 const alliedView=aiSnapshot?.knowledge?.[actor.team];
                 const me=alliedView?.allies.find(p=>p.id===actor.id);
+                // Recent shared contact may guide facing/search, but never
+                // authorize shots or reveal an opponent's current position.
+                const lastSeen=alliedView?.contacts?.filter(c=>!c.visible &&
+                    c.confidence>.58 && aiClock-c.lastSeen<=2.2)
+                    .sort((a,b)=>b.lastSeen-a.lastSeen)[0]??null;
                 const support=counterFlankOrder(me,order,alliedView?.allies,
                     alliedView?.contacts,DEFAULT_WORLD,aiClock);
                 if(support&&!screenTarget?.active)order=support;
@@ -1911,7 +1917,7 @@ function frame(now) {
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
-                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig);
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig, lastSeen?.position??null);
                 if (actor.fieldService.held || recovery.mode === 'SETTLE')
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
@@ -1954,7 +1960,18 @@ function frame(now) {
                             !!sortieObjective.domination?.points?.some(p=>
                                 Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<
                                   sortieObjective.radius &&
-                                (p.contested||p.owner===actor.team))});
+                                (p.contested||p.owner===actor.team))}) &&
+                        aiWeaponEngagement(actor.weaponSpec,{
+                            distance:Math.hypot(target.rig.x-actor.rig.x,
+                                target.rig.z-actor.rig.z),
+                            rigSpeed:Math.hypot(actor.rig.vx,actor.rig.vz),
+                            yawError:Math.abs(Math.atan2(
+                                Math.sin(Math.atan2(target.rig.x-actor.rig.x,
+                                    actor.rig.z-target.rig.z)-actor.rig.yaw),
+                                Math.cos(Math.atan2(target.rig.x-actor.rig.x,
+                                    actor.rig.z-target.rig.z)-actor.rig.yaw))),
+                            brace:actor.rig.brace??0,
+                        }).fire;
                     const triggerReady=actor.weaponSpec.fireMode==='charged'
                         ? advanceChargedTrigger(actor.weaponState,actor.weaponSpec,ready,FIXED_DT) : ready;
                     const shot=advanceHostileController(actor.controller,

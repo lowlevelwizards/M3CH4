@@ -23,7 +23,10 @@ function zoneJobs(snapshot,team,strategy=null,policy=null) {
         const urgency=enemyMajority&&threat?1.34:
             ourMajority&&friendlyOwned?1.11:
             z.contested?1.18:1;
-        let base=(enemyOwned?.94:friendlyOwned?.59:.83)*urgency+
+        // A single uncontested owned point earns ZERO Domination score.
+        // Stop rewarding a whole team for remaining there indefinitely.
+        const holdingOnlyOne=friendlyOwned&&!z.contested&&ours<2;
+        let base=(enemyOwned?.94:friendlyOwned?(holdingOnlyOne?.19:.59):.83)*urgency+
             (zoneOpportunity(z,team,ourMajority)-.95)*.55;
         base+=(scoreForecast(z,team,ourMajority)-1)*.27;
         if(friendlyOwned&&!z.contested&&ourMajority)base+=.35;
@@ -72,7 +75,7 @@ function suitability(actor,job,team,policy=null) {
     return job.priority+offense+toughness+maneuver+positional-penalty+
         (cap.canFight?.04:-.09)+casualtyAssignment(actor,job,job.zone);
 }
-function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={},policy=null) {
+function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={},policy=null,needMajority=false) {
     const entries=actors.slice(0,4).sort((a,b)=>a.id.localeCompare(b.id));
     let best=-Infinity,bestList=[];
     function walk(i,score,chosen,counts){
@@ -87,7 +90,7 @@ function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previ
         for(const job of jobs) {
             const previousOrder=previous[entries[i].id];
             const oldZone=jobs.find(j=>j.objectiveId===previousOrder?.objectiveId)?.zone;
-            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team)*
+            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team,needMajority)*
               (policy?.weights?.switching??1);
             const value=suitability(entries[i],job,team,policy)-switchPenalty;
             if(value<0)continue;
@@ -135,7 +138,8 @@ export function planTeam(snapshot,team,options={}) {
                 strategy:strategy?.phase??'TAKE_GROUND'};
         }
         const assignedPairs=assignExhaustive(actors.filter(a=>!anchoredIds.has(a.id)),
-            jobs,team,playerZone?.id,strategy,previous,options.policy??null);
+            jobs,team,playerZone?.id,strategy,previous,options.policy??null,
+            posture.held<2);
         for(const pair of assignedPairs) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
@@ -152,6 +156,12 @@ export function planTeam(snapshot,team,options={}) {
                 reason:strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
                     'ROTATE · '+job.note:job.note,
                 strategy:strategy?.phase??'TAKE_GROUND',
+                // Break an old local DEFEND commitment when that owned point
+                // cannot contribute to the required two-point majority.
+                emergency:posture.held<2 &&
+                    previous[actor.id]?.goal==='DEFEND' &&
+                    previous[actor.id]?.objectiveId!==job.objectiveId &&
+                    job.kind!=='DEFEND',
                 role:job.kind==='DEFEND'?'ANCHOR':
                     job.kind==='SCREEN'?'SCREEN':
                     job.kind==='CONTEST'?'INTERCEPT':

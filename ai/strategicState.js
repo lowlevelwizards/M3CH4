@@ -46,7 +46,7 @@ export function evaluateStrategy(memory,snapshot,team){
     const paying=ours>=2,enemyPaying=theirs>=2;
     const phase=paying?'HOLD_MAJORITY':
         enemyPaying?'BREAK_MAJORITY':
-        globalStall>=12&&repeatedlyContested?'ROTATE':
+        globalStall>=14&&!paying?'ROTATE':
         repeatedlyContested?'SPLIT_PRESSURE':'TAKE_GROUND';
     const best=[...zones].filter(z=>z.owner!==team||z.contested)
         .sort((a,b)=>{
