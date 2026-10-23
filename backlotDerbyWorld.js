@@ -96,8 +96,14 @@ function createWreck(parent,o,solids){
  mass.userData.arenaObstacleId=id;
  solids.push(mass);
  if(tractor||loader||engine||tyres){
-   mass.material=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});
-   mass.userData.certifiedProxy=true;
+   // All bullet-stopping surface area stays *visible*. A hidden oversized
+   // prism would let shots spark against thin air between wheels or cab struts.
+   // Each face is a patchwork salvaged-metal surface; the raised machinery
+   // detail over it supplies the distinct vehicle silhouette.
+   const main=mat(baseColor,.32),worn=mat(tractor?P.rust2:loader?P.rust:P.iron,.28);
+   const oil=mat(P.steel,.35),scuffed=mat(tractor?P.iron:P.rust,.3);
+   mass.material=[worn,main,scuffed,main,oil,worn];
+   mass.userData.certifiedVisibleShell=true;
  }
  if(tractor||loader){
    // Wheel arch, raised bonnet, asymmetric cab and blunt armored radiator

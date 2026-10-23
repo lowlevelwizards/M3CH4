@@ -28,7 +28,8 @@ test('recognizable machineries retain exactly one raycast prism per true cover',
  const render=source('backlotDerbyWorld.js');
  assert.match(render,/mass\.userData\.arenaObstacleId=id/);
  assert.match(render,/solids\.push\(mass\)/);
- assert.match(render,/colorWrite:false,depthWrite:false/);
+ assert.match(render,/mass\.userData\.certifiedVisibleShell=true/);
+ assert.doesNotMatch(render,/colorWrite:false,depthWrite:false/);
  for(const identity of ['wreck-mass-chassis','crushed-cab-body','vertical-radiator-slat',
   'dented-overhung-cab-roof','external-cylinder-bank','agricultural-axle-joint'])
   assert.ok(render.includes(identity),identity);
@@ -49,7 +50,7 @@ test('arena spectators, distant farm, hanging panels and scars are bounded visua
  assert.match(scene,/advanceBacklotTerrain\(backlotEnvironment,dt\)/);
  assert.match(scene,/recordBacklotCoverStrike\(backlotEnvironment,contact\)/);
  assert.match(render,/root\.traverse\(node=>\{if\(node\.isGroup\)groups\.push\(node\);\}\)/);
- assert.match(render,/if\(!node\.isMesh\|\|node\.userData\?\.arenaObstacleId/);
+ assert.match(render,/if\(!node\.isMesh\|\|node\.isInstancedMesh\|\|node\.userData\?\.arenaObstacleId/);
  assert.match(decor,/root\.userData\.backlotReactivity=/);
  assert.doesNotMatch(decor,/setInterval|requestAnimationFrame/);
 });
