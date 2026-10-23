@@ -44,6 +44,10 @@ test('live scene and combat use the same contract world for line-of-fire and AI'
  assert.match(main,/const selectedWorld=selectedMap\.world/);
  assert.match(main,/createArenaScene\(assembly, targetAssembly,selectedMap\)/);
  assert.match(main,/world:selectedWorld/);
+ // Coordinates are map-specific, but runtime actor IDs remain the stable
+ // roster identities required by damage, target choice and bout scoring.
+ assert.match(main,/makeSupportActor\(HOSTILE_SUPPORT_SPAWNS\[index\]\.id/);
+ assert.doesNotMatch(main,/makeSupportActor\(spawn\.id, HOSTILE_TEAM/);
  assert.match(main,/observeBattlefield\(aiMemory,participants,sortieObjective,selectedWorld,aiClock\)/);
  assert.match(main,/createSortieObjective\(mappedContract\)/);
  assert.match(scene,/const world=arenaMap\.world/);
