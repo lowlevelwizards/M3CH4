@@ -50,7 +50,7 @@ function plaque(entry,index){
  const p=new THREE.Mesh(new THREE.PlaneGeometry(9.5,2.38),
    new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide,depthWrite:false}));
  p.name='prop-label-'+entry.id;
- p.position.set(0,1.5,8.1);p.userData.galleryLabel=true;
+ p.position.set(0,.075,8.1);p.rotation.x=-Math.PI/2;p.userData.galleryLabel=true;
  return p;
 }
 function buildGrid(){
@@ -122,8 +122,8 @@ function focus(index){
  $('gallery-description').textContent=e.detail+' · '+e.width.toFixed(1)+' × '+
    e.depth.toFixed(1)+' m · '+e.height.toFixed(1)+' m HIGH · '+e.id;
  selectionLine.position.set(e.x,0,e.z);selectionLine.visible=true;
- const distance=clamp(Math.max(e.depth*1.4,e.width*.85,6.5),6.5,21);
- const y=clamp(e.height*.74+1.1,2.15,8);
+ const distance=clamp(Math.max(e.depth*1.4,e.width*.85,5.4),5.4,21);
+ const y=clamp(e.height*.74+1.1,1.7,8);
  setPose(new THREE.Vector3(e.x+distance*.36,y,e.z+distance),
    new THREE.Vector3(e.x,e.height*.5,e.z));
 }
