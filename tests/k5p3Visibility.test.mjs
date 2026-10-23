@@ -36,7 +36,7 @@ test('barrel obstruction warning queries real fire ray, without shooting',()=>{
  const scene=source('scene.js'),main=source('main.js'),css=source('polishPass.css');
  const safety=scene.slice(scene.indexOf('function predictShotObstruction('),scene.indexOf('function traceCombatantShot('));
  assert.match(safety,/traceShot\(0,0,muzzleZ\)/);
- assert.match(safety,/if\(!contact\.aimObstructed\)return null/);
+ assert.match(safety,/if\(!locallyBlockedMuzzle\(contact\)\)return null/);
  assert.match(scene,/muzzleRayFallsShort\(/);
  assert.match(safety,/hitSquad\?\.team==='friendly'/);
  assert.match(safety,/return 'cover'/);
@@ -49,8 +49,8 @@ test('entry cache keys cover scene, workshop and CSS changes',()=>{
  const html=source('index.html'),bridge=source('sceneAssembly.js'),mount=source('garageMountUI.js');
  for(const suffix of ['garageMountUI.js']) assert.ok(html.includes(suffix+'?v=k5p6'));
  assert.match(html,/polishPass\.css\?v=k5a4/);
- assert.match(html,/main\.js\?v=k5p6/);
- assert.match(html,/sceneAssembly\.js\?v=k5p5/);
- assert.match(bridge,/scene\.js\?source=k5p5/);
+ assert.match(html,/main\.js\?v=k5p7/);
+ assert.match(html,/sceneAssembly\.js\?v=k5p7/);
+ assert.match(bridge,/scene\.js\?source=k5p7/);
  assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
 });

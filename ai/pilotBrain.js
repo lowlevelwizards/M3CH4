@@ -80,6 +80,7 @@ export function decidePilot(brain,actor,assignment,context,now) {
         assignment?.goal==='DEFEND';
     const emergency=service||unsafe||!capability.canMove||incompatible||
         !!proposed.emergency||
+        (last?.goal==='CLEAR_LANE'&&proposed.goal!=='CLEAR_LANE')||
         !!(context?.systemAtRisk&&context?.survivalPoint)||
         (proposed.goal==='SCREEN'&&last?.goal!=='SCREEN');
     const improvement=(proposed.utility??0)-(last?.utility??0);
