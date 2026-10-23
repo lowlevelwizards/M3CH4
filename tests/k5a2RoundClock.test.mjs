@@ -81,3 +81,10 @@ test('live battle integrates round clock once, and still resolves through normal
  assert.match(html,/roundClock\.js\?v=k5a2/);
  assert.match(html,/main\.js\?v=k5a2/);
 });
+
+test('time decisions do not falsely claim the opposition was eliminated',()=>{
+ const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
+ assert.match(main,/const timedDecision=reason\?\.startsWith\('TIME LIMIT'\)/);
+ assert.match(main,/ROUND WON · TIME DECISION/);
+ assert.match(main,/ROUND LOST · TIME DECISION/);
+});
