@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
-import {advanceFootContacts} from './footContactController.js?v=k5b4';
+import {advanceFootContacts} from './footContactController.js?v=k5b5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
 import { shotContacts } from './scattergun.js';
 import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
