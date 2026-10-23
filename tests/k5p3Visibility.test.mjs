@@ -49,8 +49,8 @@ test('entry cache keys cover scene, workshop and CSS changes',()=>{
  const html=source('index.html'),bridge=source('sceneAssembly.js'),mount=source('garageMountUI.js');
  for(const suffix of ['garageMountUI.js']) assert.ok(html.includes(suffix+'?v=k5p8'));
  assert.match(html,/polishPass\.css\?v=k5a4/);
- assert.match(html,/main\.js\?v=k5r2/);
- assert.match(html,/sceneAssembly\.js\?v=k5r2/);
- assert.match(bridge,/scene\.js\?source=k5r2/);
+ assert.match(html,/main\.js\?v=k5r3/);
+ assert.match(html,/sceneAssembly\.js\?v=k5r3/);
+ assert.match(bridge,/scene\.js\?source=k5r3/);
  assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
 });
