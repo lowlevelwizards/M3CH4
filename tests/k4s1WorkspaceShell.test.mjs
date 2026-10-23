@@ -5,7 +5,7 @@ const source=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 
 test('k4s.1 ships fresh stylesheet and script identities',()=>{
     const html=source('index.html'),adapter=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance)/);
+    assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)/);
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
     assert.match(html,/garageMountUI\.js\?v=k4z1/);

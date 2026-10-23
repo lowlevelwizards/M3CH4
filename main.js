@@ -2407,14 +2407,14 @@ function finishSortie(victory, reason) {
     renderAmmo();
     syncCockpitInstruments();
 }
-function applyAiHitToPlayer(actor, contact, damage = actor.weaponSpec.damage, audible = true) {
+function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage, audible = true) {
     const serviceInterruptedByHit = fieldService.held;
     stopFieldServiceInput();
     if (serviceInterruptedByHit) handleFieldServiceInterrupted();
     const partBefore = playerCondition.parts[contact.slot];
     const before = partSnapshot(partBefore);
     const beforeIntegrity = partBefore.integrity;
-    const hit = applyTargetHit(playerCondition, contact.slot, damage);
+    const hit = applyTargetHit(playerCondition, contact.slot, shotDamage);
     if (hit.internalDamage > 0) {
         const amount = hit.internalDamage / Math.max(1, partBefore.maxIntegrity);
         if (contact.slot === 'mobility')

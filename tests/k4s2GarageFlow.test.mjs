@@ -5,7 +5,7 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('k4s.2 uses cache-fresh mobile modules and last-loaded flow stylesheet',()=>{
   const html=read('index.html'),mount=read('garageMountUI.js'),bridge=read('sceneAssembly.js');
-  assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance)/);
+  assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)/);
   assert.match(html,/k4s2GarageFlow\.css\?v=k4s2/);
   assert.ok(html.indexOf('k4s2GarageFlow.css')>html.indexOf('k4sWorkshopShell.css'));
     assert.match(html,/main\.js\?v=[\w.-]+/);
