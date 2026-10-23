@@ -152,10 +152,10 @@ function applyExperimentPresentation(e){
  greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
-  new:'CHUNK V4 · experimental anatomy only · not yet in combat',
+  new:'SOLID V5 · structural anatomy prototype · not in combat',
   old:'Unmodified current Backlot production prop · same camera',
   both:'New at LEFT · original at RIGHT',
- }[expState.view]+' · collider wireframes = CURRENT LIVE MAP AABBs';
+ }[expState.view]+' · '+(e.experiment.audit?.pass?'STRUCTURAL JOINS VERIFIED':'REVIEW STRUCTURAL JOINS')+' · collider wireframes = CURRENT LIVE MAP AABBs';
 }
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
@@ -214,7 +214,7 @@ function focus(index){
  selectEl.value=String(active);
  $('gallery-current').textContent=e.label;
  $('gallery-count').textContent=(active+1)+' / '+entries.length;
- $('gallery-description').textContent=e.detail+' · '+e.width.toFixed(1)+' × '+
+ $('gallery-description').textContent=e.detail+(e.experiment?.audit?(' · '+e.experiment.audit.checked+' structural joins '+(e.experiment.audit.pass?'verified':'NEED REVIEW')):'')+' · '+e.width.toFixed(1)+' × '+
    e.depth.toFixed(1)+' m · '+e.height.toFixed(1)+' m HIGH · '+e.id;
  selectionLine.position.set(e.x,0,e.z);selectionLine.visible=true;
  updateExperimentControls(e);
@@ -352,7 +352,12 @@ try{
  resize();focus(0);
  window.__backlotGalleryReady={...stats,mapVersion:BACKLOT.version,
   hasFreeCamera:true,experimentId:entries.find(e=>e.experiment)?.id||null,
-  experimentalIds:entries.filter(e=>e.experiment).map(e=>e.id)};
+  experimentalIds:entries.filter(e=>e.experiment).map(e=>e.id),
+  assemblyAudits:entries.filter(e=>e.experiment).map(e=>({
+   id:e.id,checked:e.experiment.audit?.checked||0,
+   pass:e.experiment.audit?.pass===true,
+   failures:e.experiment.audit?.failures||[],
+  }))};
  requestAnimationFrame(render);
 }catch(error){
  $('gallery-error').hidden=false;
