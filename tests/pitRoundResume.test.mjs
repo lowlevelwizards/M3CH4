@@ -75,8 +75,8 @@ test('an untouched pit pending assignment remains pending', () => {
 test('pit footer and bay selector reserve separate horizontal lanes', () => {
     const css = readFileSync(new URL('../physicalPitWorkspace.css', import.meta.url), 'utf8');
     const section = css.slice(css.indexOf('/* Reserve a separate bottom lane'));
-    assert.match(section, /left:calc\\(\\(100% - var\\(--pit-footer-width\\) - 16px\\) \\/ 2\\)/);
-    assert.match(section, /max-width:calc\\(100% - var\\(--pit-footer-width\\) - 24px\\)/);
+    assert.ok(section.includes('left:calc((100% - var(--pit-footer-width) - 16px) / 2)'));
+    assert.ok(section.includes('max-width:calc(100% - var(--pit-footer-width) - 24px)'));
     // Check the declared geometry at representative landscape screen widths.
     for (const viewport of [667, 844, 1024, 1799]) {
         const footer = Math.max(246, Math.min(365, .36 * viewport));
