@@ -32,7 +32,7 @@ export const GRAINHOUSE=Object.freeze({
  },
  sites:{
  recovery:{x:-12,z:7},control:{x:-12,z:-9},
- domination:[{id:'A',x:-10,z:-14},{id:'B',x:24.5,z:-8},{id:'C',x:11,z:18}],
+ domination:[{id:'A',x:-10,z:-13},{id:'B',x:24.5,z:-8},{id:'C',x:11,z:19}],
  breakthrough:{friendlyGoal:{x:0,z:-21},hostileGoal:{x:0,z:22}},
  },
 });
