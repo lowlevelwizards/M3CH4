@@ -1,4 +1,4 @@
-/** Backlot k.5r.3: anatomy-first machine prototypes. DEV gallery only.
+/** Backlot k.5r.5: bold, chunky anatomy-first machine prototypes. DEV gallery only.
  * Structural volumes are built independently of the game's AABB cover.
  * No false claims about traversable gaps or bullet collision are made.
  */
@@ -6,113 +6,113 @@ import * as THREE from 'three';
 import {block,cylinder,ring,beam,profile,wheel,axlePair,rustPanel,TRIM_COLORS as C}
  from './propAnatomyPrimitives.js';
 const R=C.rust,S=C.steel,I=C.iron,Y=C.yellow,P=C.paint,D=C.soot;
-const f=(root,n,a,b,r=.07,c=S)=>beam(root,n,a,b,r,c,7);
+const f=(root,n,a,b,r=.105,c=S)=>beam(root,n,a,b,r,c,7);
 const metal=(root,n,w,h,d,x,y,z,c=I)=>block(root,n,w,h,d,x,y,z,c,.37);
 function ladder(root,name,width,z0,z1,y){
  for(const side of [-1,1])f(root,name+'-rail',[side*width*.5,y,z0],
-    [side*width*.5,y,z1],.15,I);
- for(let z=z0+.25;z<z1;z+=.8)
-  f(root,name+'-crossmember',[-width*.5,y,z],[width*.5,y,z],.10,S);
+    [side*width*.5,y,z1],.21,I);
+ for(let z=z0+.42;z<z1;z+=1.38)
+  f(root,name+'-crossmember',[-width*.5,y,z],[width*.5,y,z],.16,S);
 }
 /** Continuous low crawler tread: connected shoes follow a capsule, not
  * black boxes pretending to be tracks. Axis X carries the sprockets. */
 function track(root,side){
- const x=side*2.02,y=.83,r=.63,a=1.15,n=30;
+ const x=side*2.04,y=.85,r=.69,a=1.10;
  const g=new THREE.Group();g.name='crawler-track-assembly-'+side;
  g.position.x=x;root.add(g);
  for(const z of [-a,a]){
-  ring(g,'track-drive-rim',.46,.11,0,y,z,I,'x',12);
-  cylinder(g,'track-sprocket',.31,.33,0,y,z,S,'x',10);
-  for(let tooth=0;tooth<10;tooth++){
-   const t=tooth*Math.PI/5;
-   const tab=metal(g,'sprocket-tooth',.43,.12,.16,0,
-      y+Math.cos(t)*.39,z+Math.sin(t)*.39,D);
+  ring(g,'track-drive-rim',.48,.16,0,y,z,I,'x',10);
+  cylinder(g,'track-sprocket',.36,.42,0,y,z,S,'x',8);
+  for(let tooth=0;tooth<6;tooth++){
+   const t=tooth*Math.PI/3;
+   const tab=metal(g,'sprocket-tooth',.52,.18,.22,0,
+      y+Math.cos(t)*.42,z+Math.sin(t)*.42,D);
    tab.rotation.x=-t;
   }
  }
- for(const z of [-.67,0,.67])
-  cylinder(g,'track-road-wheel',.30,.32,0,.56,z,C.clay,'x',10);
+ for(const z of [-.62,.62])
+  cylinder(g,'track-road-wheel',.34,.42,0,.59,z,C.clay,'x',8);
  // Each link lies tangent to the capsule. Distinct linked shoes visibly
  // curve around the front and rear instead of hiding a box inside.
  const route=[];
- for(let i=0;i<=9;i++)route.push([-a+i*2*a/9,y+r,0]);
- for(let i=1;i<=6;i++){const t=i*Math.PI/6;route.push([a+r*Math.sin(t),y+r*Math.cos(t),-t]);}
- for(let i=1;i<=9;i++)route.push([a-i*2*a/9,y-r,Math.PI]);
- for(let i=1;i<=6;i++){const t=i*Math.PI/6;route.push([-a-r*Math.sin(t),y-r*Math.cos(t),Math.PI+t]);}
+ for(let i=0;i<=6;i++)route.push([-a+i*2*a/6,y+r,0]);
+ for(let i=1;i<=5;i++){const t=i*Math.PI/5;route.push([a+r*Math.sin(t),y+r*Math.cos(t),-t]);}
+ for(let i=1;i<=6;i++)route.push([a-i*2*a/6,y-r,Math.PI]);
+ for(let i=1;i<=5;i++){const t=i*Math.PI/5;route.push([-a-r*Math.sin(t),y-r*Math.cos(t),Math.PI+t]);}
  // Capsule coordinates above are [z,y,angle] for top/bottom and rounded ends.
  for(let i=0;i<route.length;i++){
   const [z,yy,angle]=route[i];
-  const shoe=metal(g,'connected-crawler-track-shoe',.66,.15,.36,0,yy,z,C.rubber);
+  const shoe=metal(g,'connected-crawler-track-shoe',.85,.23,.48,0,yy,z,C.rubber);
   shoe.rotation.x=angle;
-  metal(g,'raised-track-cleat',.71,.095,.11,0,
-   yy+Math.cos(angle)*.09,z+Math.sin(angle)*.09,I).rotation.x=angle;
+  if(i%2===0)metal(g,'raised-track-cleat',.89,.14,.18,0,
+   yy+Math.cos(angle)*.14,z+Math.sin(angle)*.14,I).rotation.x=angle;
  }
  // Side frames are deliberately open around bogies.
- f(g,'track-bogie-support',[0,.57,-1.10],[0,.57,1.10],.13,C.clay);
+ f(g,'track-bogie-support',[0,.57,-1.10],[0,.57,1.10],.19,C.clay);
  for(const z of [-.67,.67])f(g,'track-suspension-strut',
-   [0,.55,z],[side*.04,1.34,z+.18],.09,S);
+   [0,.55,z],[side*.04,1.34,z+.18],.14,S);
  return g;
 }
 export function buildAnatomicalLoader(root){
  const g=new THREE.Group();g.name='ANATOMICAL TRACKED FRONT LOADER';
  root.add(g);
  // Forward is -Z. The track carriage outweighs the cab and engine.
- ladder(g,'loader-box-frame',3.3,-2.10,2.35,1.05);
+ ladder(g,'loader-box-frame',3.35,-2.10,2.35,1.08);
  track(g,-1);track(g,1);
  axlePair(g,'rear-final-drive',-2.05,2.05,1.07,1.21,I);
  for(const z of [-1.2,1.1])metal(g,'loader-bogie-cross-truss',
-  3.80,.25,.30,0,.98,z,C.clay);
+  3.90,.36,.42,0,.98,z,C.clay);
  // Rear engine is a block only where there is an actual engine.
- rustPanel(g,'rear-diesel-crankcase',2.32,.87,1.32,0,1.59,1.24,C.olive,R);
- for(let z=.76;z<1.82;z+=.29){
-  cylinder(g,'loader-diesel-cylinder',.24,.40,-.36,2.17,z,C.clay,'y',8);
-  cylinder(g,'loader-cylinder-head',.25,.12,-.36,2.43,z,I,'y',8);
+ rustPanel(g,'rear-diesel-crankcase',2.66,1.04,1.55,0,1.62,1.23,C.olive,R);
+ for(let z=.84;z<1.74;z+=.39){
+  cylinder(g,'loader-diesel-cylinder',.32,.42,-.36,2.25,z,C.clay,'y',8);
+  cylinder(g,'loader-cylinder-head',.35,.15,-.36,2.52,z,I,'y',8);
  }
  for(const s of [-1,1]){
-  for(let i=0;i<5;i++)metal(g,'rear-engine-cooling-louvre',
-   .09,.10,.19,s*1.23,1.68,.77+i*.29,D);
+  for(let i=0;i<3;i++)metal(g,'rear-engine-cooling-louvre',
+   .12,.16,.30,s*1.36,1.74,.83+i*.40,D);
  }
  // Center cab: open sightlines, real seat, canopy, four structural posts.
  const cab=new THREE.Group();cab.name='loader-open-operator-station';
  g.add(cab);
- metal(cab,'cab-floor',2.12,.16,1.53,0,1.63,-.28,I);
- metal(cab,'operator-seat-cushion',.86,.16,.65,0,1.99,.0,C.rubber);
- metal(cab,'operator-seat-back',.87,.77,.16,0,2.34,.31,C.rubber);
+ metal(cab,'cab-floor',2.25,.23,1.66,0,1.63,-.28,I);
+ metal(cab,'operator-seat-cushion',1.03,.22,.75,0,2.00,.0,C.rubber);
+ metal(cab,'operator-seat-back',1.01,.83,.21,0,2.40,.34,C.rubber);
  for(const s of [-1,1])for(const z of [-1.03,.55])
   f(cab,'rollover-cage-upright',[s*1.06,1.68,z],
-    [s*1.15,3.24,z],.115,P);
+    [s*1.15,3.24,z],.17,P);
  for(const s of [-1,1])f(cab,'rollover-canopy-rail',
-  [s*1.15,3.24,-1.03],[s*1.15,3.24,.55],.10,I);
- metal(cab,'roof-canopy-panel',2.62,.15,1.91,0,3.28,-.26,Y);
- f(cab,'front-cage-crossbar',[-1.15,3.18,-1.03],[1.15,3.18,-1.03],.08,S);
- f(cab,'steering-column',[0,1.86,-.81],[0,2.42,-.98],.08,S);
- ring(cab,'operator-control-wheel',.28,.052,0,2.42,-1.0,D,'z',10);
+  [s*1.15,3.24,-1.03],[s*1.15,3.24,.55],.15,I);
+ metal(cab,'roof-canopy-panel',2.89,.27,2.13,0,3.32,-.26,Y);
+ f(cab,'front-cage-crossbar',[-1.15,3.18,-1.03],[1.15,3.18,-1.03],.14,S);
+ f(cab,'steering-column',[0,1.86,-.81],[0,2.42,-.98],.12,S);
+ ring(cab,'operator-control-wheel',.31,.073,0,2.42,-1.0,D,'z',9);
  // Articulating two-arm bucket: every member reaches an actual pivot.
  for(const s of [-1,1]){
   const x=s*1.30;
-  cylinder(g,'rear-boom-pivot',.25,.32,x,2.05,.70,S,'x',10);
-  f(g,'loader-lift-boom',[x,2.08,.66],[x,1.94,-1.83],.25,Y);
-  f(g,'loader-boom-drop-link',[x,1.94,-1.83],[s*1.48,1.24,-2.72],.19,Y);
-  f(g,'lift-hydraulic-outer',[s*1.09,1.30,.55],[x,1.63,-1.15],.19,I);
-  f(g,'exposed-chrome-piston',[x,1.63,-1.15],[x,1.89,-1.84],.098,S);
-  cylinder(g,'bucket-hinge-pin',.19,.43,s*1.48,1.24,-2.72,S,'x',9);
+  cylinder(g,'rear-boom-pivot',.33,.42,x,2.05,.70,S,'x',10);
+  f(g,'loader-lift-boom',[x,2.08,.66],[x,1.94,-1.83],.34,Y);
+  f(g,'loader-boom-drop-link',[x,1.94,-1.83],[s*1.48,1.24,-2.72],.28,Y);
+  f(g,'lift-hydraulic-outer',[s*1.09,1.30,.55],[x,1.63,-1.15],.24,I);
+  f(g,'exposed-chrome-piston',[x,1.63,-1.15],[x,1.89,-1.84],.13,S);
+  cylinder(g,'bucket-hinge-pin',.24,.50,s*1.48,1.24,-2.72,S,'x',9);
  }
  // Hollow V-section bucket with a floor and high rear wall, NOT a solid box.
  profile(g,'welded-hollow-bucket-floor',
-   [[-2.64,.45],[-3.45,.40],[-3.67,.59],[-2.75,.82]],5.20,0,I);
+   [[-2.64,.44],[-3.45,.38],[-3.70,.63],[-2.74,.91]],5.30,0,I);
  profile(g,'welded-bucket-backplate',
-   [[-2.75,.60],[-2.77,1.83],[-2.57,1.90],[-2.55,.71]],5.12,0,C.clay);
+   [[-2.78,.52],[-2.81,1.91],[-2.50,2.01],[-2.48,.68]],5.22,0,C.clay);
  for(const s of [-1,1])profile(g,'bucket-open-end-plate',
-   [[-2.57,.49],[-3.67,.59],[-3.40,1.14],[-2.58,1.89]],.15,s*2.53,R);
- for(let i=0;i<7;i++){
-  const xx=-2.38+i*.79;
-  profile(g,'individual-bucket-teeth',[[-3.47,.43],[-3.95,.34],[-3.52,.63]],.25,xx,S);
+   [[-2.57,.46],[-3.70,.60],[-3.40,1.20],[-2.54,1.97]],.26,s*2.55,R);
+ for(let i=0;i<5;i++){
+  const xx=-2.15+i*1.08;
+  profile(g,'individual-bucket-teeth',[[-3.47,.43],[-4.01,.29],[-3.53,.70]],.42,xx,S);
  }
- metal(g,'damaged-bucket-reinforcement',4.95,.15,.14,0,1.70,-2.69,P);
+ metal(g,'damaged-bucket-reinforcement',5.03,.23,.21,0,1.70,-2.69,P);
  // Operating scars: offset and missing components without arbitrary clutter.
- metal(g,'bent-side-service-panel',.70,.41,.065,1.26,1.79,1.16,R)
+ metal(g,'bent-side-service-panel',.95,.52,.095,1.26,1.79,1.16,R)
   .rotation.y=.24;
- f(g,'loader-engine-exhaust',[.80,2.04,1.35],[.88,2.80,1.36],.12,D);
+ f(g,'loader-engine-exhaust',[.80,2.04,1.35],[.88,2.80,1.36],.17,D);
  cylinder(g,'exhaust-flapper',.19,.055,.89,2.82,1.36,S,'y',8);
  return g;
 }
