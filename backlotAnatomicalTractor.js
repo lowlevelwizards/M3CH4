@@ -15,7 +15,7 @@ export const TRACTOR_ANATOMY_SPEC=Object.freeze({
   'exhaust-stack','angled-bonnet','open-undercarriage']),
 });
 export function buildAnatomicalTractor(root){
- const g=new THREE.Group();g.name='CHUNKY ANATOMICAL WRECKED TRACTOR — experimental';
+ const g=new THREE.Group();g.name='SOLID-CORE CHUNKY FARM TRACTOR — experimental';
  g.userData.experimentalAnatomy=true;root.add(g);
  // Actual drivetrain first: twin rails, transverse axles, bolted crossmembers.
  for(const side of [-1,1]){
@@ -31,6 +31,19 @@ export function buildAnatomicalTractor(root){
  axlePair(g,'front-steered-axle',-1.71,1.71,.68,2.39,C.steel);
  cylinder(g,'gearbox-round-clutch-case',.40,.71,0,1.15,-.65,C.iron,'z',10);
  block(g,'rear-transmission-tail',1.28,.49,1.1,0,1.16,-1.15,C.clay,.27);
+ // One mechanical backbone joins engine, clutch, differential and footwell.
+ block(g,'tractor-integrated-clutch-bellhousing',1.77,.91,1.67,
+   0,1.14,-.37,C.clay,.30);
+ block(g,'tractor-lower-sump-and-frame-web',1.65,.36,2.89,
+   0,.85,.24,C.iron,.30);
+ block(g,'tractor-rear-gearbox-backbone',1.63,.81,1.15,
+   0,1.16,-1.60,C.iron,.33);
+ for(const side of [-1,1]){
+  block(g,'tractor-rear-axle-shoulder',.41,.68,.80,
+   side*.86,1.16,-1.90,C.clay,.3);
+  block(g,'tractor-driver-running-board-edge',.20,.43,1.61,
+   side*1.18,1.07,-1.13,C.iron,.24);
+ }
  cylinder(g,'rear-differential-housing',.46,.77,0,1.18,-1.90,C.iron,'x',10);
  beam(g,'visible-drive-shaft',[0,1.09,-1.8],[0,1.00,.63],.14,C.steel,8);
  for(const z of [-1.8,-.4,.75])ring(g,'drivetrain-bearing',
@@ -95,6 +108,10 @@ export function buildAnatomicalTractor(root){
   block(g,'hood-radiator-side',.12,.59,.12,side*.67,1.53,2.53,C.iron);
  for(let i=0;i<3;i++)
   block(g,'radiator-open-slat',1.29,.11,.08,0,1.30+i*.18,2.59,C.soot);
+ block(g,'tractor-bellhousing-upper-crown',1.37,.33,.88,
+  0,1.59,-.58,C.rust,.25);
+ block(g,'tractor-side-fuel-tank',.55,.55,1.08,
+  -.89,1.53,.01,C.clay,.2);
  // Operator position, seat on transmission, no featureless opaque cab mass.
  cylinder(g,'steering-column-pivot',.105,.25,0,1.89,-.85,C.soot,'x',8);
  beam(g,'steering-column',[0,1.49,-1.02],[0,2.12,-.56],.065,C.steel);
