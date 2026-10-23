@@ -68,6 +68,45 @@ try {
  }
  if(new Set(pictures.map(p=>p.hash)).size!==3)
    throw Error('Distinct maps rendered identical: '+JSON.stringify(pictures));
+ // The actual deployed game must use the SAME contract-to-world choice as
+ // the standalone map renders, including campaign unlock and browser reload.
+ await page.goto('http://127.0.0.1:8765/index.html',
+  {waitUntil:'domcontentloaded',timeout:60000});
+ await page.evaluate(async()=>{
+  const {CAMPAIGN_STORAGE_KEY,createCampaignState}=await import('./campaign.js');
+  localStorage.setItem(CAMPAIGN_STORAGE_KEY,JSON.stringify(createCampaignState({
+   clearedNodes:['yard-dog','cutter','mule','circuit-final'],
+   status:'complete',
+  })));
+ });
+ for(const [contractId,expectedMap] of [
+  ['yard-dog','backlot-dustbowl'],
+  ['domination','culvert-nine'],
+  ['circuit-final','grainhouse'],
+ ]){
+  await page.evaluate(id=>{
+   sessionStorage.setItem('m3ch4-contract-v1',id);
+  },contractId);
+  await page.reload({waitUntil:'domcontentloaded'});
+  try{
+   await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,
+    {timeout:25000});
+  }catch(e){
+   const log=await page.evaluate(()=>document.querySelector(
+    '#startup-diagnostic-detail')?.textContent||'no startup diagnostic');
+   throw Error('Venue live load failed '+contractId+': '+log+' / '+String(e));
+  }
+  const live=await page.evaluate(async()=>{
+   const {activePlayerArena}=await import('./scene.js');
+   const scene=activePlayerArena()?.arena?.scene;
+   return {id:scene?.getObjectByName('arena-environment')?.userData?.mapId,
+    coverCount:scene?.children?.length??0};
+  });
+  if(live.id!==expectedMap)
+   throw Error('Real contract loaded wrong world '+contractId+' '+JSON.stringify(live));
+  await page.screenshot({path:'art-lab-artifacts/live-contract-'+contractId+'.png'});
+ }
+
  if(errors.length)throw Error('Browser WebGL errors: '+errors.join('; '));
  console.log('CIRCUIT MAPS: PASS · 3 real 3D venues, map-specific cover and lighting '+JSON.stringify(pictures));
 } finally {await browser.close();}
