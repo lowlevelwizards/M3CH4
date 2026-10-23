@@ -2764,7 +2764,7 @@ function warnNearbyAiFromShot(firingTeam,contact){
         if(!defender.active||defender.team===firingTeam||defender.id===contact.actorId)
             continue;
         const evidence=shotThreatEvidence(defender.rig,contact.muzzle,contact.point);
-        if(evidence)recordShotEvidence(defender.motion,defender.rig,evidence);
+        if(evidence)recordShotEvidence(defender.motion,defender.rig,evidence,aiClock);
     }
 }
 /** A heated surface is the installed serial, never just a reused station/slot. */
