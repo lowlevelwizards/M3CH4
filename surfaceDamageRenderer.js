@@ -10,6 +10,10 @@ import {clipProjectedTriangle} from './surfaceDecalClip.js';
 import {hideBreachAfterService,REPAIR_PATCH_SIZE} from './surfaceRepairPolicy.js';
 import {keepPhysicalScars} from './scarPresentationPolicy.js';
 
+// Orange-hot exposed steel persists for a readable 10 seconds; its warmth
+// is purely cosmetic and never changes persistent internal damage.
+export const FRESH_BREACH_MS=10000;
+
 let shared=null;
 const P=32;
 function pixelTexture(kind) {
@@ -100,8 +104,10 @@ export function geometryForPhysicalScar(target,event,profile){
   const bitangent=new THREE.Vector3().crossVectors(normal,tangent).normalize();
   const halfW=profile.width*.5,halfH=profile.height*.5;
   const indices=geo.getIndex(),total=indices?indices.count:position.count;
-  const triangle=new THREE.Triangle();
   const coords=[],uvs=[];
+  // Reuse one computed face normal instead of allocating a Triangle + Vector3
+  // for every source triangle in each high-rate impact decal.
+  const edgeA=new THREE.Vector3(),edgeB=new THREE.Vector3(),faceNormal=new THREE.Vector3();
   const corners=[new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()];
   const d=new THREE.Vector3();
   let accepted=0;
@@ -110,8 +116,9 @@ export function geometryForPhysicalScar(target,event,profile){
       const index=indices?indices.getX(i+j):i+j;
       corners[j].fromBufferAttribute(position,index);
     }
-    triangle.set(corners[0],corners[1],corners[2]);
-    const faceNormal=triangle.getNormal(new THREE.Vector3());
+    edgeA.subVectors(corners[2],corners[1]);
+    edgeB.subVectors(corners[0],corners[1]);
+    faceNormal.crossVectors(edgeA,edgeB).normalize();
     // Don't spread scars around hard corners or onto the reverse side.
     if(faceNormal.dot(normal)<.64)continue;
     const frontDistance=Math.abs(faceNormal.dot(d.copy(origin).sub(corners[0])));
@@ -198,12 +205,12 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
     if(!decal)return false;
     const r=resources();
     const newHeat=event.event==='impact'&&event.internalDamage>0&&
-      Number.isFinite(event.timestamp)&&Date.now()-event.timestamp<750&&
+      Number.isFinite(event.timestamp)&&Date.now()-event.timestamp<FRESH_BREACH_MS&&
       Date.now()-event.timestamp>=0;
     const kind=newHeat&&profile.kind==='breach'?'fresh-breach':profile.kind;
     const mark=new THREE.Mesh(decal,r.materials.get(kind)||r.materials.get('breach'));
     if(kind==='fresh-breach'){
-      mark.userData.coolAt=Date.now()+850;
+      mark.userData.coolAt=event.timestamp+FRESH_BREACH_MS;
       hotMarks.add(mark);
     }
     mark.renderOrder=event.event==='service'?2:1;
