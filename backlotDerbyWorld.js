@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
 import {buildBacklotObstacleKit} from './backlotObstacleKits.js';
+import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -444,6 +445,43 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  */
 export function buildBacklotPropCatalog(world){
  const catalog=[],seenIds=new Set(),collisionMeshes=[];
+ // Experimental preview deliberately does NOT change the production
+ // Backlot. The same live seven-part tractor is attached as a BEFORE view.
+ // Collision overlay displays current authoritative map AABBs, not an
+ // invented future physics shape.
+ const currentTractor=world.obstacles.filter(o=>o.id.startsWith('tractor-'));
+ const oldTractor=new THREE.Group();oldTractor.name='LIVE k5q3 tractor';
+ for(const o of currentTractor)createWreck(oldTractor,o,collisionMeshes);
+ const oldB=new THREE.Box3().setFromObject(oldTractor);
+ const oldC=oldB.getCenter(new THREE.Vector3());
+ const oldPart=new THREE.Group();
+ oldTractor.position.set(-oldC.x,-oldB.min.y,-oldC.z);
+ oldPart.add(oldTractor);oldPart.visible=false;
+ const newPart=new THREE.Group();
+ buildAnatomicalTractor(newPart);
+ const collisionOverlay=new THREE.Group();
+ collisionOverlay.name='AUTHORITATIVE OLD BACKLOT AABBs — reference only';
+ const colliderMaterial=new THREE.LineBasicMaterial({
+   color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
+ });
+ for(const o of currentTractor){
+   const shell=new THREE.LineSegments(
+     new THREE.EdgesGeometry(new THREE.BoxGeometry(
+       o.maxX-o.minX,o.height,o.maxZ-o.minZ)),colliderMaterial);
+   shell.name='current-map-collider-'+o.id;
+   shell.position.set((o.minX+o.maxX)/2-oldC.x,o.height*.5,
+     (o.minZ+o.maxZ)/2-oldC.z);
+   shell.userData.colliderOverlay=true;collisionOverlay.add(shell);
+ }
+ collisionOverlay.visible=false;
+ const comparison=new THREE.Group();comparison.name='experimental-versus-production-tractor';
+ comparison.add(newPart,oldPart,collisionOverlay);
+ catalog.push({id:'experiment-tractor-anatomy',category:'experiment',
+   label:'TRACTOR ANATOMY V2 · EXPERIMENT',
+   detail:'NEW OPEN FRAME vs CURRENT LIVE k5q3 MODEL · NOT YET IN MATCHES',
+   group:comparison,
+   experiment:{newPart,oldPart,collisionOverlay}});
+
  const describe=o=>o.artKit||o.art||(
    o.kind==='pillar'?'floodlight mast':'salvage cover');
  // Hero composites: all component colliders exactly as assembled in a real
@@ -538,6 +576,6 @@ export function buildBacklotPropCatalog(world){
    specimen.height=Math.max(.25,b.max.y-b.min.y);
  }
  return {specimens:catalog,coverCount:world.obstacles.length,
-   showcaseCount:featured.length,sceneryAssemblyCount:scenicShows.length,
+   experimentCount:1,showcaseCount:featured.length,sceneryAssemblyCount:scenicShows.length,
    sceneryArchetypes:scenicNames.size};
 }

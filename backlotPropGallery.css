@@ -30,3 +30,17 @@ button,select,input{font:inherit}button,select{background:#1d2a25;color:var(--in
 .gallery-compact .gallery-row b{font-size:11px}
 .gallery-compact .gallery-row span{font-size:9px}
 @media(max-height:500px){.gallery-compact .gallery-info{padding:6px}}
+
+/* Tractor anatomy lab controls sit BELOW the gallery picker, not over models. */
+.gallery-experiment:not([hidden]){margin-top:7px;padding-top:7px;border-top:1px solid #789179}
+.gallery-experiment span{font-size:10px;color:#e9c17e;font-weight:bold}
+.gallery-compare-controls{display:flex;gap:5px;margin-top:5px}
+.gallery-compare-controls button{flex:1;min-width:0;padding:7px 5px;font-size:10px;white-space:nowrap}
+.gallery-experiment small{display:block;color:#c5d1c1;font-size:9px;margin-top:5px}
+.gallery-compact .gallery-info:has(.gallery-experiment:not([hidden])){width:min(420px,calc(100vw - 20px))}
+.gallery-compact .gallery-experiment small{display:none}
+@media(max-height:500px){
+.gallery-experiment:not([hidden]){margin-top:4px;padding-top:4px}
+.gallery-compare-controls button{padding:5px 3px;font-size:9px}
+.gallery-experiment span{font-size:9px}
+}

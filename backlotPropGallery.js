@@ -57,7 +57,7 @@ function buildGrid(){
  const catalog=buildBacklotPropCatalog(BACKLOT.world);
  const specimens=catalog.specimens;
  const coverCount=catalog.coverCount;
- const coverBlock=coverCount+catalog.showcaseCount;
+ const coverBlock=coverCount+catalog.showcaseCount+catalog.experimentCount;
  // Cover occupies the first rows; environmental components follow, with a
  // full empty separator row so no scenic artifact mixes into playable cover.
  const sceneryBase=Math.ceil(coverBlock/COLS)+1;
@@ -74,7 +74,7 @@ function buildGrid(){
    carrier.add(entry.group);
    // Batch repeated real kit fittings to make 100+ specimens practical on
    // mobile; original geometries and surface materials remain unchanged.
-   batchBacklotDerbyDecorations(entry.group);
+   if(!entry.experiment)batchBacklotDerbyDecorations(entry.group);
    const plate=new THREE.Mesh(planeGeometry,plateMat);
    plate.name='sample-pad';plate.rotation.x=-Math.PI/2;
    plate.position.y=-.028;plate.userData.galleryPad=true;carrier.add(plate);
@@ -94,20 +94,81 @@ function buildGrid(){
  $('gallery-description').textContent=coverCount+' individual live cover pieces · '+
    catalog.sceneryArchetypes+' distinct live scenery/detail types. '+
    'Tap objects or select by name; send screenshots with their IDs.';
- const optgroup1=document.createElement('optgroup');optgroup1.label='ASSEMBLIES + INDIVIDUAL COVER · '+coverBlock;
+ const optgroup1=document.createElement('optgroup');optgroup1.label='EXPERIMENT + ASSEMBLIES + COVER · '+coverBlock;
  const optgroup2=document.createElement('optgroup');optgroup2.label='SCENERY / DETAILS · '+catalog.sceneryArchetypes;
  entries.forEach((entry,i)=>{
    const option=document.createElement('option');option.value=i;
    option.textContent=String(i+1).padStart(2,'0')+' · '+entry.label;
-   (entry.category==='cover'||entry.category==='showcase'?optgroup1:optgroup2).append(option);
+   (entry.category==='cover'||entry.category==='showcase'||entry.category==='experiment'?optgroup1:optgroup2).append(option);
  });
  selectEl.append(optgroup1,optgroup2);
- return {coverCount,showcaseCount:catalog.showcaseCount,
+ return {coverCount,experimentCount:catalog.experimentCount,showcaseCount:catalog.showcaseCount,
   sceneryArchetypes:catalog.sceneryArchetypes,total:entries.length};
 }
 let yaw=0,pitch=0,active=0,drag=null,joystickPointer=null;
 const axes={x:0,y:0,up:0,down:0};
 const keys=new Set();
+const expUI=$('gallery-experiment'),compareBtn=$('gallery-before-after'),
+ greyBtn=$('gallery-silhouette'),colliderBtn=$('gallery-colliders');
+const expState={view:'new',grey:false,colliders:false};
+const GREY_MAT=new THREE.MeshStandardMaterial({
+ color:0x999999,roughness:1,metalness:0,flatShading:true,
+});
+const originalMaterial=new WeakMap();
+function applyExperimentPresentation(e){
+ if(!e?.experiment)return;
+ const {newPart,oldPart,collisionOverlay}=e.experiment;
+ const both=expState.view==='both';
+ newPart.visible=expState.view!=='old';
+ oldPart.visible=expState.view!=='new';
+ newPart.position.x=both?-4:0;
+ oldPart.position.x=both?4:0;
+ collisionOverlay.position.x=both?4:0;
+ collisionOverlay.visible=expState.colliders;
+ for(const root of [newPart,oldPart])root.traverse(obj=>{
+  if(!obj.isMesh)return;
+  if(!originalMaterial.has(obj))originalMaterial.set(obj,obj.material);
+  obj.material=expState.grey?GREY_MAT:originalMaterial.get(obj);
+ });
+ compareBtn.textContent=expState.view==='new'?'SHOW OLD':
+   expState.view==='old'?'SIDE BY SIDE':'SHOW NEW';
+ greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
+ colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
+ $('gallery-experiment-caption').textContent={
+  new:'Experimental anatomy only · not in combat yet',
+  old:'Original live k5q3 tractor · same camera position',
+  both:'New at LEFT · original at RIGHT',
+ }[expState.view]+' · collider wireframes = CURRENT LIVE MAP AABBs';
+}
+function updateExperimentControls(e){
+ expUI.hidden=!e.experiment;
+ if(!e.experiment)return;
+ applyExperimentPresentation(e);
+}
+compareBtn.addEventListener('click',()=>{
+ expState.view=expState.view==='new'?'old':
+  expState.view==='old'?'both':'new';
+ applyExperimentPresentation(entries[active]);
+ const entry=entries[active];
+ if(expState.view==='both'){
+   // Both models must be readable from one camera angle, not a near-field
+   // giant old box with the rebuilt tractor tiny behind it.
+   setPose(new THREE.Vector3(entry.x,4.5,entry.z+11.6),
+     new THREE.Vector3(entry.x,1.45,entry.z));
+ }else{
+   // Restore the same authored three-quarter angle for fair OLD/NEW swaps.
+   const distance=clamp(Math.max(entry.depth*1.4,entry.width*.85,5.4),5.4,21);
+   const height=clamp(entry.height*.74+1.1,1.7,8);
+   setPose(new THREE.Vector3(entry.x+distance*.36,height,entry.z+distance),
+     new THREE.Vector3(entry.x,entry.height*.5,entry.z));
+ }
+});
+greyBtn.addEventListener('click',()=>{
+ expState.grey=!expState.grey;applyExperimentPresentation(entries[active]);
+});
+colliderBtn.addEventListener('click',()=>{
+ expState.colliders=!expState.colliders;applyExperimentPresentation(entries[active]);
+});
 document.body.classList.add('gallery-compact');
 $('gallery-ui-toggle').addEventListener('click',()=>{
  const compact=document.body.classList.toggle('gallery-compact');
@@ -129,6 +190,7 @@ function focus(index){
  $('gallery-description').textContent=e.detail+' · '+e.width.toFixed(1)+' × '+
    e.depth.toFixed(1)+' m · '+e.height.toFixed(1)+' m HIGH · '+e.id;
  selectionLine.position.set(e.x,0,e.z);selectionLine.visible=true;
+ updateExperimentControls(e);
  const distance=clamp(Math.max(e.depth*1.4,e.width*.85,5.4),5.4,21);
  const y=clamp(e.height*.74+1.1,1.7,8);
  setPose(new THREE.Vector3(e.x+distance*.36,y,e.z+distance),
@@ -229,7 +291,7 @@ window.addEventListener('keydown',event=>{
  keys.add(event.code);
  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code))
   event.preventDefault();
- if(event.code==='Escape')location.href='./index.html?v=k5q3';
+ if(event.code==='Escape')location.href='./index.html?v=k5r1';
 });
 window.addEventListener('keyup',event=>keys.delete(event.code));
 window.addEventListener('blur',()=>{keys.clear();axes.x=axes.y=axes.up=axes.down=0;});
@@ -259,11 +321,12 @@ function render(time){
 try{
  const stats=buildGrid();
  entries.forEach(entry=>entry.carrier.traverse(mesh=>{
-  if(mesh.isMesh&&!mesh.userData.galleryLabel&&!mesh.userData.galleryPad)
+  if(mesh.isMesh&&!mesh.userData.galleryLabel&&!mesh.userData.galleryPad&&!mesh.userData.colliderOverlay)
    picking.push(mesh);
  }));
  resize();focus(0);
- window.__backlotGalleryReady={...stats,mapVersion:BACKLOT.version,hasFreeCamera:true};
+ window.__backlotGalleryReady={...stats,mapVersion:BACKLOT.version,
+  hasFreeCamera:true,experimentId:entries.find(e=>e.experiment)?.id||null};
  requestAnimationFrame(render);
 }catch(error){
  $('gallery-error').hidden=false;

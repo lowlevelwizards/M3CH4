@@ -21,11 +21,31 @@ try{
   canvas:!!document.querySelector('#stage canvas'),
   errors:document.querySelector('#gallery-error')?.textContent,
  }));
- if(stats.mapVersion!==3||stats.coverCount!==34||stats.showcaseCount!==4||
+ if(stats.mapVersion!==3||stats.coverCount!==34||
+   stats.showcaseCount!==4||stats.experimentCount!==1||
+   stats.experimentId!=='experiment-tractor-anatomy'||
    stats.total!==stats.options||
    stats.sceneryArchetypes<20||!stats.canvas||!stats.hasFreeCamera)
   throw Error('Incorrect gallery coverage '+JSON.stringify(stats));
  await page.screenshot({path:'gallery-smoke-artifacts/overview-first-prop.png'});
+ // This is a dedicated experimental assembly, NOT live-map geometry.
+ await page.locator('#gallery-before-after').click();
+ if(!(await page.locator('#gallery-before-after').textContent()).includes('SIDE BY SIDE'))
+   throw Error('OLD/NEW tractor toggle did not switch');
+ await page.screenshot({path:'gallery-smoke-artifacts/old-tractor-same-camera.png'});
+ await page.locator('#gallery-before-after').click();
+ await page.screenshot({path:'gallery-smoke-artifacts/side-by-side-tractor.png'});
+ await page.locator('#gallery-silhouette').click();
+ if(!(await page.locator('#gallery-silhouette').textContent()).includes('RESTORE'))
+   throw Error('Silhouette toggle failed');
+ await page.screenshot({path:'gallery-smoke-artifacts/grey-silhouette-comparison.png'});
+ await page.locator('#gallery-colliders').click();
+ if(!(await page.locator('#gallery-colliders').textContent()).includes('ON'))
+   throw Error('Collider overlay toggle failed');
+ await page.screenshot({path:'gallery-smoke-artifacts/current-aabb-overlay.png'});
+ await page.locator('#gallery-silhouette').click();
+ await page.locator('#gallery-colliders').click();
+ await page.locator('#gallery-before-after').click();
  const first=stats.current;
  await page.locator('#gallery-next').click();
  const next=await page.locator('#gallery-current').textContent();
