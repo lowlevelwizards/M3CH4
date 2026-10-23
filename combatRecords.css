@@ -1,0 +1,30 @@
+/* k5p6 — a single deliberate garage disclosure, not permanent HUD noise. */
+.career-records-toggle,.bo3-retire-match{
+    display:block;width:100%;min-height:34px;margin:5px 0 10px;
+    padding:8px 10px;text-align:left;letter-spacing:.09em;
+    font:700 10px/1.3 'Oxanium',ui-monospace,monospace;
+    background:#202d27;color:#d7c59b;border:1px solid #7f9b775e;
+    cursor:pointer;touch-action:manipulation;
+}
+.career-records-toggle[aria-expanded=true]{color:#f0d9a5;border-color:#c6a360;}
+.bo3-retire-match{color:#f2b59c;border-color:#a25e51aa;background:#342520;margin-top:6px;}
+.career-records-panel{padding:10px; margin:7px 0 11px;background:#0f1915ed;
+    border:1px solid #7d9b7588;max-height:min(53dvh,400px);
+    overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
+    scrollbar-color:#8c9467 #152018;}
+.career-records-panel.hidden{display:none!important}
+.career-records-panel h3,.career-records-panel h4{
+    margin:8px 0 5px;font:700 11px/1.4 'Oxanium',system-ui,sans-serif;
+    letter-spacing:.10em;color:#ead2a1;
+}
+.career-records-panel h4{margin-top:12px;padding-top:6px;border-top:1px solid #889b744a;font-size:10px;}
+.career-records-panel .records-sub{font:9px/1.4 'Share Tech Mono',monospace;color:#a2b6a4;margin:0 0 8px;}
+.career-records-panel .records-total{font:700 14px/1.4 'Quantico',monospace;color:#eecb86;margin-bottom:7px;}
+.career-records-panel .records-metrics{display:block;font:9px/1.5 'Share Tech Mono',monospace;
+    color:#a5c1ae;letter-spacing:.02em;margin-bottom:4px;overflow-wrap:anywhere;}
+.career-records-panel .records-ribbon{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0;}
+.career-records-panel .records-result{display:inline-block;padding:5px 7px;min-width:24px;text-align:center;
+    font:700 11px/1 'Oxanium',sans-serif;background:#385141;color:#bde0c4;border:1px solid #6a9478;}
+.career-records-panel .records-result.l{color:#e7a59b;background:#542e2b;border-color:#af7262;}
+.career-records-panel .records-result.dnf{color:#d2b998;background:#454036;border-color:#9b8c67;}
+.career-records-panel .records-entity{margin-top:8px;font:700 9px/1.35 'Oxanium',monospace;color:#e0c99f;overflow-wrap:anywhere;}

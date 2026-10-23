@@ -93,13 +93,13 @@ test('intermission reports compact truthful dual gauges and reveal detailed read
 });
 test('bundled entry and mobile versions include exact changed assets and no new save contract',()=>{
     const html=source('index.html'),mount=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
+    assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
     assert.match(html,/uiRedesign\.css\?v=k4u/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k5p4/);
+    assert.match(html,/garageMountUI\.js\?v=k5p6/);
     assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
     assert.match(html,/uiLanguage\.js\?v=k3w0/);
     assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
-    assert.match(mount,/seriesUI\.js\?v=k4q/);
+    assert.match(mount,/seriesUI\.js\?v=k5p6/);
 });

@@ -6,6 +6,9 @@
  */
 import { contractById } from './contracts.js';
 import { stationLabel } from './uiLanguage.js';
+import { BY_ID } from './components.js';
+import { clearCombatRecords, combatAccuracy, loadCombatRecords } from './combatRecords.js';
+import { reconcileMatchOnBoot, retireUnfinishedMatch } from './matchRecovery.js';
 import { createModuleIcon } from './moduleIcons.js';
 import { subscribeBoutResult, subscribeRoundResult } from './boutSession.js';
 import { loadStable, rigById, rigFieldability } from './stable.js';
@@ -35,6 +38,10 @@ const styleLink = document.createElement('link');
 styleLink.rel = 'stylesheet';
 styleLink.href = './seriesStyles.css?v=k4q';
 document.head.append(styleLink);
+const recordsStyles=document.createElement('link');
+recordsStyles.rel='stylesheet';
+recordsStyles.href='./combatRecords.css?v=k5p6';
+document.head.append(recordsStyles);
 
 let localStorageRef = null;
 let sessionStorageRef = null;
@@ -151,6 +158,24 @@ function pitBanner(series) {
 }
 
 function applyPitState() {
+    const inProgress=activeSeries();
+    let retire=inspectionPanel.querySelector(':scope > .bo3-retire-match');
+    if(inProgress && inProgress.phase!=='complete'){
+        if(!retire){
+            retire=document.createElement('button');
+            retire.type='button';retire.className='bo3-retire-match';
+            retire.textContent='RETIRE UNFINISHED CONTRACT';
+            retire.title='End this BO3 without reward. No extra damage or fabricated defeat.';
+            retire.addEventListener('click',()=>{
+                const series=activeSeries();
+                if(!series||series.phase==='complete')return;
+                if(!window.confirm('Retire the unfinished contract? This records DNF, grants no payout or salvage, and keeps all existing machine damage and progress.'))return;
+                retireUnfinishedMatch(localStorageRef,sessionStorageRef,'PLAYER RETIRED');
+                window.location.reload();
+            });
+            inspectionPanel.prepend(retire);
+        }
+    } else retire?.remove();
     const existingBanner = inspectionPanel.querySelector(':scope > .bo3-series-banner');
     const series = intermissionSeries();
     document.body.classList.toggle('bo3-pit-locked', !!series);
@@ -365,6 +390,13 @@ function blockPitEdit(event) {
 document.addEventListener('click', blockPitEdit, true);
 document.addEventListener('change', blockPitEdit, true);
 
+// A storage wipe clears the separately stored career log; ordinary returns,
+// browser reloads and explicit DNF retirement preserve it.
+document.addEventListener('click',event=>{
+    const button=event.target.closest('#wipe-save');
+    if(button?.getAttribute('aria-pressed')==='true')clearCombatRecords(localStorageRef);
+},true);
+
 // Clear series state whenever the player deliberately replaces the campaign/save.
 document.addEventListener('click', event => {
     const button = event.target.closest('button');
@@ -374,9 +406,98 @@ document.addEventListener('click', event => {
     if (confirmedWipe || campaignRestart) clearSeries(localStorageRef);
 }, true);
 
+
+// Career records are a garage disclosure, not more permanent cockpit text.
+// The physical stable retains individual serial identities through part transfers.
+const recordsToggle=document.createElement('button');
+recordsToggle.className='career-records-toggle';
+recordsToggle.type='button';
+recordsToggle.textContent='▤ COMBAT RECORDS · LAST 10';
+recordsToggle.setAttribute('aria-expanded','false');
+const recordsPanel=document.createElement('section');
+recordsPanel.className='career-records-panel hidden';
+recordsPanel.setAttribute('aria-label','Career combat records');
+inspectionPanel.prepend(recordsPanel);
+inspectionPanel.prepend(recordsToggle);
+const recordNode=(tag,klass,text)=>{
+    const element=document.createElement(tag);
+    if(klass)element.className=klass;
+    if(text!==undefined)element.textContent=String(text);
+    return element;
+};
+const compact=n=>Math.round((Number(n)||0)*10)/10;
+function renderCareerRecords(){
+    if(recordsPanel.classList.contains('hidden'))return;
+    const records=loadCombatRecords(localStorageRef);
+    const totals=records.totals;
+    const stable=loadStable(localStorageRef).stable;
+    const career=(value)=>{
+        const kd=(value.deaths||0)>0?compact((value.kills||0)/value.deaths):
+            value.kills?String(value.kills):'—';
+        const accuracy=combatAccuracy(value);
+        return (value.kills||0)+' K / '+(value.deaths||0)+' D / '+(value.assists||0)+' A · K/D '+kd+
+            ' · '+(accuracy===null?'—':accuracy+'%')+' HIT RATE';
+    };
+    recordsPanel.replaceChildren();
+    recordsPanel.append(recordNode('h3','','COMBAT RECORDS'));
+    recordsPanel.append(recordNode('p','records-sub','Recorded from this build onward · W/L = completed BO3 · DNF = unfinished, no automatic defeat'));
+    recordsPanel.append(recordNode('div','records-total',
+        (totals.wins||0)+' W  /  '+(totals.losses||0)+' L  /  '+(totals.dnf||0)+' DNF · '+(totals.rounds||0)+' ROUNDS'));
+    recordsPanel.append(recordNode('div','records-metrics',career(totals)));
+    recordsPanel.append(recordNode('div','records-metrics',
+        (totals.shots||0)+' TRIGGERS · '+(totals.projectiles||0)+' PELLETS / EMISSIONS · '+(totals.hits||0)+' CONTACTS'));
+    recordsPanel.append(recordNode('div','records-metrics',
+        (totals.breaches||0)+' BREACHES · '+(totals.disables||0)+' DISABLES · '+(totals.destroys||0)+' DESTROYS'));
+    recordsPanel.append(recordNode('div','records-metrics',
+        compact(totals.armorDamage)+' ARMOR DAMAGE · '+compact(totals.internalDamage)+' CORE DAMAGE · '+compact(totals.damageTaken)+' RECEIVED'));
+    recordsPanel.append(recordNode('h4','','LAST 10 MATCHES'));
+    const ribbon=recordNode('div','records-ribbon');
+    for(const match of records.recentMatches.slice(0,10)){
+        const token=recordNode('span','records-result '+match.outcome.toLowerCase(),match.outcome);
+        token.title=match.contractId+' · '+match.playerWins+'-'+match.enemyWins+' · '+match.reason;
+        ribbon.append(token);
+    }
+    if(!ribbon.childElementCount)ribbon.append(recordNode('small','','NO MATCHES RECORDED YET'));
+    recordsPanel.append(ribbon);
+    recordsPanel.append(recordNode('h4','','MACHINE RECORDS'));
+    for(const rig of stable.rigs.filter(rig=>rig.commissioned)){
+        const stats=records.rigs[rig.id]||{};
+        recordsPanel.append(recordNode('div','records-entity',
+            (rig.name||rig.id)+' · '+(stats.wins||0)+' W / '+(stats.losses||0)+' L / '+(stats.dnf||0)+' DNF · '+
+            (stats.rounds||0)+' ROUNDS'));
+        recordsPanel.append(recordNode('small','records-metrics',career(stats)+' · '+(stats.breaches||0)+' BREACHES · '+(stats.disables||0)+' DISABLES'));
+    }
+    recordsPanel.append(recordNode('h4','','SERIALIZED PART RECORDS'));
+    const parts=stable.inventory.filter(part=>(records.parts[part.serial]?.rounds||0)>0)
+        .sort((a,b)=>(records.parts[b.serial].rounds||0)-(records.parts[a.serial].rounds||0));
+    if(!parts.length)recordsPanel.append(recordNode('p','records-sub','No parts deployed since tracking began.'));
+    for(const part of parts){
+        const stats=records.parts[part.serial];
+        const label=BY_ID.get(part.definitionId)?.name||part.definitionId;
+        recordsPanel.append(recordNode('div','records-entity',label+' · '+part.serial));
+        recordsPanel.append(recordNode('small','records-metrics',(stats.rounds||0)+' DEPLOYMENTS · '+
+            (stats.kills||0)+' KILLS · '+(stats.hits||0)+' HITS · '+
+            (stats.breaches||0)+' BREACHES · '+compact(stats.damageTaken)+' DAMAGE ABSORBED'));
+    }
+}
+recordsToggle.addEventListener('click',()=>{
+    const opening=recordsPanel.classList.toggle('hidden')===false;
+    recordsToggle.setAttribute('aria-expanded',String(opening));
+    renderCareerRecords();
+});
+document.addEventListener('m3ch4:combat-recorded',renderCareerRecords);
+
 const pitObserver = new MutationObserver(applyPitState);
 pitObserver.observe(inspectionPanel, { childList: true, subtree: true });
 
+// Reconcile saved contract with the session-scoped deployment BEFORE attempting
+// to bind an assignment. This is what releases orphaned matches without a wipe.
+const bootRecovery=reconcileMatchOnBoot(localStorageRef,sessionStorageRef);
+if(bootRecovery.action==='retired')announce('INTERRUPTED ROUND RECORDED AS DNF · GARAGE RECOVERED');
+else if(bootRecovery.action==='pit-restored'){
+    document.dispatchEvent(new Event('m3ch4:sortie-assignment-updated'));
+    announce('PIT SESSION RESTORED · CHOOSE THE NEXT RIG');
+}
 const binding = bindCommittedAssignment();
 applyPitState();
 renderCombatSeries();

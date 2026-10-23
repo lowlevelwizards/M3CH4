@@ -329,5 +329,8 @@ subscribeBoutResult(result => {
     appendResolvedMachineRow();
 });
 
+// A persisted intermission may be restored after this adapter first rendered.
+// Reconcile the newly staged round without a reload loop.
+document.addEventListener('m3ch4:sortie-assignment-updated',renderAssignmentPanel);
 renderAssignmentPanel();
 tryAutoLaunchCommittedSortie();

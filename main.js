@@ -53,6 +53,7 @@ import { SORTIE_OUTRO_SECONDS, cockpitImpactProfile } from './combatPresentation
 import { createBoutLedger, recordBoutHit, recordMissionKill, scoreBout } from './boutScoring.js';
 import { buildWreckManifests, createSalvageDraft, SCRAPYARD_CHARTER, wreckPreservation } from './salvageDraft.js';
 import { clearBoutResult, publishBoutResult } from './boutSession.js';
+import { recordCombatMatch, recordCombatRound } from './combatRecords.js';
 import { resetDamageFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
@@ -193,6 +194,8 @@ function syncOwnedPartFate(slot) {
 let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
+let sortieProjectiles = 0;
+let sortieConfirmedContacts = 0;
 let fieldService = createFieldServiceState();
 const faultSupportState = createFaultSupportState();
 let lastPlayerScreenId = null;
@@ -1534,6 +1537,8 @@ function toggleInspection(force) {
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         fieldService = createFieldServiceState();
         sortieRoundsFired = 0;
+        sortieProjectiles = 0;
+        sortieConfirmedContacts = 0;
         testEnded = false;
         testEndReason = null;
         updateFunctionalStatus();
@@ -2038,6 +2043,9 @@ function frame(now) {
             // projectile physically arrives, never at the instant of launch.
             coolThermalCombat(thermalCombat,FIXED_DT);
             for(const blast of arena.advanceRockets(FIXED_DT)) {
+                if(blast.ownerId==='player' && blast.contacts.some(({contact}) =>
+                    contact?.slot && actorById(contact.actorId)?.team===HOSTILE_TEAM))
+                    sortieConfirmedContacts++;
                 for(const {contact,damage} of blast.contacts) {
                     if(testEnded)break;
                     if(blast.ownerId==='player') {
@@ -2452,6 +2460,48 @@ function finishSortie(victory, reason) {
         charter: SCRAPYARD_CHARTER,
         wreckPreservation: victory ? wreckPreservation(wrecks) : 0,
     });
+    // Commit independently from money/salvage. The BO3 round identity makes
+    // reloads idempotent, and actual ledger events—not guessed damage—supply
+    // per-rig / serialized-part history. All stats begin from this release.
+    const completedSeries = resolvedResult?.series;
+    const stableSnapshot = loadStable(saveStorage).stable;
+    const combatRigId = resolvedResult?.round?.rigId || stableSnapshot.activeRigId;
+    const combatRig = stableSnapshot.rigs.find(item=>item.id===combatRigId);
+    const playerStanding = score.standings.find(item=>item.id==='player') || {};
+    const incomingBySlot = {};
+    const damageEvents = boutLedger.events.filter(event=>event.type==='damage');
+    for (const event of damageEvents) if(event.victimId==='player')
+        incomingBySlot[event.slot]=(incomingBySlot[event.slot]||0)+event.armorDamage+event.internalDamage;
+    const dealt = damageEvents.filter(event=>event.attackerId==='player' &&
+        actorById(event.victimId)?.team===HOSTILE_TEAM);
+    const roundSerials = {...assembly.installed};
+    const eventTotal = (events,key)=>events.reduce((sum,item)=>sum+(item[key]||0),0);
+    const roundKey = completedSeries
+        ? completedSeries.id+'/round/'+(resolvedResult?.round?.round||completedSeries.rounds.length)
+        : 'standalone-'+Date.now();
+    recordCombatRound(saveStorage,{
+        id:roundKey,seriesId:completedSeries?.id||'',contractId:completedSeries?.contractId||activeContract.id,
+        rigId:combatRigId,rigName:combatRig?.name||assembly.name,
+        number:resolvedResult?.round?.round||1,victory,shots:sortieRoundsFired,
+        projectiles:sortieProjectiles,hits:Math.min(sortieConfirmedContacts,sortieProjectiles),
+        kills:playerStanding.missionKills||0,deaths:boutLedger.events.filter(e=>e.type==='missionKill'&&e.victimId==='player').length,
+        assists:playerStanding.assists||0,breaches:playerStanding.breaches||0,
+        disables:playerStanding.disables||0,destroys:playerStanding.destroyed||0,
+        armorDamage:eventTotal(dealt,'armorDamage'),internalDamage:eventTotal(dealt,'internalDamage'),
+        damageTaken:Object.values(incomingBySlot).reduce((sum,n)=>sum+n,0),
+        damageTakenBySlot:incomingBySlot,weaponSerial:roundSerials.combat,parts:roundSerials,
+    });
+    if(!completedSeries || resolvedResult?.terminal)
+        recordCombatMatch(saveStorage,{
+            id:completedSeries?.id||roundKey,
+            contractId:completedSeries?.contractId||activeContract.id,
+            outcome:(completedSeries?.finalVictory??victory)?'W':'L',
+            playerWins:completedSeries?.playerWins??(victory?1:0),
+            enemyWins:completedSeries?.enemyWins??(victory?0:1),
+            rounds:completedSeries?.rounds?.length??1,
+            rigs:completedSeries?.participatingRigIds||[combatRigId],reason,
+        });
+    document.dispatchEvent(new CustomEvent('m3ch4:combat-recorded'));
     const summary = settleSortie({
         credits: economy.credits,
         victory,
@@ -2759,7 +2809,7 @@ function attemptFire() {
         const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
         applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
-        shotsFired++;sortieRoundsFired++;
+        shotsFired++;sortieRoundsFired++;sortieProjectiles++;
         soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
         arena.launchRocket({ownerId:'player',muzzle:aim.muzzle,point:aim.point,
             speed:weaponSpec.projectileSpeed,radius:weaponSpec.blastRadius,
@@ -2773,9 +2823,13 @@ function attemptFire() {
             .map(entry=>entry.contact)
         : [arena.traceShot(baseX,baseY,weaponSpec.muzzleZ,weaponSpec.fireMode==='charged')];
     const center=contacts[0];
+    sortieProjectiles += contacts.length; // scattergun counts physical pellets; arc counts ticks.
+    const hostileContacts=contacts.filter(contact=>contact?.slot &&
+        actorById(contact.actorId)?.team===HOSTILE_TEAM && actorById(contact.actorId)?.active);
     if(weaponSpec.fireMode==='continuous') {
         const thermalKey=thermalKeyForContact(center);
         if(thermalKey&&center.distance<=weaponSpec.rangeMeters) {
+            sortieConfirmedContacts += hostileContacts.length;
             const thermal=cutContact(thermalCombat,thermalKey,
                 1/weaponSpec.roundsPerSecond,weaponSpec.damage);
             if(shot%2===1)arena.showCuttingArc(center);
@@ -2786,6 +2840,7 @@ function attemptFire() {
         renderAmmo();
         return;
     }
+    sortieConfirmedContacts += hostileContacts.length;
     warnNearbyAiFromShot(FRIENDLY_TEAM,center);
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);

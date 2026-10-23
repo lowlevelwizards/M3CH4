@@ -7,8 +7,8 @@ import { clearSortieAssignment } from './sortieAssignment.js';
 import './acquisitionUI.js?v=k5p1';
 import './contractUI.js?v=k3t1';
 import './stableUI.js?v=k3t0';
-import './sortieAssignmentUI.js?v=k3v5p1';
-import './seriesUI.js?v=k4q';
+import './sortieAssignmentUI.js?v=k5p6';
+import './seriesUI.js?v=k5p6';
 import './unifiedGarageUI.js?v=k5p4';
 
 const info = document.querySelector('#part-info');
