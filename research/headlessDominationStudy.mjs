@@ -237,7 +237,8 @@ export function runBout(seed,settings){
         throw new RangeError('Invalid three-rig roster for '+team);
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
           team===settings.wornTeam?settings.wear:settings.backgroundWear??0,
-          difficulties[team],arenaMap?.spawns?.[team]));
+          difficulties[team],arenaMap?.spawns?.[
+            settings.swapSpawns?(team==='friendly'?'hostile':'friendly'):team]));
       teams[team]=actors;
     }
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
@@ -248,6 +249,7 @@ export function runBout(seed,settings){
         difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
         simulation:settings.physicalEquipment?'research-approximate-v4-actions-flight-heat':'research-approximate-v2',
         objectiveType:state.type,contractId:settings.contractId??'domination',
+        swappedSpawns:!!settings.swapSpawns,
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
         win:null,winReason:null,time:maxSeconds,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
