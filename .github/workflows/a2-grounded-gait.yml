@@ -1,0 +1,24 @@
+name: A.2 Grounded Foot Contacts & Physical Turns
+on:
+  push:
+    branches: [feat/a2a4-contact-stepping-and-cockpit]
+  pull_request:
+    paths:
+      - 'footContactController.js'
+      - 'articulationMotion.js'
+      - 'scene.js'
+      - 'pilotingLab.js'
+      - 'tests/a2a4GroundedGait.test.mjs'
+jobs:
+  grounded-gait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and deterministic contacts
+        run: |
+          for f in footContactController.js articulationMotion.js scene.js pilotingLab.js sceneAssembly.js; do node --check "$f"; done
+          node --test tests/a2a4GroundedGait.test.mjs tests/a0a1Walking.test.mjs tests/k3w16FootContactStrafe.test.mjs
