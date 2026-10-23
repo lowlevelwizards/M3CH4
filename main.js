@@ -1843,11 +1843,11 @@ function frame(now) {
                     aiPlans={
                         friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy,
                             assaultMemory:aiAssaultMemory.friendly,previousOrders:previousPlans.friendly?.orders,
-                            world:DEFAULT_WORLD,arrivalPolicy:'coordinated',
+                            world:selectedWorld,arrivalPolicy:'coordinated',
                             corridorPolicy:'stagger',corridorMemory:aiCorridorMemory.friendly}),
                         hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy,
                             assaultMemory:aiAssaultMemory.hostile,previousOrders:previousPlans.hostile?.orders,
-                            world:DEFAULT_WORLD,arrivalPolicy:'coordinated',
+                            world:selectedWorld,arrivalPolicy:'coordinated',
                             corridorPolicy:'stagger',corridorMemory:aiCorridorMemory.hostile}),
                     };
                     aiPlanCooldown=.85;
@@ -1948,7 +1948,7 @@ function frame(now) {
                         velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic,
-                    {now:aiClock,actorId:actor.id,trafficPolicy:'gated'});
+                    {now:aiClock,actorId:actor.id,trafficPolicy:'adaptive'});
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
                 let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig, lastSeen?.position??null);
