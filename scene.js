@@ -1590,7 +1590,7 @@ export function createArenaScene(initial, targetAssembly) {
             (state.lateralAcceleration ?? 0) * .004, -.055, .055);
         if(!inspecting){
             const kind=installedPart(previewAssembly,'mobility')?.definition.id??'legs-yard';
-            pilotFeet=advanceFootContacts(pilotFeet,state,kind,dt);
+            pilotFeet=serviceVisual?.gait?.contactFeet??advanceFootContacts(pilotFeet,state,kind,dt);
             pilotLandingKick=Math.max(pilotLandingKick*Math.exp(-dt*11),
                 pilotFeet.landings?pilotFeet.lastLandingStrength*.023:0);
         }else{pilotFeet=null;pilotLandingKick=0;}
@@ -1723,7 +1723,7 @@ export function createArenaScene(initial, targetAssembly) {
                 }
                 // A stance foot now owns a persistent ground point. Distinct
                 // actors use independent contact state; no gameplay force changes.
-                record.footContacts=advanceFootContacts(record.footContacts,state,mobilityId,dt,{
+                record.footContacts=visual?.gait?.contactFeet??advanceFootContacts(record.footContacts,state,mobilityId,dt,{
                     disabled:record.disabledSlots.has('mobility')||record.destroyedSlots.has('mobility'),
                 });
                 const moving=(motion.weight??0);
