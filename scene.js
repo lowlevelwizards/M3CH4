@@ -1510,6 +1510,7 @@ export function createArenaScene(initial, targetAssembly) {
             pivot:contacts.pivot,landings:contacts.landings,
             planted:contacts.stanceCount,loadShift:contacts.weightShift,
             effort:contacts.actuatorEffort,compression:contacts.bodyCompression,
+            gaitMode:contacts.gaitMode,maneuver:contacts.maneuver,recovery:contacts.recovery,
             preparing:contacts.preparingSide,
         }:null;
     }
@@ -1570,7 +1571,7 @@ export function createArenaScene(initial, targetAssembly) {
     }
     // Presenting foot plants through a damped cab gives actual walking load
     // cues, without the old unrelated wall-clock sine bob.
-    let pilotFeet=null,pilotLandingKick=0;
+    let pilotFeet=null,pilotLandingKick=0,cockpitLagX=0,cockpitLagZ=0;
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         const wasServicing = pilotWeaponServicing;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
@@ -1598,6 +1599,12 @@ export function createArenaScene(initial, targetAssembly) {
                 pilotFeet.landings?pilotFeet.lastLandingStrength*.023:0);
         }else{pilotFeet=null;pilotLandingKick=0;}
         const footfall=-pilotLandingKick-(pilotFeet?.bodyCompression??0)*.24;
+        // A cab has its own inertia over the hip structure. Expose just a
+        // few centimeters of counter-motion; maintain a stable, aimable view.
+        const lagX=THREE.MathUtils.clamp(-(state.lateralAcceleration??0)*.007,-.022,.022);
+        const lagZ=THREE.MathUtils.clamp((state.longitudinalAcceleration??0)*.008,-.025,.025);
+        cockpitLagX+=(lagX-cockpitLagX)*(1-Math.exp(-dt*6));
+        cockpitLagZ+=(lagZ-cockpitLagZ)*(1-Math.exp(-dt*6));
         const impactKick = state.impact * 0.045;
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
@@ -1633,7 +1640,7 @@ export function createArenaScene(initial, targetAssembly) {
         cockpit.userData.gunBreech.position.y=reload.bolt*.24;
         cockpit.userData.scatterGreebles.position.y=-reload.cassette;
         flashMesh.visible = muzzleFlash > 0;
-        cockpit.position.set(visualX + impactJitter * .35, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12);
+        cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
         cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
