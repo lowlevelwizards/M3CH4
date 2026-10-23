@@ -56,6 +56,7 @@ for(const z of [20,13]){
 const world={...DEFAULT_WORLD,obstacles:[...DEFAULT_WORLD.obstacles,...extraObstacles]};
 function setCamera(){
  const chase=$('view').value==='chase';
+ arena.setPilotingLab(true,chase);
  arena.setSpectatorRig(chase?state:null);
  // A production scene already owns the actual model; only its visibility
  // and observer are changed. No duplicate WebGL context for the machine.
