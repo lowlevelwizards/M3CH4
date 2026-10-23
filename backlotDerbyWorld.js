@@ -480,7 +480,7 @@ export function buildBacklotPropCatalog(world){
    detail:'NEW OPEN FRAME vs CURRENT LIVE k5q3 MODEL · NOT YET IN MATCHES',
    group:comparison,
    experiment:{newPart,oldPart,collisionOverlay}});
- 
+
  const describe=o=>o.artKit||o.art||(
    o.kind==='pillar'?'floodlight mast':'salvage cover');
  // Hero composites: all component colliders exactly as assembled in a real
