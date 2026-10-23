@@ -15,7 +15,7 @@ test('all eight shared authored gun meshes bind the actual reload mechanism meta
  assert.match(kit,/export function poseReloadHardware/);
  assert.match(kit,/feed\.visible=false/);
  assert.match(kit,/spent\.visible=false/);
- assert.match(kit,/RELOAD \\/ withdrawn/);
+ assert.ok(kit.includes('RELOAD / withdrawn'));
  assert.match(kit,/node\.userData\.visualOnly=true/);
  assert.match(kit,/root\.userData\.weaponMechanism=/);
  assert.match(scene,/poseReloadHardware\(mechanism,reload\)/);
