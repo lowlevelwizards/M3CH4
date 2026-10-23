@@ -71,7 +71,7 @@ function gap(a,b){
  const dz=Math.max(0,b.min.z-a.max.z,a.min.z-b.max.z);
  return Math.hypot(dx,dy,dz);
 }
-export function auditBacklotAssembly(group,family,{maxGap:.22}={}){
+export function auditBacklotAssembly(group,family,{maxGap=.22}={}){
  group.updateWorldMatrix(true,true);
  const pairs=JOINS[family]||[];
  const failures=[];
