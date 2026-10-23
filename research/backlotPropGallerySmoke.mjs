@@ -21,6 +21,15 @@ try{
   canvas:!!document.querySelector('#stage canvas'),
   errors:document.querySelector('#gallery-error')?.textContent,
  }));
+ if(!Array.isArray(stats.assemblyAudits)||stats.assemblyAudits.length!==14)
+  throw Error('Missing structural assembly audit '+JSON.stringify(stats.assemblyAudits));
+ const failed=stats.assemblyAudits.filter(a=>!a.pass);
+ if(failed.length)throw Error('Structural geometry disconnected: '+JSON.stringify(failed));
+ const required=['tractor','loader','combine','pickup','tyres'];
+ for(const family of required){
+  const audit=stats.assemblyAudits.find(x=>x.id==='experiment-'+family+'-anatomy');
+  if(!audit||audit.checked<3)throw Error('Missing anchored '+family+' audit');
+ }
  if(stats.experimentalIds?.length!==14||
   !stats.experimentalIds.includes('experiment-loader-anatomy')||
   !stats.experimentalIds.includes('experiment-combine-anatomy')||
@@ -71,6 +80,15 @@ try{
  await page.locator('#gallery-select').selectOption('3');
  if(!(await page.locator('#gallery-experiment-title').textContent()).includes('PICKUP'))
   throw Error('Picker still displays tractor lab on pickup prototype');
+ // Verify the front, flank, rear and overhead authored inspection presets.
+ for(const angle of ['FRONT','SIDE','REAR','TOP']){
+  await page.locator('#gallery-ui-toggle').click().catch(()=>{});
+  await page.locator('#gallery-angle-cycle').click();
+  if(!(await page.locator('#gallery-angle-cycle').textContent()).includes(angle))
+   throw Error('Inspection preset failed: '+angle);
+  await page.screenshot({path:'gallery-smoke-artifacts/pickup-'+angle.toLowerCase()+'-v5.png'});
+  await page.locator('#gallery-ui-toggle').click().catch(()=>{});
+ }
  await page.screenshot({path:'gallery-smoke-artifacts/pickup-chunk-v4.png'});
  for(const [idx,name] of [[8,'tyre-stack'],[10,'flatbed'],[12,'container']]){
   await page.locator('#gallery-select').selectOption(String(idx));
