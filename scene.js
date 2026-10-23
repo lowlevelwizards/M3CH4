@@ -170,7 +170,7 @@ export function createArenaScene(initial, targetAssembly) {
     function recordFootprint(mark){
       if(!mark||!Number.isFinite(mark.x)||!Number.isFinite(mark.z))return;
       const mesh=footEvidencePool[footEvidenceIndex++%footEvidencePool.length];
-      mesh.position.set(mark.x,.046,mark.z);
+      mesh.position.set(mark.x,.046+(mark.elevation??0),mark.z);
       mesh.rotation.set(-Math.PI/2,-(mark.yaw??0),0,'YXZ');
       mesh.scale.set(mark.width??.45,mark.length??.7,1);
       mesh.material.color.setHex(mark.surface==='dirt'?0x322518:
@@ -1670,7 +1670,7 @@ export function createArenaScene(initial, targetAssembly) {
         cockpit.userData.gunBreech.position.y=reload.bolt*.24;
         cockpit.userData.scatterGreebles.position.y=-reload.cassette;
         flashMesh.visible = muzzleFlash > 0;
-        cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
+        cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
         cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
@@ -1725,14 +1725,14 @@ export function createArenaScene(initial, targetAssembly) {
             camera.lookAt(spectatorLook);
         }
         else {
-            camera.position.set(visualX + impactJitter * .62, 2.42 + cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
+            camera.position.set(visualX + impactJitter * .62, 2.42 + (state.groundHeightM??0)+cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
             camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72, 'YXZ');
         }
         updateSquadMarkers();
     }
     function poseCombatantExterior(record,state,visual=null){
         const root=record.exterior.root;
-        root.position.set(state.x??0,(record.exterior.groundOffset??0)+
+        root.position.set(state.x??0,(record.exterior.groundOffset??0)+(state.groundHeightM??0)+
             (record.cleared?-.14:record.wrecked?-.06:0),state.z??0);
         root.rotation.y=physicsYawToViewYaw(state.yaw??0);
         if(record.active&&!record.wrecked&&!record.cleared){
