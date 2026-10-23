@@ -618,7 +618,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if (material instanceof THREE.MeshStandardMaterial)
             targetColors.set(mesh, material.color.clone());
     }
-    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0, arc: 0 }]));
+    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0, arc: 0, fluid: 0 }]));
     const squadCombatants = new Map();
     function makeSquadMarker(team) {
         // Friendlies need a persistent location cue. Hostiles get a tiny
@@ -703,7 +703,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
             baseParts: capturePartTransforms(actorExterior), articulation: captureArticulation(actorExterior),
             recoilKick: 0, recoilRecovery: 3.2,
-            hitResponse:createHitResponse(),fractureParts:[],
+            hitResponse:createHitResponse(),fractureParts:[],lastMobilityHitSide:0,
         weaponFault: false, weaponServicing: false, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
         };
         squadCombatants.set(id, record);
@@ -878,13 +878,15 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         parts.push(cluster);
     }
     function recordHitInertia(contact,outcome){
-        if(!contact?.actorId||!contact?.slot||!outcome)return;
+        if(!contact?.actorId||!contact?.slot||!outcome||!contact.muzzle||!contact.point)return;
         const record=squadCombatants.get(contact.actorId);
         const targetRoot=contact.actorId==='player'?exterior.root:record?.exterior.root;
         const state=contact.actorId==='player'?pilotHitResponse:record?.hitResponse;
         if(!targetRoot||!state)return;
         targetRoot.updateWorldMatrix(true,false);
         const localPoint=targetRoot.worldToLocal(contact.point.clone());
+        if(record&&contact.slot==='mobility'&&outcome.internalDamage>0)
+            record.lastMobilityHitSide=localPoint.x<0?-1:1;
         const worldDirection=contact.point.clone().sub(contact.muzzle);
         if(worldDirection.lengthSq()<1e-7)return;
         const localDirection=worldDirection.normalize().applyQuaternion(
@@ -1407,6 +1409,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         record.cleared = false;
         record.recoilKick = 0;
         record.hitResponse=createHitResponse();
+        record.lastMobilityHitSide=0;
         clearFractures(record.fractureParts);
         if (record.articulation) {
             record.articulation.phase = 0;
@@ -1444,6 +1447,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 budget.spark = 0;
                 budget.smoke = 0;
                 budget.arc = 0;
+                budget.fluid = 0;
             }
         }
     }
@@ -2003,6 +2007,18 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                         leg.knee.rotation.x+=failedLeg.knee;
                         leg.ankle.rotation.x+=failedLeg.ankle;
                         leg.foot.rotation.x+=failedLeg.foot;
+                    }
+                    // The actually injured side carries a rough compression
+                    // knee under load. Milliradian-scale secondary metal motion
+                    // only; grounded foot anchors and actual gait are untouched.
+                    const mobilityPart=record.condition?.parts?.mobility;
+                    const mobilityHealth=mobilityPart
+                        ?THREE.MathUtils.clamp(mobilityPart.integrity/
+                            Math.max(1,mobilityPart.maxIntegrity),0,1):1;
+                    if(side===record.lastMobilityHitSide&&mobilityHealth<.67){
+                        const rough=(.67-mobilityHealth)*.065*moving;
+                        leg.knee.rotation.z+=rough*Math.sin(motion.phase*1.5);
+                        leg.hip.rotation.z+=rough*.42;
                     }
                 }
             }
@@ -3307,6 +3323,18 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 budget.spark += (profile.sparkRate + destroyedSpark) * dt * (record.wrecked ? .82 : 1);
                 budget.smoke += (profile.smokeRate + wreckSmoke + destroyedSmoke) * dt;
                 budget.arc += (profile.arcRate + (part.destroyed && slot === 'power' ? .85 : 0)) * dt;
+                // Only a genuine exposed, damaged mobility unit can drip fluid.
+                // At most ~1 pooled bead per second, never a new fluid solver.
+                if(slot==='mobility'&&part.armor<=.001&&integrityRatio(part)<.55)
+                    budget.fluid=Math.min(2,(budget.fluid??0)+
+                        (.4+(1-integrityRatio(part))*.65)*dt);
+                while(budget.fluid>=1){
+                    budget.fluid-=1;
+                    const origin=partWorldPoint(record,slot);
+                    activateParticle(chipPool,'chip',origin,
+                        new THREE.Vector3((Math.random()-.5)*.25,-.12,(Math.random()-.5)*.25),
+                        .28,.38+Math.random()*.22,-8,0,0x5e4d32);
+                }
                 while (budget.spark >= 1) {
                     budget.spark -= 1;
                     const origin = partWorldPoint(record, slot);
