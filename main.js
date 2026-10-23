@@ -2013,7 +2013,15 @@ function frame(now) {
                     !actor.fireReposition ? null : actor.teamIntent;
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
-                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, navigationIntent, actorConfig, support?.threatFacing??lastSeen?.position??null);
+                // A designated screener must actually turn toward the reported
+                // flank instead of visually tracking the older frontal target.
+                // Only a currently visible shared attacker supplies exact aim;
+                // an unknown attacker supplies *bearing*, never fire clearance.
+                const responseContact=support?.targetActorId &&
+                    alliedView?.contacts?.some(c=>c.id===support.targetActorId&&c.visible)
+                        ? actorById(support.targetActorId)?.rig : null;
+                const locomotionFocus=support?(responseContact??null):(target?.rig??null);
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, locomotionFocus, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, navigationIntent, actorConfig, support?.threatFacing??lastSeen?.position??null);
                 if (actor.fieldService.held || recovery.mode === 'SETTLE')
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
