@@ -57,6 +57,12 @@ test('muzzle corridor can clear low cover but not taller cover',()=>{
     assert.equal(firingLaneBlocker(from,to,arena([rect('tall',2.9)])).id,'tall');
 });
 
+test('dynamic rig collision boxes without heights still block an ally-first lane',()=>{
+    const world=arena([{id:'ally',dynamic:true,
+        minX:-1.2,maxX:1.2,minZ:-7,maxZ:-5}]);
+    assert.equal(firingLaneBlocker({x:0,z:0},{x:0,z:-12},world,'enemy')?.id,'ally');
+});
+
 test('physical fire selects exposed command when frame is blocked',()=>{
     const seen=[];
     const assessment=assessTargetFireLanes(slot=>{
