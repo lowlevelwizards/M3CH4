@@ -8,7 +8,7 @@ import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
-import {createArenaScene} from './sceneAssembly.js?v=a5';
+import {createArenaScene} from './sceneAssembly.js?v=b1';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
@@ -214,6 +214,8 @@ function loop(now){
     'SLIP     '+state.footSlipMps.toFixed(2)+' m/s',
     'DRIVE    '+(state.driveLoad*100).toFixed(0)+'%',
     'CONTACT  '+(feet?.feet.map(f=>(f.side<0?'L':'R')+':'+(f.mode==='stance'?'PLANT':'STEP')).join(' / ')??'—'),
+    'WEIGHT   '+((feet?.loadShift??0)*100).toFixed(0)+'% R · EFFORT '+((feet?.effort??0)*100).toFixed(0)+'%',
+    'PREP     '+(feet?.preparing?(feet.preparing<0?'LEFT':'RIGHT'):'—')+' · COMP '+((feet?.compression??0)*100).toFixed(1)+' cm',
     'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',
     'DIST     '+travel.toFixed(1)+' m',
     'SCRAP    '+($('props-mode').value==='on'?looseProps.length+' REACTIVE · '+propImpacts+' CONTACTS':'CLEAR'),
