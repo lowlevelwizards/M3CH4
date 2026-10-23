@@ -113,5 +113,9 @@ test('known opponent location is only used while public contact memory is fresh'
  assert.equal(known.visible,false);
  assert.equal(known.position.z,-9,'last reported, not current enemy position');
  result=observeBattlefield(model,[friend,enemy],{type:'elimination'},area,7);
+ assert.equal(result.knowledge.friendly.contacts[0].visible,false);
+ assert.equal(result.knowledge.friendly.contacts[0].position.z,-9);
+ assert.ok(result.knowledge.friendly.contacts[0].searchRadius>known.searchRadius);
+ result=observeBattlefield(model,[friend,enemy],{type:'elimination'},area,14);
  assert.equal(result.knowledge.friendly.contacts.length,0);
 });
