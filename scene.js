@@ -20,7 +20,8 @@ import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
-import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
+import { physicsYawToViewYaw } from './locomotion.js';
+import {BACKLOT} from './maps/backlot.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
@@ -147,7 +148,9 @@ export function rigThumbnailDataUrl(assembly){
     disposePreviewObject(visual.root);
     return url;
 }
-export function createArenaScene(initial, targetAssembly) {
+export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
+    const world=arenaMap.world;
+    const playerSpawn=arenaMap.spawns.friendly[0],hostileSpawn=arenaMap.spawns.hostile[0];
     const scene = new THREE.Scene();
     // Recycled ground decals: no permanent textures, runtime allocations on
     // landing, save changes, or hundreds of expensive particle emitters.
@@ -207,7 +210,7 @@ export function createArenaScene(initial, targetAssembly) {
     const arenaPresentationRoot = new THREE.Group();
     arenaPresentationRoot.name = 'arena-presentation';
     scene.add(arenaPresentationRoot);
-    const worldSolids = buildWarehouse(arenaRoot);
+    const worldSolids = buildArenaWorld(arenaRoot,world,arenaMap,playerSpawn,hostileSpawn);
     const garageRoot = buildGarageBay();
     // Non-colliding shop hardware appears only when real mounted systems are
     // disabled, making the workshop/pit feel like a service space.
@@ -543,7 +546,7 @@ export function createArenaScene(initial, targetAssembly) {
     // as the player. It has its own installed serials and never inherits player swaps.
     let targetExterior = buildExteriorRig(targetAssembly);
     calibrateExteriorSoles(targetExterior);
-    targetExterior.root.position.set(HOSTILE_SPAWN.x, targetExterior.groundOffset, HOSTILE_SPAWN.z);
+    targetExterior.root.position.set(hostileSpawn.x, targetExterior.groundOffset, hostileSpawn.z);
     targetExterior.root.rotation.y = Math.PI; // Look back toward the pilot.
     arenaPresentationRoot.add(targetExterior.root);
     const rangeMarks = new THREE.Group();
@@ -1260,11 +1263,11 @@ export function createArenaScene(initial, targetAssembly) {
     // Ring, not another obstacle or an invisible hit volume.
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(HOSTILE_SPAWN.x, .035, HOSTILE_SPAWN.z);
+    ring.position.set(hostileSpawn.x, .035, hostileSpawn.z);
     arenaPresentationRoot.add(ring);
     const pilotRing = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: C.green, side: THREE.DoubleSide, transparent: true, opacity: .26 }));
     pilotRing.rotation.x = -Math.PI / 2;
-    pilotRing.position.set(PLAYER_SPAWN.x, .034, PLAYER_SPAWN.z);
+    pilotRing.position.set(playerSpawn.x, .034, playerSpawn.z);
     arenaPresentationRoot.add(pilotRing);
     const objectiveMaterial = new THREE.MeshBasicMaterial({ color: 0xd7a24b, side: THREE.DoubleSide, transparent: true, opacity: .58, depthWrite: false });
     const objectiveRing = new THREE.Mesh(new THREE.RingGeometry(.90, 1, 48), objectiveMaterial);
@@ -1432,7 +1435,7 @@ export function createArenaScene(initial, targetAssembly) {
     // cover decoration can never permit a target hit through the obstacle volume.
     function certifiedCoverHit(muzzle, bore, maxDistance, actual) {
         const meshDistance = actual ? muzzle.distanceTo(actual.point) : maxDistance;
-        const cover = firstCoverHit(muzzle, bore, DEFAULT_WORLD.obstacles, maxDistance, .035);
+        const cover = firstCoverHit(muzzle, bore, world.obstacles, maxDistance, .035);
         if (!cover || cover.distance >= meshDistance - .005) return null;
         return {
             id: cover.id,
@@ -2424,7 +2427,7 @@ export function createArenaScene(initial, targetAssembly) {
                 raycaster.set(position,direct);raycaster.far=Math.min(radius+1,length+.8);
                 const hit=raycaster.intersectObjects(blockers,false)[0];
                 if(!hit)continue;
-                const cover=firstCoverHit(position,direct,DEFAULT_WORLD.obstacles,raycaster.far,.035);
+                const cover=firstCoverHit(position,direct,world.obstacles,raycaster.far,.035);
                 if(cover&&cover.distance<hit.distance-.01)continue;
                 if(hit.object.userData.actorId!==rig.id||hit.object.userData.slot!==slot)continue;
                 const damage=blastDamage(hit.distance,radius,nominal);
@@ -2455,7 +2458,7 @@ export function createArenaScene(initial, targetAssembly) {
             const hit=raycaster.intersectObjects([
                 ...combatPickMeshes(p.ownerId),
                 ...(p.ownerId==='player'?[]:exterior.pickMeshes),...worldSolids],false)[0]??null;
-            const cover=firstCoverHit(start,p.direction,DEFAULT_WORLD.obstacles,sweep.distance,.035);
+            const cover=firstCoverHit(start,p.direction,world.obstacles,sweep.distance,.035);
             const coverFirst=!!cover&&(!hit||cover.distance<hit.distance-.01);
             if(coverFirst||hit) {
                 const point=coverFirst?new THREE.Vector3(...cover.point):hit.point.clone();
@@ -3221,17 +3224,17 @@ function buildGarageBay() {
     return root;
 }
 
-function buildWarehouse(scene) {
+function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     const solids = [];
-    const width = DEFAULT_WORLD.maxX - DEFAULT_WORLD.minX;
-    const depth = DEFAULT_WORLD.maxZ - DEFAULT_WORLD.minZ;
+    const width = world.maxX - world.minX;
+    const depth = world.maxZ - world.minZ;
     // Terrain is purely visual. Keep one flat, identical collision slab and
     // the existing obstacle definitions; the yard texture never changes cover.
     const groundSide=mat(C.concreteDark,1,0);
     const groundTop=new THREE.MeshStandardMaterial({map:createYardGroundTexture(),roughness:.99,metalness:0});
     const floor = box(width + 3, 0.35, depth + 3,
         [groundSide,groundSide,groundTop,groundSide,groundSide,groundSide]);
-    floor.position.set((DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2, -0.18, (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2);
+    floor.position.set((world.minX + world.maxX) / 2, -0.18, (world.minZ + world.maxZ) / 2);
     floor.userData.arenaObstacleId = 'floor';
     scene.add(floor);
     solids.push(floor);
@@ -3246,32 +3249,32 @@ function buildWarehouse(scene) {
     const wallThickness = 0.6;
     const wallHeight = 8;
     const wallOffset = 1.0;
-    const centerX = (DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2;
-    const centerZ = (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2;
+    const centerX = (world.minX + world.maxX) / 2;
+    const centerZ = (world.minZ + world.maxZ) / 2;
     const north = box(width + 2, wallHeight, wallThickness, wallMat);
-    north.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.minZ - wallOffset);
+    north.position.set(centerX, wallHeight / 2, world.minZ - wallOffset);
     north.userData.arenaObstacleId = 'wall-north';
     scene.add(north);
     solids.push(north);
     const south = box(width + 2, wallHeight, wallThickness, wallMat);
-    south.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.maxZ + wallOffset);
+    south.position.set(centerX, wallHeight / 2, world.maxZ + wallOffset);
     south.userData.arenaObstacleId = 'wall-south';
     scene.add(south);
     solids.push(south);
     const west = box(wallThickness, wallHeight, depth + 2, wallMat);
-    west.position.set(DEFAULT_WORLD.minX - wallOffset, wallHeight / 2, centerZ);
+    west.position.set(world.minX - wallOffset, wallHeight / 2, centerZ);
     west.userData.arenaObstacleId = 'wall-west';
     scene.add(west);
     solids.push(west);
     const east = box(wallThickness, wallHeight, depth + 2, wallMat);
-    east.position.set(DEFAULT_WORLD.maxX + wallOffset, wallHeight / 2, centerZ);
+    east.position.set(world.maxX + wallOffset, wallHeight / 2, centerZ);
     east.userData.arenaObstacleId = 'wall-east';
     scene.add(east);
     solids.push(east);
 
     const stripeMat = mat(C.yellow, 0.9, 0.08);
-    for (const z of [PLAYER_SPAWN.z + 2.6, HOSTILE_SPAWN.z - 2.6]) {
-        for (let x = DEFAULT_WORLD.minX + 4; x <= DEFAULT_WORLD.maxX - 4; x += 8) {
+    for (const z of [playerSpawn.z + 2.6, hostileSpawn.z - 2.6]) {
+        for (let x = world.minX + 4; x <= world.maxX - 4; x += 8) {
             const stripe = box(3.5, 0.03, 0.22, stripeMat);
             stripe.position.set(x, 0.03, z);
             scene.add(stripe);
@@ -3284,7 +3287,7 @@ function buildWarehouse(scene) {
         if (obstacle.kind === 'building') return mat(0x565750, .96, .05);
         return mat(C.concreteDark, .98, .02);
     };
-    for (const obstacle of DEFAULT_WORLD.obstacles) {
+    for (const obstacle of world.obstacles) {
         const w = obstacle.maxX - obstacle.minX;
         const d = obstacle.maxZ - obstacle.minZ;
         const h = Number.isFinite(obstacle.height) ? obstacle.height : 1.1;
@@ -3342,11 +3345,11 @@ function buildWarehouse(scene) {
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
-    sign.position.set(centerX, 5, DEFAULT_WORLD.minZ - .67);
+    sign.position.set(centerX, 5, world.minZ - .67);
     scene.add(sign);
     // The second art direction slice completes the yard's venue identity.
     // Dressing never joins the collision solids list or certified cover map.
-    scene.add(buildBacklotDressing(DEFAULT_WORLD));
+    scene.add(buildBacklotDressing(world));
     return solids;
 }
 function buildCockpit(scene) {
@@ -3470,7 +3473,7 @@ function buildCockpit(scene) {
 function buildDebugColliders(scene) {
     const group = new THREE.Group();
     const material = new THREE.MeshBasicMaterial({ color: 0x65ff91, wireframe: true, transparent: true, opacity: 0.7, depthTest: false });
-    for (const obstacle of DEFAULT_WORLD.obstacles) {
+    for (const obstacle of world.obstacles) {
         const w = obstacle.maxX - obstacle.minX;
         const d = obstacle.maxZ - obstacle.minZ;
         const mesh = box(w + 1.9, 0.4, d + 1.9, material);
