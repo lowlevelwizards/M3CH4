@@ -1131,7 +1131,14 @@ export function createArenaScene(initial, targetAssembly) {
             arenaPresentationRoot.attach(group);
             group.rotation.x += slot === 'combat' ? .46 : .31;
             group.rotation.z += side * (slot === 'combat' ? .78 : .58);
+            // A one-time conservative radius avoids a full hierarchy Box3
+            // traversal on every airborne frame of a detached module.
+            const detachedBounds=new THREE.Box3().setFromObject(group);
+            const detachedSphere=detachedBounds.getBoundingSphere(new THREE.Sphere());
+            const fallRadius=detachedSphere.radius+
+                detachedSphere.center.distanceTo(group.getWorldPosition(new THREE.Vector3()));
             fallingParts.set(`${actorId}:${slot}`, {
+                fallRadius,
                 actorId, slot, record, group, settled: false,
                 velocity: new THREE.Vector3(side * (.28 + Math.random() * .30), .35 + Math.random() * .48, (Math.random() - .5) * .65),
                 spin: new THREE.Vector3((Math.random() - .5) * 1.4, (Math.random() - .5) * .65, side * (.8 + Math.random() * 1.1)),
@@ -2697,9 +2704,14 @@ export function createArenaScene(initial, targetAssembly) {
             state.group.rotation.x += state.spin.x * dt;
             state.group.rotation.y += state.spin.y * dt;
             state.group.rotation.z += state.spin.z * dt;
-            state.group.updateWorldMatrix(true, true);
-            const bounds = new THREE.Box3().setFromObject(state.group);
-            if (bounds.min.y <= .025 && state.velocity.y <= 0) {
+            // Only examine individual mesh bounds when the falling assembly
+            // can actually reach the floor. Early frames use a conservative
+            // bounding-sphere radius rather than walking every child mesh.
+            const canTouchFloor=state.group.position.y-(state.fallRadius??0)<=.08;
+            if(!canTouchFloor||state.velocity.y>0)continue;
+            state.group.updateWorldMatrix(true,true);
+            const bounds=new THREE.Box3().setFromObject(state.group);
+            if (bounds.min.y <= .025) {
                 state.group.position.y += .025 - bounds.min.y;
                 state.velocity.set(0, 0, 0); state.spin.multiplyScalar(.18); state.settled = true;
                 const hit = state.group.getWorldPosition(new THREE.Vector3()); hit.y = .05;
