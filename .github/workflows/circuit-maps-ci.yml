@@ -5,6 +5,8 @@ on:
       - 'maps/**'
       - 'main.js'
       - 'scene.js'
+      - 'backlotDerbyWorld.js'
+      - 'research/circuitMapsBrowserSmoke.mjs'
       - 'sceneAssembly.js'
       - 'contracts.js'
       - 'research/headlessDominationStudy.mjs'
