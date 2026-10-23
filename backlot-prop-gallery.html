@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#151b18"/>
+<title>M3CH4 · BACKLOT PROP GALLERY · k.5q.3</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./backlotPropGallery.css?v=k5q3"/>
+</head><body>
+<div id="stage" aria-label="free-flight 3D inspection gallery"></div>
+<header class="gallery-head">
+  <a href="./index.html?v=k5q3" id="gallery-exit">‹ GARAGE / DEV</a>
+  <div class="gallery-heading"><strong>BACKLOT PROP GALLERY</strong>
+  <small>REAL MAP MESHES · NO COMBAT / NO SAVE</small></div>
+  <button id="gallery-overview" type="button">GRID VIEW</button>
+</header>
+<section class="gallery-info" aria-label="currently selected prop">
+  <div class="gallery-row"><b id="gallery-current">LOADING REAL BACKLOT PROPS…</b><span id="gallery-count"></span><button id="gallery-ui-toggle" type="button">DETAILS +</button></div>
+  <p id="gallery-description">Tap an object or choose it from the list to inspect.</p>
+  <div class="gallery-nav">
+    <button id="gallery-prev" type="button" aria-label="Previous prop">‹ PREV</button>
+    <select id="gallery-select" aria-label="Jump to prop"></select>
+    <button id="gallery-next" type="button" aria-label="Next prop">NEXT ›</button>
+  </div>
+  <div class="gallery-row controls-line">
+    <label for="gallery-speed">FLY SPEED</label><input id="gallery-speed" type="range" min="2" max="28" step="1" value="10"/>
+    <button id="gallery-reset" type="button">FOCUS</button>
+  </div>
+</section>
+<div id="gallery-help">DRAG TO LOOK · LEFT STICK TO FLY · ↑↓ ALTITUDE
+  <small>DESKTOP: WASD + MOUSE DRAG · Q/E UP/DOWN · SHIFT BOOST · WHEEL ZOOM</small>
+</div>
+<div id="gallery-joystick" role="group" aria-label="Free-flight movement joystick">
+ <div class="gallery-stick-track"><div id="gallery-knob"></div></div>
+ <small>FLY</small>
+</div>
+<div id="gallery-height">
+  <button id="gallery-up" type="button" aria-label="Fly upwards">↑ UP</button>
+  <button id="gallery-down" type="button" aria-label="Fly downwards">↓ DOWN</button>
+</div>
+<div id="gallery-error" role="alert" hidden></div>
+<script type="module" src="./backlotPropGallery.js?v=k5q3"></script>
+</body></html>

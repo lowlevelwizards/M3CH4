@@ -1,0 +1,41 @@
+name: M3CH4 DEV Backlot Prop Gallery
+on:
+  pull_request:
+    paths:
+      - 'backlot-prop-gallery.html'
+      - 'backlotPropGallery.js'
+      - 'backlotPropGallery.css'
+      - 'backlotDerbyWorld.js'
+      - 'backlotEnvironmentPass.js'
+      - 'backlotObstacleKits.js'
+      - 'index.html'
+      - 'maps/backlot.js'
+      - 'research/backlotPropGallerySmoke.mjs'
+      - '.github/workflows/backlot-gallery-ci.yml'
+  workflow_dispatch:
+jobs:
+  prop-gallery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve actual static build
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/backlot-gallery-http.log 2>&1 &
+          sleep 2
+      - name: Inspect every actual Backlot prop at iPhone viewport
+        run: node research/backlotPropGallerySmoke.mjs
+      - name: Save phone screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlot-prop-gallery-screenshots
+          path: gallery-smoke-artifacts/
+          if-no-files-found: warn
