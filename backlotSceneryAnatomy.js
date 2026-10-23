@@ -40,11 +40,8 @@ function barn(root,x,z,w,h,d,i){
  f(g,'barn-upper-track',[-w*.28,h*.63,d*.56],
    [w*.28,h*.63,d*.56],.10,S);
  ring(g,'circular-barn-hay-vent',.43,.09,0,h*.87,d*.50,D,'z',10);
- for(let i=0;i<7;i++){
-  const zz=-d*.47+i*d*.94/6;
-  f(g,'roof-ridge-seam',[-w*.49,h+.10,zz],
-    [w*.49,h+.10,zz],.028,C.clay);
- }
+ // Keep broad gabled geometry and the sliding door, but omit tiny
+ // roof seam rails: on iPhone they cost one draw batch per distant barn.
  return g;
 }
 function bleachers(root,cx,z){
@@ -165,8 +162,7 @@ function scoreboard(root,w){
  const g=new THREE.Group();g.name='steel-frame-derby-scoreboard';
  g.position.set(x,0,z);root.add(g);
  for(const zz of [-5,5]){
-  f(g,'scoreboard-guy-wire',[0,8.5,zz],
-    [-3.2,.21,zz+(zz>0?2:-2)],.055,S);
+  // The heavy scoreboard frame and mast ribs establish its silhouette.
   for(let yy=3;yy<11;yy+=1.7)
    f(g,'scoreboard-mast-cross-rib',[-.54,yy,zz],
      [.54,yy,zz],.095,R);
