@@ -1508,7 +1508,9 @@ export function createArenaScene(initial, targetAssembly) {
             feet:contacts.feet.map(f=>({side:f.side,mode:f.mode,
                 x:f.localX??0,z:f.localZ??0})),
             pivot:contacts.pivot,landings:contacts.landings,
-            planted:contacts.stanceCount,
+            planted:contacts.stanceCount,loadShift:contacts.weightShift,
+            effort:contacts.actuatorEffort,compression:contacts.bodyCompression,
+            preparing:contacts.preparingSide,
         }:null;
     }
     function setAnimationPreview(mode='off',speed=3){
@@ -1587,14 +1589,15 @@ export function createArenaScene(initial, targetAssembly) {
             -state.longitudinalAcceleration * .012 - (state.footingLoad ?? 0) * .008, -.045, .045);
         const targetRoll = THREE.MathUtils.clamp(
             -state.yawRate * Math.abs(state.forwardSpeed) * .008 -
-            (state.lateralAcceleration ?? 0) * .004, -.055, .055);
+            (state.lateralAcceleration ?? 0) * .004+
+            (pilotFeet?.weightShift??0)*.024, -.065, .065);
         if(!inspecting){
             const kind=installedPart(previewAssembly,'mobility')?.definition.id??'legs-yard';
             pilotFeet=serviceVisual?.gait?.contactFeet??advanceFootContacts(pilotFeet,state,kind,dt);
             pilotLandingKick=Math.max(pilotLandingKick*Math.exp(-dt*11),
                 pilotFeet.landings?pilotFeet.lastLandingStrength*.023:0);
         }else{pilotFeet=null;pilotLandingKick=0;}
-        const footfall=-pilotLandingKick;
+        const footfall=-pilotLandingKick-(pilotFeet?.bodyCompression??0)*.24;
         const impactKick = state.impact * 0.045;
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
@@ -1727,6 +1730,7 @@ export function createArenaScene(initial, targetAssembly) {
                     disabled:record.disabledSlots.has('mobility')||record.destroyedSlots.has('mobility'),
                 });
                 const moving=(motion.weight??0);
+                const support=record.footContacts;
                 const backward=(state.forwardSpeed??0)<-.3;
                 const strafe=(state.lateralSpeed??0)/2.4;
                 const forward=(state.forwardSpeed??0)/3.2;
@@ -1785,8 +1789,15 @@ export function createArenaScene(initial, targetAssembly) {
             const combatBase=record.baseParts.get('combat');
             const commandBase=record.baseParts.get('command');
             if(frame&&frameBase){
-                // Structure is upper-waist visual; mobility is root sibling.
+                // The load-bearing hip moves under the upper hull. This is
+                // secondary physical presentation, not yaw or hitbox motion.
                 frame.rotation.y=frameBase.rotation.y+aim.waist;
+                frame.rotation.z=frameBase.rotation.z+
+                    THREE.MathUtils.clamp((record.footContacts?.weightShift??0)*.033,-.036,.036);
+                frame.position.x=frameBase.position.x+
+                    (record.footContacts?.weightShift??0)*.018;
+                frame.position.y=frameBase.position.y-
+                    (record.footContacts?.bodyCompression??0)*.38;
             }
             if(command&&commandBase&&!record.destroyedSlots.has('command')){
                 const commandBroken=record.disabledSlots.has('command');
@@ -1831,6 +1842,7 @@ export function createArenaScene(initial, targetAssembly) {
             },record.contactPresentation,dt);
             record.contactPresentation=contact;
             root.position.y-=contact.drop;
+            root.position.y-=(record.footContacts?.bodyCompression??0)*.24;
             const damage=1-health;
             root.rotation.x=THREE.MathUtils.clamp(
                 -(state.longitudinalAcceleration??0)*.008+
@@ -1838,6 +1850,7 @@ export function createArenaScene(initial, targetAssembly) {
             root.rotation.z=THREE.MathUtils.clamp(
                 -(state.lateralSpeed??0)*.014-
                 (state.yawRate??0)*speed*.009+
+                (record.footContacts?.weightShift??0)*.028+
                 damage*Math.sin((motion?.phase??0)*.64)*.032,-.12,.12);
             // Family-specific mechanical collapse is downstream from game
             // mobility health: pose only, no collision or speed adjustments.
