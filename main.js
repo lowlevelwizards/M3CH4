@@ -921,6 +921,8 @@ function resetAiActor(actor) {
     actor.fieldService = createFieldServiceState();
     actor.active = true;
     actor.targetId = null;
+    actor.fireLane = null;
+    actor.fireReposition = null;
     actor.killReason = null;
     actor.teamIntent=null;
     actor.lastServiceCoverCheck=-Infinity;
@@ -944,6 +946,7 @@ function resetSquadBattle() {
     playerMissionKillReason=null;
     leaveAlliedObservation();
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;
+    squadCounterOrders={friendly:{},hostile:{}};
     aiPlanCooldown=0;aiPerceptionCooldown=0;
     roundClock=createRoundClock();lastRoundClockText='';
     strategicMemory=createStrategicState();
