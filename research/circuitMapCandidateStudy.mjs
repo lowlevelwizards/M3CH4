@@ -12,20 +12,25 @@ const points=(a,b,c)=>[{id:'A',x:a[0],z:a[1]},
  {id:'B',x:b[0],z:b[1]},{id:'C',x:c[0],z:c[1]}];
 const candidates={
  'backlot-dustbowl':[
+  ['north-balanced',points([-20,-5],[0,-11],[20,-2])],
   ['north-a',points([-20,-4],[0,-11],[20,0])],
   ['split',points([-20,-2],[0,12],[20,2])],
   ['north-flanks',points([-20,-4],[0,12],[20,-4])],
  ],
  grainhouse:[
+  ['middle-delta',points([-10,-13],[24.5,-8],[11,17])],
+  ['middle-epsilon',points([-10,-13],[24.5,-7.5],[11,18])],
   ['middle-alpha',points([-10,-13],[24.5,-7],[11,16])],
   ['middle-beta',points([-10,-12],[24.5,-8],[11,15])],
   ['middle-gamma',points([-10,-14],[24.5,-8],[11,18])],
  ],
 };
-const pairs=Math.max(1,Math.min(8,Number(process.argv[2]||3)));
+const pairs=Math.max(1,Math.min(16,Number(process.argv[2]||8)));
 const results=[];
-for(const map of MAPS.filter(m=>candidates[m.id])){
- for(const [variant,sites] of candidates[map.id]){
+for(const map of MAPS){
+ // Always measure the actually shipped site layout in the same paired cohort.
+ // Culvert is the known near-balanced control map and is not tuned here.
+ for(const [variant,sites] of [['live-baseline',map.sites.domination],...(candidates[map.id]||[])]){
   if(!sites.every(p=>pointClear(map,p,1.55)))throw Error('Blocked site '+map.id+' '+variant);
   const rows=[];
   for(let i=0;i<pairs;i++){
@@ -38,7 +43,7 @@ for(const map of MAPS.filter(m=>candidates[m.id])){
       name:variant,
     });
     rows.push({seed:i,swapSpawns,winner:bout.win,reason:bout.winReason,
-      score:bout.points,firstContactAt:bout.firstContactAt,
+      score:bout.points,time:bout.time,firstContactAt:bout.firstContactAt,
       captures:bout.captureEvents,routeErrors:bout.actors.reduce((s,a)=>s+(a.routeErrors||0),0)});
    }
   }
@@ -51,6 +56,10 @@ for(const map of MAPS.filter(m=>candidates[m.id])){
     northWins:north,southWins:south,draws,
     meanRouteErrors:rows.reduce((s,r)=>s+r.routeErrors,0)/rows.length,
     meanCaptures:rows.reduce((s,r)=>s+r.captures,0)/rows.length,
+    meanFirstContact:rows.reduce((s,r)=>s+(r.firstContactAt??r.time),0)/rows.length,
+    meanDuration:rows.reduce((s,r)=>s+r.time,0)/rows.length,
+    meanNorthScore:rows.reduce((s,r)=>s+(r.swapSpawns?r.score.friendly:r.score.hostile),0)/rows.length,
+    meanSouthScore:rows.reduce((s,r)=>s+(r.swapSpawns?r.score.hostile:r.score.friendly),0)/rows.length,
     results:rows};
   results.push(summary);
   console.log('MAP_CANDIDATE '+JSON.stringify({...summary,results:undefined}));

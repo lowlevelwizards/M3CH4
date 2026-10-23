@@ -26,8 +26,8 @@ jobs:
         run: node --test tests/circuitMapRegistry.test.mjs tests/circuitMapFlow.test.mjs
       - name: Run genuine three-map headless AI physical battle cohort
         run: node research/circuitMapBalanceStudy.mjs 8
-      - name: Scout balanced domination-site layouts (paired sides)
-        run: node research/circuitMapCandidateStudy.mjs 3
+      - name: Compare live and proposed objective layouts (8 matched side-swapped seeds)
+        run: node research/circuitMapCandidateStudy.mjs 8
       - name: Retain map-specific first-contact and route metrics
         if: always()
         uses: actions/upload-artifact@v4
