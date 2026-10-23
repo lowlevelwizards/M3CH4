@@ -54,6 +54,10 @@ function plaque(entry,index){
  return p;
 }
 function buildGrid(){
+ // One invisible bounded pick proxy per specimen. Unlike raycasting every
+ // tread, bolt and plate, this remains O(specimen count) on touch devices.
+ const pickGeometry=new THREE.BoxGeometry(1,1,1);
+ const pickMaterial=new THREE.MeshBasicMaterial({visible:false});
  const catalog=buildBacklotPropCatalog(BACKLOT.world);
  const specimens=catalog.specimens;
  const coverCount=catalog.coverCount;
@@ -88,6 +92,13 @@ function buildGrid(){
     new THREE.Vector3(7,.025,7),new THREE.Vector3(-7,.025,7)
    ]),boundaryMat);
    carrier.add(boundary);carrier.add(plaque(entry,i));
+   const proxy=new THREE.Mesh(pickGeometry,pickMaterial);
+   proxy.name='gallery-pick-proxy';
+   proxy.scale.set(Math.min(13,Math.max(1.2,entry.width)),
+      Math.max(.7,entry.height),Math.min(13,Math.max(1.2,entry.depth)));
+   proxy.position.y=Math.max(.7,entry.height)*.5;
+   proxy.userData.galleryIndex=i;
+   carrier.add(proxy);picking.push(proxy);
    root.add(carrier);
    entries.push({...entry,x,z,row,col,carrier});
  }
@@ -336,10 +347,7 @@ function render(time){
 }
 try{
  const stats=buildGrid();
- entries.forEach(entry=>entry.carrier.traverse(mesh=>{
-  if(mesh.isMesh&&!mesh.userData.galleryLabel&&!mesh.userData.galleryPad&&!mesh.userData.colliderOverlay)
-   picking.push(mesh);
- }));
+ // Picking is performed only against the per-specimen proxies built above.
  resize();focus(0);
  window.__backlotGalleryReady={...stats,mapVersion:BACKLOT.version,
   hasFreeCamera:true,experimentId:entries.find(e=>e.experiment)?.id||null,
