@@ -280,3 +280,12 @@
   #sortie-debrief .k5p-score-inspector{padding:3px 5px}
   #sortie-debrief .k5p-score-breakdown b{font-size:10px}
 }
+
+/* The critical service and mount controls must never live below a description.
+   Keep the header first, action strip second, repair quote third. */
+#unified-garage[data-workspace="garage"].tool-open:not(.replacing)
+ .unified-modules>.rig-part-identity{order:-3}
+#unified-garage[data-workspace="garage"].tool-open:not(.replacing)
+ .unified-modules>.garage-part-actions{order:-2}
+#unified-garage[data-workspace="garage"].tool-open:not(.replacing)
+ .unified-modules>.unified-service{order:-1}
