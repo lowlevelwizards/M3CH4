@@ -118,6 +118,9 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       const distance=Math.hypot(f.localZ/p.reach,f.localX/p.lateralReach);
       if(distance>largest){largest=distance;candidate=f;}
     }
+    // A loss-of-footing correction can begin even when both feet happen
+    // to be at nominal rest positions (zero positional error).
+    if(catchStep&&!candidate)candidate=state.feet.find(f=>f.side===state.nextSide);
     const threshold=state.pivot?.44:.62;
     if((largest>threshold||catchStep)&&candidate){
       if(catchStep)candidate=state.feet.find(f=>f.side===state.nextSide)??candidate;
