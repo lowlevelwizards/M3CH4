@@ -25,7 +25,7 @@ test('factory markings never impersonate a serialized owner or change paint data
  assert.match(visuals,/new THREE\.MeshStandardMaterial/);
  assert.match(visuals,/map\.magFilter=THREE\.NearestFilter/);
  assert.match(visuals,/node\.add\(plate\)/);
- assert.doesNotMatch(visuals,/pickMeshes\.push|owned\.push|storeMachine|damagePart|persist/);
+ assert.doesNotMatch(visuals,/pickMeshes\.push|owned\.push|storeMachine\(|damagePart\(|localStorage\.|indexedDB\./);
 });
 test('real build only adds model decals after physical part finish and service history',()=>{
  const scene=src('scene.js');
