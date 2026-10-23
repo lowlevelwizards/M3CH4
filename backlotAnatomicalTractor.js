@@ -98,7 +98,7 @@ export function buildAnatomicalTractor(root){
  // Operator position, seat on transmission, no featureless opaque cab mass.
  cylinder(g,'steering-column-pivot',.105,.25,0,1.89,-.85,C.soot,'x',8);
  beam(g,'steering-column',[0,1.49,-1.02],[0,2.12,-.56],.065,C.steel);
- ring(g,'visible-steering-wheel',.35,.055,0,2.13,-.51,C.ink??C.soot,'z',12);
+ ring(g,'visible-steering-wheel',.35,.055,0,2.13,-.51,C.soot,'z',12);
  block(g,'saddle-seat',.83,.17,.71,0,1.71,-1.76,C.rubber,.09);
  block(g,'seat-back',.85,.78,.14,0,2.04,-2.09,C.rubber,.10);
  beam(g,'seat-support',[0,1.05,-1.82],[0,1.65,-1.79],.14,C.iron);
