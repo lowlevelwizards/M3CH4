@@ -11,7 +11,7 @@ export function groundFootprint(contact,rig,family='legs-yard',surface='concrete
  const foot=contact.feet.find(f=>f.side===contact.lastLandingSide);
  if(!foot||!Number.isFinite(foot.x)||!Number.isFinite(foot.z))return null;
  const sole=FAMILY_SOLES[family]??FAMILY_SOLES['legs-yard'];
- return {x:foot.x,z:foot.z,yaw:rig.yaw??0,side:foot.side,
+ return {x:foot.x,z:foot.z,elevation:foot.y??0,yaw:rig.yaw??0,side:foot.side,
     width:sole.width,length:sole.length,surface,
     opacity:clamp((contact.lastLandingStrength??.4)*.17+.08,.08,.27)};
 }
