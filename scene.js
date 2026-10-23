@@ -33,6 +33,7 @@ import { locallyBlockedMuzzle } from './barrelHudClearance.js';
 import { rocketFlightStep } from './projectileSimulation.js';
 import { blastDamage } from './explosionResolution.js';
 import { createFiringEventState, triggerFiringEvent, advanceFiringEvent, firingProfile } from './firingEvent.js';
+import { createHitResponse, injectHitResponse, advanceHitResponse, hitMaterialLanguage } from './hitResponse.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
@@ -617,7 +618,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if (material instanceof THREE.MeshStandardMaterial)
             targetColors.set(mesh, material.color.clone());
     }
-    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0, arc: 0 }]));
+    const makeEmitterBudget = () => new Map(SLOTS.map(slot => [slot, { spark: 0, smoke: 0, arc: 0, fluid: 0 }]));
     const squadCombatants = new Map();
     function makeSquadMarker(team) {
         // Friendlies need a persistent location cue. Hostiles get a tiny
@@ -702,6 +703,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
             baseParts: capturePartTransforms(actorExterior), articulation: captureArticulation(actorExterior),
             recoilKick: 0, recoilRecovery: 3.2,
+            hitResponse:createHitResponse(),fractureParts:[],lastMobilityHitSide:0,
         weaponFault: false, weaponServicing: false, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
         };
         squadCombatants.set(id, record);
@@ -818,6 +820,89 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     const chipPool = makePool(52, new THREE.BoxGeometry(.085, .060, .11), 0x4a4d46, true);
     // Soft low-resolution billboards read as smoke plumes instead of floating cubes.
     const smokePool = makePool(56, new THREE.PlaneGeometry(.24, .24), 0x252a26, true);
+    // Six-rig budget: at most two 3-piece fracture clusters per machine.
+    // Shared geometry/materials; markers attach to actual struck triangles and
+    // are excluded from pick/raycast lists. No per-frame geometry or raycasts.
+    const fractureGeometry=new THREE.BoxGeometry(1,1,1);
+    const fractureMaterials=[
+        new THREE.MeshStandardMaterial({color:0x080e0e,roughness:1,metalness:.1,flatShading:true}),
+        new THREE.MeshStandardMaterial({color:0x958777,roughness:.84,metalness:.42,flatShading:true}),
+        new THREE.MeshStandardMaterial({color:0x414842,roughness:.94,metalness:.3,flatShading:true}),
+    ];
+    function clearFractures(parts){
+        if(!parts)return;
+        for(const part of parts)part.parent?.remove(part);
+        parts.length=0;
+    }
+    function markBreachedArmor(contact,outcome){
+        if(!contact?.actorId||!contact.slot||!contact.surfaceHit)return;
+        if(hitMaterialLanguage(outcome)!=='breach'&&
+           hitMaterialLanguage(outcome)!=='hydraulic'&&
+           hitMaterialLanguage(outcome)!=='electric'&&
+           hitMaterialLanguage(outcome)!=='catastrophic')return;
+        // An internal strike qualifies only when protection is actually gone.
+        if((outcome.remainingArmor??0)>.001&&!outcome.justDestroyed)return;
+        const record=squadCombatants.get(contact.actorId);
+        const exteriorRig=contact.actorId==='player'?exterior:record?.exterior;
+        const parts=contact.actorId==='player'?pilotFractureParts:record?.fractureParts;
+        if(!exteriorRig||!parts)return;
+        const surface=contact.surfaceHit;
+        if(!Array.isArray(surface.localPoint)||!Array.isArray(surface.localNormal))return;
+        const group=exteriorRig.partGroups.get(contact.slot);
+        if(!group)return;
+        let target=null;
+        group.traverse(mesh=>{
+            if(!target&&mesh.isMesh&&mesh.userData?.surface?.id===surface.surfaceId)
+                target=mesh;
+        });
+        if(!target)return;
+        // Keep the oldest established rupture; no more than two persistent
+        // 3D details per machine, even under a 60-round repeater barrage.
+        if(parts.length>=2)return;
+        const cluster=new THREE.Group();
+        cluster.name='physical-breach-detail';
+        const inner=new THREE.Mesh(fractureGeometry,fractureMaterials[0]);
+        inner.scale.set(.19,.14,.010);inner.position.z=.006;cluster.add(inner);
+        const left=new THREE.Mesh(fractureGeometry,fractureMaterials[1]);
+        left.scale.set(.045,.19,.023);left.position.set(-.12,.01,.023);
+        left.rotation.z=.21;left.rotation.y=-.42;cluster.add(left);
+        const right=new THREE.Mesh(fractureGeometry,fractureMaterials[2]);
+        right.scale.set(.048,.18,.027);right.position.set(.13,-.02,.024);
+        right.rotation.z=-.20;right.rotation.y=.38;cluster.add(right);
+        cluster.position.set(...surface.localPoint);
+        cluster.quaternion.setFromUnitVectors(
+            new THREE.Vector3(0,0,1),new THREE.Vector3(...surface.localNormal).normalize());
+        const scale=outcome.justDestroyed?1.3:outcome.internalDamage>0?1.0:.80;
+        cluster.scale.setScalar(scale);
+        target.add(cluster);
+        parts.push(cluster);
+    }
+    function recordHitInertia(contact,outcome){
+        if(!contact?.actorId||!contact?.slot||!outcome||!contact.muzzle||!contact.point)return;
+        const record=squadCombatants.get(contact.actorId);
+        const targetRoot=contact.actorId==='player'?exterior.root:record?.exterior.root;
+        const state=contact.actorId==='player'?pilotHitResponse:record?.hitResponse;
+        if(!targetRoot||!state)return;
+        targetRoot.updateWorldMatrix(true,false);
+        const localPoint=targetRoot.worldToLocal(contact.point.clone());
+        if(record&&contact.slot==='mobility'&&outcome.internalDamage>0)
+            record.lastMobilityHitSide=localPoint.x<0?-1:1;
+        const worldDirection=contact.point.clone().sub(contact.muzzle);
+        if(worldDirection.lengthSq()<1e-7)return;
+        const localDirection=worldDirection.normalize().applyQuaternion(
+            targetRoot.getWorldQuaternion(new THREE.Quaternion()).invert());
+        injectHitResponse(state,{
+            impulseNs:outcome.impactImpulseNs??0,
+            massKg:outcome.impactMassKg??2400,brace:outcome.impactBrace??0,
+            directionX:localDirection.x,directionZ:localDirection.z,
+            pointX:localPoint.x,pointY:localPoint.y,
+            armorAbsorbed:outcome.armorAbsorbed,
+            internalDamage:outcome.internalDamage,
+            disabled:outcome.justDisabled||outcome.justDestroyed,
+            slot:outcome.slot,
+        });
+        markBreachedArmor(contact,outcome);
+    }
     let sparkCursor = 0, chipCursor = 0, smokeCursor = 0;
     const fallingParts = new Map();
     const impactLights = Array.from({ length: 5 }, () => {
@@ -847,6 +932,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     // remains intentionally low-res while cockpit telemetry stays legible.
     combinerHud.traverse(object => object.layers.set(1));
     blackout.layers.set(1);
+    const pilotHitResponse=createHitResponse();
+    const pilotFractureParts=[];
     let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, hitShakeKick = 0, gunDamageKick = 0;
     let powerBlackout = 0, powerFlicker = 0, cockpitWarningLevel = 0;
     let persistentPowerHealth = 1, persistentCommandHealth = 1;
@@ -1083,6 +1170,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     function resetCockpitTransientFeedback() {
         hitPitchKick = hitRollKick = hitYawKick = hitShakeKick = gunDamageKick = 0;
+        Object.assign(pilotHitResponse,createHitResponse());
         powerBlackout = powerFlicker = 0;
         powerArcCooldown = 1.8;
         combinerHud.position.set(0, 0, 0);
@@ -1117,22 +1205,30 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     function spawnImpactParticles(position, normal, outcome) {
         const profile = impactProfile(outcome);
+        const language=hitMaterialLanguage(outcome);
+        const electric=language==='electric'||
+            language==='catastrophic'&&outcome?.slot==='power';
+        const metalBreach=language==='breach'||language==='hydraulic';
+        const primary=electric?0x96ebde:metalBreach?0xffa166:
+            language==='armor-break'?0xffd38a:0xffe7aa;
+        const debris=language==='hydraulic'?0x58482e:
+            language==='armor-break'?0xafa38e:0x56534c;
         if (outcome?.internalDamage > 0)
             flashDamageLight(position, outcome.slot === 'power' ? 0xc8fff2 : 0xffb56b, outcome.slot === 'power' ? 10 : 5.5, .075, 4.6);
-        activateParticle(sparkPool, 'spark', position, normal.clone().multiplyScalar(.18), profile.flashScale * 1.25, .085, 0, 0, profile.kind === 'power-disable' ? 0xffe199 : 0xffcf70);
+        activateParticle(sparkPool, 'spark', position, normal.clone().multiplyScalar(.18), profile.flashScale * 1.25, .085, 0, 0, primary);
         for (let i = 0; i < profile.sparkCount; i++) {
             const direction = randomBurstDirection(normal, 1.15);
             const speed = 1.8 + Math.random() * 3.4;
-            activateParticle(sparkPool, 'spark', position, direction.multiplyScalar(speed), .7 + Math.random() * .7, .18 + Math.random() * .22, -4.2, 0, Math.random() > .2 ? 0xffc35f : 0xfff0a2);
+            activateParticle(sparkPool, 'spark', position, direction.multiplyScalar(speed), .7 + Math.random() * .7, .18 + Math.random() * .22, -4.2, 0, Math.random() > .22 ? primary : 0xfff0bc);
         }
         for (let i = 0; i < profile.chipCount; i++) {
             const direction = randomBurstDirection(normal, 1.35);
             const speed = .8 + Math.random() * 2.1;
-            activateParticle(chipPool, 'chip', position, direction.multiplyScalar(speed), .7 + Math.random() * .8, .45 + Math.random() * .45, -7.2, 0, Math.random() > .35 ? 0x3c403b : 0x78684d);
+            activateParticle(chipPool, 'chip', position, direction.multiplyScalar(speed), .7 + Math.random() * .8, .45 + Math.random() * .45, -7.2, 0, Math.random() > .35 ? debris : 0x8c7956);
         }
         for (let i = 0; i < profile.smokeCount; i++) {
             const drift = new THREE.Vector3((Math.random() - .5) * .25, .28 + Math.random() * .28, (Math.random() - .5) * .25);
-            activateParticle(smokePool, 'smoke', position, drift, .72 + Math.random() * .5, .75 + Math.random() * .55, 0, .8, 0x242824, true);
+            activateParticle(smokePool, 'smoke', position, drift, .72 + Math.random() * .5, .75 + Math.random() * .55, 0, .8, electric?0x1b3431:language==='hydraulic'?0x373b2e:0x242824, true);
         }
         return profile;
     }
@@ -1312,6 +1408,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         record.wrecked = false;
         record.cleared = false;
         record.recoilKick = 0;
+        record.hitResponse=createHitResponse();
+        record.lastMobilityHitSide=0;
+        clearFractures(record.fractureParts);
         if (record.articulation) {
             record.articulation.phase = 0;
             record.articulation.weight = 0;
@@ -1348,6 +1447,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 budget.spark = 0;
                 budget.smoke = 0;
                 budget.arc = 0;
+                budget.fluid = 0;
             }
         }
     }
@@ -1755,7 +1855,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             'YXZ');
         const pilotServiceSag = pilotWeaponFault ? (pilotWeaponServicing ? .20 : .13) : 0;
         const pilotRecoveryLift = pilotWeaponRecoveryKick * .09;
-        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
+        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotHitResponse.mount*.62 + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16 + pilotHitResponse.roll*.22, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + pilotFiringPose.travel * .19;
         // Actual reload timer drives the pilot-visible breech. A moving
@@ -1772,7 +1872,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
-        cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
+        cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab + pilotHitResponse.pitch*.82, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll + pilotHitResponse.roll*.75, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
         if (inspecting) {
@@ -1830,7 +1930,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         else {
             camera.position.set(visualX + impactJitter * .62, 2.42 + (state.groundHeightM??0)+cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
-            camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72, 'YXZ');
+            camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35 + pilotHitResponse.pitch*.28, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72 + pilotHitResponse.roll*.24, 'YXZ');
         }
         updateSquadMarkers();
     }
@@ -1908,6 +2008,18 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                         leg.ankle.rotation.x+=failedLeg.ankle;
                         leg.foot.rotation.x+=failedLeg.foot;
                     }
+                    // The actually injured side carries a rough compression
+                    // knee under load. Milliradian-scale secondary metal motion
+                    // only; grounded foot anchors and actual gait are untouched.
+                    const mobilityPart=record.condition?.parts?.mobility;
+                    const mobilityHealth=mobilityPart
+                        ?THREE.MathUtils.clamp(mobilityPart.integrity/
+                            Math.max(1,mobilityPart.maxIntegrity),0,1):1;
+                    if(side===record.lastMobilityHitSide&&mobilityHealth<.67){
+                        const rough=(.67-mobilityHealth)*.065*moving;
+                        leg.knee.rotation.z+=rough*Math.sin(motion.phase*1.5);
+                        leg.hip.rotation.z+=rough*.42;
+                    }
                 }
             }
             const desired=visual?.target
@@ -1937,7 +2049,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     THREE.MathUtils.clamp((record.footContacts?.weightShift??0)*.033,-.036,.036);
                 // Shot shock travels through the structure, not through camera aim.
                 frame.rotation.x=frameBase.rotation.x+
-                    (record.firingState?.pose.cab??0)*.42;
+                    (record.firingState?.pose.cab??0)*.42+
+                    (record.hitResponse?.pitch??0)*.45;
                 frame.position.x=frameBase.position.x+
                     (record.footContacts?.weightShift??0)*.018;
                 frame.position.y=frameBase.position.y-
@@ -1957,7 +2070,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     installedPart(record.assembly,'combat')?.definition.id);
                 combat.rotation.y=combatBase.rotation.y+aim.gun;
                 combat.rotation.x=combatBase.rotation.x+aim.elevation+
-                    (fault?.20:0)-(recovery*.12)+(discharge?.mount??0);
+                    (fault?.20:0)-(recovery*.12)+(discharge?.mount??0)+
+                    (record.hitResponse?.mount??0)*.56;
                 combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
                 combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
@@ -2011,8 +2125,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 active:record.active&&!record.wrecked,
             });
             root.position.y-=failed.rootDrop;
-            root.rotation.x+=failed.rootPitch+contact.pitch;
-            root.rotation.z+=failed.rootRoll+contact.roll;
+            root.rotation.x+=failed.rootPitch+contact.pitch+(record.hitResponse?.pitch??0);
+            root.rotation.z+=failed.rootRoll+contact.roll+(record.hitResponse?.roll??0);
+            root.position.y-=Math.abs(record.hitResponse?.translation??0)*.26;
         }
         root.updateWorldMatrix(true,true);
     }
@@ -2068,6 +2183,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         previewAssembly=assembly;
         const oldRoot = exterior.root;
         // Detach shared scar geometry before the old rig disposal traversal.
+        clearFractures(pilotFractureParts);
+        Object.assign(pilotHitResponse,createHitResponse());
         surfaceMarks.clear();
         pendingSurfaceMarks.length=0;
         exterior = buildExteriorRig(assembly);
@@ -2797,6 +2914,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         transientFX.push({ object: tracer, remaining: .14, duration: .14, material: trackMat });
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         const profile = spawnImpactParticles(impactPoint, contact.normal, outcome);
+        recordHitInertia(contact,outcome);
         noteSurfaceImpact(contact,outcome);
         showShieldStrike(contact);
         if (outcome?.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
@@ -2840,6 +2958,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         activateParticle(sparkPool, 'spark', contact.muzzle, new THREE.Vector3(0, .08, 0), 1.15, .09, 0, 0, 0xffd79a);
         const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
         spawnImpactParticles(impactPoint, contact.normal, outcome);
+        recordHitInertia(contact,outcome);
         noteSurfaceImpact(contact,outcome);
         showShieldStrike(contact);
     }
@@ -2925,6 +3044,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if (outcome) {
             const impactPoint = contact.point.clone().addScaledVector(contact.normal, .045);
             spawnImpactParticles(impactPoint, contact.normal, outcome);
+            recordHitInertia(contact,outcome);
             noteSurfaceImpact(contact,outcome);
             showShieldStrike(contact);
             if (outcome.internalDamage > 0 && contact.actorId) recordDamageWound(contact.actorId, outcome.slot, impactPoint);
@@ -2966,6 +3086,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     function resetTargetDamage(condition) {
         clearPooledParticles();
+        for(const record of squadCombatants.values()){
+            clearFractures(record.fractureParts);
+            if(record.hitResponse)Object.assign(record.hitResponse,createHitResponse());
+        }
         while (sootMarks.length) {
             const mark = sootMarks.pop();
             rangeMarks.remove(mark);
@@ -3046,8 +3170,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         surfaceMarks.update();
         victoryStage?.scars.update();
         pilotFiringPose=advanceFiringEvent(pilotFiringState,dt);
-        for(const record of squadCombatants.values())
+        advanceHitResponse(pilotHitResponse,dt);
+        for(const record of squadCombatants.values()){
             if(record.firingState)advanceFiringEvent(record.firingState,dt);
+            if(record.hitResponse)advanceHitResponse(record.hitResponse,dt);
+        }
         muzzleFlash = Math.max(0, muzzleFlash - dt);
         for (const record of squadCombatants.values()) record.recoilKick = Math.max(0, (record.recoilKick ?? 0) - dt * (record.recoilRecovery ?? 3.2));
         const hitDecay = Math.exp(-8.5 * dt);
@@ -3196,6 +3323,18 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 budget.spark += (profile.sparkRate + destroyedSpark) * dt * (record.wrecked ? .82 : 1);
                 budget.smoke += (profile.smokeRate + wreckSmoke + destroyedSmoke) * dt;
                 budget.arc += (profile.arcRate + (part.destroyed && slot === 'power' ? .85 : 0)) * dt;
+                // Only a genuine exposed, damaged mobility unit can drip fluid.
+                // At most ~1 pooled bead per second, never a new fluid solver.
+                if(slot==='mobility'&&part.armor<=.001&&integrityRatio(part)<.55)
+                    budget.fluid=Math.min(2,(budget.fluid??0)+
+                        (.4+(1-integrityRatio(part))*.65)*dt);
+                while(budget.fluid>=1){
+                    budget.fluid-=1;
+                    const origin=partWorldPoint(record,slot);
+                    activateParticle(chipPool,'chip',origin,
+                        new THREE.Vector3((Math.random()-.5)*.25,-.12,(Math.random()-.5)*.25),
+                        .28,.38+Math.random()*.22,-8,0,0x5e4d32);
+                }
                 while (budget.spark >= 1) {
                     budget.spark -= 1;
                     const origin = partWorldPoint(record, slot);

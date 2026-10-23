@@ -33,6 +33,9 @@ export function hitSoundPlan(hit,{shielded=false,slot=null,ordinal=0}={}){
       sounds.push({id:'glance',variant:2,strength:.17});
     if(slot==='power')sounds.push(count%2
       ?{id:'zap',variant:1,strength:.30}:{id:'sparks',variant:2,strength:.32});
+    // A penetrated hydraulic assembly has its own short metal/hose response,
+    // quieter than the authoritative internal strike and never on a deflection.
+    if(slot==='mobility')sounds.push({id:'hydraulics',variant:count%3,strength:.35});
     return sounds;
   }
   if(hit.armorAbsorbed>0||shielded){
