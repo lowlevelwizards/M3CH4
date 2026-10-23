@@ -22,6 +22,7 @@ import {fileURLToPath} from 'node:url';
 import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
 import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
 import {aiWeaponEngagement} from '../ai/weaponTactics.js';
+import {timeDecision} from '../roundClock.js';
 import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
 import {recentThreatTargetId} from '../tacticalAwareness.js';
 import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
@@ -529,7 +530,13 @@ export function runBout(seed,settings){
       // All surviving machines may still be stranded: bounded timed draw.
     }
     if(metrics.win===null){
-        metrics.win='draw';metrics.winReason='TIME LIMIT';
+        // A bounded headless sample uses the live scoring/survivor/integrity
+        // tiebreak instead of returning a fictional free draw. This proxy
+        // intentionally does not model contested overtime, so its horizon
+        // remains the caller's requested research seconds.
+        const decision=timeDecision(state,actors);
+        metrics.win=decision.team;metrics.winReason='TIME LIMIT';
+        metrics.timeoutCriterion=decision.criterion;
     }
     metrics.points={friendly:+state.friendlyProgress.toFixed(2),
       hostile:+state.hostileProgress.toFixed(2)};
