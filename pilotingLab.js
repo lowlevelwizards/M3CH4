@@ -8,7 +8,7 @@ import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js';
 import {Controls,bodyFollowSteer} from './controls.js';
-import {createArenaScene} from './sceneAssembly.js?v=a0';
+import {createArenaScene} from './sceneAssembly.js?v=a2';
 import {soundFamilyFor,createMotionSoundState,advanceMotionSound} from './liveSystemsEvents.js';
 import {soundSystemEvent} from './audio.js';
 const $=id=>document.getElementById(id);
@@ -131,6 +131,7 @@ function loop(now){
   frameCount++;
   if(frameCount%10===0){
    $('fps').textContent=Math.round(fps)+' FPS';
+   const feet=arena.pilotingLabFootReadout();
    $('telemetry').textContent=[
     'MACHINE  '+$('family').selectedOptions[0].textContent,
     'MODE     '+($('handling').value==='assisted'?'ASSISTED WALK':'LEGACY'),
@@ -142,6 +143,8 @@ function loop(now){
     'GRIP     '+(state.tractionUse*100).toFixed(0)+'%',
     'SLIP     '+state.footSlipMps.toFixed(2)+' m/s',
     'DRIVE    '+(state.driveLoad*100).toFixed(0)+'%',
+    'CONTACT  '+(feet?.feet.map(f=>(f.side<0?'L':'R')+':'+(f.mode==='stance'?'PLANT':'STEP')).join(' / ')??'—'),
+    'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',
     'DIST     '+travel.toFixed(1)+' m',
     'HITCHES  '+hitches+' (>40ms) · '+worstGap.toFixed(0)+' ms',
    ].join('\n');
