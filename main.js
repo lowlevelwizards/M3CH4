@@ -183,6 +183,17 @@ const partSnapshot = part => part ? {
     integrity: part.integrity, maxIntegrity: part.maxIntegrity,
     destruction: part.destruction ?? 0, destroyed: !!part.destroyed,
 } : null;
+/** Actual outgoing weapon impulse, actual recipient mass and brace state.
+ * The renderer can display the resulting shock, but cannot change hit physics.
+ * Shotgun pellets share the weapon impulse rather than each inventing a blast.
+ */
+function physicalHitPresentation(hit,attacker,target){
+    const gun=attacker?.weaponSpec ?? weaponSpec;
+    const impulseNs=(gun?.recoilImpulseNs??0)/Math.max(1,gun?.pellets??1);
+    return {...hit,impactImpulseNs:impulseNs,
+        impactMassKg:target?.baseConfig?.massKg??rigConfig?.massKg??2400,
+        impactBrace:target?.rig?.brace??rig.brace??0};
+}
 function scoreHit(attackerId, victimId, slot, before, hit, after) {
     if (!before || !after) return;
     const scoredHit = { ...hit, internalDamage: Math.max(0, before.integrity - after.integrity) };
@@ -2681,7 +2692,7 @@ function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage
     const after = partSnapshot(playerCondition.parts[contact.slot]);
     scoreHit(actor.id, 'player', contact.slot, before, hit, after);
     const nowDisabled = playerCondition.parts[contact.slot].integrity <= 0;
-    const visualHit = { ...hit, destroyed: !!after.destroyed, justDestroyed: !before.destroyed && !!after.destroyed, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled };
+    const visualHit = physicalHitPresentation({ ...hit, destroyed: !!after.destroyed, justDestroyed: !before.destroyed && !!after.destroyed, disabled: nowDisabled, justDisabled: beforeIntegrity > 0 && nowDisabled },actor,actorById('player'));
     arena.showCombatantShot(actor.id, contact, visualHit);
     arena.updatePilotDamage(playerCondition);
     signalPlayerHit(contact.slot, { ...visualHit, driveSide: contact.driveSide });
@@ -2861,7 +2872,7 @@ function resolveAiShotContact(actor,target,contact,damage) {
     noteIncomingFire(target.motion, actor.rig, actor.id,
         hit.internalDamage > 0 ? 1.55 : 1.08,target.rig);
     recordSubsystemHit(target.combatMemory,contact.slot,aiClock);
-    const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+    const visualHit = physicalHitPresentation({ ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed },actor,target);
     if(!actor._scatterImpactAudible){
         soundCombatImpact(visualHit,{slot:contact.slot,shielded:!!shieldImpactLabel(contact),
             distance:Math.hypot(target.rig.x-rig.x,target.rig.z-rig.z)});
@@ -3010,11 +3021,11 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
                 targetActor.wreckCleared = true;
                 arena.setCombatantCleared(targetActor.id, true);
             }
-            const wreckHit = {
+            const wreckHit = physicalHitPresentation({
                 ...hit, wreckHit: true, cleared,
                 justDisabled: beforePart.integrity > 0 && afterPart.integrity <= 0,
                 justDestroyed: !beforePart.destroyed && !!afterPart.destroyed,
-            };
+            },{weaponSpec},targetActor);
             arena.showShot(contact, wreckHit);
             arena.updateCombatantDamage(targetActor.id, targetActor.condition);
             if (targetActor.id === 'enemy-0') {
@@ -3046,7 +3057,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         noteIncomingFire(targetActor.motion, rig, 'player',
             hit.internalDamage > 0 ? 1.65 : 1.12,targetActor.rig);
         recordSubsystemHit(targetActor.combatMemory,contact.slot,aiClock);
-        const visualHit = { ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed };
+        const visualHit = physicalHitPresentation({ ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed },{weaponSpec},targetActor);
         arena.showShot(contact, visualHit);
         arena.updateCombatantDamage(targetActor.id, targetActor.condition);
         if (targetActor.id === 'enemy-0') {
