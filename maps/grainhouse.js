@@ -10,7 +10,7 @@ export const GRAINHOUSE=Object.freeze({
  // Two balanced silo banks flank a central service court. Each staging lane has
  // matching hard cover but retains a full heavy-rig route around its silo.
  {id:'silo-north',minX:14,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
- {id:'silo-south',minX:15,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
+ {id:'silo-south',minX:14.6,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
  {id:'silo-utility-bank',minX:7.5,maxX:10.5,minZ:-4.2,maxZ:-.9,height:2.9,kind:'container'},
  // North/south service carts break shooting lanes at the two silo approaches.
  // Both can be bypassed either side; neither seals the central court.
