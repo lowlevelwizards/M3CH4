@@ -5,6 +5,52 @@ import { beginAudioWarmup } from './audioWarmup.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
 let userActivated = false;
+/** A quiet two-oscillator rural generator bed, only while fighting at
+ * Backlot. Never creates a WebAudio context until an actual user gesture.
+ * The entire loop is shared by the bout, not a new oscillator per frame.
+ */
+let backlotAmbienceRequested=false,backlotAmbience=null;
+function stopBacklotAmbience(){
+ if(!backlotAmbience)return;
+ const {ctx,master,oscillators}=backlotAmbience;
+ master.gain.setTargetAtTime(0,ctx.currentTime,.045);
+ for(const oscillator of oscillators){
+  try{oscillator.stop(ctx.currentTime+.24);}catch{}
+  oscillator.onended=()=>{try{oscillator.disconnect();}catch{}};
+ }
+ backlotAmbience=null;
+}
+function startBacklotAmbience(){
+ if(backlotAmbience||!backlotAmbienceRequested||!userActivated)return;
+ const ctx=context();
+ if(!ctx||ctx.state==='suspended')return;
+ const filter=ctx.createBiquadFilter();filter.type='lowpass';
+ filter.frequency.value=245;
+ const master=ctx.createGain();
+ master.gain.setValueAtTime(0,ctx.currentTime);
+ master.gain.setTargetAtTime(.018,ctx.currentTime,.14);
+ filter.connect(master);master.connect(ctx.destination);
+ const oscillators=[];
+ for(const [type,freq,level] of [['sawtooth',48,.48],['triangle',97,.24]]){
+  const oscillator=ctx.createOscillator();oscillator.type=type;
+  oscillator.frequency.value=freq;
+  const gain=ctx.createGain();gain.gain.value=level;
+  oscillator.connect(gain);gain.connect(filter);
+  oscillator.start(ctx.currentTime);oscillators.push(oscillator);
+ }
+ backlotAmbience={ctx,master,filter,oscillators};
+}
+export function setBacklotAmbienceActive(active){
+ const enabled=!!active;
+ if(enabled===backlotAmbienceRequested){
+  if(enabled&&!backlotAmbience)startBacklotAmbience();
+  return;
+ }
+ backlotAmbienceRequested=enabled;
+ if(enabled)startBacklotAmbience();
+ else stopBacklotAmbience();
+}
+
 function context() {
     // NEVER attempt to start iOS WebAudio from the physics loop. An early
     // resume() outside a gesture may stay pending for seconds and interfere
@@ -20,7 +66,10 @@ function unlockAudio() {
     const ctx = context();
     // Must be invoked INSIDE each trusted interaction; repeating it on
     // later taps also recovers audio after Safari backgrounds the page.
-    if (ctx?.state === 'suspended') void ctx.resume().catch(() => {});
+    if (ctx?.state === 'suspended') void ctx.resume()
+        .then(()=>{if(backlotAmbienceRequested)startBacklotAmbience();})
+        .catch(() => {});
+    else if(backlotAmbienceRequested)startBacklotAmbience();
 }
 // Prepare PCM off-thread immediately. Never create or run an AudioContext
 // from this background path. Only a user gesture unlocks actual playback.
