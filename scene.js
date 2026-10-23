@@ -1765,7 +1765,8 @@ export function createArenaScene(initial, targetAssembly) {
             // machine with family-specific settling. This does not touch IK,
             // simulated center of mass or any gameplay collision coordinate.
             const contact=physicalContactWeight(mobilityId,{
-                gaitWeight:blocked?0:motion?.weight??0,
+                gaitWeight:(record.disabledSlots.has('mobility')||
+                    record.destroyedSlots.has('mobility'))?0:(motion?.weight??0),
                 phase:motion?.phase??0,
                 footingLoad:state.footingLoad??0,
                 brace:state.brace??0,

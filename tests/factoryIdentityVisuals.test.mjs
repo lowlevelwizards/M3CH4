@@ -21,7 +21,9 @@ test('factory markings never impersonate a serialized owner or change paint data
  assert.equal(factoryGraphic('legs-hauler').model,'YW / HAULER H2');
  assert.ok(Object.isFrozen(a));
  const visuals=src('factoryIdentityVisuals.js');
- assert.match(visuals,/const materials=new Map\(\)/);
+ assert.match(visuals,/const textures=new Map\(\)/);
+ assert.match(visuals,/new THREE\.PlaneGeometry\(width,height\)/);
+ assert.doesNotMatch(visuals,/const sizes=new Map\(\)|materials\.set\(id,material\)/);
  assert.match(visuals,/new THREE\.MeshStandardMaterial/);
  assert.match(visuals,/map\.magFilter=THREE\.NearestFilter/);
  assert.match(visuals,/node\.add\(plate\)/);
