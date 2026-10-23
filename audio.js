@@ -255,8 +255,13 @@ export function soundWeaponReloadPhase(weaponId,stage,{distance=0,pan=0,cockpit=
    const panner=ctx.createStereoPanner?.();
    if(panner)panner.pan.value=Math.max(-.92,Math.min(.92,Number(pan)||0));
    const gain=ctx.createGain();
-   const loud=[.25,.36,.32,.48,.53,.35][n]*Math.min(1.65,.65+heavy*.46)*
-       (cockpit?.48:.25/(1+Math.pow(d/11,1.6)));
+   // The Stump's enormous breech lock should be heard as an iron
+   // loading press, not as another quiet generic reload UI beep.
+   const stumpFactor=weaponId==='gun-short'?
+       (n===3||n===4?1.75:1.35):1;
+   const loud=[.25,.36,.32,.48,.53,.35][n]*
+       Math.min(1.65,.65+heavy*.46)*stumpFactor*
+       (cockpit?.50:.25/(1+Math.pow(d/11,1.6)));
    gain.gain.setValueAtTime(Math.max(.0005,loud),start);
    gain.gain.exponentialRampToValueAtTime(.001,start+.10);
    source.connect(filter);
