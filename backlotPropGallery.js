@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import {BACKLOT} from './maps/backlot.js';
-import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r4';
+import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r5';
 const $=id=>{const node=document.getElementById(id);if(!node)throw Error('Missing #'+id);return node;};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const stage=$('stage'),speed=$('gallery-speed'),selectEl=$('gallery-select');
@@ -152,7 +152,7 @@ function applyExperimentPresentation(e){
  greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
-  new:'Experimental anatomy only · not in combat yet',
+  new:'CHUNK V4 · experimental anatomy only · not yet in combat',
   old:'Unmodified current Backlot production prop · same camera',
   both:'New at LEFT · original at RIGHT',
  }[expState.view]+' · collider wireframes = CURRENT LIVE MAP AABBs';
@@ -160,6 +160,7 @@ function applyExperimentPresentation(e){
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
  if(!e.experiment)return;
+ $('gallery-experiment-title').textContent=e.label.replace(/ · (CHUNK V4|EXPERIMENT)/g,'')+' · DEV PROTOTYPE ONLY';
  applyExperimentPresentation(e);
 }
 compareBtn.addEventListener('click',()=>{

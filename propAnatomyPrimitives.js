@@ -86,20 +86,20 @@ export function profile(parent,name,outline,width,x,color,metal=.22){
  * not backed by a slab. Tread chunks live on the actual circumference.
  */
 export function wheel(parent,name,x,y,z,{radius=.75,width=.33,hub=.20,
- treadCount=10,rubber=0x252724,rimColor=0x8e7d60}={}){
+ treadCount=8,rubber=0x252724,rimColor=0x8e7d60}={}){
  const group=new THREE.Group();group.name=name;group.position.set(x,y,z);
  group.userData.visualOnly=true;parent.add(group);
  for(const s of [-1,1]){
   const side=s*width*.43;
-  ring(group,name+'-rubber-sidewall',radius*.78,radius*.22,side,0,0,rubber,'x',12);
-  ring(group,name+'-steel-rim',radius*.34,radius*.105,side+s*.06,0,0,
-   rimColor,'x',12);
-  cylinder(group,name+'-hub',hub,.11,side+s*.09,0,0,rimColor,'x',10);
+  ring(group,name+'-rubber-sidewall',radius*.78,radius*.27,side,0,0,rubber,'x',10);
+  ring(group,name+'-steel-rim',radius*.36,radius*.14,side+s*.07,0,0,
+   rimColor,'x',10);
+  cylinder(group,name+'-hub',hub*1.12,.18,side+s*.09,0,0,rimColor,'x',10);
  }
  cylinder(group,name+'-axle',hub*.32,width+.1,0,0,0,0x303735,'x',8);
  for(let i=0;i<treadCount;i++){
   const a=i*Math.PI*2/treadCount,y0=Math.cos(a)*radius,z0=Math.sin(a)*radius;
-  const tread=block(group,name+'-raised-tread',width*.99,radius*.24,radius*.23,
+  const tread=block(group,name+'-raised-tread',width*1.04,radius*.30,radius*.32,
     0,y0,z0,0x30312b,.08);
   tread.rotation.x=a;
  }
@@ -111,9 +111,9 @@ export function rustPanel(parent,name,w,h,d,x,y,z,color,patch=0x6e4834){
   x+w*.26,y+h*.50+.025,z,patch,.08);
 }
 export function axlePair(parent,name,xLeft,xRight,y,z,color){
- beam(parent,name+'-axle',[xLeft,y,z],[xRight,y,z],.115,color,8);
+ beam(parent,name+'-axle',[xLeft,y,z],[xRight,y,z],.16,color,8);
  for(const x of [xLeft+.23,xRight-.23])
-  cylinder(parent,name+'-bearing',.20,.21,x,y,z,color,'x',9);
+  cylinder(parent,name+'-bearing',.25,.26,x,y,z,color,'x',9);
 }
 export const TRIM_COLORS=Object.freeze({
  iron:0x444940,rubber:0x252923,rust:0x9c5437,paint:0xb56840,

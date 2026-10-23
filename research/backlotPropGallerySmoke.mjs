@@ -67,7 +67,15 @@ try{
  await page.locator('#gallery-before-after').click();
  await page.screenshot({path:'gallery-smoke-artifacts/loader-both.png'});
  await page.locator('#gallery-select').selectOption('2');
- await page.screenshot({path:'gallery-smoke-artifacts/combine-harvester.png'});
+ await page.screenshot({path:'gallery-smoke-artifacts/combine-harvester-chunk-v4.png'});
+ await page.locator('#gallery-select').selectOption('3');
+ if(!(await page.locator('#gallery-experiment-title').textContent()).includes('PICKUP'))
+  throw Error('Picker still displays tractor lab on pickup prototype');
+ await page.screenshot({path:'gallery-smoke-artifacts/pickup-chunk-v4.png'});
+ for(const [idx,name] of [[8,'tyre-stack'],[10,'flatbed'],[12,'container']]){
+  await page.locator('#gallery-select').selectOption(String(idx));
+  await page.screenshot({path:'gallery-smoke-artifacts/'+name+'-chunk-v4.png'});
+ }
  await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount+stats.experimentCount));
  await page.screenshot({path:'gallery-smoke-artifacts/scenery-sample.png'});
  // Navigating back out of the DEV lab must always preserve the live app link.
