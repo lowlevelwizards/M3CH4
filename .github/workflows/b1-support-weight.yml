@@ -1,0 +1,23 @@
+name: B.1 Support-Weight and Anticipatory Footwork
+on:
+  push:
+    branches: [feat/a10-load-transfer-and-anticipatory-gait]
+  pull_request:
+    paths:
+      - 'footContactController.js'
+      - 'scene.js'
+      - 'main.js'
+      - 'tests/b1SupportLoad.test.mjs'
+jobs:
+  support-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check movement logic and anchored IK
+        run: |
+          for f in footContactController.js scene.js main.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/b1SupportLoad.test.mjs tests/a2a4GroundedGait.test.mjs tests/a5ContactAudio.test.mjs tests/k3w16FootContactStrafe.test.mjs

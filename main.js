@@ -471,8 +471,9 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
         // Reduce simultaneous machinery. Local footfalls still communicate
         // mass; other mechs are an acoustic background, not five co-pilots.
         const footWeight=id===family.id?(.55+.45*(acoustic.contactFeet?.lastLandingStrength??.4)):1;
+        const driveEffort=id==='engine'?(.8+.3*(acoustic.contactFeet?.actuatorEffort??0)):1;
         const strength=(id==='engine'?(local?(idle?.13:.20):.12)
-            :id==='hydraulics'?(local?.20:.10):(local?.66:.30))*footWeight;
+            :id==='hydraulics'?(local?.20:.10):(local?.66:.30))*footWeight*driveEffort;
         soundSystemEvent(id,{variant:id==='engine'?0:acoustic.hydraulicStep%3,
             distance,cockpit:local,strength});
     }
