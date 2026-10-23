@@ -17,9 +17,9 @@ const candidates={
   ['north-flanks',points([-20,-4],[0,12],[20,-4])],
  ],
  grainhouse:[
-  ['north-pressure',points([-10,-15],[24.5,-10],[11,12])],
-  ['north-two',points([-10,-16],[25,-12],[11,17])],
-  ['packing-fork',points([-10,-12],[24.5,-5],[-15,8])],
+  ['middle-alpha',points([-10,-13],[24.5,-7],[11,16])],
+  ['middle-beta',points([-10,-12],[24.5,-8],[11,15])],
+  ['middle-gamma',points([-10,-14],[24.5,-8],[11,18])],
  ],
 };
 const pairs=Math.max(1,Math.min(8,Number(process.argv[2]||3)));
