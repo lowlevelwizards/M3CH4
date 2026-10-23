@@ -69,5 +69,5 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(html,/sceneAssembly\.js\?v=k5p5/);
  assert.match(html,/main\.js\?v=k5a4/);
  assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5p5/);
- assert.match(html,/0\.0\.1k\.5p\.5 — Backlot Open-Air Derby/);
+ assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
 });

@@ -27,6 +27,7 @@ import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
 import { firstCoverHit } from './coverTruth.js';
+import { muzzleRayFallsShort } from './barrelAimObstruction.js';
 import { rocketFlightStep } from './projectileSimulation.js';
 import { blastDamage } from './explosionResolution.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
@@ -2630,10 +2631,16 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const slot = cover ? null : actual?.object.userData.slot;
         const actorId = cover ? null : actual?.object.userData.actorId ?? null;
         const blockedBy = cover?.id ?? actual?.object.userData.arenaObstacleId ?? null;
+        const impactDistance = muzzle.distanceTo(point);
         const contact={ actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
             shieldedSlot: cover ? null : shieldedSlot,
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
-            point, normal: surfaceNormal, muzzle, distance: muzzle.distanceTo(point) };
+            point, normal: surfaceNormal, muzzle, distance: impactDistance,
+            // The sight may deliberately end on a wall/floor/rig. Only warn if
+            // a separate first muzzle collision falls meaningfully SHORT of it.
+            // The comparison uses real shot geometry and never changes firing.
+            aimObstructed: muzzleRayFallsShort(
+                muzzle.distanceTo(aimPoint), impactDistance, !!(cover||actual)) };
         if(penetrate)contact.penetrationContacts=penetrationContacts(contact,intersections,cover,muzzle,bore);
         return contact;
     }
@@ -2643,11 +2650,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     function predictShotObstruction(muzzleZ) {
         if(inspecting || !Number.isFinite(muzzleZ)) return null;
         const contact=traceShot(0,0,muzzleZ);
+        if(!contact.aimObstructed)return null;
         const hitSquad=contact.actorId?squadCombatants.get(contact.actorId):null;
         if(hitSquad?.team==='friendly')return 'friendly';
-        if(contact.blockedBy || (!contact.actorId && !contact.slot && contact.distance<95))
-            return 'cover';
-        return null;
+        return 'cover';
     }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY, penetrate=false) {
         const shooter = squadCombatants.get(shooterId);

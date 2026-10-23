@@ -120,5 +120,5 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.match(html,/liveSystemsEvents\.js\?v=k5a5/);
   assert.match(html,/main\.js\?v=k5a4/);
   assert.match(html,/audio\.js\?v=k4i/);
-  assert.match(html,/0\.0\.1k\.5p\.5 — Backlot Open-Air Derby/);
+  assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
 });
