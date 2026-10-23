@@ -49,16 +49,24 @@ try {
     const allMapCover=map.world.obstacles.every(o=>cover.has(o.id));
     const actual=arena.scene.getObjectByName('arena-environment');
     const themed=id==='backlot-dustbowl'
-      ?arena.scene.getObjectByName('backlot-dustbowl-visuals')
+      ?arena.scene.getObjectByName('backlot-outdoor-derby-world')
       :arena.scene.getObjectByName('venue-dressing-'+id);
     const data=renderer.domElement.toDataURL('image/png');
     renderer.dispose();
     return {id,actualMap:actual?.userData?.mapId,
        obstacleCount:map.world.obstacles.length,
        drawnColliders:cover.size,allMapCover,
-       themed:!!themed,data};
+       themed:!!themed,
+       backlotOpen:id==='backlot-dustbowl'?(
+         themed?.userData?.backlotStats?.enclosingWarehouseWalls===0 &&
+         arena.scene.background?.isTexture===true &&
+         !arena.scene.getObjectByName('wall-north') &&
+         !arena.scene.getObjectByName('wall-west') &&
+         !arena.scene.getObjectByName('wall-south') &&
+         !arena.scene.getObjectByName('wall-east')):true,
+       data};
   },mapId);
-  if(outcome.actualMap!==mapId||!outcome.themed||!outcome.allMapCover||
+  if(outcome.actualMap!==mapId||!outcome.themed||!outcome.backlotOpen||!outcome.allMapCover||
       outcome.drawnColliders<outcome.obstacleCount)
     throw Error('Venue cover/visual parity '+JSON.stringify({...outcome,data:'omitted'}));
   const buffer=Buffer.from(outcome.data.split(',')[1],'base64');
