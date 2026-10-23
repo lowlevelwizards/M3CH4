@@ -146,7 +146,7 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
 }
 export function footPresentation(state,side){
   const f=state?.feet.find(f=>f.side===side);
-  return f?{x:f.localX,y:f.lift-f.compression,z:f.localZ,
+  return f?{x:f.localX,y:f.lift,z:f.localZ,
     planted:f.mode==='stance',swing:f.swing,load:f.load,
     preparing:f.preparing,compression:f.compression}:null;
 }
