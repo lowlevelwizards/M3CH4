@@ -8,6 +8,8 @@ export const PILOT_CHALLENGES=Object.freeze({
  slalom:Object.freeze({id:'slalom',label:'SLOW-SPEED SLALOM',
    checkpoints:[{x:-4,z:16,radius:2.1},{x:4,z:9,radius:2.1},
      {x:-4,z:1,radius:2.2},{x:0,z:-6,radius:1.8,stop:true}]}),
+ climb:Object.freeze({id:'climb',label:'LOADING DOCK',
+   checkpoints:[{x:0,z:11.5,radius:1.8,stop:true}]}),
  haul:Object.freeze({id:'haul',label:'HEAVY HAUL',
    checkpoints:[Object.freeze({x:0,z:8,radius:2.1,propId:'tool-chest'})]}),
 });
