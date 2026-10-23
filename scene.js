@@ -3960,7 +3960,7 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     scene.add(buildVenueDressing(arenaMap));
     return solids;
 }
-function buildCockpit(scene) {
+export function buildCockpit(scene) {
     const cockpit = new THREE.Group();
     scene.add(cockpit);
     const metal = mat(C.metal, 0.62, 0.72);
@@ -4014,6 +4014,7 @@ function buildCockpit(scene) {
     cockpit.userData.utilityCab = utilityCab;
     // Pilot-view weapon is a moving physical silhouette, not a HUD sprite.
     const gunPivot = new THREE.Group();
+    gunPivot.name='cockpit-weapon-pivot';
     gunPivot.position.set(1.16, 2.04, -.62);
     const breech = box(.43, .34, .65, metal);
     breech.position.set(0, 0, -.19);
@@ -4035,6 +4036,7 @@ function buildCockpit(scene) {
     const weaponKits={};
     const kit=(id,fixed,moving)=>{
         const group=new THREE.Group(),carriage=new THREE.Group();
+        group.name='cockpit-reload-'+id;
         for(const [x,y,z,w,h,d,finish] of fixed){
             const piece=box(w,h,d,finish==='teal'?teal:finish==='dark'?dark:metal);
             piece.position.set(x,y,z);group.add(piece);
