@@ -93,9 +93,9 @@ test('scene visuals have framed CRT and defer triangle-clipping after impacts',(
   assert.match(scene,/flushSurfaceMarks\(2\)/);
   assert.match(scene,/fallRadius/);
   assert.match(scene,/canTouchFloor/);
-  assert.match(bridge,/source=k6m1/);
-  assert.match(html,/main\.js\?v=k6m1/);
-  assert.match(html,/garageMountUI\.js\?v=k4z1/);
+  assert.match(bridge,/source=k6m2/);
+  assert.match(html,/main\.js\?v=k6m2/);
+  assert.match(html,/garageMountUI\.js\?v=k5p2/);
 });
 test('impact scars remain orange for ten seconds and use emissive shading',()=>{
   const renderer=read('surfaceDamageRenderer.js');
