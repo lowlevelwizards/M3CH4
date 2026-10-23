@@ -8,7 +8,7 @@ test('k4s.1 ships fresh stylesheet and script identities',()=>{
     assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k5p6/);
+    assert.match(html,/garageMountUI\.js\?v=k5p8/);
     assert.match(adapter,/unifiedGarageUI\.js\?v=k5p4/);
     assert.ok(html.indexOf('k4sWorkshopShell.css')>html.indexOf('interfaceClarity.css'),
         'new shell styles must override older garage panel rules');

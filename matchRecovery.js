@@ -46,8 +46,18 @@ export function reconcileMatchOnBoot(localStorage,sessionStorage) {
         return retireUnfinishedMatch(localStorage,sessionStorage,'INTERRUPTED · SESSION LOST');
     }
     if(series.phase==='intermission'){
-        if(assignment?.phase==='pending' && assignment.contractId===series.contractId)
-            return {action:'pit',series};
+        if(assignment?.contractId===series.contractId){
+            if(assignment.phase==='pending')return {action:'pit',series};
+            // A fresh round launch crosses a full-page reload. The q.1 adapter
+            // has already moved it to launching/deployed before this boot
+            // reconciler runs; wiping it here restages the pit indefinitely.
+            // The previous round's assignment, however, is stale and must
+            // never be replayed as another combat round.
+            const lastRoundAssignmentId=series.rounds[series.rounds.length-1]?.assignmentId;
+            if(['launching','deployed'].includes(assignment.phase) &&
+                assignment.rigId && assignment.id!==lastRoundAssignmentId)
+                return {action:'round-committing',series};
+        }
         const staged=beginSortieAssignment(sessionStorage,series.contractId);
         if(staged.ok)return {action:'pit-restored',series};
         return retireUnfinishedMatch(localStorage,sessionStorage,'INTERRUPTED · PIT SESSION UNAVAILABLE');
