@@ -23,7 +23,10 @@ export function retireUnfinishedMatch(localStorage,sessionStorage,reason='PLAYER
     });
     // A faulty records sidecar may lose a stat, but must never strand the save.
     clearSeries(localStorage);
-    clearSortieAssignment(sessionStorage);
+    // Do not discard a fresh, independently staged job just because an older
+    // contract's browser session disappeared. Committed assignments are stale.
+    const assignment=loadSortieAssignment(sessionStorage);
+    if (assignment?.phase!=='pending') clearSortieAssignment(sessionStorage);
     return {action:'retired',recorded:saved.ok,series};
 }
 export function reconcileMatchOnBoot(localStorage,sessionStorage) {
