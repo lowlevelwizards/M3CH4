@@ -400,6 +400,7 @@ const targetReadout = required('#target-readout');
 const resetTarget = required('#reset-target');
 const rangeCrosshair = required('#center-crosshair');
 rangeCrosshair.textContent='';
+let shotSafetyTimer=0;
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
 const objectiveStatus = required('#objective-status');
@@ -1671,10 +1672,14 @@ function syncInspectorLayout() {
     const bayDock=document.querySelector('#unified-garage-dock');
     // Contextual garage toolboxes float OVER the scene rather than pushing the
     // camera. Closing an inspector must never appear to reset orbit or aim.
-    // Only the dedicated paint editor reserves an actual side column.
-    const reserve=inspecting && !!bayDock && workspace==='paint';
-    const panelRight=reserve ? bayDock.getBoundingClientRect().right-rect.left+8 : 0;
-    arena.setInspectorLayout(Math.max(0,panelRight),rect.width,rect.height);
+    // Paint reserves LEFT space; setup reserves RIGHT space to expose the
+    // existing true 3D rig as the selection preview.
+    let reserved=0;
+    if(inspecting && bayDock && workspace==='paint')
+        reserved=bayDock.getBoundingClientRect().right-rect.left+8;
+    else if(inspecting && bayDock && workspace==='setup')
+        reserved=-(rect.right-bayDock.getBoundingClientRect().left+8);
+    arena.setInspectorLayout(reserved,rect.width,rect.height);
 }
 document.addEventListener('m3ch4:workspace-layout',()=>{if(inspecting)syncInspectorLayout();});
 function resize() {
@@ -2067,6 +2072,17 @@ function frame(now) {
     reportFade = Math.max(0, reportFade - frameDt);
     rangeCrosshair.classList.toggle('confirmed-hit', hitConfirmTimer !== null);
     rangeCrosshair.classList.toggle('scatter-sight',weaponSpec?.id==='gun-scatter');
+    shotSafetyTimer-=frameDt;
+    if(shotSafetyTimer<=0){
+        shotSafetyTimer=.12;
+        const warning=!inspecting && !testEnded && playerCombatActive &&
+            weaponSpec && output.weaponOperational
+            ? arena.predictShotObstruction(weaponSpec.muzzleZ) : null;
+        rangeCrosshair.classList.toggle('unsafe-shot',!!warning);
+        rangeCrosshair.dataset.warning=warning||'';
+        rangeCrosshair.setAttribute('aria-label',warning==='friendly'?'FRIENDLY IN BARREL PATH':
+            warning==='cover'?'BARREL BLOCKED BY COVER':'');
+    }
     shotReport.classList.toggle('faded', reportFade === 0);
     renderAmmo();
     speedEl.textContent = Math.hypot(rig.vx, rig.vz).toFixed(1);

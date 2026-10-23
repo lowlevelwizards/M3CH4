@@ -233,8 +233,10 @@ function preview(stable, series) {
 }
 function navRender(stable, currentMode) {
     navigator.replaceChildren();
-    navigator.classList.toggle('hidden', !['garage','setup','pit'].includes(currentMode) || paintExpanded);
-    if (!['garage','setup','pit'].includes(currentMode) || paintExpanded) return;
+    // Sortie setup selects a physical rig using its own three cards. The old
+    // bay tray duplicates those cards and overlaps the deploy controls.
+    navigator.classList.toggle('hidden', !['garage','pit'].includes(currentMode) || paintExpanded);
+    if (!['garage','pit'].includes(currentMode) || paintExpanded) return;
     const view = bayStatus(stable, viewedId);
     navigator.append(button('‹', () => stepBay(-1), 'bay-arrow'));
     const label = el('div','bay-index');
@@ -298,11 +300,16 @@ function renderWorkshopChrome(stable,view) {
     const inspect=view.readiness.inspection;
     if(inspect){
         const limits=el('div','workshop-live-limits');
-        const mass=el('span','',Math.round(inspect.massKg).toLocaleString()+' KG');
-        const power=el('span','',inspect.powerUsedKw+' / '+inspect.powerAvailableKw+' KW');
+        const mass=el('div','workshop-limit-row');
+        mass.append(el('span','workshop-limit-label','▰ WEIGHT'),
+            el('strong','workshop-limit-value',Math.round(inspect.massKg).toLocaleString()+' KG'));
+        const power=el('div','workshop-limit-row');
+        power.append(el('span','workshop-limit-label','ϟ POWER'),
+            el('strong','workshop-limit-value',inspect.powerUsedKw+' / '+inspect.powerAvailableKw+' KW'));
         if(inspect.powerUsedKw>inspect.powerAvailableKw)power.classList.add('over-limit');
         limits.append(mass,power);
-        limits.title='Installed weight and generator capacity';
+        limits.setAttribute('aria-label','Installed weight '+Math.round(inspect.massKg)+' kilograms; electrical load '+inspect.powerUsedKw+' of '+inspect.powerAvailableKw+' kilowatts');
+        limits.title='Installed weight and available electrical output';
         statusBar.append(limits);
     }
     const history=el('small','workshop-compact-history',
@@ -1023,6 +1030,7 @@ function renderSetup(stable, view) {
     dock.append(el('div','unified-job-compact',c.name.toUpperCase()+' · '+
         c.objective.label.toUpperCase()+' · ₡'+c.payout));
     dock.append(el('strong','sortie-pick-heading','CHOOSE YOUR RIG'));
+    dock.append(el('small','sortie-physical-note','3D RIG PREVIEW · DRAG TO ORBIT · PINCH TO ZOOM'));
     const cards=el('div','sortie-pick-grid');
     for(const id of BAY_IDS){
         const candidate=bayStatus(stable,id);
