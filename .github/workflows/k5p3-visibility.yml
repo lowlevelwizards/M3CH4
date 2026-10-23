@@ -1,0 +1,27 @@
+name: k5p3 Physical Visibility and Shot Safety
+on:
+  pull_request:
+    paths:
+      - 'scene.js'
+      - 'main.js'
+      - 'unifiedGarageUI.js'
+      - 'sceneAssembly.js'
+      - 'garageMountUI.js'
+      - 'polishPass.css'
+      - 'index.html'
+      - 'tests/k5p3Visibility.test.mjs'
+      - '.github/workflows/k5p3-visibility.yml'
+jobs:
+  visibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          for f in main.js scene.js sceneAssembly.js garageMountUI.js unifiedGarageUI.js; do node --check "$f"; done
+      - name: Focused regression tests
+        run: node --test tests/k5p3Visibility.test.mjs tests/k5p2PitClarity.test.mjs tests/k5p1BayNavigation.test.mjs

@@ -3,7 +3,7 @@
  * the shared part-model construction now handled inside scene.js.
  */
 import * as THREE from 'three';
-import { createArenaScene as createBaseArenaScene } from './scene.js?source=k6m2';
+import { createArenaScene as createBaseArenaScene } from './scene.js?source=k5p4';
 import { assemblyGraph, BY_ID, graphWorldPoses, installedPart, SLOT_CENTERS } from './components.js';
 import { installCockpitIdentities } from './cockpitIdentityScene.js';
 
@@ -85,8 +85,8 @@ function alignAssemblyMeshes(arena, assembly) {
     arena.scene.updateMatrixWorld(true);
 }
 
-export function createArenaScene(assembly, targetAssembly,arenaMap) {
-    const arena = createBaseArenaScene(assembly, targetAssembly,arenaMap);
+export function createArenaScene(assembly, targetAssembly) {
+    const arena = createBaseArenaScene(assembly, targetAssembly);
     const cockpitIdentity = installCockpitIdentities(arena, assembly);
     const rebuild = arena.rebuildAssembly.bind(arena);
     const focus = arena.focusPart.bind(arena);

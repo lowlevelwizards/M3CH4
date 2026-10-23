@@ -614,20 +614,22 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         // Friendlies need a persistent location cue. Hostiles get a tiny
         // acquisition chevron only while genuinely visible, never a wallhack box.
         const friendly=team==='friendly';
-        const geometry=new THREE.BufferGeometry().setFromPoints(friendly?[
-            new THREE.Vector3(-.35,0,0),new THREE.Vector3(0,.25,0),
-            new THREE.Vector3(.35,0,0),new THREE.Vector3(0,-.25,0),
-        ]:[
-            new THREE.Vector3(-.33,.16,0),new THREE.Vector3(0,-.11,0),
-            new THREE.Vector3(.33,.16,0),
+        // Restore the original square IFF silhouette, with an unmistakable
+        // team colour and a marker placed above the cab rather than in torso
+        // geometry. Enemy IFF is still LOS-gated below.
+        const radius=friendly?.48:.43;
+        const geometry=new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-radius,-radius,0),
+            new THREE.Vector3(radius,-radius,0),
+            new THREE.Vector3(radius,radius,0),
+            new THREE.Vector3(-radius,radius,0),
         ]);
         const material = new THREE.LineBasicMaterial({
-            color: friendly ? 0x73e29a : 0xeaa575,
-            transparent: true, opacity: friendly?.88:.74,
-            depthTest: true, depthWrite: false,
+            color: friendly ? 0x7bdfab : 0xf0a07b,
+            transparent: true, opacity: friendly?.98:.94,
+            depthTest: false, depthWrite: false,
         });
-        const marker = friendly?new THREE.LineLoop(geometry,material):
-            new THREE.Line(geometry,material);
+        const marker = new THREE.LineLoop(geometry,material);
         marker.frustumCulled = false;
         marker.renderOrder = 8;
         arenaPresentationRoot.add(marker);
@@ -770,7 +772,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 record.iffVisible=!blocked;
             }
             record.marker.visible=friendly||!!record.iffVisible;
-            position.y+=friendly?2.65:2.45;
+            // Keep the box physically above the cab silhouette, not buried
+            // against its armour. The hostile box still requires LOS.
+            position.y+=friendly?3.05:2.92;
             record.marker.position.copy(position);
             record.marker.quaternion.copy(camera.quaternion);
         }
@@ -1784,7 +1788,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             camera.up.set(0,1,0);
             camera.lookAt(center);
             const screenRight = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
-            const shift = framingOffsetWorld(panelRightPx,viewportWidth,viewportHeight,
+            // Positive reserve = left editor, negative reserve = right-side
+            // sortie selection. Both retain the same physical orbit pivot.
+            const shift = Math.sign(panelRightPx) *
+                framingOffsetWorld(Math.abs(panelRightPx),viewportWidth,viewportHeight,
                 radius,camera.fov) * 1.06;
             camera.position.addScaledVector(screenRight,-shift);
             camera.lookAt(center.clone().addScaledVector(screenRight,-shift));
@@ -2623,6 +2630,18 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if(penetrate)contact.penetrationContacts=penetrationContacts(contact,intersections,cover,muzzle,bore);
         return contact;
     }
+    /** UI-only predicted zero-spread line from the *actual barrel*, never a
+     * camera-only hit promise. Uses the exact authoritative traceShot path.
+     * Throttled by caller; cannot fire, damage, or consume ammunition. */
+    function predictShotObstruction(muzzleZ) {
+        if(inspecting || !Number.isFinite(muzzleZ)) return null;
+        const contact=traceShot(0,0,muzzleZ);
+        const hitSquad=contact.actorId?squadCombatants.get(contact.actorId):null;
+        if(hitSquad?.team==='friendly')return 'friendly';
+        if(contact.blockedBy || (!contact.actorId && !contact.slot && contact.distance<95))
+            return 'cover';
+        return null;
+    }
     function traceCombatantShot(shooterId, targetId, aimSlot, spreadX, spreadY, penetrate=false) {
         const shooter = squadCombatants.get(shooterId);
         const target = targetId === 'player'
@@ -3144,7 +3163,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
         beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,victoryNameplateAnchors,setPitPresentation,
         playWorkshopAction,
-        traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
+        traceShot, predictShotObstruction, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
     };
@@ -3255,8 +3274,17 @@ function buildPitLane() {
     }
     const cable=box(5.1,.035,.04,rust);
     cable.position.set(-.4,.02,3.80);cable.rotation.y=.24;root.add(cable);
-    const flood=new THREE.SpotLight(0xe7c58f,.85,9,.65,.75,2);
-    flood.position.set(-3.8,3.50,2.55);root.add(flood);root.add(flood.target);
+    // The arena key/hemisphere are intentionally hidden in inspection mode.
+    // The separate pit therefore needs its own broad lighting; a short-range
+    // single spot cannot illuminate the service pad or the rig on mobile.
+    const pitAmbient=new THREE.HemisphereLight(0xb1c0b4,0x514637,1.35);
+    root.add(pitAmbient);
+    const pitKey=new THREE.DirectionalLight(0xffd5a0,2.25);
+    pitKey.position.set(-4,8,6);root.add(pitKey);
+    const pitFill=new THREE.DirectionalLight(0x88babc,1.0);
+    pitFill.position.set(5,5,-4);root.add(pitFill);
+    const flood=new THREE.SpotLight(0xffd4a0,5.0,17,.78,.7,1.2);
+    flood.position.set(-3.8,5.10,3.50);root.add(flood);root.add(flood.target);
     flood.target.position.set(0,1.35,0);
     const signCanvas=document.createElement('canvas');
     signCanvas.width=384;signCanvas.height=96;

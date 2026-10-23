@@ -349,3 +349,106 @@
     #dev-panel pre{max-height:21dvh;font-size:9px}
     #dev-panel .dev-group>summary{min-height:31px;padding:7px 8px}
 }
+
+/* k5p.3 — leave breathing room around the rig name and edit action. */
+#unified-garage[data-workspace="garage"] .workshop-rig-name{
+  box-sizing:border-box;flex:0 1 clamp(205px,26vw,330px);
+  width:clamp(205px,26vw,330px);min-width:0;max-width:330px;
+  padding:0 8px 0 12px;gap:7px;
+}
+#unified-garage[data-workspace="garage"] .workshop-rig-name .unified-title{
+  flex:1 1 auto;max-width:none;overflow:hidden;text-overflow:ellipsis;
+  font-size:clamp(11px,1.45vw,16px);letter-spacing:.035em;
+}
+#unified-garage[data-workspace="garage"] .workshop-rename{flex:0 0 32px;min-width:32px}
+#unified-garage[data-workspace="garage"] .workshop-top-links{margin-left:3px;flex:0 1 auto}
+#unified-garage[data-workspace="garage"] .workshop-live-limits{
+  display:grid;grid-template-columns:1fr;gap:0;padding:3px 8px;
+  font:800 10px/1.2 ui-monospace,monospace;
+}
+#unified-garage[data-workspace="garage"] .workshop-status{
+  width:clamp(195px,24vw,265px);
+}
+#unified-garage .workshop-limit-row{
+  display:grid;grid-template-columns:66px minmax(0,1fr);align-items:center;
+  gap:4px;padding:5px 0;
+}
+#unified-garage .workshop-limit-row+.workshop-limit-row{
+  border-top:1px solid #82978155;
+}
+#unified-garage .workshop-limit-label{color:#90b3a7;font-size:9px}
+#unified-garage .workshop-limit-value{
+  color:#ecd19a;text-align:right;font:900 11px/1.1 ui-monospace,monospace;
+  white-space:nowrap;
+}
+#unified-garage .workshop-limit-row.over-limit .workshop-limit-value{color:#ff9274}
+
+/* Sortie now has a physical rig preview in the left 3D viewport and a
+   narrow, non-overlapping selection console on the right. */
+#unified-garage[data-workspace="setup"] #unified-garage-dock{
+  box-sizing:border-box;left:auto;right:0;transform:none;
+  top:calc(var(--k4s-header) + 6px);bottom:59px;
+  width:clamp(280px,37vw,430px);max-width:47vw;
+  max-height:none;padding:10px 12px;gap:8px;
+  justify-content:flex-start;overflow-y:auto;
+  background:#101a16ee;
+}
+#unified-garage[data-workspace="setup"] .sortie-pick-grid{
+  display:flex;flex-direction:column;gap:5px;
+}
+#unified-garage[data-workspace="setup"] .sortie-pick-card{
+  min-height:57px;padding:6px 9px;gap:3px;
+}
+#unified-garage[data-workspace="setup"] .sortie-pick-card strong{font-size:11px}
+#unified-garage[data-workspace="setup"] .sortie-pick-card small,
+#unified-garage[data-workspace="setup"] .sortie-pick-card span{font-size:8px}
+#unified-garage[data-workspace="setup"] .sortie-physical-note{
+  color:#a3bfab;text-align:center;font:800 8px/1.2 ui-monospace,monospace;
+  letter-spacing:.08em;
+}
+#unified-garage[data-workspace="setup"] .sortie-pick-heading{font-size:11px}
+#unified-garage[data-workspace="setup"] #unified-garage-action{
+  left:auto;right:0;transform:none;width:clamp(280px,37vw,430px);
+  max-width:47vw;padding:5px;
+}
+#unified-garage[data-workspace="setup"] .unified-bay-navigation{display:none!important}
+#unified-garage[data-workspace="setup"] .workshop-return-to-rig{
+  min-height:28px;padding:5px;font-size:9px;
+}
+#unified-garage[data-workspace="setup"] .unified-job-compact{
+  font-size:10px;
+}
+@media(max-height:450px){
+  #unified-garage[data-workspace="setup"] #unified-garage-dock{
+    padding:6px 8px;gap:5px;bottom:53px;
+  }
+  #unified-garage[data-workspace="setup"] .sortie-pick-card{
+    min-height:50px;padding:4px 7px;
+  }
+  #unified-garage[data-workspace="setup"] #unified-garage-action{padding:3px}
+  #unified-garage[data-workspace="setup"] #unified-garage-action .unified-primary{min-height:38px}
+  #unified-garage[data-workspace="setup"] .sortie-physical-note{font-size:7px}
+}
+@media(max-width:670px){
+  #unified-garage[data-workspace="setup"] #unified-garage-dock,
+  #unified-garage[data-workspace="setup"] #unified-garage-action{
+    width:clamp(248px,44vw,330px);max-width:49vw;
+  }
+  #unified-garage[data-workspace="garage"] .workshop-rig-name{
+    width:clamp(144px,25vw,210px);flex-basis:clamp(144px,25vw,210px);
+  }
+}
+
+/* Shot-safety warning: a small red X only while the actual zero-spread
+   muzzle path would hit cover or a teammate. It never blocks firing. */
+#center-crosshair.center-crosshair.unsafe-shot:not(.confirmed-hit)::before,
+#center-crosshair.center-crosshair.unsafe-shot:not(.confirmed-hit)::after{
+  content:"";display:block;position:absolute;
+  width:15px;height:2.5px;top:calc(50% - 1px);left:calc(50% - 7.5px);
+  border:0;border-radius:1px;background:#ff594c;
+  box-shadow:0 0 3px #300e09;opacity:1;
+  transform:rotate(45deg);
+}
+#center-crosshair.center-crosshair.unsafe-shot:not(.confirmed-hit)::after{
+  transform:rotate(-45deg);
+}
