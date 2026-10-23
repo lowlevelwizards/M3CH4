@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
+import {buildBacklotObstacleKit} from './backlotObstacleKits.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -33,11 +34,12 @@ function block(parent,name,w,h,d,x,y,z,color,metal=0.2){
  o.castShadow=false;parent.add(o);return o;
 }
 function drum(parent,name,r,length,x,y,z,color,axis='z',segments=10){
- const key=[r,length,segments].map(v=>Number(v).toFixed(3)).join(':');
- if(!cylinders.has(key))
-   cylinders.set(key,new THREE.CylinderGeometry(r,r,length,segments));
+ // Radius/length live on the instance transform so hundreds of wheels and
+ // barrels can share ONE low-poly cylinder mesh (per side count).
+ const key=String(segments);
+ if(!cylinders.has(key))cylinders.set(key,new THREE.CylinderGeometry(1,1,1,segments));
  const o=new THREE.Mesh(cylinders.get(key),mat(color,.32));
- o.name=name;o.position.set(x,y,z);
+ o.name=name;o.position.set(x,y,z);o.scale.set(r,length,r);
  if(axis==='x')o.rotation.z=Math.PI/2;
  if(axis==='z')o.rotation.x=Math.PI/2;
  o.castShadow=false;o.receiveShadow=true;parent.add(o);return o;
@@ -148,6 +150,10 @@ function physicalScrapPart(root,o,solids){
  * none of the ornament changes cover, routes, or hit tests.
  */
 function createWreck(parent,o,solids){
+ if(o.artKit){
+   buildBacklotObstacleKit(parent,o,solids,{block,drum,mat,P});
+   return;
+ }
  if(o.art){physicalScrapPart(parent,o,solids);return;}
  const w=o.maxX-o.minX,d=o.maxZ-o.minZ,h=o.height??1.1;
  const x=(o.minX+o.maxX)/2,z=(o.minZ+o.maxZ)/2,id=o.id;
@@ -423,6 +429,8 @@ export function buildBacklotDerbyWorld(scene,world,solids){
    obstacleCount:world.obstacles.length,collisionSolids:world.obstacles.length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
    perimeter:'two-metre-stockyard-rails',sky:'open',
+   detailedCoverCount:world.obstacles.filter(o=>o.artKit||o.art).length,
+   kitFamilies:[...new Set(world.obstacles.map(o=>o.artKit).filter(Boolean))],
  };
  scene.add(root);
  return root;
