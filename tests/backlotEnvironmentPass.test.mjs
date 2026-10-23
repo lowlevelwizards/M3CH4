@@ -54,3 +54,22 @@ test('arena spectators, distant farm, hanging panels and scars are bounded visua
  assert.match(decor,/root\.userData\.backlotReactivity=/);
  assert.doesNotMatch(decor,/setInterval|requestAnimationFrame/);
 });
+
+test('foreground wrecks are independently physical rather than single massive boxes',()=>{
+ const machine=BACKLOT.world.obstacles.filter(o=>o.art);
+ assert.ok(machine.length>=17,'split tractors and loader into individually hittable parts');
+ assert.equal(new Set(machine.map(o=>o.id)).size,machine.length);
+ for(const old of ['tractor-hull','loader-bucket','coupling-spine','exposed-engine'])
+  assert.ok(!BACKLOT.world.obstacles.some(o=>o.id===old),old+' was still a monolith');
+ for(const role of ['tractor-cab','tractor-bonnet','tractor-wheel','loader-cab',
+  'loader-scoop','loader-track','engine-bank'])
+  assert.ok(machine.some(o=>o.art===role),'missing physical '+role);
+ const renderer=source('backlotDerbyWorld.js');
+ assert.match(renderer,/if\(o\.art\)\{physicalScrapPart\(parent,o,solids\);return;\}/);
+ assert.match(renderer,/mass\.userData\.arenaObstacleId=o\.id/);
+ assert.match(renderer,/solids\.push\(mass\)/);
+ assert.match(renderer,/o\.scale\.set\(w,h,d\)/);
+ assert.match(source('backlotEnvironmentPass.js'),/north-facing-hog-pen-marquee/);
+ // The machine part registry and visible facades must not alter AI cover.
+ assert.doesNotMatch(renderer,/world\.obstacles\.push/);
+});
