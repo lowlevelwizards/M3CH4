@@ -69,29 +69,41 @@ export function buildAnatomicalTurbine(root){
  ring(g,'flanged-disconnect',.39,.15,1.67,2.58,.30,S,'x',10);
  return g;
 }
+/** Three hollow, thick agricultural tyres in a grounded, asymmetrical
+ * pile. Two are stacked flat and the third is propped at a lean.
+ * No shaft, hub, wheel disk, or tall presentation rack.
+ */
 export function buildAnatomicalTyreStack(root){
- const g=shell(root,'DISCARDED AGRICULTURAL TYRE STACK');
- for(let i=0;i<3;i++){
-  const x=(i-1)*1.42,n=1;
-  for(let j=0;j<n;j++){
-   const radius=i===1?.91:.77;
-   const yy=radius*.27+.14+(i===1?.18:0),dx=i===1?.08:0;
-   ring(g,'real-open-tyre-sidewall',radius*.80,radius*.28,
-     x+dx,yy,0,C.rubber,'y',12);
-   ring(g,'tyre-inner-bead',radius*.35,.14,
-     x+dx,yy+.08,0,I,'y',12);
-   // Radial lugged tread, not a black disc with a painted hole.
-   for(let k=0;k<7;k++){
-    const a=k*Math.PI*2/7;
-    const p=b(g,'agricultural-rubber-lug',.35,.25,.41,
-      x+dx+Math.cos(a)*radius,yy,Math.sin(a)*radius,D);
-    p.rotation.y=-a;
-   }
+ const g=shell(root,'GROUNDED THREE-TYRE AGRICULTURAL SCRAP PILE');
+ const placement=[
+  {x:-.63,y:.42,z:-.11,tilt:0,r:.81},
+  {x:-.60,y:.88,z:-.05,tilt:.06,r:.81},
+  {x:.95,y:.83,z:.16,tilt:.84,r:.88},
+ ];
+ for(let i=0;i<placement.length;i++){
+  const {x,y,z,tilt,r}=placement[i];
+  const tyre=new THREE.Group();
+  tyre.name='individual-grounded-tractor-tyre-'+(i+1);
+  tyre.position.set(x,y,z);
+  tyre.rotation.z=tilt;
+  g.add(tyre);
+  // Rings are truly hollow. Two thick sidewalls bridge tread blocks,
+  // with an exposed inner bead rather than a solid hub or axle.
+  for(const side of [-1,1]){
+   ring(tyre,'real-open-tyre-sidewall',r*.79,r*.255,
+    0,side*.15,0,C.rubber,'y',12);
+   ring(tyre,'open-rubber-tyre-inner-bead',r*.43,.10,
+    0,side*.18,0,D,'y',12);
+  }
+  for(let k=0;k<8;k++){
+   const a=k*Math.PI/4;
+   const tread=b(tyre,'broad-circumferential-tyre-lug',
+    .42,.38,.36,Math.cos(a)*r,0,Math.sin(a)*r,D);
+   tread.rotation.y=-a;
   }
  }
- for(const s of [-1,1])f(g,'old-rack-upright',
-   [s*2.24,.12,-.84],[s*2.24,1.13,-.84],.18,R);
- f(g,'old-rack-beam',[-2.21,.16,-.84],[2.21,.16,-.84],.20,S);
+ b(g,'abandoned-chock-block',.38,.24,.52,1.65,.13,-.25,R)
+  .rotation.y=-.21;
  return g;
 }
 export function buildAnatomicalDrums(root){
@@ -216,7 +228,7 @@ export const SALVAGE_EXHIBITS=Object.freeze([
   match:o=>o.artKit==='generator-unit',build:buildAnatomicalGenerator},
  {id:'turbine',label:'TURBINE HOUSING · CHUNK V4',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
   match:o=>o.artKit==='turbine-housing',build:buildAnatomicalTurbine},
- {id:'tyres',label:'TYRE STACK · CHUNK V4',details:'OPEN SIDEWALLS · BEADS · LUGS',
+ {id:'tyres',label:'TYRE STACK · SOLID V5',details:'THREE GROUNDED HOLLOW TYRES · NO RACK',
   match:o=>o.artKit==='tire-stack',build:buildAnatomicalTyreStack},
  {id:'barrels',label:'OIL DRUM PALLET · CHUNK V4',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
   match:o=>o.artKit==='barrel-cluster',build:buildAnatomicalDrums},
