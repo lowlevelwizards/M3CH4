@@ -6,6 +6,7 @@ import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4z1';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
+import {physicalContactWeight} from './physicalContactWeight.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
@@ -1759,14 +1760,20 @@ export function createArenaScene(initial, targetAssembly) {
                         mechanism.cassette.position.y=rest.cassette.y-reload.cassette;
                 }
             }
-            const load=Math.min(1,(state.footingLoad??0)*.7+
-                (state.recoilLoad??0)*.3);
-            const grounded=motion?.weight??0;
-            // A supporting step has a visible compressed chassis (not a
-            // floating perfectly sinusoidal machine on rigid legs).
-            root.position.y-=load*spec.compression+(state.brace??0)*.032;
-            root.position.y+=Math.abs(Math.sin(motion?.phase??0))*
-                grounded*(spec.compression*.43);
+            // Actual dynamic load and step contacts compress the physical
+            // machine with family-specific settling. This does not touch IK,
+            // simulated center of mass or any gameplay collision coordinate.
+            const contact=physicalContactWeight(mobilityId,{
+                gaitWeight:blocked?0:motion?.weight??0,
+                phase:motion?.phase??0,
+                footingLoad:state.footingLoad??0,
+                brace:state.brace??0,
+                recoilLoad:state.recoilLoad??0,
+                longitudinalAcceleration:state.longitudinalAcceleration??0,
+                lateralAcceleration:state.lateralAcceleration??0,
+            },record.contactPresentation,dt);
+            record.contactPresentation=contact;
+            root.position.y-=contact.drop;
             const damage=1-health;
             root.rotation.x=THREE.MathUtils.clamp(
                 -(state.longitudinalAcceleration??0)*.008+
@@ -1787,8 +1794,8 @@ export function createArenaScene(initial, targetAssembly) {
                 active:record.active&&!record.wrecked,
             });
             root.position.y-=failed.rootDrop;
-            root.rotation.x+=failed.rootPitch;
-            root.rotation.z+=failed.rootRoll;
+            root.rotation.x+=failed.rootPitch+contact.pitch;
+            root.rotation.z+=failed.rootRoll+contact.roll;
         }
         root.updateWorldMatrix(true,true);
     }
