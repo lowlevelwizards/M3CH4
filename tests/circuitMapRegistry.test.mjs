@@ -43,10 +43,14 @@ test('maps pass real physical collision clearance, primary sightline and route c
  }
 });
 test('live scene and combat use the same contract world for line-of-fire and AI',()=>{
- const main=src('main.js'),scene=src('scene.js');
+ const main=src('main.js'),scene=src('scene.js'),bridge=src('sceneAssembly.js');
  assert.match(main,/const selectedMap=mapForContract\(activeContract\)/);
  assert.match(main,/const selectedWorld=selectedMap\.world/);
  assert.match(main,/createArenaScene\(assembly, targetAssembly,selectedMap\)/);
+ // The import-map bridge must not silently drop the selected arena and
+ // fall back to the default Backlot when creating the physical scene.
+ assert.match(bridge,/createArenaScene\(assembly, targetAssembly,arenaMap\)/);
+ assert.match(bridge,/createBaseArenaScene\(assembly, targetAssembly,arenaMap\)/);
  assert.match(main,/world:selectedWorld/);
  // Coordinates are map-specific, but runtime actor IDs remain the stable
  // roster identities required by damage, target choice and bout scoring.
