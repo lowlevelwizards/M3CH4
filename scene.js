@@ -14,7 +14,7 @@ import {addRigCrewPlate} from './rigCrewVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import {lightingProfile} from './visualLightingLanguage.js';
-import {buildBacklotDressing} from './backlotDressing.js';
+import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './backlotDerbyWorld.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
@@ -190,6 +190,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     scene.background = new THREE.Color(fogColor);
     scene.fog = new THREE.FogExp2(fogColor,
         arenaMap.theme==='mill'?.013:arenaMap.theme==='concrete'?.0098:.0105);
+    if(arenaMap.id==='backlot-dustbowl')setBacklotOpenSky(scene);
+    const combatBackground=scene.background;
+    const serviceBackground=new THREE.Color(0x0d1210);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
@@ -2023,9 +2026,13 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         sun.visible = !enabled;
         coolRim.visible = !enabled;
         debugColliders.visible = false;
-        scene.background.setHex(enabled ? 0x0d1210 : 0x171915);
-        scene.fog.color.setHex(enabled ? 0x0d1210 : 0x171915);
-        scene.fog.density = enabled ? 0.0075 : 0.0125;
+        // Open-air venues use a sky texture; do not call Color.setHex on it.
+        // Garage/service darkness is restored only while that space is visible.
+        scene.background=enabled?serviceBackground:combatBackground;
+        scene.fog.color.setHex(enabled?0x0d1210:
+            arenaMap.id==='backlot-dustbowl'?0xb6a07f:0x171915);
+        scene.fog.density=enabled?.0075:
+            arenaMap.id==='backlot-dustbowl'?.0065:.0125;
         if (!enabled) setAnimationPreview('off');
         if (enabled) {
             pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;
@@ -3474,7 +3481,9 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     // Terrain is purely visual. Keep one flat, identical collision slab and
     // the existing obstacle definitions; the yard texture never changes cover.
     const groundSide=mat(C.concreteDark,1,0);
-    const groundTop=new THREE.MeshStandardMaterial({map:venueFloorTexture(arenaMap),roughness:.99,metalness:0});
+    const groundTop=new THREE.MeshStandardMaterial({
+        map:arenaMap.id==='backlot-dustbowl'?backlotGroundTexture():venueFloorTexture(arenaMap),
+        roughness:.99,metalness:0});
     const floor = box(width + 3, 0.35, depth + 3,
         [groundSide,groundSide,groundTop,groundSide,groundSide,groundSide]);
     floor.position.set((world.minX + world.maxX) / 2, -0.18, (world.minZ + world.maxZ) / 2);
@@ -3487,6 +3496,14 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     grid.name = 'development-only-arena-grid';
     grid.visible = false;
     scene.add(grid);
+
+    // Backlot is a physically separate open-air venue, not a different skin
+    // on the industrial warehouse renderer. Keep every certified gameplay AABB
+    // as its exact raycast solid and replace only the surrounding presentation.
+    if(arenaMap.id==='backlot-dustbowl'){
+        buildBacklotDerbyWorld(scene,world,solids);
+        return solids;
+    }
 
     const wallMat = mat(arenaMap.theme==='mill'?0x57594d:arenaMap.theme==='concrete'?0x68706a:C.concrete,.98,.02);
     const wallThickness = 0.6;
@@ -3577,33 +3594,7 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
         }
     }
 
-    if(arenaMap.id==='backlot-dustbowl'){
-        const signCanvas = document.createElement('canvas');
-        signCanvas.width = 384;
-        signCanvas.height = 64;
-        const ctx = signCanvas.getContext('2d');
-        const drawYardSign=()=>{
-            if (!ctx) return;
-            ctx.fillStyle = '#161a18';
-            ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
-            ctx.fillStyle = '#d6a64a';
-            ctx.font = canvasFont(23, 'identity');
-            ctx.fillText('BACKLOT DUSTBOWL / YARD 01', 20, 39, signCanvas.width - 40);
-        };
-        drawYardSign();
-        const texture = new THREE.CanvasTexture(signCanvas);
-        whenGameFontsReady(()=>{drawYardSign();texture.needsUpdate=true;});
-        texture.magFilter = THREE.NearestFilter;
-        texture.minFilter = THREE.NearestFilter;
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
-        sign.position.set(centerX, 5, world.minZ - .67);
-        scene.add(sign);
-        // The second art direction slice completes the yard's venue identity.
-        // Dressing never joins the collision solids list or certified cover map.
-        scene.add(buildBacklotDressing(world));
-        } else {
-        scene.add(buildVenueDressing(arenaMap));
-    }
+    scene.add(buildVenueDressing(arenaMap));
     return solids;
 }
 function buildCockpit(scene) {

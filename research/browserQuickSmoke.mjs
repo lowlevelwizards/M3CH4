@@ -33,14 +33,25 @@ try{
   const backlot=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');
     const scene=activePlayerArena()?.arena?.scene;
-    const group=scene?.getObjectByName('backlot-dustbowl-visuals');
-    let activeDrawObjects=0;
-    group?.traverse(mesh=>{if(mesh.isMesh)activeDrawObjects++;});
-    return {stats:group?.userData?.backlotStats,activeDrawObjects};
+    const group=scene?.getObjectByName('backlot-outdoor-derby-world');
+    let activeDrawObjects=0,physicalCover=0;
+    group?.traverse(mesh=>{
+      if(!mesh.isMesh)return;
+      activeDrawObjects++;
+      if(mesh.userData?.arenaObstacleId)physicalCover++;
+    });
+    return {stats:group?.userData?.backlotStats,activeDrawObjects,
+      physicalCover,garageBackground:scene?.background?.isColor===true,
+      oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
-  if(!backlot.stats||backlot.stats.fixtureBatch?.callsSaved<12||
-      backlot.stats.gameplayCollidersAdded!==0||backlot.activeDrawObjects>145)
-    throw Error('Mobile Backlot batching not active: '+JSON.stringify(backlot));
+  if(!backlot.stats||!backlot.garageBackground||backlot.oldWarehouse||
+     backlot.stats.enclosingWarehouseWalls!==0||
+     backlot.stats.sky!=='open'||
+     backlot.stats.fixtureBatch?.callsSaved<80||
+     backlot.physicalCover!==backlot.stats.obstacleCount||
+     backlot.activeDrawObjects<backlot.physicalCover||
+     backlot.activeDrawObjects>320)
+    throw Error('Mobile open-air Backlot world validation failed: '+JSON.stringify(backlot));
   await page.screenshot({path:'browser-smoke-artifacts/quick-garage.png'});
   await page.locator('#unified-garage .workshop-deploy').click();
   if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='contracts')
