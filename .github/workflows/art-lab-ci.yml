@@ -8,6 +8,8 @@ on:
       - 'artStyleSeed.js'
       - 'artStyleProcedural.js'
       - 'scene.js'
+      - 'backlotEnvironmentPass.js'
+      - 'tests/backlotEnvironmentPass.test.mjs'
       - 'maps/**'
       - 'research/circuitMapsBrowserSmoke.mjs'
       - 'research/artLabBrowserSmoke.mjs'
