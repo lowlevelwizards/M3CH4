@@ -1835,6 +1835,7 @@ function frame(now) {
                             Math.max(1,playerCondition.parts.command.maxIntegrity),
                         mobility:playerCondition.parts.mobility.integrity/
                             Math.max(1,playerCondition.parts.mobility.maxIntegrity),
+                        massKg:rigConfig.massKg,
                     },FIXED_DT);
                 if (rig.braced && !wasBraced) soundBrace();
                 // Threshold-crossing sounds rather than per-frame synth loops.
@@ -2080,6 +2081,7 @@ function frame(now) {
                             Math.max(1,actor.condition.parts.command.maxIntegrity),
                         mobility:actor.condition.parts.mobility.integrity/
                             Math.max(1,actor.condition.parts.mobility.maxIntegrity),
+                        massKg:actor.baseConfig.massKg,
                     },FIXED_DT);
                 shoveDisabledWrecks(actor.rig, actorConfig);
                 if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
@@ -2832,7 +2834,7 @@ function attemptAiFire(actor, target, shotIndex) {
     if(actor.weaponSpec.fireMode==='continuous') {
         const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
         registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
-            brace:actor.rig.brace,condition:actorOutput.weapon});
+            brace:actor.rig.brace,condition:actorOutput.weapon,massKg:actor.baseConfig.massKg});
         const thermalKey=thermalKeyForContact(contact);
         if(thermalKey&&contact.distance<=actor.weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,thermalKey,
@@ -2845,7 +2847,7 @@ function attemptAiFire(actor, target, shotIndex) {
     if(actor.weaponSpec.fireMode==='projectile') {
         const aim=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
         registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
-            brace:actor.rig.brace,condition:actorOutput.weapon});
+            brace:actor.rig.brace,condition:actorOutput.weapon,massKg:actor.baseConfig.massKg});
         arena.launchRocket({ownerId:actor.id,muzzle:aim.muzzle,point:aim.point,
             speed:actor.weaponSpec.projectileSpeed,radius:actor.weaponSpec.blastRadius,
             damage:actor.weaponSpec.damage});
@@ -2860,7 +2862,7 @@ function attemptAiFire(actor, target, shotIndex) {
             ? [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY,true)]
             : [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY)];
     registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
-        brace:actor.rig.brace,condition:actorOutput.weapon});
+        brace:actor.rig.brace,condition:actorOutput.weapon,massKg:actor.baseConfig.massKg});
     const packets=actor.weaponSpec.fireMode==='charged'
         ? resolvePenetratingContacts(contacts[0]?.penetrationContacts??contacts,{
             energy:actor.weaponSpec.penetrationEnergy,damage:actor.weaponSpec.damage,
@@ -2969,7 +2971,7 @@ function attemptFire() {
         const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
         applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
-        registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition)});
+        registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         shotsFired++;sortieRoundsFired++;sortieProjectiles++;
         presentPlayerDischarge(aim,shot);
         soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
@@ -2998,7 +3000,7 @@ function attemptFire() {
             resolvePlayerShotContact(center,thermal.damage,false,true);
         }
         shotsFired++;sortieRoundsFired++;
-        registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition)});
+        registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         presentPlayerDischarge(center,shot);
         if(shot%3===1)soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
         renderAmmo();
@@ -3009,7 +3011,7 @@ function attemptFire() {
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
     applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
-    registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition)});
+    registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
     shotsFired++;
     sortieRoundsFired++;
     presentPlayerDischarge(center,shot);
