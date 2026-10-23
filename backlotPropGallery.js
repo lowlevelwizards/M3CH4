@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import {BACKLOT} from './maps/backlot.js';
-import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js';
+import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r4';
 const $=id=>{const node=document.getElementById(id);if(!node)throw Error('Missing #'+id);return node;};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const stage=$('stage'),speed=$('gallery-speed'),selectEl=$('gallery-select');
