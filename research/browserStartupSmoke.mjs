@@ -1,6 +1,6 @@
 /** Real browser smoke: catches module-graph errors that Node source tests miss. */
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync,writeFileSync } from 'node:fs';
 const output = 'browser-smoke-artifacts';
 mkdirSync(output, { recursive: true });
 const browser = await chromium.launch({
@@ -27,6 +27,83 @@ try {
   console.log('BOOTED:', booted, 'DIAGNOSTIC:', diag || 'none');
   console.log('BROWSER MESSAGES:', messages.join('\n') || 'none');
   if (!booted) throw Error('Browser never rendered its first scene frame.');
+  // k5r.6b: render the SAME cockpit constructor, same exact gun kit and
+  // same phase evaluator used in real gameplay, at iPhone landscape aspect.
+  // One renderer, no extra live-world raycasts or assets.
+  const reloadAudit=await page.evaluate(async()=>{
+    const THREE=await import('three');
+    const {buildCockpit}=await import('./scene.js');
+    const {WEAPONS}=await import('./combat.js');
+    const {reloadPhase,reloadCockpitPresentation}=await import('./reloadMechanism.js');
+    const {poseReloadHardware}=await import('./weaponVisualKit.js');
+    const scene=new THREE.Scene();scene.background=new THREE.Color(0x20241f);
+    scene.add(new THREE.AmbientLight(0xffffff,1.8));
+    const key=new THREE.DirectionalLight(0xffdb96,3.5);key.position.set(-3,7,6);scene.add(key);
+    const cockpit=buildCockpit(scene),pivot=cockpit.userData.gunPivot;
+    const camera=new THREE.PerspectiveCamera(68,844/390,.06,30);
+    camera.position.set(0,2.42,0);camera.lookAt(0,2.42,-4);
+    camera.updateProjectionMatrix();camera.updateMatrixWorld();
+    const renderer=new THREE.WebGLRenderer({antialias:false,preserveDrawingBuffer:true});
+    renderer.setPixelRatio(1);renderer.setSize(420,195,false);
+    const sheet=document.createElement('canvas');sheet.width=1680;sheet.height=780;
+    const ctx=sheet.getContext('2d');
+    const samples=[],kits=cockpit.userData.weaponKits;
+    const ids=Object.keys(WEAPONS);
+    for(let i=0;i<ids.length;i++){
+      const id=ids[i],spec=WEAPONS[id],kit=kits[id];
+      if(!kit?.userData.reloadMechanism?.loader?.feed)
+        throw Error('Cockpit reload hardware missing: '+id);
+      for(const other of Object.values(kits))other.visible=false;
+      kit.visible=true;
+      for(const [stage,progress] of [.37,.62].entries()){
+        const phase=reloadPhase(spec.reloadSeconds*(1-progress),
+            spec.reloadSeconds,id);
+        const presentation=reloadCockpitPresentation(phase,id);
+        pivot.position.set(1.16+presentation.x,2.04+presentation.y,
+            -.62+presentation.z);
+        pivot.rotation.set(presentation.tilt,presentation.yaw,0,'YXZ');
+        kit.userData.carriage.position.set(0,phase.bolt*.28,phase.slide*.68);
+        const mechanism=kit.userData.reloadMechanism;
+        poseReloadHardware(mechanism,phase);
+        scene.updateMatrixWorld(true);
+        const carrier=mechanism.loader.feed;
+        const volume=new THREE.Box3().setFromObject(carrier);
+        const center=volume.getCenter(new THREE.Vector3());
+        const ndc=center.clone().project(camera);
+        const sx=(ndc.x+1)/2,sy=(1-ndc.y)/2;
+        const bound=volume.getSize(new THREE.Vector3());
+        samples.push({id,stage,screenX:sx,screenY:sy,
+            width:bound.x,height:bound.y,travel:phase.cassette,
+            carrierX:carrier.position.x,carrierY:carrier.position.y,
+            carrierZ:carrier.position.z});
+        renderer.render(scene,camera);
+        const col=(i%2)*2+stage,row=Math.floor(i/2);
+        ctx.drawImage(renderer.domElement,col*420,row*195,420,195);
+        ctx.fillStyle='rgba(9,15,15,.82)';ctx.fillRect(col*420,row*195,420,22);
+        ctx.fillStyle='#f3d99e';ctx.font='bold 14px monospace';
+        ctx.fillText(id+' / '+(stage===0?'EXTRACT':'CHAMBER'),col*420+8,row*195+16);
+      }
+    }
+    renderer.dispose();
+    return {samples,image:sheet.toDataURL('image/png')};
+  });
+  writeFileSync(output+'/k5r6b-all-eight-cockpit-reloads.png',
+    Buffer.from(reloadAudit.image.split(',')[1],'base64'));
+  for(let i=0;i<reloadAudit.samples.length;i+=2){
+    const extract=reloadAudit.samples[i],chamber=reloadAudit.samples[i+1];
+    for(const s of [extract,chamber]){
+      if(!(s.screenX>.57&&s.screenX<.96&&
+           s.screenY>.06&&s.screenY<.96&&s.width>.12&&s.height>.10))
+        throw Error('Physical reload outside iPhone cockpit field: '+JSON.stringify(s));
+    }
+    const travel=Math.hypot(extract.carrierX-chamber.carrierX,
+      extract.carrierY-chamber.carrierY,extract.carrierZ-chamber.carrierZ);
+    if(travel<.045)
+      throw Error('Ammunition has imperceptible extraction-to-feed motion: '+
+        extract.id+' / '+travel.toFixed(3));
+  }
+  console.log('RELOAD COCKPIT: PASS · all eight actual 3D service bays visible in iPhone landscape / contact sheet recorded');
+
   const backlot=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');
     const arena=activePlayerArena()?.arena;
