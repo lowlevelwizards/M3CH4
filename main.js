@@ -588,7 +588,8 @@ function resolveActorTarget(actor) {
     const candidates=liveOpponents(actor).filter(c=>visible.has(c.id));
     const threatId=recentThreatTargetId(actor.motion);
     const candidate=prioritizeVisibleTarget(actor,candidates,aiSnapshot,
-        aiPlans[actor.team]?.orders?.[actor.id]??null,actor.targetId,threatId);
+        squadCounterOrders[actor.team]?.[actor.id] ??
+            aiPlans[actor.team]?.orders?.[actor.id]??null,actor.targetId,threatId);
     actor.targetId=candidate?.id??null;
     return candidate??null;
 }
