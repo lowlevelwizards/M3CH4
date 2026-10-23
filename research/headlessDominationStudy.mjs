@@ -21,6 +21,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
 import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
+import {aiWeaponEngagement} from '../ai/weaponTactics.js';
 import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
 import {recentThreatTargetId} from '../tacticalAwareness.js';
 import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
@@ -389,19 +390,30 @@ export function runBout(seed,settings){
           withinFiringArc(a.rig,target.rig)&&
           (a.weaponSpec.fireMode!=='continuous'||dist(a.rig,target.rig)<=a.weaponSpec.rangeMeters)&&
           tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)&&
-          shouldAttemptTacticalShot(a,target);
-        // Trigger authority is the real fitted weapon cycle, regardless of policy.
+          shouldAttemptTacticalShot(a,target) &&
+          aiWeaponEngagement(a.weaponSpec,{
+            distance:dist(a.rig,target.rig),
+            rigSpeed:Math.hypot(a.rig.vx,a.rig.vz),
+            yawError:Math.abs(Math.atan2(
+              Math.sin(Math.atan2(target.rig.x-a.rig.x,
+                a.rig.z-target.rig.z)-a.rig.yaw),
+              Math.cos(Math.atan2(target.rig.x-a.rig.x,
+                a.rig.z-target.rig.z)-a.rig.yaw))),
+            brace:a.rig.brace??0,
+          }).fire;
+        // Share production's authoritative order: charging/launch-release
+        // becomes ready BEFORE the controller consumes a trigger event.
         if(settings.physicalEquipment&&!a.power.weaponReady&&target&&a.weaponState.loaded>0)
           a.stats.powerBlockedFrames++;
-        const fired=advanceHostileController(a.controller,a.condition,DT,!target,fireReady);
         const released=(a._releaseFrames??0)>0;
         if(released)a._releaseFrames--;
         const authorized=a.weaponSpec.fireMode==='charged'
-          ? advanceChargedTrigger(a.weaponState,a.weaponSpec,!!fired&&!released,DT)
+          ? advanceChargedTrigger(a.weaponState,a.weaponSpec,fireReady&&!released,DT)
           : a.weaponSpec.fireMode==='projectile'
-            ? advanceProjectileTrigger(a.weaponState,a.weaponSpec,!!fired&&!released)
-            : !!fired;
-        if(!authorized||!target)continue;
+            ? advanceProjectileTrigger(a.weaponState,a.weaponSpec,fireReady&&!released)
+            : fireReady;
+        const fired=advanceHostileController(a.controller,a.condition,DT,!target,authorized);
+        if(fired===null||!target)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
