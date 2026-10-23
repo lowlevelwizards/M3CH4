@@ -272,20 +272,30 @@ function dirtMarks(root,w){
    opacity:.19,depthWrite:false,side:THREE.DoubleSide});
  const dusty=new THREE.MeshBasicMaterial({color:0xc2a174,transparent:true,
    opacity:.14,depthWrite:false,side:THREE.DoubleSide});
- // Repeated shallow tyres and broken scuffs are ground-only, never real cover.
+ // Two genuinely-instanced transparent decal batches replace 55 individual
+ // draw objects. They remain flat, visual-only marks with zero collision.
+ const rut=new THREE.InstancedMesh(new THREE.PlaneGeometry(.29,3.1),trackMat,36);
+ rut.name='churned-wheel-ruts';rut.userData.visualOnly=true;
+ const circles=new THREE.InstancedMesh(new THREE.CircleGeometry(1,9),dusty,19);
+ circles.name='sunbleached-dirt-patches';circles.userData.visualOnly=true;
+ const dummy=new THREE.Object3D();
  for(let i=0;i<36;i++){
    const angle=i*.53,rad=11+(i%7)*2.18;
-   const x=Math.cos(angle)*rad*.92,z=Math.sin(angle)*rad*.76;
-   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.29,3.1+(i%4)),trackMat);
-   mesh.name='churned-wheel-rut';mesh.rotation.x=-Math.PI/2;
-   mesh.rotation.z=angle+.6;mesh.position.set(x,.025,z);root.add(mesh);
+   dummy.position.set(Math.cos(angle)*rad*.92,.025,Math.sin(angle)*rad*.76);
+   dummy.rotation.set(-Math.PI/2,0,angle+.6);
+   dummy.scale.set(1,(3.1+i%4)/3.1,1);dummy.updateMatrix();
+   rut.setMatrixAt(i,dummy.matrix);
  }
  for(let i=0;i<19;i++){
-   const angle=i*1.94,r=9+(i%8)*2.3;
-   const mesh=new THREE.Mesh(new THREE.CircleGeometry(1.9+(i%4),9),dusty);
-   mesh.rotation.x=-Math.PI/2;mesh.position.set(Math.cos(angle)*r,.02,
-     Math.sin(angle)*r*.7);mesh.name='sunbleached-dirt-patch';root.add(mesh);
+   const angle=i*1.94,rad=9+(i%8)*2.3;
+   dummy.position.set(Math.cos(angle)*rad,.02,Math.sin(angle)*rad*.7);
+   dummy.rotation.set(-Math.PI/2,0,0);
+   const scale=1.9+(i%4);
+   dummy.scale.set(scale,scale,1);dummy.updateMatrix();
+   circles.setMatrixAt(i,dummy.matrix);
  }
+ rut.instanceMatrix.needsUpdate=true;circles.instanceMatrix.needsUpdate=true;
+ root.add(rut,circles);
 }
 /** Static outdoor scenery is aggressively instanced on mobile. The 21 real
  * collider meshes are NEVER batched: raycast hits must retain obstacle IDs,
@@ -301,7 +311,7 @@ export function batchBacklotDerbyDecorations(root){
  for(const group of groups){
    const buckets=new Map();
    for(const node of [...group.children]){
-     if(!node.isMesh||node.userData?.arenaObstacleId||
+     if(!node.isMesh||node.isInstancedMesh||node.userData?.arenaObstacleId||
         node.material?.transparent||!node.visible)continue;
      sourceMeshes++;
      const key=node.geometry.uuid+':'+node.material.uuid;
