@@ -1540,6 +1540,7 @@ export function createArenaScene(initial, targetAssembly) {
             planted:contacts.stanceCount,loadShift:contacts.weightShift,
             effort:contacts.actuatorEffort,compression:contacts.bodyCompression,
             gaitMode:contacts.gaitMode,maneuver:contacts.maneuver,recovery:contacts.recovery,
+            flow:contacts.flow,catchSteps:contacts.catchStepCount,
             preparing:contacts.preparingSide,
         }:null;
     }
