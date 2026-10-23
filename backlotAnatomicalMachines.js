@@ -223,9 +223,21 @@ export function buildAnatomicalPickup(root){
  }
  metal(g,'pickup-tailgate-dented',2.20,.65,.17,0,1.37,-2.40,P)
   .rotation.y=.06;
+ // The complete engine bay and bulkhead join the hood to the chassis.
+ // Front wheels and upper window apertures remain unobstructed.
+ metal(g,'pickup-deep-engine-bay',1.79,.77,1.94,0,1.07,1.40,I);
+ metal(g,'pickup-firewall-bellhousing',1.86,.65,.63,0,1.10,.31,C.clay);
+ for(const side of [-1,1]){
+  metal(g,'pickup-front-quarter-panel',.20,.55,1.64,
+   side*.85,1.47,1.56,P);
+  metal(g,'pickup-rocker-sill',.25,.40,1.37,
+   side*.91,.89,-.18,I);
+ }
  // Cab is framed as a greenhouse, rather than an opaque upright box.
  metal(g,'cab-firewall',2.05,1.06,.17,0,1.43,.04,R);
  metal(g,'pickup-cab-floor',2.06,.22,1.45,0,.97,-.13,I);
+ metal(g,'pickup-solid-rear-cab-wall',2.01,.95,.22,0,1.53,-.76,C.clay);
+ metal(g,'pickup-lower-dashboard',1.95,.43,.28,0,1.51,.56,I);
  for(const s of [-1,1]){
   f(g,'pickup-a-pillar',[s*.95,1.31,.66],[s*.89,2.32,.44],.15,R);
   f(g,'pickup-b-pillar',[s*.93,1.24,-.73],[s*.97,2.32,-.72],.17,R);
@@ -258,6 +270,9 @@ export function buildAnatomicalEngine(root){
  ladder(g,'engine-mount-sled',2.30,-2.0,2.0,.31);
  metal(g,'cast-open-crankcase',1.88,1.11,2.93,0,1.08,0,I);
  metal(g,'oil-sump-housing',1.46,.45,2.42,0,.51,0,C.clay);
+ metal(g,'engine-structural-gearbox-bell',1.92,.68,.80,0,.91,-1.26,R);
+ for(const side of [-1,1])
+  metal(g,'engine-bank-cast-shoulder',.34,.57,2.53,side*.75,1.47,0,C.clay);
  for(const s of [-1,1]){
   for(let i=0;i<3;i++){
    const z=-1.02+i*1.02;
@@ -294,6 +309,8 @@ export function buildAnatomicalCoupling(root){
   f(g,'gearbox-transverse-shaft',[s*.25,1.45,0],[s*1.28,1.45,0],.23,S);
  }
  metal(g,'gearcase-open-bottom',1.61,.78,1.68,0,.83,0,I);
+ metal(g,'coupling-lower-bearing-plinth',1.91,.66,1.78,0,.48,0,C.clay);
+ metal(g,'coupling-middle-drive-web',1.18,.68,1.09,0,1.23,0,I);
  for(const x of [-.83,.83])f(g,'drive-cage-post',
    [x,.45,-.88],[x,2.18,-.88],.18,R);
  f(g,'exposed-input-shaft',[0,1.46,-1.82],[0,1.46,-.25],.25,S);
@@ -307,10 +324,10 @@ export const MACHINE_EXHIBITS=Object.freeze([
   match:o=>o.id.startsWith('loader-'),front:'-z',build:buildAnatomicalLoader},
  {id:'combine',label:'COMBINE HARVESTER · SOLID V5',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
   match:o=>o.artKit==='combine-harvester',front:'-z',build:buildAnatomicalCombine},
- {id:'pickup',label:'PICKUP WRECK · CHUNK V4',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
+ {id:'pickup',label:'PICKUP WRECK · SOLID V5',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
   match:o=>o.artKit==='pickup-wreck',build:buildAnatomicalPickup},
- {id:'engine',label:'ENGINE BANK · CHUNK V4',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
+ {id:'engine',label:'ENGINE BANK · SOLID V5',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
   match:o=>o.id.startsWith('exposed-engine-'),build:buildAnatomicalEngine},
- {id:'coupling',label:'GEAR COUPLING · CHUNK V4',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
+ {id:'coupling',label:'GEAR COUPLING · SOLID V5',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
   match:o=>o.id.startsWith('coupling-'),build:buildAnatomicalCoupling},
 ]);
