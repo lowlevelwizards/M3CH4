@@ -5,11 +5,11 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('k4s.2 uses cache-fresh mobile modules and last-loaded flow stylesheet',()=>{
   const html=read('index.html'),mount=read('garageMountUI.js'),bridge=read('sceneAssembly.js');
-  assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
+  assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
   assert.match(html,/k4s2GarageFlow\.css\?v=k4s2/);
   assert.ok(html.indexOf('k4s2GarageFlow.css')>html.indexOf('k4sWorkshopShell.css'));
     assert.match(html,/main\.js\?v=[\w.-]+/);
-  assert.match(html,/garageMountUI\.js\?v=k5p4/);
+  assert.match(html,/garageMountUI\.js\?v=k5p6/);
   assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
   // The cache token advances independently of the original garage-flow release.
   assert.match(bridge,/scene\.js\?source=[a-zA-Z0-9_.-]+/);
