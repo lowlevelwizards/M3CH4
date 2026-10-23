@@ -1,0 +1,34 @@
+name: Early Circuit Physical Map Validation
+on:
+  pull_request:
+    paths:
+      - 'maps/**'
+      - 'main.js'
+      - 'scene.js'
+      - 'sceneAssembly.js'
+      - 'contracts.js'
+      - 'research/headlessDominationStudy.mjs'
+      - 'research/circuitMapBalanceStudy.mjs'
+      - 'tests/circuitMapRegistry.test.mjs'
+      - '.github/workflows/circuit-maps-ci.yml'
+  workflow_dispatch:
+jobs:
+  circuit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify physical map geometry and contract-world parity
+        run: node --test tests/circuitMapRegistry.test.mjs
+      - name: Run genuine three-map headless AI physical battle cohort
+        run: node research/circuitMapBalanceStudy.mjs 2
+      - name: Retain map-specific first-contact and route metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: early-circuit-map-balance
+          path: study-results/circuit-map-baseline.json
+          if-no-files-found: warn
