@@ -23,6 +23,7 @@ import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './insp
 import { physicsYawToViewYaw } from './locomotion.js';
 import {BACKLOT} from './maps/backlot.js';
 import {venueFloorTexture,buildVenueDressing} from './maps/venueVisuals.js';
+import {atmosphereForMap} from './maps/mapAtmosphere.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
@@ -151,6 +152,7 @@ export function rigThumbnailDataUrl(assembly){
 }
 export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     const world=arenaMap.world;
+    const venueAtmosphere=atmosphereForMap(arenaMap);
     const playerSpawn=arenaMap.spawns.friendly[0],hostileSpawn=arenaMap.spawns.hostile[0];
     const scene = new THREE.Scene();
     // Recycled ground decals: no permanent textures, runtime allocations on
@@ -182,19 +184,16 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
       mesh.material.opacity=Math.min(.27,Math.max(.05,mark.opacity??.13));
       mesh.visible=true;
     }
-    const fogColor=arenaMap.theme==='concrete'?0x263537:
-        arenaMap.theme==='mill'?0x312d24:0x20241f;
-    scene.background = new THREE.Color(fogColor);
-    scene.fog = new THREE.FogExp2(fogColor,
-        arenaMap.theme==='mill'?.013:arenaMap.theme==='concrete'?.0098:.0105);
+    scene.background = new THREE.Color(venueAtmosphere.background);
+    scene.fog = new THREE.FogExp2(venueAtmosphere.fog,venueAtmosphere.fogDensity);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
     // Lower broad ambient wash and let shaped warm/cool sources describe the forms.
     const arenaLight=lightingProfile('arena');
-    const arenaHemisphere = new THREE.HemisphereLight(arenaLight.ambientSky,arenaLight.ambientGround,arenaLight.ambient);
+    const arenaHemisphere = new THREE.HemisphereLight(venueAtmosphere.hemisphereSky,venueAtmosphere.hemisphereGround,arenaLight.ambient);
     scene.add(arenaHemisphere);
-    const sun = new THREE.DirectionalLight(0xffd09c,arenaLight.key);
+    const sun = new THREE.DirectionalLight(venueAtmosphere.sunlight,arenaLight.key*venueAtmosphere.keyMultiplier);
     sun.position.set(-10, 17, 11);
     sun.castShadow = true;
     // Keep the shadow silhouette coherent at source; the deliberately low-res world
@@ -205,7 +204,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
     sun.shadow.bias = -.0007; sun.shadow.normalBias = .035;
     scene.add(sun);
-    const coolRim = new THREE.DirectionalLight(0x79a9a8,arenaLight.rim);
+    const coolRim = new THREE.DirectionalLight(venueAtmosphere.rim,arenaLight.rim*venueAtmosphere.rimMultiplier);
     coolRim.position.set(12, 6, -16);
     scene.add(coolRim);
     const arenaRoot = new THREE.Group();
@@ -3327,13 +3326,14 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     }
 
     const arenaLight=lightingProfile('arena');
+    const practicalAtmosphere=atmosphereForMap(arenaMap);
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffd39a, emissive: 0xffa43a, emissiveIntensity:arenaLight.fixtureEmission,roughness:.54 });
     for (const z of [-14, 14]) {
         for (const x of [-22, 0, 22]) {
             const fixture = box(3.6, 0.12, 0.28, lightMaterial);
             fixture.position.set(x, 7.2, z);
             scene.add(fixture);
-            const light = new THREE.PointLight(0xffb565,arenaLight.fixtureIntensity,14,2.15);
+            const light = new THREE.PointLight(practicalAtmosphere.fixture,arenaLight.fixtureIntensity,14,2.15);
             light.position.set(x, 6.65, z);
             scene.add(light);
         }
