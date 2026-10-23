@@ -1765,10 +1765,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         cockpit.userData.gunBreech.position.z=-.19+reload.slide+pilotFiringPose.bolt*.105;
         cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
         cockpit.userData.scatterGreebles.position.y=-reload.cassette-pilotFiringPose.feeder*.052;
-        for(const kit of Object.values(cockpit.userData.weaponKits)){
-            if(!kit.visible)continue;
-            kit.userData.carriage.position.z=pilotFiringPose.bolt*.13;
-            kit.userData.carriage.position.y=pilotFiringPose.stop*.024;
+        const activeKit=cockpit.userData.weaponKits[pilotWeaponPresentation.id];
+        if(activeKit?.visible){
+            activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13;
+            activeKit.userData.carriage.position.y=pilotFiringPose.stop*.024;
         }
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
@@ -1935,6 +1935,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 frame.rotation.y=frameBase.rotation.y+aim.waist;
                 frame.rotation.z=frameBase.rotation.z+
                     THREE.MathUtils.clamp((record.footContacts?.weightShift??0)*.033,-.036,.036);
+                // Shot shock travels through the structure, not through camera aim.
+                frame.rotation.x=frameBase.rotation.x+
+                    (record.firingState?.pose.cab??0)*.42;
                 frame.position.x=frameBase.position.x+
                     (record.footContacts?.weightShift??0)*.018;
                 frame.position.y=frameBase.position.y-
@@ -1948,22 +1951,25 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             }
             if(combat&&combatBase&&!record.destroyedSlots.has('combat')){
                 const recovery=record.weaponRecoveryKick??0;
+                const discharge=record.firingState?.pose;
                 const reload=reloadArticulation(visual?.reloadLeft??0,
                     visual?.reloadSeconds??0,
                     installedPart(record.assembly,'combat')?.definition.id);
                 combat.rotation.y=combatBase.rotation.y+aim.gun;
                 combat.rotation.x=combatBase.rotation.x+aim.elevation+
-                    (fault?.20:0)-(recovery*.12);
+                    (fault?.20:0)-(recovery*.12)+(discharge?.mount??0);
                 combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
                 combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
-                combat.position.z=combatBase.position.z+(record.recoilKick??0);
+                combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
+                    (discharge?.travel??0)*.085;
                 const mechanism=combat.userData.weaponMechanism;
                 if(mechanism){
                     const rest=mechanism.rest;
                     mechanism.carriage.position.z=rest.carriage.z+reload.slide+
-                        (record.recoilKick??0)*.35;
+                        (record.recoilKick??0)*.35+(discharge?.bolt??0)*.09;
                     mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14;
-                    mechanism.bolt.position.z=rest.bolt.z+reload.bolt;
+                    mechanism.bolt.position.z=rest.bolt.z+reload.bolt+
+                        (discharge?.bolt??0)*.12;
                     if(mechanism.cassette && rest.cassette)
                         mechanism.cassette.position.y=rest.cassette.y-reload.cassette;
                 }
