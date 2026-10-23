@@ -12,7 +12,7 @@ import {createArenaScene} from './sceneAssembly.js?v=b2';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
-import {advanceFootContacts} from './footContactController.js';
+import {advanceFootContacts} from './footContactController.js?v=k5b2';
 import {soundSystemEvent} from './audio.js';
 const $=id=>document.getElementById(id);
 const machine=makeTestAssembly();
