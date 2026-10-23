@@ -55,7 +55,7 @@ export function createTestYardPanel({assembly,onInstall,onDeploy,onGarage,onTarg
   back.href='./index.html';back.title='Exit the sandbox; your campaign was not changed';
   const benchButton=button('BENCH',()=>{panel.classList.toggle('collapsed');benchButton.setAttribute('aria-expanded',String(!panel.classList.contains('collapsed')));});
   benchButton.setAttribute('aria-expanded','true');
-  const changeButton=button('DEPLOY',()=>onDeploy());
+  const changeButton=button('DEPLOY',()=>{ if(inspecting) onDeploy(); else onGarage(); });
   const resetButton=button('RESET RIG',()=>onReset());
   const targetsButton=button('REBUILD TARGETS',()=>onTargets());
   const modeButton=button('DUMMIES',()=>onMode());
@@ -107,7 +107,6 @@ export function createTestYardPanel({assembly,onInstall,onDeploy,onGarage,onTarg
     inspecting=!!value;
     shell.classList.toggle('garage',inspecting);
     changeButton.textContent=inspecting?'DEPLOY':'GARAGE';
-    changeButton.onclick=null; // click listener below uses inspecting state
     benchButton.hidden=!inspecting;
     panel.hidden=!inspecting;
     resetButton.hidden=inspecting;
@@ -116,10 +115,6 @@ export function createTestYardPanel({assembly,onInstall,onDeploy,onGarage,onTarg
     centerButton.hidden=inspecting;
     if(inspecting)render();
   }
-  // One action works in either phase; no overlapping transparent native controls.
-  changeButton.replaceWith(changeButton);
-  changeButton.addEventListener('click',()=>{if(!inspecting)onGarage();});
-  // The original handler is harmless while in combat; onDeploy is guarded by phase in main.
   function setMode(next) { mode=next;modeButton.textContent=mode==='static'?'DUMMIES':'LIVE AI';modeButton.setAttribute('aria-pressed',String(mode==='live')); }
   function announce(message){feedback.textContent=message;}
   setInspecting(true);setMode('static');
