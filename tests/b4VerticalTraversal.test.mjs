@@ -9,7 +9,7 @@ test('the authored loading platform is flat outside and continuous along the ent
  assert.equal(loadingDockHeight(0,22),0);
  assert.equal(loadingDockHeight(5,12),0);
  assert.equal(loadingDockHeight(0,LOADING_DOCK.northZ),0);
- assert.equal(loadingDockHeight(0,LOADING_DOCK.upperNorthZ),.42);
+ assert.ok(Math.abs(loadingDockHeight(0,LOADING_DOCK.upperNorthZ)-.42)<1e-8);
  assert.equal(loadingDockHeight(0,12),.42);
  assert.equal(loadingDockHeight(0,LOADING_DOCK.southZ),0);
  assert.ok(Math.abs(loadingDockHeight(0,16.5)-.21)<1e-8);
