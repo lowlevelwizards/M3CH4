@@ -962,6 +962,9 @@ function resetAiActor(actor) {
 }
 function resetSquadBattle() {
     playerMissionKillReason=null;
+    // Each round starts with a settled mount; cosmetic recoil does not leak
+    // across the repair pit, nor into the next squad match.
+    resetWeaponStabilizer(playerMount);
     leaveAlliedObservation();
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;
     squadCounterOrders={friendly:{},hostile:{}};
