@@ -36,16 +36,22 @@ test('background decks are beyond certified northern wall, never player spawn',(
   assert.ok(plan.northPosts.length>10);
   assert.ok(plan.sidePosts.length>6);
 });
-test('real scene wires decorative-only grouped world and never adds it to physics solids',()=>{
-  const scene=src('scene.js'),dressing=src('backlotDressing.js');
-  assert.match(scene,/scene\.add\(buildBacklotDressing\(DEFAULT_WORLD\)\)/);
-  assert.match(scene,/return solids;/);
-  assert.match(dressing,/group\.name='backlot-dustbowl-visuals'/);
-  assert.match(dressing,/const plan=backlotVisualPlan\(world\)/);
-  assert.match(dressing,/new THREE\.InstancedMesh/);
-  assert.match(dressing,/gameplayCollidersAdded:0/);
-  assert.match(dressing,/lightSourcesAdded:0/);
-  assert.doesNotMatch(dressing,/arenaObstacleId|solids\.push|worldSolids\.push|new THREE\.PointLight|new THREE\.SpotLight/);
+test('live Backlot bypasses industrial arena shell for open-air derby',()=>{
+  const scene=src('scene.js'),venue=src('backlotDerbyWorld.js');
+  assert.match(scene,/buildBacklotDerbyWorld\(scene,world,solids\)/);
+  assert.match(scene,/if\(arenaMap\.id==='backlot-dustbowl'\)/);
+  assert.match(scene,/setBacklotOpenSky\(scene\)/);
+  assert.match(scene,/backlotGroundTexture\(\)/);
+  assert.match(venue,/root\.name='backlot-outdoor-derby-world'/);
+  assert.match(venue,/enclosingWarehouseWalls:0/);
+  assert.match(venue,/overheadWarehouseFixtures:0/);
+  assert.match(venue,/perimeter\(root,world\)/);
+  assert.match(venue,/spectatorYard\(root,world\)/);
+  assert.match(venue,/dirtMarks\(root,world\)/);
+  // Render every obstacle once and only once for bullet raycasts.
+  assert.match(venue,/mass\.userData\.arenaObstacleId=id/);
+  assert.match(venue,/solids\.push\(mass\)/);
+  assert.doesNotMatch(venue,/world\.obstacles\.push|new THREE\.PointLight/);
 });
 
 test('repeat scrapyard fixtures batch into identical physical instance geometry',()=>{
