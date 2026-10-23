@@ -26,8 +26,10 @@ function boxGeo(w,h,d){
  return boxes.get(key);
 }
 function block(parent,name,w,h,d,x,y,z,color,metal=0.2){
- const o=new THREE.Mesh(boxGeo(w,h,d),mat(color,metal));
- o.name=name;o.position.set(x,y,z);o.receiveShadow=true;
+ // Share a unit cube and encode dimensions into the transform. Static
+ // details of unlike sizes can then be instanced as one draw batch.
+ const o=new THREE.Mesh(boxGeo(1,1,1),mat(color,metal));
+ o.name=name;o.position.set(x,y,z);o.scale.set(w,h,d);o.receiveShadow=true;
  o.castShadow=false;parent.add(o);return o;
 }
 function drum(parent,name,r,length,x,y,z,color,axis='z',segments=10){
@@ -78,10 +80,75 @@ export function setBacklotOpenSky(scene){
  scene.background=skyTexture;
  scene.fog=new THREE.FogExp2(0xc5ad8d,.0048);
 }
+/** Object-part geometry is what the AI and live gun rays actually collide
+ * with. Every solid box is exactly the corresponding authored AABB; the
+ * details are stamped on real metal faces, not floating invented cover.
+ * Replacing the old four warehouse-like monoliths with real small parts is
+ * what creates the new silhouette and tactical openings.
+ */
+function physicalScrapPart(root,o,solids){
+ const w=o.maxX-o.minX,d=o.maxZ-o.minZ,h=o.height,
+       x=(o.minX+o.maxX)/2,z=(o.minZ+o.maxZ)/2;
+ const role=o.art;
+ const wheel=/wheel|track/.test(role),cab=/cab/.test(role),
+       scoop=role==='loader-scoop',
+       mechanical=/engine|gearcase/.test(role),
+       color=wheel?P.tyre:cab?P.rust2:scoop?P.iron:
+         mechanical?P.motor:role==='tractor-bonnet'?P.yellow:P.rust;
+ const mass=block(root,'certified-machine-part-'+o.id,w,h,d,x,h*.5,z,color,.38);
+ mass.userData.arenaObstacleId=o.id;
+ mass.userData.machineRole=role;
+ solids.push(mass);
+ // A narrow contrasting patch lies immediately on the true front surface;
+ // unlike the former full-width false facades it remains within that AABB.
+ const front=o.maxZ+.011;
+ if(cab){
+   // The high, rusty glazed operator cab rises above the low engine deck.
+   block(root,'cab-shadow-windshield',w*.70,h*.32,.025,
+     x,h*.68,front,P.glass,.19);
+   block(root,'cab-bright-windshield-crossbar',w*.74,.10,.025,
+     x,h*.80,front+.015,P.iron,.48);
+   block(root,'cab-stripe',w*.74,.15,.027,
+     x,h*.35,front+.015,P.cream,.18);
+   block(root,'cab-exhaust-chimney',.19,.36,.19,
+     x+w*.31,h+.17,z-d*.17,P.steel,.42);
+ }else if(wheel){
+   // Cut a large circular disk into the visible side of each dark rubber
+   // blocker. The actual tire block is independently traversable around.
+   const radius=Math.min(h*.46,d*.43);
+   const face=x+(o.id.endsWith('fr')||o.id.endsWith('rr')?w*.5+.008:
+     -w*.5-.008);
+   drum(root,'wheel-rusty-bearing',radius*.42,.035,
+      face,h*.5,z,P.rust,'x',10);
+   block(root,'tyre-shoulder-crease',.05,.13,d*.78,
+      x,h*.78,z,P.steel,.26);
+ }else if(scoop){
+   block(root,'bucket-tooth-row',w*.90,.16,.22,
+      x,.17,front-.18,P.yellow,.29);
+   block(root,'scoop-rim',w*.90,.13,.10,
+      x,h-.14,front-.09,P.rust2,.31);
+   block(root,'bucket-shadow',w*.84,h*.32,.03,
+      x,h*.43,front,P.steel,.49);
+ }else if(mechanical){
+   block(root,'engine-joint-head',w*.70,.14,d*.62,
+     x,h-.11,z,P.rust2,.38);
+   const count=w>3?3:2;
+   for(let i=0;i<count;i++)
+     block(root,'visible-machinery-rib',w/(count*3),h*.66,.08,
+       x+w*((i+.5)/count-.5),h*.48,front,P.steel,.45);
+ }else{
+   block(root,'steel-scrap-edge',w*.80,.13,.09,
+     x,h-.11,front-.13,P.cream,.18);
+   block(root,'machinery-service-hatch',w*.50,h*.22,.025,
+     x,h*.48,front,P.steel,.35);
+ }
+ return mass;
+}
 /** Visible metal/wood mass intentionally fills each gameplay obstacle prism:
  * none of the ornament changes cover, routes, or hit tests.
  */
 function createWreck(parent,o,solids){
+ if(o.art){physicalScrapPart(parent,o,solids);return;}
  const w=o.maxX-o.minX,d=o.maxZ-o.minZ,h=o.height??1.1;
  const x=(o.minX+o.maxX)/2,z=(o.minZ+o.maxZ)/2,id=o.id;
  const pillar=o.kind==='pillar';
