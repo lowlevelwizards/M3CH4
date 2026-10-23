@@ -110,6 +110,28 @@ export function tacticalLineOfSight(from, to, world) {
     return !tacticalCoverBlocker(from, to, world);
 }
 
+/** Optical contact is not a torso-height firing certificate. A command cab
+ * or shoulder can be visible above a barricade while the lower frame is
+ * hidden. Sample actual 3D slopes from the cab optics to exposed modules.
+ * Fire control must still independently test the real muzzle and meshes. */
+export function tacticalRigVisible(from, to, world) {
+    if (!from || !to) return false;
+    const dx=to.x-from.x,dz=to.z-from.z;
+    const groundDistance=Math.hypot(dx,dz);
+    if(groundDistance<.15)return true;
+    const eyeHeight=2.38;
+    for(const targetHeight of [2.45,2.08,1.82]){
+        const dy=targetHeight-eyeHeight;
+        const rayLength=Math.hypot(dx,dy,dz);
+        const hit=firstCoverHit(
+            [from.x,eyeHeight,from.z],
+            [dx/rayLength,dy/rayLength,dz/rayLength],
+            staticObstacles(world),Math.max(0,rayLength-.18),.045);
+        if(!hit)return true;
+    }
+    return false;
+}
+
 function insideExpanded(point, box, pad) {
     return point.x >= box.minX - pad && point.x <= box.maxX + pad &&
         point.z >= box.minZ - pad && point.z <= box.maxZ + pad;
@@ -195,9 +217,10 @@ export function advanceTacticalAwareness(owner, enemy, target, dt, world, radius
     }
 
     const blocker = target ? tacticalCoverBlocker(enemy, target, world) : null;
-    // No observed target is NOT an unobstructed contact with ourselves.
-    state.lineOfSight = !!target && !blocker;
-    state.blockerId = blocker?.id ?? null;
+    // Seeing an exposed command cab is genuine contact, even with the frame
+    // behind cover. The muzzle ray is separately certified before firing.
+    state.lineOfSight = !!target && tacticalRigVisible(enemy,target,world);
+    state.blockerId = state.lineOfSight ? null : blocker?.id ?? null;
     if (state.lineOfSight) {
         state.exposedSeconds += dt;
         state.unseenSeconds = 0;
