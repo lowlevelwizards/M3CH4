@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 22
       - name: Verify physical map geometry and contract-world parity
-        run: node --test tests/circuitMapRegistry.test.mjs
+        run: node --test tests/circuitMapRegistry.test.mjs tests/circuitMapFlow.test.mjs
       - name: Run genuine three-map headless AI physical battle cohort
         run: node research/circuitMapBalanceStudy.mjs 2
       - name: Retain map-specific first-contact and route metrics
