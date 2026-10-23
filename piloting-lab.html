@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#151816"/>
+<title>M3CH4 · PILOTING LAB A.0</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./pilotingLab.css?v=a0"/>
+</head><body>
+<div id="stage"></div>
+<header class="lab-header">
+ <a href="./index.html?v=a0" class="lab-back">‹ GARAGE</a>
+ <strong>PILOTING LAB <small>NO DAMAGE · NO COST · NO SAVE</small></strong>
+ <span id="fps">-- FPS</span>
+</header>
+<div class="lab-tools">
+ <label>MACHINE <select id="family">
+  <option value="legs-yard">YARDWALKER</option>
+  <option value="legs-compact">KESTREL</option>
+  <option value="legs-hauler">HAULER H2</option>
+ </select></label>
+ <label>HANDLING <select id="handling">
+  <option value="assisted">ACTIVE FOOT SETTLING</option>
+  <option value="legacy">LEGACY COASTING</option>
+ </select></label>
+ <label>VIEW <select id="view">
+  <option value="chase">FULL MACHINE</option><option value="cockpit">COCKPIT</option>
+ </select></label>
+ <button id="reset" type="button">RESET RUN</button>
+ <button id="audio" type="button">SOUND OFF</button>
+</div>
+<pre id="telemetry" aria-live="off">Loading machinery...</pre>
+<div class="lab-bottom">
+ <div id="drive-zone" aria-label="movement stick"><div class="stick-ring"></div><div id="drive-knob"></div></div>
+ <div class="lab-middle">
+  <div class="steer"><button id="turn-left" type="button">↶ TURN</button><button id="turn-right" type="button">TURN ↷</button></div>
+  <span>MOVE · RELEASE TO SETTLE</span><small>Touch left stick · use turn buttons · hold brake to plant</small>
+ </div>
+ <div id="look-zone" aria-label="drag to aim and steer"></div>
+ <button id="brake" type="button">BRAKE</button>
+</div>
+<div id="lab-error" hidden role="alert"></div>
+<script type="module" src="./pilotingLab.js?v=a0"></script>
+</body></html>
