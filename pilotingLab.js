@@ -10,6 +10,7 @@ import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
 import {createArenaScene} from './sceneAssembly.js?v=a5';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
+import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
 import {advanceFootContacts} from './footContactController.js';
 import {soundSystemEvent} from './audio.js';
@@ -58,6 +59,26 @@ for(const patch of PILOTING_GROUND_PATCHES){
 }
 const markerMat=new THREE.MeshStandardMaterial({color:0xb68b37,metalness:.18,roughness:.89});
 const metalMat=new THREE.MeshStandardMaterial({color:0x3b7770,metalness:.27,roughness:.8});
+// At most four lightweight reactive objects. These are not authoritative
+// contract cover or salvage: only this no-save piloting yard owns them.
+const looseProps=createLabProps();
+const loosePropMeshes=new Map();
+const loosePropRoot=new THREE.Group();
+arena.scene.add(loosePropRoot);
+for(const p of looseProps){
+ const barrel=p.kind==='barrel';
+ const geometry=barrel?new THREE.CylinderGeometry(p.radius*.85,p.radius*.85,.84,10):
+   new THREE.BoxGeometry(p.radius*1.55,.84,p.radius*1.55);
+ const material=new THREE.MeshStandardMaterial({color:barrel?0x4f7571:0x8d703e,
+   roughness:.86,metalness:barrel?.48:.20,flatShading:true});
+ const mesh=new THREE.Mesh(geometry,material);
+ mesh.position.set(p.x,barrel?p.radius*.85:.44,p.z);
+ if(barrel){mesh.rotation.order='ZYX';mesh.rotation.z=Math.PI/2;}
+ mesh.castShadow=true;mesh.receiveShadow=true;
+ loosePropRoot.add(mesh);
+ loosePropMeshes.set(p.id,mesh);
+}
+let propImpacts=0;
 const extraObstacles=[];
 for(const [index,x,z] of [[0,-7,10],[1,-10,5],[2,8,8]]){
  const cone=new THREE.Mesh(new THREE.CylinderGeometry(.24,.42,1.15,6),markerMat);
@@ -82,7 +103,8 @@ function setCamera(){
 function reset(){
  state=createRigState();
  gait=createMotionSoundState();
- travel=0;worstGap=0;hitches=0;frameCount=0;
+ travel=0;worstGap=0;hitches=0;frameCount=0;propImpacts=0;
+ resetLabProps(looseProps);
  controls.cancelPointers();
  controls.recenterLook();
  setCamera();
@@ -98,6 +120,10 @@ function fit(){
 }
 $('family').addEventListener('change',fit);
 $('handling').addEventListener('change',reset);
+$('props-mode').addEventListener('change',()=>{
+ loosePropRoot.visible=$('props-mode').value==='on';
+ reset();
+});
 $('surface-mode').addEventListener('change',()=>{
  terrainVisuals.visible=$('surface-mode').value==='mixed';
  reset();
@@ -140,6 +166,13 @@ function loop(now){
     stepRig(state,{throttle:input.throttle,strafe:input.strafe,steer,brake:input.brake},DT,
       {...config,walkingAssistEnabled:$('handling').value==='assisted',
         groundGripScale:groundGripScale(ground)},world);
+    if($('props-mode').value==='on'){
+      const hits=stepLabProps(looseProps,state,{massKg:config.massKg,radiusM:config.collisionRadiusM},DT);
+      propImpacts+=hits.length;
+      if(soundOn)for(const hit of hits)soundSystemEvent('glance',{
+        cockpit:$('view').value==='cockpit',strength:hit.strength*.5,
+      });
+    }
     travel+=Math.hypot(state.x-beforeX,state.z-beforeZ);
     gait.contactFeet=advanceFootContacts(gait.contactFeet,state,$('family').value,DT);
     const events=advanceContactMotionSound(gait,soundFamilyFor($('family').value),Math.hypot(state.vx,state.vz),DT,gait.contactFeet);
@@ -155,6 +188,12 @@ function loop(now){
   arena.updateRigVisual(state,input.lookYaw,input.lookPitch,frameDt,{gait});
   arena.updatePilotingLabRig(state,gait,frameDt);
   arena.updateCombatEffects(frameDt);
+  for(const p of looseProps){
+    const mesh=loosePropMeshes.get(p.id);
+    mesh.position.x=p.x;mesh.position.z=p.z;
+    if(p.kind==='barrel')mesh.rotation.x=p.spin;
+    else mesh.rotation.z=p.lastImpact*.04;
+  }
   renderer.render(arena.scene,arena.camera);
   window.__m3ch4PilotingLabReady=true;
   frameCount++;
@@ -177,6 +216,7 @@ function loop(now){
     'CONTACT  '+(feet?.feet.map(f=>(f.side<0?'L':'R')+':'+(f.mode==='stance'?'PLANT':'STEP')).join(' / ')??'—'),
     'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',
     'DIST     '+travel.toFixed(1)+' m',
+    'SCRAP    '+($('props-mode').value==='on'?looseProps.length+' REACTIVE · '+propImpacts+' CONTACTS':'CLEAR'),
     'HITCHES  '+hitches+' (>40ms) · '+worstGap.toFixed(0)+' ms',
    ].join('\n');
   }
