@@ -32,6 +32,7 @@ import { muzzleRayFallsShort } from './barrelAimObstruction.js';
 import { locallyBlockedMuzzle } from './barrelHudClearance.js';
 import { rocketFlightStep } from './projectileSimulation.js';
 import { blastDamage } from './explosionResolution.js';
+import { createFiringEventState, triggerFiringEvent, advanceFiringEvent, firingProfile } from './firingEvent.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
@@ -1432,7 +1433,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         objectiveMaterial.color.setHex(presentation.contested ? 0xe16d4e : 0xd7a24b);
         objectiveMaterial.opacity = presentation.contested ? .82 : .58;
     }
-    let muzzleKick = 0;
+    const pilotFiringState=createFiringEventState();
+    let pilotFiringPose=pilotFiringState.pose;
     let muzzleFlash = 0;
     let pilotWeaponPresentation = { visualRecoil: 1, visualRecovery: 3.6, muzzleFlashSeconds: .10 };
     let pilotWeaponFault = false, pilotWeaponServicing = false, pilotServiceSparkBudget = 0;
@@ -1753,19 +1755,24 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             'YXZ');
         const pilotServiceSag = pilotWeaponFault ? (pilotWeaponServicing ? .20 : .13) : 0;
         const pilotRecoveryLift = pilotWeaponRecoveryKick * .09;
-        gunPivot.rotation.set(lookPitch * .85 + muzzleKick * .042 + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
+        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
-        gunPivot.position.z = -0.62 + muzzleKick * .19;
+        gunPivot.position.z = -0.62 + pilotFiringPose.travel * .19;
         // Actual reload timer drives the pilot-visible breech. A moving
         // mechanism is shown even though the audio recipe stays unchanged.
         const reload=reloadArticulation(serviceVisual?.reloadLeft??0,
             serviceVisual?.reloadSeconds??0,pilotWeaponPresentation.id);
-        cockpit.userData.gunBreech.position.z=-.19+reload.slide;
-        cockpit.userData.gunBreech.position.y=reload.bolt*.24;
-        cockpit.userData.scatterGreebles.position.y=-reload.cassette;
+        cockpit.userData.gunBreech.position.z=-.19+reload.slide+pilotFiringPose.bolt*.105;
+        cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
+        cockpit.userData.scatterGreebles.position.y=-reload.cassette-pilotFiringPose.feeder*.052;
+        for(const kit of Object.values(cockpit.userData.weaponKits)){
+            if(!kit.visible)continue;
+            kit.userData.carriage.position.z=pilotFiringPose.bolt*.13;
+            kit.userData.carriage.position.y=pilotFiringPose.stop*.024;
+        }
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
-        cockpit.rotation.set(cockpitPitch + hitPitchKick, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
+        cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
         if (inspecting) {
@@ -2224,6 +2231,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const breech = cockpit.userData.gunBreech;
         gunPivot.visible = !!spec;
         pilotWeaponPresentation = spec ?? { visualRecoil: 1, visualRecovery: 3.6, muzzleFlashSeconds: .10 };
+        pilotFiringState.pulses.length=0;
+        pilotFiringPose=pilotFiringState.pose={travel:0,mount:0,cab:0,bolt:0,stop:0,feeder:0,active:false};
+        for(const [id,kit] of Object.entries(cockpit.userData.weaponKits))kit.visible=!!spec&&id===spec.id;
         if (!spec)
             return;
         const extension = Math.max(.48, Math.abs(spec.muzzleZ + .62));
@@ -2731,12 +2741,47 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 .55 + i * .13, .13 + i * .04, -3.5, 0, 0xf2da91);
         }
     }
+    /** Called ONCE when a round is consumed. Never by pellets or delayed contacts.
+     * Preallocated low-poly meshes and pooled particles; no firing-time geometry.
+     */
+    function triggerPilotFiringEvent(weaponId,{muzzle=null,point=null,brace=0,condition=1,shotIndex=0}={}) {
+        const profile=triggerFiringEvent(pilotFiringState,weaponId,{brace,condition});
+        muzzleFlash=Math.max(muzzleFlash,weaponId==='gun-arc'?.025:
+            weaponId==='gun-rivet'?.043:(pilotWeaponPresentation.muzzleFlashSeconds??.09));
+        if(!muzzle||!profile.blast||weaponId==='gun-rivet'&&shotIndex%3!==1)return;
+        // Vented soot, close-range pressure dust, and one unshadowed flash.
+        // Heavy guns get more particles, but all use existing bounded pools.
+        const count=Math.min(5,Math.max(1,Math.ceil(profile.blast*.5)));
+        const direction=point?.isVector3?point.clone().sub(muzzle).normalize():
+            new THREE.Vector3(0,0,-1).applyQuaternion(gunPivot.getWorldQuaternion(new THREE.Quaternion()));
+        if(profile.blast>=4)flashDamageLight(muzzle,0xf1b565,Math.min(4,profile.blast*.40),.055,3);
+        for(let i=0;i<count;i++){
+            const velocity=direction.clone().multiplyScalar(.65+i*.25)
+                .add(new THREE.Vector3((i%2?1:-1)*.24,.12+i*.06,(i%3-1)*.15));
+            activateParticle(smokePool,'smoke',muzzle,velocity,.30+i*.09,
+                .24+i*.05,0,.26,0x43413a,true);
+        }
+        if(profile.blast>=6&&muzzle.y<3.6){
+            const ground=muzzle.clone();ground.y=Math.max(.07,ground.y-1.65);
+            for(let i=0;i<2;i++)
+                activateParticle(chipPool,'chip',ground,
+                    new THREE.Vector3((i?1:-1)*1.0,.45,-.3),.5,.28,-1.7,0,0x88765a);
+        }
+    }
+    function triggerCombatantFiringEvent(id,weaponId,{brace=0,condition=1}={}) {
+        const record=squadCombatants.get(id);
+        if(!record)return;
+        const profile=firingProfile(weaponId);
+        record.recoilKick=Math.min(.42,(record.recoilKick??0)+profile.travel*.21);
+        record.recoilRecovery=1/Math.max(.09,profile.recovery);
+        // The shooter, not a bullet/pellet impact, owns this impulse animation.
+        if(!record.firingState)record.firingState=createFiringEventState();
+        triggerFiringEvent(record.firingState,weaponId,{brace,condition});
+    }
     function showShot(contact, outcome) {
         // Only actual world-cover hits add marks or rattle welded scraps.
         // This never changes penetration, damage, AI LOS or navigation.
         if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
-        muzzleKick = Math.min(1.6, muzzleKick + (pilotWeaponPresentation.visualRecoil ?? 1));
-        muzzleFlash = pilotWeaponPresentation.muzzleFlashSeconds ?? .10;
         const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xf4c77e : 0xc7a76f, transparent: true, opacity: .92 });
@@ -2862,12 +2907,6 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
         const shooter = squadCombatants.get(shooterId);
         const friendly = shooter?.team === 'friendly';
-        if (shooter) {
-            const weaponId = installedPart(shooter.assembly, 'combat')?.definition.id;
-            const profile = weaponId === 'gun-scatter' ? {kick:.36,recovery:1.55} : weaponId === 'gun-short' ? { kick: .24, recovery: 1.9 } : weaponId === 'gun-light' ? { kick: .085, recovery: 4.2 } : { kick: .15, recovery: 2.8 };
-            shooter.recoilKick = Math.min(.42, (shooter.recoilKick ?? 0) + profile.kick);
-            shooter.recoilRecovery = profile.recovery;
-        }
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({
             color: friendly ? 0x8be1b0 : 0xff9e62, transparent: true, opacity: .86,
@@ -3000,7 +3039,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         flushSurfaceMarks(2);
         surfaceMarks.update();
         victoryStage?.scars.update();
-        muzzleKick = Math.max(0, muzzleKick - dt * (pilotWeaponPresentation.visualRecovery ?? 3.6));
+        pilotFiringPose=advanceFiringEvent(pilotFiringState,dt);
+        for(const record of squadCombatants.values())
+            if(record.firingState)advanceFiringEvent(record.firingState,dt);
         muzzleFlash = Math.max(0, muzzleFlash - dt);
         for (const record of squadCombatants.values()) record.recoilKick = Math.max(0, (record.recoilKick ?? 0) - dt * (record.recoilRecovery ?? 3.2));
         const hitDecay = Math.exp(-8.5 * dt);
@@ -3190,7 +3231,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
         beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,victoryNameplateAnchors,setPitPresentation,
         playWorkshopAction,
-        traceShot, predictShotObstruction, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
+        traceShot, predictShotObstruction, showShot, triggerPilotFiringEvent, triggerCombatantFiringEvent, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
     };
@@ -3681,6 +3722,41 @@ function buildCockpit(scene) {
     cockpit.add(gunPivot);
     cockpit.userData.gunPivot = gunPivot;
     // Reusable (never per-shot) physical scattergun ironwork in pilot view.
+    // Dedicated weapon actions: 4–6 chunky primitives each, constructed ONCE.
+    // Each is a reusable part of the gun, not a floating decorative HUD graphic.
+    const weaponKits={};
+    const kit=(id,fixed,moving)=>{
+        const group=new THREE.Group(),carriage=new THREE.Group();
+        for(const [x,y,z,w,h,d,finish] of fixed){
+            const piece=box(w,h,d,finish==='teal'?teal:finish==='dark'?dark:metal);
+            piece.position.set(x,y,z);group.add(piece);
+        }
+        for(const [x,y,z,w,h,d] of moving){
+            const piece=box(w,h,d,metal);piece.position.set(x,y,z);carriage.add(piece);
+        }
+        group.add(carriage);group.userData.carriage=carriage;
+        group.visible=false;gunPivot.add(group);weaponKits[id]=group;
+    };
+    kit('gun-cannon',[[-.20,-.15,-.31,.12,.15,.82,'metal'],[.20,-.15,-.31,.12,.15,.82,'metal']],
+        [[0,.20,.00,.34,.17,.28]]);
+    kit('gun-short',[[-.29,-.12,-.48,.16,.20,.98,'dark'],[.29,-.12,-.48,.16,.20,.98,'dark'],
+        [0,.22,-.52,.56,.12,.21,'teal']],[[0,.06,.19,.49,.40,.39]]);
+    kit('gun-light',[[-.13,-.10,-.72,.07,.09,1.28,'metal'],
+        [.13,-.10,-.72,.07,.09,1.28,'metal']],[[0,.13,.12,.19,.11,.34]]);
+    kit('gun-scatter',[[-.31,-.17,-.48,.12,.14,.68,'dark'],
+        [.31,-.17,-.48,.12,.14,.68,'dark']],[[0,-.29,.08,.48,.25,.43]]);
+    kit('gun-rivet',[[-.22,.10,-.63,.12,.13,1.08,'teal'],
+        [.22,.10,-.63,.12,.13,1.08,'teal'],
+        [-.24,-.32,-.20,.30,.18,.66,'dark']],[[0,.20,.10,.31,.18,.28]]);
+    kit('gun-breaker',[[-.35,-.06,-.69,.21,.27,.89,'dark'],
+        [.35,-.06,-.69,.21,.27,.89,'dark'],
+        [0,.25,-.92,.58,.17,.20,'teal']],[[0,.08,.26,.62,.41,.38]]);
+    kit('gun-rocket',[[-.28,-.09,-.67,.22,.23,1.02,'teal'],
+        [.28,-.09,-.67,.22,.23,1.02,'teal'],
+        [0,.15,-.78,.22,.23,1.01,'dark']],[[0,.09,.14,.47,.17,.37]]);
+    kit('gun-arc',[[-.24,-.09,-.83,.14,.14,.95,'teal'],
+        [.24,-.09,-.83,.14,.14,.95,'teal']],[[0,.06,-.29,.30,.29,.28]]);
+    cockpit.userData.weaponKits=weaponKits;
     const scatterGreebles=new THREE.Group();
     const chokeRing=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.14,8),
         new THREE.MeshStandardMaterial({color:0x8f713e,roughness:.81,metalness:.24}));
