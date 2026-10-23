@@ -73,6 +73,41 @@ function instancedPosts(parent,sites,shape,hex){
   mesh.userData.backlotVisualOnly=true;
   parent.add(mesh);
 }
+/** Instance only identical, noninteractive pieces of visual-only
+ * fixtures. Preserves their actual world transform, texture, material, and
+ * appearance. Does not touch scenario collider meshes or the arena map.
+ */
+export function batchBacklotFixtures(root){
+  const groups=new Map();
+  let boxes=0;
+  for(const node of [...root.children]){
+    if(!node.isMesh||node.isInstancedMesh||node.geometry?.type!=='BoxGeometry'||
+      !node.userData?.backlotVisualOnly)continue;
+    boxes++;
+    const key=node.geometry.uuid+':'+node.material.uuid;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(node);
+  }
+  let batchedMeshes=0,instances=0;
+  for(const items of groups.values()){
+    if(items.length<2)continue;
+    const mesh=new THREE.InstancedMesh(items[0].geometry,items[0].material,items.length);
+    for(let i=0;i<items.length;i++){
+      const original=items[i];
+      original.updateMatrix();
+      mesh.setMatrixAt(i,original.matrix);
+      root.remove(original);
+    }
+    mesh.instanceMatrix.needsUpdate=true;
+    mesh.castShadow=false;mesh.receiveShadow=true;
+    mesh.userData.backlotVisualOnly=true;
+    root.add(mesh);
+    batchedMeshes++;
+    instances+=items.length;
+  }
+  return Object.freeze({sourceBoxMeshes:boxes,batchedMeshes,instances,
+    callsSaved:instances-batchedMeshes});
+}
 export function buildBacklotDressing(world){
   const plan=backlotVisualPlan(world),group=new THREE.Group();
   group.name='backlot-dustbowl-visuals';
@@ -156,7 +191,9 @@ export function buildBacklotDressing(world){
   panel(group,signMaterial('BACKLOT','SCRAPYARD MOTOR CLUB'),
     6.6,2.4,(world.minX+world.maxX)/2,5,world.maxZ+.655,true);
 
+  const fixtureBatch=batchBacklotFixtures(group);
   group.userData.backlotStats={
+    fixtureBatch,
     facades:plan.obstacleFacades.length,
     floodlights:plan.floodlightBases.length,
     deckCount:plan.spectatorDecks.length,

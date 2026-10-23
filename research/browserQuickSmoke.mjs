@@ -20,6 +20,17 @@ try{
   }));
   if(initial.workspace!=='garage'||initial.stations!==5||initial.deploy!=='SELECT JOB')
     throw Error('Wrong garage startup: '+JSON.stringify(initial));
+  const backlot=await page.evaluate(async()=>{
+    const {activePlayerArena}=await import('./scene.js');
+    const scene=activePlayerArena()?.arena?.scene;
+    const group=scene?.getObjectByName('backlot-dustbowl-visuals');
+    let activeDrawObjects=0;
+    group?.traverse(mesh=>{if(mesh.isMesh)activeDrawObjects++;});
+    return {stats:group?.userData?.backlotStats,activeDrawObjects};
+  });
+  if(!backlot.stats||backlot.stats.fixtureBatch?.callsSaved<12||
+      backlot.stats.gameplayCollidersAdded!==0||backlot.activeDrawObjects>145)
+    throw Error('Mobile Backlot batching not active: '+JSON.stringify(backlot));
   await page.screenshot({path:'browser-smoke-artifacts/quick-garage.png'});
   await page.locator('#unified-garage .workshop-deploy').click();
   if(await page.locator('#unified-garage').getAttribute('data-workspace')!=='contracts')

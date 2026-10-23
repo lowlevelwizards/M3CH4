@@ -40,9 +40,10 @@ try {
     });
     return {visible:!!group,objects,stats,colliders,dynamicLights};
   });
-  if(!backlot.visible||backlot.objects<35||backlot.objects>145||
-     backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights)
-    throw Error('Backlot geometry or gameplay cover mismatch: '+JSON.stringify(backlot));
+  if(!backlot.visible||backlot.objects<25||backlot.objects>145||
+     backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights||
+     backlot.stats?.fixtureBatch?.callsSaved<12)
+    throw Error('Backlot mobile batching or cover mismatch: '+JSON.stringify(backlot));
   console.log('DUSTBOWL: PASS · physical obstacle dressing, instanced fences, 4 floodlights, no new colliders');
 
   // k4s.1: an untouched garage must expose the physical machine, not a
