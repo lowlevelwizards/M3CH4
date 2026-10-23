@@ -21,6 +21,10 @@ const candidates={
   ['north-flanks',points([-20,-4],[0,12],[20,-4])],
  ],
  grainhouse:[
+  ['midpoint-z19',points([-10,-13],[24.5,-8],[11,19])],
+  ['midpoint-z19.5',points([-10,-13],[24.5,-8],[11,19.5])],
+  ['midpoint-z20',points([-10,-13],[24.5,-8],[11,20])],
+  ['midpoint-a12.5',points([-10,-12.5],[24.5,-8],[11,19])],
   ['previous-live',points([-10,-12],[25,-8.3],[11,20])],
   ['middle-z14',points([-10,-13],[24.5,-8],[11,14])],
   ['middle-z15',points([-10,-13],[24.5,-8],[11,15])],
