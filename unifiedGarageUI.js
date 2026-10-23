@@ -52,6 +52,20 @@ const oldDeploy = document.querySelector('#assembly-toggle');
 let storage = null, session = null;
 try { storage = window.localStorage; } catch { /* old storage warnings still apply */ }
 try { session = window.sessionStorage; } catch { /* display a blocking action message */ }
+const inspectedKey='m3ch4-inspected-module-serials-v1';
+let inspectedSerials=new Set();
+try {
+    const saved=storage?.getItem(inspectedKey);
+    // Existing players do not inherit an entire stockroom of fake NEW alerts.
+    const baseline=saved===null?loadStable(storage).stable.inventory.map(p=>p.serial):JSON.parse(saved);
+    if(Array.isArray(baseline))inspectedSerials=new Set(baseline.filter(x=>typeof x==='string'));
+    if(saved===null)storage?.setItem(inspectedKey,JSON.stringify([...inspectedSerials]));
+} catch { /* untracked if private storage is inaccessible */ }
+function markModuleInspected(serial){
+    if(!serial||inspectedSerials.has(serial))return;
+    inspectedSerials.add(serial);
+    try{storage?.setItem(inspectedKey,JSON.stringify([...inspectedSerials]));}catch{}
+}
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
@@ -373,7 +387,13 @@ function animateInspectorSwitch(){
 }
 function moduleStation(view) {
     const station = el('section','unified-stations');
+    const stable=loadStable(storage).stable;
+    const fitted=new Set(stable.rigs.flatMap(r=>Object.values(r.installed)));
     for (const item of view.health) {
+        const candidates=stable.inventory.filter(part=>BY_ID.get(part.definitionId)?.slot===item.slot);
+        const canFit=candidates.some(part=>!fitted.has(part.serial));
+        const hasNew=candidates.some(part=>!inspectedSerials.has(part.serial));
+        const repairable=!!item.serial&&(item.destroyed||Math.min(item.condition,item.armorRatio)<.995);
         const weakest = Math.min(item.condition, item.armorRatio);
         const state = !item.serial ? 'empty' : item.destroyed ? 'destroyed'
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
@@ -384,6 +404,7 @@ function moduleStation(view) {
                 detailsExpanded=false;rackView='ready';
             }
             const switched=selectedSlot!==item.slot;
+            if(item.serial)markModuleInspected(item.serial);
             selectedSlot = item.slot; // Repeated taps always open details.
             if(switched)animateInspectorSwitch();
             identityExpanded=false;
@@ -392,7 +413,12 @@ function moduleStation(view) {
             if (!paintExpanded) activePlayerArena()?.arena.revealPart?.(item.slot);
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(createStationFace(item.slot,item));
+        if(hasNew)node.append(el('span','station-signal station-new','●'));
+        if(repairable)node.append(el('span','station-signal station-repair','⚒'));
+        else if(canFit)node.append(el('span','station-signal station-add','+'));
         node.title=item.serial ? formatCondition(conditionFromPart(item)) : 'EMPTY STATION';
+        if(hasNew)node.title+=' · NEW PART AVAILABLE';
+        if(repairable)node.title+=' · NEEDS SERVICE';
         node.setAttribute('aria-label',stationLabel(item.slot)+' · '+node.title);
         node.setAttribute('aria-pressed',String(selectedSlot===item.slot));
         station.append(node);
@@ -566,7 +592,8 @@ function moduleDetails(stable, view, machine) {
             entry, thumbnailUrl: thumbnailFor(part, entry), value,
             selected: selectedHardwareSerial === part.serial,
             source: here ? 'FITTED HERE' : elsewhere ? 'BAY '+String(owner.bay).padStart(2,'0')+' · FITTED' : 'IN STORAGE',
-            onSelect: () => { selectedHardwareSerial = part.serial; render(); },
+            onSelect: () => { selectedHardwareSerial = selectedHardwareSerial===part.serial?null:part.serial;
+                markModuleInspected(part.serial); render(); },
         });
         card.classList.add('unified-part-card');
         const actual=ownerCondition(part);
@@ -782,7 +809,8 @@ function renderInventory(stable) {
             value:partCreditValue(item.def,item.condition,{wear:p.wear,destroyed:p.destroyed}),
             selected:inventorySerial===p.serial,
             source:item.owner?'BAY '+String(item.owner.bay).padStart(2,'0'):'STORED',
-            onSelect:()=>{inventorySerial=inventorySerial===p.serial?null:p.serial;render();},
+            onSelect:()=>{inventorySerial=inventorySerial===p.serial?null:p.serial;
+                markModuleInspected(p.serial);render();},
         });
         card.classList.add('inventory-card',item.owner?'inventory-fitted':'inventory-stored');
         card.dataset.location=item.owner?'equipped':'stored';

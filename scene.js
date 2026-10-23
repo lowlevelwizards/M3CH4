@@ -2299,7 +2299,9 @@ export function createArenaScene(initial, targetAssembly) {
           const eased=1-Math.pow(1-t,2.2);
           const moving=entry.operational&&t<1;
           const gait=moving?Math.min(1,Math.sin(t*Math.PI)*1.35):0;
-          const z=-3.8+eased*3.9;
+          // Disabled winners are recovery casualties, not motionless sliding props.
+          // They remain where they were staged while operational rigs walk forward.
+          const z=entry.operational?-3.8+eased*3.9:-3.8;
           entry.shadow.position.z=z;
           poseCombatantExterior(entry.record,{
             x:entry.x,z,yaw:Math.PI,

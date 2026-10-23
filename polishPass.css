@@ -186,3 +186,97 @@
 @media(prefers-reduced-motion:reduce){
   #unified-garage[data-workspace="garage"].part-switch #unified-garage-dock{animation:none}
 }
+
+/* Post-match breathing room: result text is a small nonblocking canopy.
+   Cockpit movement stays playable until the physical winner ceremony begins. */
+.sortie-outro.breather{
+    top:max(15%,env(safe-area-inset-top) + 38px);
+    width:max-content;max-width:min(72vw,520px);min-width:0;
+    padding:6px 13px 7px;border-width:1px;
+    background:#101912e5;box-shadow:0 5px 25px #0007;
+    pointer-events:none;z-index:36;
+}
+.sortie-outro.breather strong{font-size:clamp(11px,1.8vw,15px)}
+.sortie-outro.breather span{font-size:clamp(8px,1vw,10px);margin-top:3px}
+@media(max-height:450px){
+  .sortie-outro.breather{top:max(8%,env(safe-area-inset-top) + 30px)}
+}
+
+/* Station signals: available socket, new uninspected serial and a service wrench. */
+#unified-garage[data-workspace="garage"] .unified-station:has(.station-signal):after{
+    content:none;
+}
+#unified-garage .unified-station .station-signal{
+    position:absolute;display:flex;align-items:center;justify-content:center;
+    width:14px;height:14px;line-height:1;z-index:2;
+    background:#101b16;border:1px solid #526758;border-radius:50%;
+    font:900 12px/1 ui-monospace,monospace;pointer-events:none;
+}
+#unified-garage .unified-station .station-repair{
+    right:-3px;bottom:-3px;font-size:11px;color:#f6ad7b;border-color:#c1865e;
+}
+#unified-garage .unified-station .station-add{
+    right:-3px;bottom:-3px;color:#a4edb9;border-color:#6da77d;
+}
+#unified-garage .unified-station .station-new{
+    right:-3px;top:-3px;color:#f6d076;border-color:#d5a657;
+    font-size:14px;
+}
+
+/* Interactive score detail: six shared standings, one inspected pilot breakdown. */
+#sortie-debrief button.k4o-standing{
+    border:0;border-bottom:1px solid #61736455;
+    box-sizing:border-box;width:100%;min-width:0;min-height:22px;
+    padding:2px 9px;text-align:left;background:transparent;
+    cursor:pointer;touch-action:manipulation;
+}
+#sortie-debrief button.k4o-standing.player{background:#483923}
+#sortie-debrief button.k4o-standing.inspected{
+    outline:1px solid #c5a36c;outline-offset:-1px;background:#3a3829;
+}
+#sortie-debrief .k5p-score-inspector{
+    flex:0 0 auto;display:flex;flex-direction:column;gap:3px;
+    min-height:0;padding:5px 7px;border:1px solid #7e8c78;
+    background:#1b2923;box-sizing:border-box;
+}
+#sortie-debrief .k5p-score-inspector-name{
+    font:900 9px/1.15 ui-monospace,monospace;color:#e2c585;
+}
+#sortie-debrief .k5p-score-breakdown{
+    display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;
+}
+#sortie-debrief .k5p-score-breakdown span{min-width:0;display:grid;gap:2px}
+#sortie-debrief .k5p-score-breakdown small{
+    font:800 7px/1.15 ui-monospace,monospace;color:#91af9c;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#sortie-debrief .k5p-score-breakdown b{
+    font:900 12px/1.15 ui-monospace,monospace;color:#e3bd72;
+}
+#sortie-debrief .debrief-row.primary:first-child{
+    background:#42331d;border:1px solid #e6b467;
+}
+#sortie-debrief .debrief-row[data-finance="net"]{
+    background:#4a3e24;border:1px solid #dfb672;
+    padding:8px 11px;grid-column:1/-1;
+}
+#sortie-debrief .debrief-row[data-finance="net"] span{
+    color:#e9d09a;font-size:12px;font-weight:900;
+}
+#sortie-debrief .debrief-row[data-finance="net"] strong{
+    color:#f5d18a;font-size:clamp(16px,2.5vw,22px);
+}
+#sortie-debrief .debrief-row[data-finance="estimate"]{
+    border:1px dashed #8a7659;background:#242019;
+}
+#sortie-debrief .debrief-row[data-finance="estimate"] strong{
+    color:#adbea4;
+}
+@media(max-width:720px){
+  #sortie-debrief .k5p-score-breakdown{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:4px}
+  #sortie-debrief .k5p-score-breakdown b{font-size:10px}
+}
+@media(max-height:420px){
+  #sortie-debrief .k5p-score-inspector{padding:3px 5px}
+  #sortie-debrief .k5p-score-breakdown b{font-size:10px}
+}

@@ -4,11 +4,15 @@ on:
     paths:
       - 'unifiedGarageUI.js'
       - 'scene.js'
+      - 'main.js'
+      - 'acquisitionUI.js'
       - 'sceneAssembly.js'
+      - 'garageMountUI.js'
       - 'bayCycle.js'
       - 'polishPass.css'
       - 'index.html'
       - 'tests/k5p1BayNavigation.test.mjs'
+      - 'tests/k5p1Presentation.test.mjs'
       - '.github/workflows/k5p1-workshop-polish.yml'
   push:
     branches: [polish/k5p1-interaction-and-workshop-fixes]
@@ -23,6 +27,6 @@ jobs:
           node-version: '22'
       - name: Syntax check affected JavaScript
         run: |
-          for f in unifiedGarageUI.js scene.js sceneAssembly.js bayCycle.js; do node --check "$f"; done
-      - name: Targeted navigation tests
-        run: node --test tests/k5p1BayNavigation.test.mjs
+          for f in unifiedGarageUI.js scene.js main.js acquisitionUI.js sceneAssembly.js garageMountUI.js bayCycle.js; do node --check "$f"; done
+      - name: Targeted polish regression tests
+        run: node --test tests/k5p1*.test.mjs
