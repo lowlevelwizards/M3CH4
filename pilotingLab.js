@@ -9,7 +9,8 @@ import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js';
 import {Controls,bodyFollowSteer} from './controls.js';
 import {createArenaScene} from './sceneAssembly.js?v=a2';
-import {soundFamilyFor,createMotionSoundState,advanceMotionSound} from './liveSystemsEvents.js';
+import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js';
+import {advanceFootContacts} from './footContactController.js';
 import {soundSystemEvent} from './audio.js';
 const $=id=>document.getElementById(id);
 const machine=makeTestAssembly();
@@ -116,7 +117,8 @@ function loop(now){
     stepRig(state,{throttle:input.throttle,strafe:input.strafe,steer,brake:input.brake},DT,
       {...config,walkingAssistEnabled:$('handling').value==='assisted'},world);
     travel+=Math.hypot(state.x-beforeX,state.z-beforeZ);
-    const events=advanceMotionSound(gait,soundFamilyFor($('family').value),Math.hypot(state.vx,state.vz),DT);
+    gait.contactFeet=advanceFootContacts(gait.contactFeet,state,$('family').value,DT);
+    const events=advanceContactMotionSound(gait,soundFamilyFor($('family').value),Math.hypot(state.vx,state.vz),DT,gait.contactFeet);
     if(soundOn)for(const id of events)soundSystemEvent(id,{cockpit:$('view').value==='cockpit',strength:id==='engine'?.2:.65});
     if(Math.abs(follow)>.001)controls.compensateBodyTurn(state.yaw-yawBefore);
     accumulator-=DT;iterations++;
