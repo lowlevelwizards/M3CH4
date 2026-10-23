@@ -40,6 +40,17 @@ jobs:
         run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=zipper --arrivals=slots --corridors=priority --out=/tmp/k5a3-zipper
       - name: Candidate E — physically adaptive traffic
         run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=adaptive --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-adaptive
+      - name: Stress physical adaptive coordination with eight matched seeds
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=8 --families=yard,kestrel,hauler --profiles=baseline --traffic=adaptive --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-adaptive-stress
+      - name: Stress physically gated hybrid right-of-way with same seeds
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=8 --families=yard,kestrel,hauler --profiles=baseline --traffic=hybrid --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-hybrid-stress
+      - name: Compare eight-seed coordination stress cohorts
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const read=(name)=>JSON.parse(fs.readFileSync('/tmp/k5a3-'+name+'-stress/results.json')).summary.events.filter(e=>e.n>0).map(e=>({id:e.id,n:e.n,pass:e.passRate,score:e.meanScore}));
+          console.log('SQUAD_STRESS '+JSON.stringify({adaptive:read('adaptive'),hybrid:read('hybrid')}));
+          "
       - name: Compare all five matched movement cohorts
         run: |
           node --input-type=module -e "
