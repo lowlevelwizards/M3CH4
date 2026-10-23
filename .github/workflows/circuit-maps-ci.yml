@@ -6,6 +6,8 @@ on:
       - 'main.js'
       - 'scene.js'
       - 'backlotDerbyWorld.js'
+      - 'backlotEnvironmentPass.js'
+      - 'tests/backlotEnvironmentPass.test.mjs'
       - 'research/circuitMapsBrowserSmoke.mjs'
       - 'sceneAssembly.js'
       - 'contracts.js'
