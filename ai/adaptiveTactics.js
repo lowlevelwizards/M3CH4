@@ -44,14 +44,16 @@ export function prioritizeVisibleTarget(actor,candidates,snapshot,order=null,cur
     const fireLane=facing<.95?.21:facing<1.8?.06:0;
     // A legitimate observed assailant outranks a distant routine target.
     // Threat identity alone never makes an unseen contact eligible.
-    const retaliate=candidate.id===threatId?(d<16?.65:.38):0;
+    const flankAngle=facing>1.65?1.2:facing>1?.7:0;
+    const retaliate=candidate.id===threatId?(d<16?1.0+flankAngle:.58):0;
     const interception=role==='INTERCEPT'?relevance*.14:0;
     // Anchors may shoot enemies in sight, but shouldn't turn every remote
     // skirmish into a reason to abandon their productive scoring footprint.
     const anchorDistance=order?.anchor&&order?.point?
       dist(candidate.rig,order.point):0;
     const anchorBias=order?.anchor?(anchorDistance<14?.32:-.32):0;
-    const designated=order?.targetActorId===candidate.id?.42:0;
+    const designated=order?.targetActorId===candidate.id?
+        (order?.role==='COUNTER_FLANK'?1.10:.42):0;
     return {candidate,score:relevance+service+targetBonus+retaliate+fireLane+
       interception+anchorBias+designated-Math.min(.9,d*.024)};
   });
