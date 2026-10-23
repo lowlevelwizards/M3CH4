@@ -115,6 +115,6 @@ test('startup gesture prepares sound, worker boot does not corrupt machine save 
   assert.doesNotMatch(audio,/storeMachine/);
   assert.match(html,/audioWarmup\.js\?v=k4w4/);
   assert.match(html,/audioRoom\.js\?v=k3w11/);
-  assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
+  assert.match(html,/0\.0\.1k\.5a\.5 — Contact-Driven Locomotion Audio/);
   assert.equal(Object.keys(LIVE_WEAPON_RECIPES).length,8);
 });
