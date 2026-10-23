@@ -5,6 +5,8 @@ on:
       - 'main.js'
       - 'index.html'
       - 'scene.js'
+      - 'backlotDressing.js'
+      - 'backlotVisualPlan.js'
       - 'sceneAssembly.js'
       - 'unifiedGarageUI.js'
       - 'garageMountUI.js'
