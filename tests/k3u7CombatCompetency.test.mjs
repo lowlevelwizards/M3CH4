@@ -153,7 +153,7 @@ test('production source uses fast local perception and near-miss warnings',()=>{
  const main=fs.readFileSync(new URL('../main.js',import.meta.url),'utf8');
  assert.match(main,/aiPerceptionCooldown=\.15/);
  assert.match(main,/warnNearbyAiFromShot\(FRIENDLY_TEAM,center\)/);
- assert.match(main,/counterFlankOrder\(/);
+ assert.match(main,/planCounterFlankResponses\(/);
  assert.match(main,/recordSubsystemHit\(/);
  assert.doesNotMatch(main,/actorOutput\.triggerSeconds\s*\*\s*\.55/);
 });
