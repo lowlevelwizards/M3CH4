@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
+import {reloadMechanism} from './reloadMechanism.js';
 
 // Builder tones retain their names; physical variants are explicitly chosen per mesh.
 export const WEAPON_MATERIALS=Object.freeze({
@@ -64,13 +65,80 @@ export function strut(parent,name,from,to,width,depth,tone='steel'){
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
   return mesh;
 }
+/** Four or fewer oversized chunks per kit: the replaceable ammunition
+ * carrier and a service latch. These are visual-only meshes: their animation
+ * cannot move a ballistic collider or masquerade as new target armor.
+ */
+export function attachReloadHardware(root,id){
+ const profile=reloadMechanism(id),form=profile.feedStyle;
+ const feed=group(root,'RELOAD / physical '+form+' carrier',[.28,-.25,.41]);
+ if(form==='shell'||form==='penetrator'){
+   tube(feed,'RELOAD / heavy chambered shell',[0,0,0],
+     form==='penetrator'?.13:.16,form==='penetrator'?.52:.42,
+     form==='penetrator'?'machined':'shells');
+   block(feed,'RELOAD / breech head',[0,0,.21],[.30,.22,.10],'steel');
+ }else if(form==='clip'||form==='tray'){
+   block(feed,'RELOAD / rectangular ammunition shuttle',[0,0,0],
+     form==='clip'?[.17,.21,.39]:[.35,.19,.34],'olive');
+   block(feed,'RELOAD / forward brass nose',[0,0,-.20],[.15,.12,.10],'raw');
+ }else if(form==='cassette'){
+   block(feed,'RELOAD / industrial six-shot cassette',[0,0,0],[.39,.37,.42],'shells');
+   for(const y of [-.10,.10])tube(feed,'RELOAD / large shell '+y,[0,y,-.24],.09,.10,'raw');
+ }else if(form==='drum'){
+   bearing(feed,'RELOAD / heavy feed drum',[0,0,0],.29,.24,'olive');
+   bearing(feed,'RELOAD / central locking hub',[.16,0,0],.09,.035,'machined');
+ }else if(form==='rack'){
+   block(feed,'RELOAD / sliding triple rocket carrier',[0,0,0],[.52,.28,.50],'olive');
+   for(const x of [-.16,0,.16])tube(feed,'RELOAD / visible rocket '+x,
+        [x,.06,-.13],.065,.38,'raw');
+ }else{
+   block(feed,'RELOAD / power cell',[0,0,0],[.33,.37,.29],'teal');
+   block(feed,'RELOAD / copper contacts',[0,.22,0],[.26,.09,.22],'raw');
+ }
+ // Broad, readable latch, never a tiny decorative hinge.
+ const latch=group(root,'RELOAD / battery locking jaw',[0,.34,.35]);
+ block(latch,'RELOAD / massive catch',[0,0,0],[.35,.14,.23],'machined');
+ const guide=group(root,'RELOAD / fixed ammunition feed track',[.24,-.20,.24]);
+ block(guide,'RELOAD / feeding rails',[0,0,0],[.13,.12,.46],'dark');
+ root.traverse(node=>{if(node.isMesh&&(feed===node.parent||latch===node.parent||guide===node.parent))
+   node.userData.visualOnly=true;});
+ feed.visible=false;
+ return {feed,latch,rest:{feed:feed.position.clone(),latch:latch.position.clone()}};
+}
+export function poseReloadHardware(mechanism,phase){
+ const loader=mechanism?.loader;
+ if(!loader)return;
+ const {feed,latch,rest}=loader;
+ feed.visible=!!phase?.feedVisible;
+ const shift=phase?.feed??0;
+ const displacement=phase?.cassette??0;
+ const style=mechanism.feedAxis??'z';
+ // Both the disengaged carrier and incoming rounds move on large,
+ // physically readable mechanical guides, never across open air.
+ if(style==='x'){
+   feed.position.set(rest.feed.x+displacement*.90-shift*.38,
+     rest.feed.y+.11*shift,rest.feed.z-.31*shift);
+ }else if(style==='y'){
+   feed.position.set(rest.feed.x-.14*shift,
+     rest.feed.y-displacement+.29*shift,rest.feed.z-.27*shift);
+ }else{
+   feed.position.set(rest.feed.x-.18*shift,
+     rest.feed.y+.12*shift,rest.feed.z+displacement*.35-.42*shift);
+ }
+ latch.position.copy(rest.latch);
+ latch.position.y-=phase?.slide*.35??0;
+ latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*-.42;
+}
+
 /** The model's serviceable moving elements use their own authored rest pose.
  * All values are presentation-only; reload/firing rules stay in combat.js.
  */
 export function finishWeapon(root,{carriage,bolt,cassette=null}){
   if(!carriage||!bolt)throw new Error('Weapon missing physical moving action');
+  const loader=attachReloadHardware(root,root.userData.fitFixtureId);
   root.userData.weaponMechanism={
-    carriage,bolt,cassette,
+    carriage,bolt,cassette,loader,
+    feedAxis:reloadMechanism(root.userData.fitFixtureId).feedAxis,
     rest:{
       carriage:carriage.position.clone(),
       bolt:bolt.position.clone(),
