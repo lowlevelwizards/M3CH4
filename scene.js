@@ -28,6 +28,7 @@ import { impactProfile, integrityRatio, persistentFailureProfile } from './damag
 import { combinerTetherFromLook } from './cockpitView.js';
 import { firstCoverHit } from './coverTruth.js';
 import { muzzleRayFallsShort } from './barrelAimObstruction.js';
+import { locallyBlockedMuzzle } from './barrelHudClearance.js';
 import { rocketFlightStep } from './projectileSimulation.js';
 import { blastDamage } from './explosionResolution.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
@@ -2650,7 +2651,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     function predictShotObstruction(muzzleZ) {
         if(inspecting || !Number.isFinite(muzzleZ)) return null;
         const contact=traceShot(0,0,muzzleZ);
-        if(!contact.aimObstructed)return null;
+        if(!locallyBlockedMuzzle(contact))return null;
         const hitSquad=contact.actorId?squadCombatants.get(contact.actorId):null;
         if(hitSquad?.team==='friendly')return 'friendly';
         return 'cover';
