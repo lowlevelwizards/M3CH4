@@ -19,7 +19,7 @@ import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironme
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
-import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b5';
+import {advanceFootContacts,createFootContacts,footPresentation,registerFootImpact} from './footContactController.js?v=k5r5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { physicsYawToViewYaw } from './locomotion.js';
 import {BACKLOT} from './maps/backlot.js?v=k5q2';
@@ -903,6 +903,21 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             disabled:outcome.justDisabled||outcome.justDestroyed,
             slot:outcome.slot,
         });
+        // A struck mech catches ACTUAL momentum through its already-planted
+        // visual foot contacts. No shove, steering lock, collider movement,
+        // second raycast or fabricated traction is introduced.
+        const contacts=contact.actorId==='player'?pilotFeet:record?.footContacts;
+        if(contacts&&outcome.impactImpulseNs>0){
+            const mobility=contact.actorId==='player'
+                ?latestPilotParts?.mobility:record?.condition?.parts?.mobility;
+            registerFootImpact(contacts,{
+                impulseNs:outcome.impactImpulseNs,massKg:outcome.impactMassKg??2400,
+                brace:outcome.impactBrace??0,directionX:localDirection.x,
+                directionZ:localDirection.z,pointX:localPoint.x,
+                damageHealth:mobility?.maxIntegrity>0?
+                    mobility.integrity/mobility.maxIntegrity:1,
+            });
+        }
         markBreachedArmor(contact,outcome);
     }
     let sparkCursor = 0, chipCursor = 0, smokeCursor = 0;
@@ -1248,6 +1263,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     function resetCockpitTransientFeedback() {
         hitPitchKick = hitRollKick = hitYawKick = hitShakeKick = gunDamageKick = 0;
+        pilotFeet=null;pilotLandingKick=0;
         Object.assign(pilotHitResponse,createHitResponse());
         powerBlackout = powerFlicker = 0;
         powerArcCooldown = 1.8;
@@ -1488,6 +1504,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         record.recoilKick = 0;
         record.hitResponse=createHitResponse();
         record.lastMobilityHitSide=0;
+        record.footContacts=null;
         clearFractures(record.fractureParts);
         if (record.articulation) {
             record.articulation.phase = 0;
@@ -2087,6 +2104,17 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     leg.ankle.rotation.z=pose.ankleRoll;
                     leg.foot.rotation.x=pose.foot;
                     leg.foot.rotation.z=pose.footRoll;
+                    // Support-side compression bends the knee and counters
+                    // through the ankle while the actual foot anchor holds.
+                    // Hauler absorbs load in its short compression columns;
+                    // the runner's longer travel is expressed in its step.
+                    const supportFoot=record.footContacts?.feet.find(f=>f.side===side);
+                    const hitLoad=(record.footContacts?.hitCatch?.force??0)*
+                        (supportFoot?.load??.5);
+                    const strutFlex=mobilityId==='legs-hauler'?.13:
+                        mobilityId==='legs-compact'?.085:.11;
+                    leg.knee.rotation.x-=hitLoad*strutFlex;
+                    leg.ankle.rotation.x+=hitLoad*strutFlex*.55;
                     const failedLeg=damaged.legs.find(item=>item.side===side);
                     if(failedLeg){
                         leg.hip.rotation.x+=failedLeg.hip;
@@ -2132,7 +2160,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 // secondary physical presentation, not yaw or hitbox motion.
                 frame.rotation.y=frameBase.rotation.y+aim.waist;
                 frame.rotation.z=frameBase.rotation.z+
-                    THREE.MathUtils.clamp((record.footContacts?.weightShift??0)*.033,-.036,.036);
+                    THREE.MathUtils.clamp((record.footContacts?.weightShift??0)*.033,-.036,.036)+
+                    (record.footContacts?.hitCatch?.force??0)*
+                    (record.footContacts?.hitCatch?.side??0)*.012;
                 // Shot shock travels through the structure, not through camera aim.
                 frame.rotation.x=frameBase.rotation.x+
                     (record.firingState?.pose.cab??0)*.42+
@@ -2190,6 +2220,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             record.contactPresentation=contact;
             root.position.y-=contact.drop;
             root.position.y-=(record.footContacts?.bodyCompression??0)*.24;
+            const catchLoad=record.footContacts?.hitCatch;
+            const catchForce=catchLoad?.force??0;
             const damage=1-health;
             root.rotation.x=THREE.MathUtils.clamp(
                 -(state.longitudinalAcceleration??0)*.008+
@@ -2211,8 +2243,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 active:record.active&&!record.wrecked,
             });
             root.position.y-=failed.rootDrop;
-            root.rotation.x+=failed.rootPitch+contact.pitch+(record.hitResponse?.pitch??0);
-            root.rotation.z+=failed.rootRoll+contact.roll+(record.hitResponse?.roll??0);
+            root.rotation.x+=failed.rootPitch+contact.pitch+(record.hitResponse?.pitch??0)+
+                catchForce*(catchLoad?.z??0)*.018;
+            root.rotation.z+=failed.rootRoll+contact.roll+(record.hitResponse?.roll??0)-
+                catchForce*(catchLoad?.x??0)*.025;
             root.position.y-=Math.abs(record.hitResponse?.translation??0)*.26;
         }
         root.updateWorldMatrix(true,true);
