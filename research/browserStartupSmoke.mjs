@@ -30,6 +30,7 @@ try {
   const backlot=await page.evaluate(async()=>{
     const {activePlayerArena}=await import('./scene.js');
     const arena=activePlayerArena()?.arena;
+    const mapId=arena?.scene?.getObjectByName('arena-environment')?.userData?.mapId;
     const group=arena?.scene?.getObjectByName('backlot-dustbowl-visuals');
     const stats=group?.userData?.backlotStats;
     let objects=0,colliders=0,dynamicLights=0;
@@ -38,13 +39,24 @@ try {
       if(node.userData?.arenaObstacleId)colliders++;
       if(node.isLight)dynamicLights++;
     });
-    return {visible:!!group,objects,stats,colliders,dynamicLights};
+    return {mapId,visible:!!group,objects,stats,colliders,dynamicLights};
   });
-  if(!backlot.visible||backlot.objects<25||backlot.objects>145||
-     backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights||
-     backlot.stats?.fixtureBatch?.callsSaved<12)
-    throw Error('Backlot mobile batching or cover mismatch: '+JSON.stringify(backlot));
-  console.log('DUSTBOWL: PASS · physical obstacle dressing, instanced fences, 4 floodlights, no new colliders');
+  // Early Circuit now starts at the selected contract's map, not always
+  // Backlot. Test Backlot batching ONLY when Backlot is actually loaded.
+  // The dedicated Backlot gallery/map suite checks its other entry paths.
+  if(!backlot.mapId)
+    throw Error('Loaded arena has no physical map ID: '+JSON.stringify(backlot));
+  if(backlot.mapId==='backlot-dustbowl'){
+    if(!backlot.visible||backlot.objects<25||backlot.objects>145||
+       backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights||
+       backlot.stats?.fixtureBatch?.callsSaved<12)
+      throw Error('Backlot mobile batching or cover mismatch: '+JSON.stringify(backlot));
+    console.log('DUSTBOWL: PASS · instanced fences and no new colliders');
+  }else{
+    // A non-Backlot mission should not accidentally instantiate Backlot.
+    if(backlot.visible)throw Error('Backlot visuals leaked into '+backlot.mapId);
+    console.log('DUSTBOWL: correct omission on venue '+backlot.mapId);
+  }
 
   // k4s.1: an untouched garage must expose the physical machine, not a
   // permanently expanded management column or another nested modal.
