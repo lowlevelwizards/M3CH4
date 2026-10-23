@@ -1498,8 +1498,6 @@ export function createArenaScene(initial, targetAssembly) {
         poseCombatantExterior(labRecord,state,{
             dt,gait,posture:{animationHealth:1},weaponFault:false,
         });
-        // Preserve the measured sole offset on the separate full-body preview.
-        exterior.root.position.y+=exterior.groundOffset??0;
     }
     function setAnimationPreview(mode='off',speed=3){
         const safe=['off','walk','strafe-left','strafe-right','turn','reload','disabled'].includes(mode)?mode:'off';
