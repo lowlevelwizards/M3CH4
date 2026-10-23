@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import {BACKLOT} from './maps/backlot.js';
-import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r5';
+import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r7';
 const $=id=>{const node=document.getElementById(id);if(!node)throw Error('Missing #'+id);return node;};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const stage=$('stage'),speed=$('gallery-speed'),selectEl=$('gallery-select');
@@ -152,10 +152,10 @@ function applyExperimentPresentation(e){
  greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
-  new:'CHUNK V4 · experimental anatomy only · not yet in combat',
+  new:'SOLID V5 · structural anatomy prototype · not in combat',
   old:'Unmodified current Backlot production prop · same camera',
   both:'New at LEFT · original at RIGHT',
- }[expState.view]+' · collider wireframes = CURRENT LIVE MAP AABBs';
+ }[expState.view]+' · '+(e.experiment.audit?.pass?'STRUCTURAL JOINS VERIFIED':'REVIEW STRUCTURAL JOINS')+' · collider wireframes = CURRENT LIVE MAP AABBs';
 }
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
@@ -192,6 +192,21 @@ colliderBtn.addEventListener('click',()=>{
  expState.colliders=!expState.colliders;applyExperimentPresentation(entries[active]);
 });
 document.body.classList.add('gallery-compact');
+$('gallery-angle-cycle').addEventListener('click',()=>{
+ const e=entries[active],front=e.experiment?.front==='-z'?-1:1;
+ const d=clamp(Math.max(e.width*1.65,e.depth*1.5,6.5),6.5,23);
+ const y=clamp(e.height*.68+1.2,1.8,10);
+ const target=new THREE.Vector3(e.x,e.height*.49,e.z);
+ viewMode=(viewMode+1)%4;
+ const position=[
+  new THREE.Vector3(e.x,y,e.z+front*d),
+  new THREE.Vector3(e.x+d,y,e.z),
+  new THREE.Vector3(e.x,y,e.z-front*d),
+  new THREE.Vector3(e.x+d*.18,e.height+d*.80,e.z+front*d*.12),
+ ][viewMode];
+ setPose(position,target);
+ $('gallery-angle-cycle').textContent='VIEW: '+['FRONT','SIDE','REAR','TOP'][viewMode];
+});
 $('gallery-ui-toggle').addEventListener('click',()=>{
  const compact=document.body.classList.toggle('gallery-compact');
  $('gallery-ui-toggle').textContent=compact?'DETAILS +':'DETAILS −';
@@ -203,7 +218,10 @@ function setPose(position,target){
  pitch=clamp(Math.atan2(delta.y,Math.hypot(delta.x,delta.z)),-1.43,1.43);
  camera.rotation.set(pitch,yaw,0,'YXZ');
 }
+let viewMode=-1;
 function focus(index){
+ viewMode=-1;
+ $('gallery-angle-cycle').textContent='VIEWS ↻';
  const last=entries[active];
  active=(index+entries.length)%entries.length;
  if(last!==entries[active]){
@@ -214,7 +232,7 @@ function focus(index){
  selectEl.value=String(active);
  $('gallery-current').textContent=e.label;
  $('gallery-count').textContent=(active+1)+' / '+entries.length;
- $('gallery-description').textContent=e.detail+' · '+e.width.toFixed(1)+' × '+
+ $('gallery-description').textContent=e.detail+(e.experiment?.audit?(' · '+e.experiment.audit.checked+' structural joins '+(e.experiment.audit.pass?'verified':'NEED REVIEW')):'')+' · '+e.width.toFixed(1)+' × '+
    e.depth.toFixed(1)+' m · '+e.height.toFixed(1)+' m HIGH · '+e.id;
  selectionLine.position.set(e.x,0,e.z);selectionLine.visible=true;
  updateExperimentControls(e);
@@ -352,7 +370,12 @@ try{
  resize();focus(0);
  window.__backlotGalleryReady={...stats,mapVersion:BACKLOT.version,
   hasFreeCamera:true,experimentId:entries.find(e=>e.experiment)?.id||null,
-  experimentalIds:entries.filter(e=>e.experiment).map(e=>e.id)};
+  experimentalIds:entries.filter(e=>e.experiment).map(e=>e.id),
+  assemblyAudits:entries.filter(e=>e.experiment).map(e=>({
+   id:e.id,checked:e.experiment.audit?.checked||0,
+   pass:e.experiment.audit?.pass===true,
+   failures:e.experiment.audit?.failures||[],
+  }))};
  requestAnimationFrame(render);
 }catch(error){
  $('gallery-error').hidden=false;

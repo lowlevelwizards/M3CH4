@@ -1,4 +1,4 @@
-/** Backlot k.5r.5: bold, chunky anatomy-first machine prototypes. DEV gallery only.
+/** Backlot k.5r.6: integrated, chunky solid-core mechanical anatomy. DEV gallery only.
  * Structural volumes are built independently of the game's AABB cover.
  * No false claims about traversable gaps or bullet collision are made.
  */
@@ -62,6 +62,17 @@ export function buildAnatomicalLoader(root){
  axlePair(g,'rear-final-drive',-2.05,2.05,1.07,1.21,I);
  for(const z of [-1.2,1.1])metal(g,'loader-bogie-cross-truss',
   3.90,.36,.42,0,.98,z,C.clay);
+ // Integrated transmission belly connects track carriers to the engine.
+ // The cab/windows and outside track loops remain genuinely open.
+ metal(g,'loader-main-transmission-belly',2.96,.96,3.88,0,1.01,.11,C.olive);
+ metal(g,'loader-operator-pedestal',2.16,.51,1.54,0,1.48,-.29,I);
+ metal(g,'loader-front-bulkhead',2.54,.62,.34,0,1.62,-1.14,R);
+ for(const side of [-1,1]){
+  metal(g,'loader-bolted-track-cheek',.25,.65,2.22,
+    side*1.55,1.29,-.24,C.clay);
+  metal(g,'loader-final-drive-guard',.35,.64,.93,
+    side*1.49,1.12,1.43,R);
+ }
  // Rear engine is a block only where there is an actual engine.
  rustPanel(g,'rear-diesel-crankcase',2.66,1.04,1.55,0,1.62,1.23,C.olive,R);
  for(let z=.84;z<1.74;z+=.39){
@@ -72,6 +83,7 @@ export function buildAnatomicalLoader(root){
   for(let i=0;i<3;i++)metal(g,'rear-engine-cooling-louvre',
    .12,.16,.30,s*1.36,1.74,.83+i*.40,D);
  }
+ metal(g,'loader-hood-forward-shoulder',2.50,.48,.54,0,1.72,.58,C.olive);
  // Center cab: open sightlines, real seat, canopy, four structural posts.
  const cab=new THREE.Group();cab.name='loader-open-operator-station';
  g.add(cab);
@@ -139,8 +151,22 @@ export function buildAnatomicalCombine(root){
   for(let i=0;i<3;i++)metal(g,'thresher-vent-row',
     .13,.12,.33,s*1.62,1.73+i*.25,.10,D);
  }
+ // Substantial threshing body: the grain tank and cab must sit on a
+ // contiguous machine, not hover above an exposed farm-tractor frame.
+ metal(g,'combine-solid-thresher-core',3.12,1.84,3.93,0,2.03,.55,C.olive);
+ metal(g,'combine-lower-axle-belly',2.48,.66,3.76,0,1.10,.60,I);
+ metal(g,'combine-supported-grain-bin',3.19,.67,2.47,0,3.10,.57,Y);
+ for(const side of [-1,1])
+  metal(g,'combine-heavy-service-cheek',.18,1.35,1.43,
+    side*1.66,1.92,.58,C.clay);
  // Elevated glass-free cab exposes the actual operator station.
  metal(g,'operator-platform',2.32,.25,1.55,0,2.07,-1.95,I);
+ // Keep genuine window openings above the joined lower operator cell.
+ metal(g,'combine-operator-footwell',2.17,.56,1.43,0,2.27,-1.96,C.clay);
+ metal(g,'combine-cab-rear-firewall',2.28,1.18,.24,0,2.47,-1.41,C.olive);
+ metal(g,'combine-low-windscreen-dash',2.24,.44,.21,0,2.47,-2.56,P);
+ for(const side of [-1,1])metal(g,'combine-lower-cab-door',
+   .18,.53,1.30,side*1.13,2.42,-1.98,R);
  for(const s of [-1,1]){
   for(const z of [-2.55,-1.43])
    f(g,'harvester-cab-upright',[s*1.02,2.05,z],[s*1.07,3.33,z],.15,C.paint);
@@ -149,11 +175,15 @@ export function buildAnatomicalCombine(root){
  metal(g,'harvester-cab-roof',2.68,.26,1.58,0,3.38,-2.0,C.paint);
  metal(g,'cab-seat',.93,.22,.76,0,2.34,-1.70,C.rubber);
  ring(g,'harvester-steering-wheel',.31,.072,0,2.72,-2.3,D,'z',10);
+ metal(g,'combine-reinforced-feeder-case',1.88,.59,1.91,0,1.14,-2.37,I);
+ metal(g,'combine-feeder-hinge-housing',2.12,.62,.33,0,1.30,-1.58,R);
  // Open feeder throat connects the header to the threshing chamber.
  for(const s of [-1,1])f(g,'feeder-throat-side-rail',
   [s*.66,1.34,-1.7],[s*.88,1.03,-3.11],.22,S);
  // Distinct wide cutting header and rotating reel drum.
  const headerZ=-3.24;
+ metal(g,'combine-header-receiving-trough',5.52,.48,.67,0,.75,-3.31,C.clay);
+ metal(g,'combine-header-centre-intake',1.92,.61,.76,0,.92,-3.10,R);
  metal(g,'header-cutter-bar',5.90,.32,.38,0,.57,headerZ-.38,I);
  cylinder(g,'open-header-reel-shaft',.20,5.24,0,1.21,headerZ,S,'x',9);
  for(const s of [-1,1]){
@@ -193,9 +223,21 @@ export function buildAnatomicalPickup(root){
  }
  metal(g,'pickup-tailgate-dented',2.20,.65,.17,0,1.37,-2.40,P)
   .rotation.y=.06;
+ // The complete engine bay and bulkhead join the hood to the chassis.
+ // Front wheels and upper window apertures remain unobstructed.
+ metal(g,'pickup-deep-engine-bay',1.79,.77,1.94,0,1.07,1.40,I);
+ metal(g,'pickup-firewall-bellhousing',1.86,.65,.63,0,1.10,.31,C.clay);
+ for(const side of [-1,1]){
+  metal(g,'pickup-front-quarter-panel',.20,.55,1.64,
+   side*.85,1.47,1.56,P);
+  metal(g,'pickup-rocker-sill',.25,.40,1.37,
+   side*.91,.89,-.18,I);
+ }
  // Cab is framed as a greenhouse, rather than an opaque upright box.
  metal(g,'cab-firewall',2.05,1.06,.17,0,1.43,.04,R);
  metal(g,'pickup-cab-floor',2.06,.22,1.45,0,.97,-.13,I);
+ metal(g,'pickup-solid-rear-cab-wall',2.01,.95,.22,0,1.53,-.76,C.clay);
+ metal(g,'pickup-lower-dashboard',1.95,.43,.28,0,1.51,.56,I);
  for(const s of [-1,1]){
   f(g,'pickup-a-pillar',[s*.95,1.31,.66],[s*.89,2.32,.44],.15,R);
   f(g,'pickup-b-pillar',[s*.93,1.24,-.73],[s*.97,2.32,-.72],.17,R);
@@ -228,6 +270,9 @@ export function buildAnatomicalEngine(root){
  ladder(g,'engine-mount-sled',2.30,-2.0,2.0,.31);
  metal(g,'cast-open-crankcase',1.88,1.11,2.93,0,1.08,0,I);
  metal(g,'oil-sump-housing',1.46,.45,2.42,0,.51,0,C.clay);
+ metal(g,'engine-structural-gearbox-bell',1.92,.68,.80,0,.91,-1.26,R);
+ for(const side of [-1,1])
+  metal(g,'engine-bank-cast-shoulder',.34,.57,2.53,side*.75,1.47,0,C.clay);
  for(const s of [-1,1]){
   for(let i=0;i<3;i++){
    const z=-1.02+i*1.02;
@@ -264,6 +309,8 @@ export function buildAnatomicalCoupling(root){
   f(g,'gearbox-transverse-shaft',[s*.25,1.45,0],[s*1.28,1.45,0],.23,S);
  }
  metal(g,'gearcase-open-bottom',1.61,.78,1.68,0,.83,0,I);
+ metal(g,'coupling-lower-bearing-plinth',1.91,.66,1.78,0,.48,0,C.clay);
+ metal(g,'coupling-middle-drive-web',1.18,.68,1.09,0,1.23,0,I);
  for(const x of [-.83,.83])f(g,'drive-cage-post',
    [x,.45,-.88],[x,2.18,-.88],.18,R);
  f(g,'exposed-input-shaft',[0,1.46,-1.82],[0,1.46,-.25],.25,S);
@@ -273,14 +320,14 @@ export function buildAnatomicalCoupling(root){
  return g;
 }
 export const MACHINE_EXHIBITS=Object.freeze([
- {id:'loader',label:'TRACKED LOADER · CHUNK V4',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
+ {id:'loader',label:'TRACKED LOADER · SOLID V5',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
   match:o=>o.id.startsWith('loader-'),front:'-z',build:buildAnatomicalLoader},
- {id:'combine',label:'COMBINE HARVESTER · CHUNK V4',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
+ {id:'combine',label:'COMBINE HARVESTER · SOLID V5',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
   match:o=>o.artKit==='combine-harvester',front:'-z',build:buildAnatomicalCombine},
- {id:'pickup',label:'PICKUP WRECK · CHUNK V4',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
+ {id:'pickup',label:'PICKUP WRECK · SOLID V5',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
   match:o=>o.artKit==='pickup-wreck',build:buildAnatomicalPickup},
- {id:'engine',label:'ENGINE BANK · CHUNK V4',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
+ {id:'engine',label:'ENGINE BANK · SOLID V5',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
   match:o=>o.id.startsWith('exposed-engine-'),build:buildAnatomicalEngine},
- {id:'coupling',label:'GEAR COUPLING · CHUNK V4',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
+ {id:'coupling',label:'GEAR COUPLING · SOLID V5',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
   match:o=>o.id.startsWith('coupling-'),build:buildAnatomicalCoupling},
 ]);
