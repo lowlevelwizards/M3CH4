@@ -1,3 +1,4 @@
+import {reloadPhase} from './reloadMechanism.js';
 /** M3CH4 k.3w.12–15: deterministic *presentation only* articulated motion.
  * Mobility meshes carry real hip/knee/ankle pivots. No pose modifies
  * acceleration, collisions, ammunition, hit points or serialization.
@@ -116,28 +117,9 @@ export function aimArticulation(targetYaw,targetPitch,dt,previous={
   const elevation=previous.elevation+(elevationTarget-previous.elevation)*rate*(fault?.20:1);
   return {waist,gun,elevation};
 }
+/** Preserve the original animation API; the authoritative choreography now
+ * spans eight authored mechanisms, all synchronized to combat.js timers.
+ */
 export function reloadArticulation(remaining,total,kind='gun-cannon'){
-  if(!Number.isFinite(total)||total<=0||!(remaining>0))return {slide:0,bolt:0,cassette:0};
-  const progress=clamp(1-remaining/total,0,1);
-  const smooth=(a,b,x)=>{let t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
-  const stroke=(a,b,c,d)=>smooth(a,b,progress)*(1-smooth(c,d,progress));
-  // Physical stages follow actual reloadSeconds; the animation cannot make
-  // a weapon fire earlier or create a fictional round.
-  if(kind==='gun-scatter')return {
-    slide:stroke(.08,.27,.65,.84)*.27,
-    bolt:stroke(.26,.43,.69,.86)*.12,
-    cassette:stroke(.16,.33,.69,.90)*.25,
-  };
-  if(kind==='gun-short')return {
-    slide:stroke(.10,.35,.67,.86)*.30,
-    bolt:stroke(.35,.48,.72,.90)*.22,cassette:0,
-  };
-  if(kind==='gun-light')return {
-    slide:stroke(.09,.30,.66,.88)*.20,
-    bolt:stroke(.17,.39,.72,.93)*.13,cassette:0,
-  };
-  return {
-    slide:stroke(.15,.40,.62,.85)*.20,
-    bolt:stroke(.30,.48,.70,.91)*.13,cassette:0,
-  };
+ return reloadPhase(remaining,total,kind);
 }

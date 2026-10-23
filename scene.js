@@ -19,6 +19,9 @@ import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironme
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
+import {attachReloadHardware,poseReloadHardware} from './weaponVisualKit.js';
+import {reloadMechanism} from './reloadMechanism.js';
+import {WEAPONS} from './combat.js';
 import {advanceFootContacts,createFootContacts,footPresentation,registerFootImpact} from './footContactController.js?v=k5r5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { physicsYawToViewYaw } from './locomotion.js';
@@ -1793,6 +1796,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             mechanism.bolt.position.copy(mechanism.rest.bolt);
             if(mechanism.cassette && mechanism.rest.cassette)
                 mechanism.cassette.position.copy(mechanism.rest.cassette);
+            poseReloadHardware(mechanism,null);
         }
     }
     // Standalone DEV proving ground uses the actual player model with no AI,
@@ -1875,7 +1879,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         const turn=animationPreviewMode==='turn'?Math.sin(previewTime*.63)*.28:0;
         const reloading=animationPreviewMode==='reload';
-        const total=installedPart(a.assembly,'combat')?.definition.id==='gun-scatter'?3.15:2.5;
+        const weaponId=installedPart(a.assembly,'combat')?.definition.id;
+        const total=WEAPONS[weaponId]?.reloadSeconds??2.5;
         const reloadLeft=reloading?total-(previewTime%total):0;
         poseCombatantExterior(a,{
             x:0,z:0,yaw:turn,vx:sideStep*speed,vz:sideStep?0:speed,
@@ -1969,9 +1974,13 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         cockpit.userData.scatterGreebles.position.y=-reload.cassette-pilotFiringPose.feeder*.052;
         const activeKit=cockpit.userData.weaponKits[pilotWeaponPresentation.id];
         if(activeKit?.visible){
-            activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13;
-            activeKit.userData.carriage.position.y=pilotFiringPose.stop*.024;
+            activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13+reload.slide*.68;
+            activeKit.userData.carriage.position.y=pilotFiringPose.stop*.024+reload.bolt*.28;
+            poseReloadHardware(activeKit.userData.reloadMechanism,reload);
         }
+        // The heavy loading mechanism transfers a small, visible load into
+        // the mounting without disturbing the ballistic barrel's sightline.
+        gunPivot.position.z = -.62+pilotFiringPose.travel*.19+reload.settle*.016;
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
         cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab + pilotHitResponse.pitch*.82, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll + pilotHitResponse.roll*.75, 'YXZ');
@@ -2191,8 +2200,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
                 combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
-                    (discharge?.travel??0)*.085;
+                    (discharge?.travel??0)*.085+reload.settle*.027;
                 const mechanism=combat.userData.weaponMechanism;
+                const reloadMechProfile=reloadMechanism(
+                    installedPart(record.assembly,'combat')?.definition.id);
                 if(mechanism){
                     const rest=mechanism.rest;
                     mechanism.carriage.position.z=rest.carriage.z+reload.slide+
@@ -2200,8 +2211,19 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14;
                     mechanism.bolt.position.z=rest.bolt.z+reload.bolt+
                         (discharge?.bolt??0)*.12;
-                    if(mechanism.cassette && rest.cassette)
+                    if(mechanism.cassette && rest.cassette){
                         mechanism.cassette.position.y=rest.cassette.y-reload.cassette;
+                        if(reload.active){
+                            if(reloadMechProfile.feedAxis==='x')
+                                mechanism.cassette.position.x=rest.cassette.x+reload.cassette*.8;
+                            if(reloadMechProfile.feedAxis==='z')
+                                mechanism.cassette.position.z=rest.cassette.z+reload.cassette*.40;
+                        }else{
+                            mechanism.cassette.position.x=rest.cassette.x;
+                            mechanism.cassette.position.z=rest.cassette.z;
+                        }
+                    }
+                    poseReloadHardware(mechanism,reload);
                 }
             }
             // Actual dynamic load and step contacts compress the physical
@@ -4013,6 +4035,8 @@ function buildCockpit(scene) {
             const piece=box(w,h,d,metal);piece.position.set(x,y,z);carriage.add(piece);
         }
         group.add(carriage);group.userData.carriage=carriage;
+        const loader=attachReloadHardware(group,id);
+        group.userData.reloadMechanism={loader,feedAxis:reloadMechanism(id).feedAxis};
         group.visible=false;gunPivot.add(group);weaponKits[id]=group;
     };
     kit('gun-cannon',[[-.20,-.15,-.31,.12,.15,.82,'metal'],[.20,-.15,-.31,.12,.15,.82,'metal']],
@@ -4142,7 +4166,7 @@ export function buildExteriorRig(assembly) {
             if (slot === 'combat' && sharedVisual.userData.weaponMechanism)
                 group.userData.weaponMechanism = sharedVisual.userData.weaponMechanism;
             sharedVisual.traverse(node => {
-                if (!node.isMesh) return;
+                if (!node.isMesh||node.userData.visualOnly) return;
                 node.userData.slot = slot;
                 node.castShadow = true; node.receiveShadow = true;
                 meshes.push(node);
