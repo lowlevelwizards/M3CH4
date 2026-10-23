@@ -6,9 +6,9 @@
  */
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const profiles=Object.freeze({
-  'legs-yard':Object.freeze({halfWidth:.65,neutralZ:0,reach:.28,lateralReach:.21,lift:.17,stepSeconds:.36}),
-  'legs-compact':Object.freeze({halfWidth:.51,neutralZ:-.02,reach:.38,lateralReach:.27,lift:.25,stepSeconds:.28}),
-  'legs-hauler':Object.freeze({halfWidth:.84,neutralZ:0,reach:.22,lateralReach:.15,lift:.12,stepSeconds:.46}),
+  'legs-yard':Object.freeze({halfWidth:.65,neutralZ:0,reach:.28,lateralReach:.21,lift:.17,stepSeconds:.36,prepareSeconds:.105,compression:.021}),
+  'legs-compact':Object.freeze({halfWidth:.51,neutralZ:-.02,reach:.38,lateralReach:.27,lift:.25,stepSeconds:.28,prepareSeconds:.072,compression:.014}),
+  'legs-hauler':Object.freeze({halfWidth:.84,neutralZ:0,reach:.22,lateralReach:.15,lift:.12,stepSeconds:.46,prepareSeconds:.14,compression:.036}),
 });
 export const footContactProfile=id=>profiles[id]??profiles['legs-yard'];
 const offsets=(state,side,p)=>{
@@ -18,13 +18,14 @@ const offsets=(state,side,p)=>{
 };
 const foot=(side,world)=>({side,mode:'stance',x:world.x,z:world.z,
   startX:world.x,startZ:world.z,targetX:world.x,targetZ:world.z,
-  swing:0,impact:0,landingCount:0,lift:0});
+  swing:0,impact:0,landingCount:0,lift:0,load:.5,compression:0,preparing:false});
 export function createFootContacts(state={x:0,z:0,yaw:0},family='legs-yard'){
   const p=footContactProfile(family);
   return {family,feet:[foot(-1,offsets(state,-1,p)),foot(1,offsets(state,1,p))],
     nextSide:-1,landings:0,lastLandingSide:0,lastLandingStrength:0,
     lastX:state.x??0,lastZ:state.z??0,lastYaw:state.yaw??0,
-    lastSpeed:0,pivot:false,stanceCount:2,slipM:0};
+    lastSpeed:0,pivot:false,stanceCount:2,slipM:0,
+    preparingSide:0,prepareLeft:0,weightShift:0,actuatorEffort:0,bodyCompression:0};
 }
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 /** Update once per rendered state. Output feet[*].localX/localZ are deltas
@@ -44,6 +45,8 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   // stretching feet across the entire arena.
   if(travel>2.5||Math.abs(yawDelta)>1.3)return createFootContacts(rig,family);
   const inMotion=!disabled&&(speed>.16||turning>.14||travel>.015);
+  if(!inMotion||disabled){state.preparingSide=0;state.prepareLeft=0;}
+  if(state.preparingSide){state.prepareLeft=Math.max(0,state.prepareLeft-safeDt);}
   state.pivot=inMotion&&speed<.55&&turning>.20;
   state.landings=0;state.lastLandingStrength=0;
   state.stanceCount=0;state.slipM=0;
@@ -76,6 +79,7 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
     f.localX=c*dx+s*dz;
     f.localZ=-s*dx+c*dz;
     f.impact=Math.max(0,(f.impact??0)-safeDt*3.2);
+    f.preparing=state.preparingSide===f.side&&state.prepareLeft>0;
   }
   if(inMotion && state.feet.every(f=>f.mode==='stance')){
     let candidate=null,largest=0;
@@ -98,18 +102,51 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       const leadTime=clamp(p.stepSeconds*.33,.06,.18);
       const leadX=clamp((rig.vx??0)*leadTime,-p.reach*.48,p.reach*.48);
       const leadZ=clamp((rig.vz??0)*leadTime,-p.reach*.48,p.reach*.48);
-      candidate.mode='swing';candidate.swing=0;
-      candidate.startX=candidate.x;candidate.startZ=candidate.z;
-      candidate.targetX=nominal.x+leadX;
-      candidate.targetZ=nominal.z+leadZ;
-      state.nextSide=-candidate.side;
+      // Transfer load to the future support leg before committing the step.
+      // Only transition to swing when the preparatory interval has elapsed;
+      // a change in travel direction may cancel preparation without a snap.
+      if(!state.preparingSide || state.preparingSide!==candidate.side){
+        state.preparingSide=candidate.side;
+        state.prepareLeft=p.prepareSeconds;
+      }else if(state.prepareLeft<=0){
+        candidate.mode='swing';candidate.swing=0;
+        candidate.startX=candidate.x;candidate.startZ=candidate.z;
+        candidate.targetX=nominal.x+leadX;
+        candidate.targetZ=nominal.z+leadZ;
+        state.nextSide=-candidate.side;
+        state.preparingSide=0;
+      }
     }
+  }
+  // Stance load is real contact availability, not a canned phase sine. The
+  // swing foot carries no support force. During anticipation unload the
+  // next foot and shift weight across the supporting hip.
+  let total=0;
+  for(const f of state.feet){
+    const swing=f.mode==='swing';
+    const preparing=f.side===state.preparingSide&&state.prepareLeft>0;
+    const target=swing?0:preparing?.10:1;
+    f.load+=(target-f.load)*(1-Math.exp(-safeDt*15));
+    total+=f.load;
+  }
+  const loadL=state.feet[0].load/Math.max(.001,total);
+  const loadR=state.feet[1].load/Math.max(.001,total);
+  const targetShift=clamp(loadR-loadL,-1,1);
+  state.weightShift+=(targetShift-state.weightShift)*(1-Math.exp(-safeDt*11));
+  const effort=clamp((rig.driveLoad??0)*.70+(rig.tractionUse??0)*.3,0,1);
+  state.actuatorEffort+=(effort-state.actuatorEffort)*(1-Math.exp(-safeDt*9));
+  state.bodyCompression=0;
+  for(const f of state.feet){
+    f.load/=Math.max(.001,total);
+    f.compression=f.mode==='stance'?p.compression*f.load*(.4+.6*state.actuatorEffort):0;
+    state.bodyCompression+=f.compression;
   }
   state.lastX=x;state.lastZ=z;state.lastYaw=yaw;state.lastSpeed=speed;
   return state;
 }
 export function footPresentation(state,side){
   const f=state?.feet.find(f=>f.side===side);
-  return f?{x:f.localX,y:f.lift,z:f.localZ,
-    planted:f.mode==='stance',swing:f.swing}:null;
+  return f?{x:f.localX,y:f.lift-f.compression,z:f.localZ,
+    planted:f.mode==='stance',swing:f.swing,load:f.load,
+    preparing:f.preparing,compression:f.compression}:null;
 }
