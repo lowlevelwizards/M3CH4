@@ -51,6 +51,6 @@ test('entry cache keys cover scene, workshop and CSS changes',()=>{
  assert.match(html,/polishPass\.css\?v=k5a4/);
  assert.match(html,/main\.js\?v=k5p6/);
  assert.match(html,/sceneAssembly\.js\?v=k5p5/);
- assert.match(bridge,/scene\.js\?source=k5p5/);
+ assert.match(bridge,/scene\.js\?source=k5p7/);
  assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
 });
