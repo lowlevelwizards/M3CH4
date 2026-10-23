@@ -40,6 +40,9 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   const yawDelta=angleDelta(yaw,state.lastYaw);
   const turning=Math.abs(yawDelta)/Math.max(safeDt,.001);
   const travel=Math.hypot(x-state.lastX,z-state.lastZ);
+  // Teleports, redeploys and large correction steps replant rather than
+  // stretching feet across the entire arena.
+  if(travel>2.5||Math.abs(yawDelta)>1.3)return createFootContacts(rig,family);
   const inMotion=!disabled&&(speed>.16||turning>.14||travel>.015);
   state.pivot=inMotion&&speed<.55&&turning>.20;
   state.landings=0;state.lastLandingStrength=0;
