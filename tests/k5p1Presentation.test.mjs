@@ -25,12 +25,13 @@ test('shop purchase cannot recreate the player preview over the sales counter',(
 });
 test('mobile entry references cache-fresh changed modules and last-pass polish CSS',()=>{
     const html=source('index.html'), bridge=source('sceneAssembly.js'), mount=source('garageMountUI.js');
-    assert.match(html,/MECH ARENA — 0\.0\.1k\.5p\.1/);
+    const stage=html.includes('k.5p.2')?'k5p2':'k5p1';
+    assert.match(html,/MECH ARENA — 0\.0\.1k\.5p\.[12]/);
     assert.match(html,/main\.js\?v=k5p1/);
-    assert.match(html,/garageMountUI\.js\?v=k5p1/);
-    assert.match(html,/polishPass\.css\?v=k5p1/);
-    assert.match(bridge,/scene\.js\?source=k5p1/);
-    assert.match(mount,/unifiedGarageUI\.js\?v=k5p1/);
+    assert.ok(html.includes('garageMountUI.js?v='+stage));
+    assert.ok(html.includes('polishPass.css?v='+stage));
+    assert.ok(bridge.includes('scene.js?source='+stage));
+    assert.ok(mount.includes('unifiedGarageUI.js?v='+stage));
     assert.match(mount,/acquisitionUI\.js\?v=k5p1/);
 });
 test('garage selection and report statistics remain rooted in real serial and ledger state',()=>{

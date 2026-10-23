@@ -324,7 +324,10 @@ function renderWorkshopChrome(stable,view) {
                 if(!result.ok){reason=result.reason;break;} done++;
             }
             message(reason?'REPAIRED '+done+' · '+reason:'REPAIRED '+done+' MODULES',!!reason);
-            if(done){soundWorkshop('service');previewSignature='';render();}
+            if(done){
+                repairable.slice(0,done).forEach(row=>activePlayerArena()?.arena?.playWorkshopAction?.(row.item.slot,'repair'));
+                soundWorkshop('service');previewSignature='';render();
+            }
         },'workshop-repair-all',total>loadMachine(storage).economy.credits);
         statusBar.append(all);
     }
@@ -462,7 +465,10 @@ function moduleDetails(stable, view, machine) {
                 () => {
                     const result = emitEdit('m3ch4:bay-service',{rigId:viewedId,slot});
                     message(result.ok ? (quote.destroyed ? 'REBUILT · ' : 'SERVICED · ') + installed.serial : result.reason, !result.ok);
-                    if (result.ok) { soundWorkshop('service');previewSignature=''; render(); }
+                    if (result.ok) {
+                        activePlayerArena()?.arena?.playWorkshopAction?.(slot,'repair');
+                        soundWorkshop('service');previewSignature=''; render();
+                    }
                 },'unified-service',!affordable));
         }
     }
@@ -675,6 +681,7 @@ function editModule(slot,serial) {
     const result=emitEdit('m3ch4:bay-module',{rigId:viewedId,slot,serial});
     message(result.ok ? (serial ? 'PART INSTALLED · '+serial : 'PART REMOVED') : result.reason,!result.ok);
     if(result.ok) {
+        activePlayerArena()?.arena?.playWorkshopAction?.(slot,serial?'install':'remove');
         soundWorkshop(serial?'install':'remove');
         selectedHardwareSerial=null;rackView='ready';drawerExpanded=false;
         swapExpanded=!serial;previewSignature='';render();
@@ -744,7 +751,10 @@ function renderGarage(stable,machine,view) {
                 repaired++;
             }
             message(problem?'SERVICED '+repaired+' · '+problem:'SERVICED '+repaired+' PARTS',!!problem);
-            if(repaired){soundWorkshop('service');previewSignature='';render();}
+            if(repaired){
+                quotes.slice(0,repaired).forEach(row=>activePlayerArena()?.arena?.playWorkshopAction?.(row.item.slot,'repair'));
+                soundWorkshop('service');previewSignature='';render();
+            }
         },'unified-service unified-service-all',total>machine.economy.credits);
         dock.append(serviceAll);
     }
@@ -1046,13 +1056,9 @@ function renderSetup(stable, view) {
 function ensurePitPlan(stable){
     if(triageRigId===viewedId)return;
     triageRigId=viewedId;
+    // An emergency crew budget is a player choice, not an invisible auto-patch.
+    // Different contracts reward different priorities; start without spending.
     triageSelected.clear();
-    let units=TRIAGE_BUDGET;
-    const candidates=triageOptions(stable,viewedId).sort((a,b)=>
-        (a.condition<=.001?0:1)-(b.condition<=.001?0:1)||a.condition-b.condition);
-    for(const c of candidates)if(c.cost<=units){
-        triageSelected.add(c.slot);units-=c.cost;
-    }
 }
 function commitPitTriage(stable,series){
     const selected=[...triageSelected];
@@ -1069,7 +1075,10 @@ function commitPitTriage(stable,series){
     if(result.ok){
         soundWorkshop('service');
         document.dispatchEvent(new CustomEvent('m3ch4:bay-reconcile-patch',{detail:result.action}));
-        window.location.reload();
+        selected.forEach(slot=>activePlayerArena()?.arena?.playWorkshopAction?.(slot,'repair'));
+        // The stable reload is still authoritative; allow the welding signature
+        // to finish visibly before replacing the garage scene.
+        window.setTimeout(()=>window.location.reload(),650);
     }
 }
 function pitPhysicalInspector(stable,view,series,action,options) {
@@ -1098,17 +1107,22 @@ function pitPhysicalInspector(stable,view,series,action,options) {
             'CREW COMMITTED · NO FURTHER FIELD REPAIRS'));
     }else if(candidate){
         const selected=triageSelected.has(candidate.slot);
+        const check=triagePreview(stable,viewedId,[...triageSelected]);
+        const available=TRIAGE_BUDGET-check.cost;
+        const affordable=selected||candidate.cost<=available;
         const chosen=button((selected?'✓ QUEUED':'＋ QUEUE')+' · '+candidate.cost+
-            ' WORK UNIT'+(candidate.cost===1?'':'S'),()=>{
+            ' CREW '+(candidate.cost===1?'UNIT':'UNITS'),()=>{
             if(selected)triageSelected.delete(candidate.slot);
-            else triageSelected.add(candidate.slot);
+            else if(affordable)triageSelected.add(candidate.slot);
             render();
-        },'physical-pit-queue'+(selected?' active':''));
+        },'physical-pit-queue'+(selected?' active':''),!affordable);
         chosen.setAttribute('aria-pressed',String(selected));
         box.append(chosen);
         box.append(el('small','physical-pit-note',
-            'INTERNAL '+pct(candidate.condition)+' → AT LEAST 48% · ARMOR '+
-            pct(candidate.armorRatio)+' → AT LEAST 35%'));
+            'RESTORES CORE TO 48% MIN · ARMOR TO 35% MIN · '+
+            (candidate.cost===2?'2 UNITS: DISABLED MODULE':'1 UNIT: DAMAGED MODULE')));
+        if(!affordable)box.append(el('small','physical-pit-note pit-unit-warning',
+            'NOT ENOUGH CREW TIME · UNQUEUE ANOTHER MODULE'));
     }else{
         box.append(el('div','physical-pit-readonly',!state.serial?
             'NO INSTALLED PART · FIELD CREW CANNOT FIT HARDWARE':
@@ -1132,9 +1146,10 @@ function renderPit(stable,view,series) {
         'workshop-reset'));
     const indicator=el('div','physical-pit-progress');
     indicator.append(el('strong','',action?'SERVICE COMMITTED':
-        'PIT CREW · '+plan.cost+' / '+TRIAGE_BUDGET+' UNITS'));
+        'PIT CREW · '+plan.remaining+' / '+TRIAGE_BUDGET+' LEFT'));
     indicator.append(el('small','',action?'ROUND '+series.roundNumber+' READY':
-        plan.fieldable?'READY AFTER TRIAGE':'SELECT DAMAGED MODULES'));
+        plan.fieldable?'FIELDABLE AFTER PATCHES':view.canDeploy?
+            'DEPLOY AS-IS OR PATCH MODULES':'CHOOSE REPAIRS TO RESTORE FIELDABILITY'));
     statusBar.append(indicator);
 
     if(selectedSlot){
@@ -1143,13 +1158,24 @@ function renderPit(stable,view,series) {
     }
     const footer=el('div','physical-pit-footer');
     const budget=el('div','physical-pit-budget');
-    budget.append(el('strong','',action?'FIELD SERVICE COMPLETE':
-        'WORK UNITS · '+plan.cost+' / '+TRIAGE_BUDGET));
-    budget.append(el('small','',action?'COMMITTED · NO FURTHER PATCHES':
-        'ONE CREW OPERATION · REPAIR CORE OR STRIPPED ARMOR'));
+    budget.append(el('strong','',action?'FIELD WORK FINISHED':
+        'CREW TIME · '+plan.cost+' SPENT · '+plan.remaining+' LEFT'));
+    if(!action){
+        const units=el('div','pit-unit-strip');
+        for(let i=0;i<TRIAGE_BUDGET;i++){
+            const unit=el('span',i<plan.cost?'spent':'available',i<plan.cost?'■':'□');
+            unit.title=i<plan.cost?'ALLOCATED CREW UNIT':'UNSPENT CREW UNIT';
+            units.append(unit);
+        }
+        budget.append(units);
+    }
+    budget.append(el('small','',action?'CREW OPERATION USED · NO SECOND PASS':
+        'EACH REPAIR COSTS 1–2 · ONE SERVICE OPERATION PER ROUND'));
     footer.append(budget);
     if(!action&&options.length){
-        footer.append(button('COMMIT TRIAGE',()=>commitPitTriage(stable,series),
+        footer.append(button(plan.valid&&plan.fieldable?
+            'COMMIT '+plan.repairs.length+' PATCH'+(plan.repairs.length===1?'':'ES'):
+            'SELECT REPAIRS',()=>commitPitTriage(stable,series),
             'physical-pit-commit',!plan.valid||!plan.fieldable));
     }
     const canGo=view.canDeploy && (!committed || committed.rigId===viewedId);
