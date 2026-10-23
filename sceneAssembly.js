@@ -85,8 +85,8 @@ function alignAssemblyMeshes(arena, assembly) {
     arena.scene.updateMatrixWorld(true);
 }
 
-export function createArenaScene(assembly, targetAssembly) {
-    const arena = createBaseArenaScene(assembly, targetAssembly);
+export function createArenaScene(assembly, targetAssembly,arenaMap) {
+    const arena = createBaseArenaScene(assembly, targetAssembly,arenaMap);
     const cockpitIdentity = installCockpitIdentities(arena, assembly);
     const rebuild = arena.rebuildAssembly.bind(arena);
     const focus = arena.focusPart.bind(arena);
