@@ -10,6 +10,7 @@ import {physicalContactWeight} from './physicalContactWeight.js';
 import {moduleFailureSignature,failureSurfaceFactor} from './moduleFailureSignatures.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {addFactoryIdentityPlate} from './factoryIdentityVisuals.js';
+import {addRigCrewPlate} from './rigCrewVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import {lightingProfile} from './visualLightingLanguage.js';
@@ -3479,6 +3480,9 @@ export function buildExteriorRig(assembly) {
             addFactoryIdentityPlate(group,fitted.definition.id);
         }
     }
+    // Crew/unit graphics follow this real serialized rig, not a guessed
+    // faction or an arbitrary preview camera billboard.
+    addRigCrewPlate(partGroups.get('structure'),assembly);
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
     // their authored interface hardware; mass and compatibility remain graph data.
     const hull = partGroups.get('structure');
