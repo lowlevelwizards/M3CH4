@@ -32,14 +32,22 @@ jobs:
         run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=legacy --arrivals=legacy --corridors=legacy --out=/tmp/k5a3-baseline
       - name: Matched new coordination physics — same seeds and families
         run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=gated --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-enhanced
-      - name: Compare paired movement pass rates
+      - name: Candidate B — physical passing lanes
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=lanes --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-lanes
+      - name: Candidate C — mixed yielding with clearance
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=hybrid --arrivals=coordinated --corridors=clearance --out=/tmp/k5a3-hybrid
+      - name: Candidate D — front-of-queue priority
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=zipper --arrivals=slots --corridors=priority --out=/tmp/k5a3-zipper
+      - name: Compare all five matched movement cohorts
         run: |
           node --input-type=module -e "
           import fs from 'node:fs';
-          const b=JSON.parse(fs.readFileSync('/tmp/k5a3-baseline/results.json'));
-          const n=JSON.parse(fs.readFileSync('/tmp/k5a3-enhanced/results.json'));
-          console.log('SQUAD_A_B '+JSON.stringify({
-            baseline:b.summary.events.map(e=>[e.id,e.passRate,e.meanScore]),
-            enhanced:n.summary.events.map(e=>[e.id,e.passRate,e.meanScore])
-          }));
+          const cases={baseline:'baseline',gated:'enhanced',lanes:'lanes',hybrid:'hybrid',zipper:'zipper'};
+          const out={};
+          for(const [name,dir]of Object.entries(cases)){
+            const r=JSON.parse(fs.readFileSync('/tmp/k5a3-'+dir+'/results.json'));
+            out[name]=r.summary.events.filter(e=>e.n>0).map(e=>
+              [e.id,e.passRate,e.meanScore,e.meanLoop,e.meanCollisions]);
+          }
+          console.log('SQUAD_A_B '+JSON.stringify(out));
           "
