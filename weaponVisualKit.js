@@ -65,9 +65,11 @@ export function strut(parent,name,from,to,width,depth,tone='steel'){
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
   return mesh;
 }
-/** Four or fewer oversized chunks per kit: the replaceable ammunition
- * carrier and a service latch. These are visual-only meshes: their animation
- * cannot move a ballistic collider or masquerade as new target armor.
+/** Cockpit-first physical service hardware (the same authored kit also
+ * appears on opponents). The per-weapon upper/inboard loading port comes from
+ * reloadVisualLayout so every mechanism is readable at mobile FOV.
+ * These visual-only meshes never become collision, shielding, or hit surfaces;
+ * they cannot change the authoritative reload timer or aiming.
  */
 export function attachReloadHardware(root,id){
  const profile=reloadMechanism(id),form=profile.feedStyle;
