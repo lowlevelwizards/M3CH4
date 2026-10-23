@@ -868,8 +868,9 @@ function checkSquadOutcome() {
     // The squad resolver already requires every hostile actor to be disabled;
     // no capture/score mutation is needed and the existing bout outcome stays
     // authoritative for salvage, BO3, and persistent machine damage.
-    if (outcome && !testEnded && !testYard)
-        finishSortie(outcome.victory, outcome.reason);
+    if (outcome && !testEnded) {
+        if (!testYard) finishSortie(outcome.victory, outcome.reason);
+    }
 }
 function missionKillAiActor(actor, reason, attackerId = null) {
     if (!actor?.active) return;
