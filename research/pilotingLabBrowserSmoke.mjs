@@ -15,8 +15,7 @@ try{
  await page.goto('http://127.0.0.1:8765/piloting-lab.html',{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__m3ch4PilotingLabReady===true,undefined,{timeout:28000});
  if(!(await page.locator('#stage canvas').count()))throw Error('Missing live WebGL scene');
- if(!(await page.locator('#telemetry').textContent()).includes('YARDWALKER'))
-   throw Error('No real footed machine telemetry');
+ await page.waitForFunction(()=>document.querySelector('#telemetry')?.textContent.includes('YARDWALKER'),undefined,{timeout:12000});
  await page.screenshot({path:output+'/piloting-lab-yardwalker.png'});
  await page.locator('#family').selectOption('legs-compact');
  await page.waitForFunction(()=>document.querySelector('#telemetry')?.textContent.includes('KESTREL'),undefined,{timeout:12000});
