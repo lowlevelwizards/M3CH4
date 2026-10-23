@@ -275,9 +275,9 @@ export function buildAnatomicalCoupling(root){
 }
 export const MACHINE_EXHIBITS=Object.freeze([
  {id:'loader',label:'TRACKED LOADER · ANATOMY V3',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
-  match:o=>o.id.startsWith('loader-'),build:buildAnatomicalLoader},
+  match:o=>o.id.startsWith('loader-'),front:'-z',build:buildAnatomicalLoader},
  {id:'combine',label:'COMBINE HARVESTER · ANATOMY V3',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
-  match:o=>o.artKit==='combine-harvester',build:buildAnatomicalCombine},
+  match:o=>o.artKit==='combine-harvester',front:'-z',build:buildAnatomicalCombine},
  {id:'pickup',label:'PICKUP WRECK · ANATOMY V3',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
   match:o=>o.artKit==='pickup-wreck',build:buildAnatomicalPickup},
  {id:'engine',label:'ENGINE BANK · ANATOMY V3',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
