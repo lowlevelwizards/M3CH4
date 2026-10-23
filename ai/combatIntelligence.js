@@ -13,11 +13,20 @@ const other=t=>t==='friendly'?'hostile':'friendly';
  * Gives nearby rigs a warning, without revealing which enemy fired it. */
 export function shotThreatEvidence(observer,muzzle,impact,range=5.2){
  if(!observer||!muzzle||!impact)return null;
- const dx=impact.x-muzzle.x,dz=impact.z-muzzle.z,len2=dx*dx+dz*dz;
+ const dx=impact.x-muzzle.x,dz=impact.z-muzzle.z;
+ // Preserve 2D test/legacy inputs; full combat traces supply Y and must not
+ // alert a rig beneath a shot flying harmlessly high overhead.
+ const spatial=Number.isFinite(muzzle.y)&&Number.isFinite(impact.y);
+ const dy=spatial?impact.y-muzzle.y:0;
+ const observerY=Number.isFinite(observer.y)?observer.y:
+   2.15+(Number.isFinite(observer.groundHeightM)?observer.groundHeightM:0);
+ const len2=dx*dx+dz*dz+dy*dy;
  if(len2<.01)return null;
- const t=clamp(((observer.x-muzzle.x)*dx+(observer.z-muzzle.z)*dz)/len2);
- const closest={x:muzzle.x+dx*t,z:muzzle.z+dz*t};
- const separation=dist(observer,closest);
+ const t=clamp(((observer.x-muzzle.x)*dx+(observer.z-muzzle.z)*dz+
+   (spatial?(observerY-muzzle.y)*dy:0))/len2);
+ const closest={x:muzzle.x+dx*t,z:muzzle.z+dz*t,y:spatial?muzzle.y+dy*t:observerY};
+ const separation=Math.hypot(observer.x-closest.x,observer.z-closest.z,
+   spatial?observerY-closest.y:0);
  if(separation>range)return null;
  const d=Math.sqrt(len2);
  // Facing *toward* the shot's origin is a sector hint, not an exact position.
@@ -25,16 +34,26 @@ export function shotThreatEvidence(observer,muzzle,impact,range=5.2){
  return {severity:clamp(1.1-separation/range*.85,.22,1.1),
    bearing:toward,distance:separation};
 }
-export function recordShotEvidence(awareness,observer,evidence){
+export function recordShotEvidence(awareness,observer,evidence,now=null){
  if(!awareness||!observer||!evidence)return false;
  const state=awareness.awareness??awareness;
- state.underFireSeconds=Math.max(state.underFireSeconds??0,1.6+evidence.severity);
- state.urgency=Math.max(state.urgency??0,evidence.severity);
+ // One actual blast with six pellets is not six independent threats. The
+ // simulation timestamp distinguishes a continued burst from duplicate rays.
+ if(Number.isFinite(now)&&Number.isFinite(state.lastShotEvidenceAt)&&
+    now-state.lastShotEvidenceAt<.055)return false;
+ if(Number.isFinite(now))state.lastShotEvidenceAt=now;
+ const sequence=(state.underFireSeconds??0)>0?
+   Math.min(8,(state.shotSequence??0)+1):1;
+ state.shotSequence=sequence;
+ const pressure=Math.min(.7,(sequence-1)*.14);
+ state.underFireSeconds=Math.max(state.underFireSeconds??0,
+   Math.min(3.9,1.55+evidence.severity+pressure));
+ state.urgency=Math.max(state.urgency??0,Math.min(2.1,evidence.severity+pressure));
  state.underFireElapsed=Math.max(state.underFireElapsed??0,0);
  state.lastThreat={x:observer.x+evidence.bearing.x*9,
    z:observer.z+evidence.bearing.z*9};
  state.unseenThreat=true;
- state.shotWarnings=(state.shotWarnings??0)+1;
+ state.shotWarnings=Math.min(8,(state.shotWarnings??0)+1);
  return true;
 }
 /** Only public observed contacts may be used for a combat support decision.
