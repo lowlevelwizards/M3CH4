@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
-import { soundFamilyFor, createMotionSoundState, advanceMotionSound } from './liveSystemsEvents.js';
+import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
+import {advanceFootContacts} from './footContactController.js';
 import { shotContacts } from './scattergun.js';
 import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
@@ -458,17 +459,20 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     // Only emission is distance culled; never freeze remote animation.
     let acoustic=movementSoundStates.get(machineRig);
     if(!acoustic){acoustic=createMotionSoundState();movementSoundStates.set(machineRig,acoustic);}
-    const family=soundFamilyFor(installedPart(machineAssembly,'mobility')?.definition.id);
+    const familyId=installedPart(machineAssembly,'mobility')?.definition.id??'legs-yard';
+    const family=soundFamilyFor(familyId);
     const speed=Math.hypot(machineRig.vx,machineRig.vz);
-    const events=advanceMotionSound(acoustic,family,speed,dt);
+    acoustic.contactFeet=advanceFootContacts(acoustic.contactFeet,machineRig,familyId,dt);
+    const events=advanceContactMotionSound(acoustic,family,speed,dt,acoustic.contactFeet);
     if(!local&&distance>17)return acoustic;
     for(const id of events) {
         const idle=id==='engine'&&speed<.65;
         if(!local&&id==='engine'&&distance>9)continue;
         // Reduce simultaneous machinery. Local footfalls still communicate
         // mass; other mechs are an acoustic background, not five co-pilots.
-        const strength=id==='engine'?(local?(idle?.13:.20):.12)
-            :id==='hydraulics'?(local?.20:.10):(local?.66:.30);
+        const footWeight=id===family.id?(.55+.45*(acoustic.contactFeet?.lastLandingStrength??.4)):1;
+        const strength=(id==='engine'?(local?(idle?.13:.20):.12)
+            :id==='hydraulics'?(local?.20:.10):(local?.66:.30))*footWeight;
         soundSystemEvent(id,{variant:id==='engine'?0:acoustic.hydraulicStep%3,
             distance,cockpit:local,strength});
     }
