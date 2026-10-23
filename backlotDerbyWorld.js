@@ -10,6 +10,7 @@ import {buildBacklotObstacleKit} from './backlotObstacleKits.js';
 import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
 import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
 import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
+import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -425,6 +426,7 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  perimeter(root,world);
  for(const obstacle of world.obstacles)createWreck(root,obstacle,solids);
  dirtMarks(root,world);spectatorYard(root,world);
+ upgradeBacklotScenery(root,world);
  const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
    fixtureBatch,
@@ -557,16 +559,17 @@ export function buildBacklotPropCatalog(world){
  const source=new THREE.Group();
  buildBacklotTerrainAndFacilities(source,world);
  spectatorYard(source,world);
+ upgradeBacklotScenery(source,world);
  source.updateWorldMatrix(true,true);
  // Scenic assemblies from the original venue's own generation pass.
  const scenicShows=[
    {id:'announcer',label:'ANNOUNCER BOOTH & MARQUEE',
-     match:o=>/^(announcer-|booth-|derby-announcer-sign)/.test(o.name)},
+     match:o=>/^(announcer-|booth-|derby-announcer-sign|station-|scaffold-|speaker-|real-booth-window|raised-booth|individual-platform|rear-booth|rear-ladder)/.test(o.name)},
    {id:'bleachers',label:'WOODEN BLEACHERS & AWNING',
-     match:o=>/^(spectator-bleacher|bleacher-support|patched-awning|awning-post|scrapyard-spectator)$/.test(o.name)
-       && Math.abs(o.position.x-(world.minX+11))<8},
+     match:o=>/^(individual-wooden-bleacher|bleacher-|diagonal-stadium-|canopy-|seamed-faded-canvas|scrapyard-spectator)/.test(o.name)
+       && Math.abs(o.matrixWorld.elements[12]-(world.minX+11))<8},
    {id:'hoist',label:'SALVAGE CRANE & HOIST',
-     match:o=>/^(scrapyard-hoist-|hoist-cable|hoist-hook)$/.test(o.name)},
+     match:o=>/^(crane-|steel-lattice-|jib-truss-|vertical-hoist-|lifting-hook-|winch-heavy-|functional-scrapyard-crane)/.test(o.name)},
    {id:'scoreboard',label:'MANUAL DERBY SCOREBOARD',
      match:o=>/^(manual-scoreboard-leg|patched-steel-scoreboard|backlot-manual-scoreboard)$/.test(o.name)},
  ];
