@@ -21,7 +21,8 @@ try{
   canvas:!!document.querySelector('#stage canvas'),
   errors:document.querySelector('#gallery-error')?.textContent,
  }));
- if(stats.mapVersion!==3||stats.coverCount!==34||stats.total!==stats.options||
+ if(stats.mapVersion!==3||stats.coverCount!==34||stats.showcaseCount!==4||
+   stats.total!==stats.options||
    stats.sceneryArchetypes<20||!stats.canvas||!stats.hasFreeCamera)
   throw Error('Incorrect gallery coverage '+JSON.stringify(stats));
  await page.screenshot({path:'gallery-smoke-artifacts/overview-first-prop.png'});
@@ -31,7 +32,7 @@ try{
  if(!next||first===next)throw Error('Next prop navigation not working');
  await page.locator('#gallery-overview').click();
  await page.screenshot({path:'gallery-smoke-artifacts/prop-grid-overview.png'});
- await page.locator('#gallery-select').selectOption(String(stats.coverCount));
+ await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount));
  await page.screenshot({path:'gallery-smoke-artifacts/scenery-sample.png'});
  // Navigating back out of the DEV lab must always preserve the live app link.
  const back=await page.locator('#gallery-exit').getAttribute('href');
