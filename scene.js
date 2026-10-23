@@ -1474,11 +1474,11 @@ export function createArenaScene(initial, targetAssembly) {
     // Standalone DEV proving ground uses the actual player model with no AI,
     // combat, expenses or persistent state. A chase camera can inspect feet.
     let pilotingLab=false,labRecord=null;
-    function setPilotingLab(enabled){
+    function setPilotingLab(enabled,showExterior=true){
         pilotingLab=!!enabled;
         labRecord=null;
         targetExterior.root.visible=!pilotingLab;
-        exterior.root.visible=pilotingLab||inspecting;
+        exterior.root.visible=pilotingLab?!!showExterior:inspecting;
         for(const record of squadCombatants.values()){
             record.exterior.root.visible=!pilotingLab&&!inspecting;
             record.marker.visible=!pilotingLab&&!inspecting;
