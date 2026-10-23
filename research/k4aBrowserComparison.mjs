@@ -67,6 +67,17 @@ async function fingerprint(origin){
    const root=id.startsWith('power-')?powerRoot(id):buildPartVisual(id);
    const hierarchy=[],materials=[];
    root.traverse(n=>{
+    // The k4a invariant protects the ORIGINAL playable metal and material
+    // graph. Later functional builds may add dedicated cosmetic mechanisms;
+    // these must explicitly mark their whole subtree visualOnly so they
+    // cannot become hidden collision/shielding surfaces. Compare every
+    // unchanged authored surface exactly as before.
+    let ancestor=n,cosmetic=false;
+    while(ancestor&&ancestor!==root){
+      if(ancestor.userData?.visualOnly){cosmetic=true;break;}
+      ancestor=ancestor.parent;
+    }
+    if(cosmetic)return;
     const path=[];let child=n;
     while(child&&child!==root){path.unshift(child.parent.children.indexOf(child)+':'+child.name);
      child=child.parent;}
