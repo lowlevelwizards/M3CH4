@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
 import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundWeaponMechanism, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent, setBacklotAmbienceActive } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
-import {advanceFootContacts} from './footContactController.js?v=k5b5';
+import {advanceFootContacts} from './footContactController.js?v=k5r5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
 import { shotContacts } from './scattergun.js';
 import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
@@ -956,6 +956,11 @@ function resetAiActor(actor) {
     actor.wreckCleared = false;
     resetWeaponStabilizer(actor.stabilizer);
     actor.driveDamage.drives = {};
+    // Physically anchored support feet and any unfinished catch belong to
+    // the previous round, not the new machine spawn.
+    const acoustic=movementSoundStates.get(actor.rig);
+    if(acoustic)acoustic.contactFeet=null;
+    actor.visualGait=null;
     actor.powerSystem = createPowerSystem(actor.assembly);
     arena.setCombatantActive(actor.id, true);
     arena.updateCombatantRig(actor.id, actor.rig);
