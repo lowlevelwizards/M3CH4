@@ -520,7 +520,7 @@ export function buildBacklotPropCatalog(world){
   group.add(newPart,oldPart,collisionOverlay);
   catalog.push({id:'experiment-'+exhibit.id+'-anatomy',category:'experiment',
    label:exhibit.label,detail:exhibit.details+' · NOT YET IN MATCHES',
-   group,experiment:{newPart,oldPart,collisionOverlay}});
+   group,experiment:{newPart,oldPart,collisionOverlay,front:exhibit.front||'+z'}});
  }
  const describe=o=>o.artKit||o.art||(
    o.kind==='pillar'?'floodlight mast':'salvage cover');
