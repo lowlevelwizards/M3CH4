@@ -9,7 +9,7 @@ export const GRAINHOUSE=Object.freeze({
  {id:'central-meal-hopper',minX:-2.1,maxX:2.1,minZ:-11.1,maxZ:-7.0,height:3.7,kind:'building'},
  // Two balanced silo banks flank a central service court. Each staging lane has
  // matching hard cover but retains a full heavy-rig route around its silo.
- {id:'silo-north',minX:14,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
+ {id:'silo-north',minX:16,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
  {id:'silo-south',minX:14.6,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
  {id:'silo-utility-bank',minX:7.5,maxX:10.5,minZ:-4.2,maxZ:-.9,height:2.9,kind:'container'},
  // North/south service carts break shooting lanes at the two silo approaches.
@@ -37,7 +37,7 @@ export const GRAINHOUSE=Object.freeze({
  },
  sites:{
  recovery:{x:-12,z:7},control:{x:-12,z:-9},
- domination:[{id:'A',x:-10,z:-13},{id:'B',x:19,z:-1},{id:'C',x:11,z:19}],
+ domination:[{id:'A',x:-10,z:-13},{id:'B',x:19,z:-1},{id:'C',x:11,z:17}],
  breakthrough:{friendlyGoal:{x:0,z:-21},hostileGoal:{x:0,z:22}},
  },
 });
