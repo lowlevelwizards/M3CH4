@@ -10,7 +10,8 @@ export const GRAINHOUSE=Object.freeze({
  // The east silo yard has two large hard-cover banks with broad gaps.
  {id:'silo-north',minX:13,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
  {id:'silo-south',minX:14,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
- {id:'silo-service',minX:26,maxX:29.5,minZ:-3.5,maxZ:1.3,height:2.7,kind:'container'},
+ {id:'silo-utility-bank',minX:7.5,maxX:10.5,minZ:-4.2,maxZ:-.9,height:2.9,kind:'container'},
+  {id:'silo-service',minX:26,maxX:29.5,minZ:-3.5,maxZ:1.3,height:2.7,kind:'container'},
  // Structural partition has TWO actual openings: z=-9..-2 and z=6..13.
  {id:'mill-divider-top',minX:4.3,maxX:6.3,minZ:-24,maxZ:-12.3,height:5,kind:'barrier'},
  {id:'mill-divider-mid',minX:4.3,maxX:6.3,minZ:-1.7,maxZ:5.4,height:5,kind:'barrier'},
