@@ -251,7 +251,19 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     const remembered=!player && recentContact && Number.isFinite(recentContact.x) &&
         Number.isFinite(recentContact.z) && distance(enemy,recentContact)<24 ?
         recentContact:null;
-    const watched=threatFacing?player:remembered;
+    // A new side/rear hit cannot leave the pilot staring at the old frontal
+    // duel while backing into cover. Preserve the threat sector until incoming
+    // pressure expires; compare bearings relative to the old target (not the
+    // continuously changing chassis yaw), preventing left/right oscillation.
+    const impactSector=motion.awareness?.underFireSeconds>.3?
+        motion.awareness?.lastThreat:null;
+    const relativeBearing=impactSector&&player?
+        Math.abs(Math.atan2(
+            Math.sin(headingError(enemy,impactSector)-headingError(enemy,player)),
+            Math.cos(headingError(enemy,impactSector)-headingError(enemy,player)))):0;
+    const defensiveFacing=impactSector&&(!player||relativeBearing>1.05)?
+        impactSector:null;
+    const watched=defensiveFacing??(threatFacing?player:remembered);
     const steerFor=point=>clamp(headingError(enemy,watched??point)*profile.steerGain-
         enemy.yawRate*profile.yawRateDamping);
     let base;
