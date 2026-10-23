@@ -20,7 +20,12 @@ export function firingLaneBlocker(from,to,world,targetId=null,{
     const dx=to.x-from.x,dz=to.z-from.z,dy=targetHeight-muzzleHeight;
     const length=Math.hypot(dx,dy,dz);
     if(length<.15)return null;
-    const obstacles=(world.obstacles??[]).filter(o=>o.id!==targetId);
+    // Moving rigs/wrecks are represented by 2D collision boxes. Give those
+    // boxes an upper body here; coverTruth's default 1.1m would otherwise
+    // make intervening allies invisible to provisional height-aware rays.
+    const obstacles=(world.obstacles??[]).filter(o=>o.id!==targetId)
+        .map(o=>o.dynamic&&o.height==null&&o.maxY==null
+            ? {...o,maxY:3.25}:o);
     const hit=firstCoverHit(
         [from.x,muzzleHeight,from.z],[dx/length,dy/length,dz/length],
         obstacles,Math.max(0,length-.18),.06);
