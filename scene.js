@@ -262,11 +262,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             g.fillStyle='#111c19';g.fillRect(0,0,128,64);
             g.fillStyle='#344c43';g.fillRect(2,2,124,60);
             g.fillStyle='#13221b';g.fillRect(5,5,118,54);
-            g.fillStyle='#b0c4a8';g.font='bold 11px monospace';g.fillText(pitPresentation?'PIT DIAGNOSTIC':'SERVICE BAY',10,19);
+            g.fillStyle='#b0c4a8';g.font=canvasFont(11,'data',700);g.fillText(pitPresentation?'PIT DIAGNOSTIC':'SERVICE BAY',10,19);
             g.fillStyle=policy.critical?'#eda16c':'#d9b977';
-            g.font='bold 13px monospace';
+            g.font=canvasFont(13,'data',700);
             g.fillText(policy.focus?.toUpperCase()?.slice(0,11)||'ALL SYSTEMS',10,37);
-            g.font='bold 10px monospace';
+            g.font=canvasFont(10,'data',700);
             g.fillStyle=policy.critical?'#ff9876':'#94bfb2';
             g.fillText(policy.mode+' / '+policy.damagedCount+' ALERT',10,51);
             stage.readout.needsUpdate=true;
@@ -429,7 +429,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     ctx.fillStyle='#3c261d';ctx.fillRect(0,0,256,96);
                     ctx.strokeStyle='#d7a478';ctx.lineWidth=5;ctx.strokeRect(5,5,246,86);
                     ctx.textAlign='center';ctx.textBaseline='middle';
-                    ctx.font='bold 54px monospace';ctx.fillStyle='#f7c18e';
+                    ctx.font=canvasFont(54,'identity');ctx.fillStyle='#f7c18e';
                     ctx.fillText('SOLD OUT',128,47,239);
                     const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
                     const placard=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.70),
@@ -3264,9 +3264,9 @@ function buildPitLane() {
     if(ctx){
         ctx.fillStyle='#3b392d';ctx.fillRect(0,0,384,96);
         ctx.strokeStyle='#bda15c';ctx.lineWidth=5;ctx.strokeRect(4,4,376,88);
-        ctx.fillStyle='#e5bd72';ctx.font='bold 42px monospace';
+        ctx.fillStyle='#e5bd72';ctx.font=canvasFont(42,'identity');
         ctx.textAlign='center';ctx.fillText('FIELD PIT',192,52);
-        ctx.fillStyle='#a7b3a2';ctx.font='bold 17px monospace';
+        ctx.fillStyle='#a7b3a2';ctx.font=canvasFont(17,'data',700);
         ctx.fillText('ROUND SERVICE // CREW LANE',192,78);
         const texture=new THREE.CanvasTexture(signCanvas);
         texture.colorSpace=THREE.SRGBColorSpace;
