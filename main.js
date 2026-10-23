@@ -1324,6 +1324,7 @@ function refreshAssembly(save = false) {
     weaponSpec = nextSpec;
     resetWeaponStabilizer(playerMount);
     arena.setPilotWeapon(weaponSpec);
+    arena.setPilotStabilizer(playerMount);
     renderAmmo();
     reconcileTargetCondition(playerCondition, assembly);
     arena.rebuildAssembly(assembly);
@@ -2817,11 +2818,7 @@ function attemptAiFire(actor, target, shotIndex) {
     });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
     applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
-    registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
-        brace:actor.rig.brace??0,
-        condition:actor.condition.parts.combat.integrity/
-            Math.max(1,actor.condition.parts.combat.maxIntegrity),
-    });
+    // The shot samples the existing state. Only its NEXT shot inherits kick.
     const mountSpread=actor.weaponSpec.fireMode==='automatic'
         ? weaponActionSpreadRadians(actor.weaponSpec,actor.weaponState,actor.rig.brace??0):0;
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians+mountSpread);
@@ -2834,6 +2831,8 @@ function attemptAiFire(actor, target, shotIndex) {
         contesting,visibleService:!!target.fieldService?.held});
     if(actor.weaponSpec.fireMode==='continuous') {
         const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
+        registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
+            brace:actor.rig.brace,condition:actorOutput.weapon});
         const thermalKey=thermalKeyForContact(contact);
         if(thermalKey&&contact.distance<=actor.weaponSpec.rangeMeters) {
             const thermal=cutContact(thermalCombat,thermalKey,
@@ -2845,6 +2844,8 @@ function attemptAiFire(actor, target, shotIndex) {
     }
     if(actor.weaponSpec.fireMode==='projectile') {
         const aim=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
+        registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
+            brace:actor.rig.brace,condition:actorOutput.weapon});
         arena.launchRocket({ownerId:actor.id,muzzle:aim.muzzle,point:aim.point,
             speed:actor.weaponSpec.projectileSpeed,radius:actor.weaponSpec.blastRadius,
             damage:actor.weaponSpec.damage});
@@ -2858,6 +2859,8 @@ function attemptAiFire(actor, target, shotIndex) {
         : actor.weaponSpec.fireMode==='charged'
             ? [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY,true)]
             : [arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY)];
+    registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
+        brace:actor.rig.brace,condition:actorOutput.weapon});
     const packets=actor.weaponSpec.fireMode==='charged'
         ? resolvePenetratingContacts(contacts[0]?.penetrationContacts??contacts,{
             energy:actor.weaponSpec.penetrationEnergy,damage:actor.weaponSpec.damage,
