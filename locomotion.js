@@ -1,3 +1,5 @@
+import {walkingLongitudinalIntent} from './walkingController.js';
+
 /** Holding brake plants the feet once nearly stationary. This is a shared,
  * deterministic controller state: no extra button and no special AI exceptions. */
 export const PLANTED_PIVOT = Object.freeze({
@@ -138,6 +140,15 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     const brakingForce = (brake + (opposingThrottle ? Math.abs(throttle) : 0)) * config.brakeForceN;
     let longitudinalForce = opposingThrottle ? 0 : requestedForce;
     longitudinalForce += -previousForwardSpeed * config.longitudinalDragNsPerM;
+    // Active neutral settling is requested through the same finite traction
+    // budget as propulsion and sideways stepping. No instant velocity writes.
+    const walking=config.walkingAssistEnabled
+        ? walkingLongitudinalIntent({forwardVelocity:previousForwardSpeed},
+            {throttle,brake},config,dt)
+        : {forceN:0,mode:'LEGACY'};
+    longitudinalForce += walking.forceN;
+    state.walkMode=walking.mode;
+    state.walkSettleForceN=walking.forceN;
     if (brakingForce > 0 && Math.abs(previousForwardSpeed) > 0.02) {
         longitudinalForce += -Math.sign(previousForwardSpeed) * brakingForce;
     }
@@ -147,10 +158,10 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
         longitudinalForce = 0;
     // With hard braking, never overshoot through zero and accelerate in reverse.
     // The old signed fixed brake impulse could oscillate indefinitely around 0.
-    if (brakingForce > 0 && Math.abs(previousForwardSpeed) <= .02)
+    if ((brakingForce > 0 || walking.forceN !== 0) && Math.abs(previousForwardSpeed) <= .02)
         longitudinalForce = -previousForwardSpeed * config.massKg / dt;
     const predictedForward = previousForwardSpeed + longitudinalForce * dt / config.massKg;
-    if (brakingForce > 0 && Math.abs(previousForwardSpeed) > .02 &&
+    if ((brakingForce > 0 || walking.forceN !== 0) && Math.abs(previousForwardSpeed) > .02 &&
         Math.sign(predictedForward) !== Math.sign(previousForwardSpeed))
         longitudinalForce = -previousForwardSpeed * config.massKg / dt;
     // A legged rig actively steps toward a requested sideways velocity. The grip

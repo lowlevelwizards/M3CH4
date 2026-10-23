@@ -9,7 +9,7 @@ const textures=new Map();
 function modelTexture(id){
   if(textures.has(id))return textures.get(id);
   const mark=factoryGraphic(id);
-  if(!mark)return null;
+  if(!mark || typeof document==='undefined')return null;
   const canvas=document.createElement('canvas');
   canvas.width=128;canvas.height=48;
   const g=canvas.getContext('2d');
@@ -33,7 +33,9 @@ function modelMaterial(id){
   return map?new THREE.MeshStandardMaterial({
     map,metalness:.18,roughness:.87,side:THREE.DoubleSide,
     depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
-  }):null;
+  }):new THREE.MeshStandardMaterial({
+    color:0x374941,metalness:.18,roughness:.87,side:THREE.DoubleSide,
+  });
 }
 function eligiblePanel(node) {
   if(!node?.isMesh)return null;

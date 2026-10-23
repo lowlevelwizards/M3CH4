@@ -27,6 +27,7 @@ export function deriveRigConfig(assembly) {
     return {
         ...DEFAULT_RIG_CONFIG,
         massKg: inspection.massKg,
+        walkingAssistEnabled:true,
         driveForceN: mover.driveForceN * profile.driveForceScale,
         reverseForceN: mover.driveForceN * (8 / 12.2) * profile.reverseForceScale,
         brakeForceN: 22000 * massRatio * profile.brakeForceScale,
