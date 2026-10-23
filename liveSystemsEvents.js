@@ -90,6 +90,22 @@ export function advanceMotionSound(state,family,speed,dt){
     Math.min(1,state.travelM/Math.max(.2,family.strideM)));
   return events;
 }
+/** A.5 replace estimated distance-interval footstep sounds with the very
+ * contacts that now drive the visible legs. Preserve low-rate motor ambience
+ * and independent gain staging; never synthesize duplicate stride hits.
+ * State is per rig, all values transient and side-effect-free for game logic.
+ */
+export function advanceContactMotionSound(state,family,speed,dt,contacts=null){
+  const estimated=advanceMotionSound(state,family,speed,dt);
+  if(!contacts)return estimated;
+  const events=estimated.filter(id=>id!==family.id&&id!=='hydraulics');
+  if(contacts.landings>0){
+    events.push(family.id);
+    state.realFootfalls=(state.realFootfalls??0)+contacts.landings;
+    if(state.realFootfalls%3===0)events.push('hydraulics');
+  }
+  return events;
+}
 export function systemDistanceGain(meters=0){
   const d=Math.max(0,Number.isFinite(meters)?meters:0);
   return 1/(1+Math.pow(d/6.5,1.95));
