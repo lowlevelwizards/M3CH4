@@ -73,7 +73,7 @@ export function makeLiveWeaponAudio(getContext){
   function stopAll(){
     for(const v of [...voices]){try{v.source.stop();}catch{}}
   }
-  function play(weaponId,{distance=0,cockpit=false,shotIndex=0}={}){
+  function play(weaponId,{distance=0,cockpit=false,shotIndex=0,pan=0}={}){
     if(!Object.hasOwn(LIVE_WEAPON_RECIPES,weaponId))return {ok:false,reason:'Unknown live weapon'};
     try{
       const c=ensureBus();
@@ -113,8 +113,13 @@ export function makeLiveWeaponAudio(getContext){
       const dry=c.createGain();
       const gain=cockpit?.88:(.45*shotDistanceGain(d));
       dry.gain.value=gain;
-      lowpass.connect(dry);dry.connect(bus);
-      const release=[source,lowpass,dry];
+      const panner=!cockpit&&c.createStereoPanner?.();
+      if(panner){
+        panner.pan.value=Math.max(-.9,Math.min(.9,Number.isFinite(pan)?pan:0));
+        lowpass.connect(panner);panner.connect(dry);
+      }else lowpass.connect(dry);
+      dry.connect(bus);
+      const release=panner?[source,lowpass,panner,dry]:[source,lowpass,dry];
       const inRoom=cockpit||d<12;
       if(inRoom){
         // The whole gun bus shares four dark warehouse reflections.
