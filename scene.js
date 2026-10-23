@@ -1711,9 +1711,9 @@ export function createArenaScene(initial, targetAssembly) {
             const yaw = physicsYawToViewYaw(spectatorRig.yaw ?? 0);
             const angle=yaw+spectatorAzimuth;
             spectatorDesired.set(spectatorRig.x+Math.sin(angle)*spectatorRadius*Math.cos(spectatorElevation),
-                1.65+spectatorRadius*Math.sin(spectatorElevation),
+                1.65+(spectatorRig.groundHeightM??0)+spectatorRadius*Math.sin(spectatorElevation),
                 spectatorRig.z+Math.cos(angle)*spectatorRadius*Math.cos(spectatorElevation));
-            spectatorLook.set(spectatorRig.x, 1.65, spectatorRig.z);
+            spectatorLook.set(spectatorRig.x, 1.65+(spectatorRig.groundHeightM??0), spectatorRig.z);
             if (!spectatorCameraReady) {
                 spectatorCameraPosition.copy(spectatorDesired);
                 spectatorCameraReady = true;
