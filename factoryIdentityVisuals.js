@@ -5,10 +5,9 @@
  */
 import * as THREE from 'three';
 import {factoryGraphic} from './factoryIdentityPolicy.js';
-const materials=new Map();
-const sizes=new Map();
-function modelMaterial(id){
-  if(materials.has(id))return materials.get(id);
+const textures=new Map();
+function modelTexture(id){
+  if(textures.has(id))return textures.get(id);
   const mark=factoryGraphic(id);
   if(!mark)return null;
   const canvas=document.createElement('canvas');
@@ -26,12 +25,15 @@ function modelMaterial(id){
   const map=new THREE.CanvasTexture(canvas);
   map.colorSpace=THREE.SRGBColorSpace;
   map.magFilter=THREE.NearestFilter;map.minFilter=THREE.NearestFilter;
-  const material=new THREE.MeshStandardMaterial({
+  textures.set(id,map);
+  return map;
+}
+function modelMaterial(id){
+  const map=modelTexture(id);
+  return map?new THREE.MeshStandardMaterial({
     map,metalness:.18,roughness:.87,side:THREE.DoubleSide,
     depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
-  });
-  materials.set(id,material);
-  return material;
+  }):null;
 }
 function eligiblePanel(node) {
   if(!node?.isMesh)return null;
@@ -58,10 +60,11 @@ export function addFactoryIdentityPlate(root,definitionId){
   if(!selected)return false;
   const {node,b,w,h}=selected;
   const width=Math.min(.43,w*.43),height=Math.min(.18,h*.30);
-  const key=width.toFixed(3)+':'+height.toFixed(3);
-  let plane=sizes.get(key);
-  if(!plane){plane=new THREE.PlaneGeometry(width,height);sizes.set(key,plane);}
-  const plate=new THREE.Mesh(plane,modelMaterial(definitionId));
+  // Each temporary rig can be disposed by the shared thumbnail preview
+  // cleanup. Geometry and material ownership MUST be private to that rig;
+  // only the small immutable per-definition texture is shared.
+  const plate=new THREE.Mesh(new THREE.PlaneGeometry(width,height),
+    modelMaterial(definitionId));
   // The stenciled plate is inset from corners rather than hovering across a
   // bounding-box edge. A real flat face of the selected primitive supports it.
   const cx=b.min.x+Math.max(width*.64,w*.25);
