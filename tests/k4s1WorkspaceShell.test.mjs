@@ -5,11 +5,11 @@ const source=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 
 test('k4s.1 ships fresh stylesheet and script identities',()=>{
     const html=source('index.html'),adapter=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)/);
+    assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k4z1/);
-    assert.match(adapter,/unifiedGarageUI\.js\?v=k4z1/);
+    assert.match(html,/garageMountUI\.js\?v=k5p4/);
+    assert.match(adapter,/unifiedGarageUI\.js\?v=k5p4/);
     assert.ok(html.indexOf('k4sWorkshopShell.css')>html.indexOf('interfaceClarity.css'),
         'new shell styles must override older garage panel rules');
 });
@@ -41,9 +41,9 @@ test('workspace navigation is centralized and leaves gameplay commitments untouc
 });
 test('camera reserves area only for an actual visible editor/toolbox',()=>{
     const main=source('main.js'),css=source('k4sWorkshopShell.css');
-    assert.match(main,/const reserve=inspecting && !!bayDock && workspace==='paint'/);
+    assert.match(main,/if\(inspecting && bayDock && workspace==='paint'\)/);
     assert.match(main,/m3ch4:workspace-layout/);
-    assert.match(main,/Math\.max\(0,panelRight\)/);
+    assert.match(main,/arena\.setInspectorLayout\(reserved,rect\.width,rect\.height\)/);
     assert.match(css,/#unified-garage\[data-workspace="paint"\] #unified-garage-dock/);
     assert.match(css,/#unified-garage\[data-workspace="contracts"\] #unified-garage-dock/);
 });

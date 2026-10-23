@@ -104,17 +104,17 @@ test('the elimination resolver ends Domination when all enemy combat rigs have b
     assert.equal(state.complete,false);
     const main=source('main.js');
     assert.match(main,/checkSquadOutcome\(\)/);
-    assert.match(main,/sortieOutroRemaining = 5/);
+    assert.match(main,/sortieOutroRemaining=SORTIE_BREATHER_SECONDS\+SORTIE_SHOWCASE_SECONDS/);
     assert.match(main,/renderDebrief\(next\.summary, next\.reason\)/);
 });
 test('DEV version comes from the actual page build label, not a stale hardcoded string',()=>{
     const html=source('index.html'),main=source('main.js');
     assert.match(html,/<span id="dev-version"><\/span>/);
-    assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)/);
+    assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
     assert.match(main,/devVersion\.textContent = document\.title\.split/);
     // Cache-busting build tokens advance independently of the DEV title.
     assert.match(html,/main\.js\?v=[a-zA-Z0-9_-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k4z1/);
-    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k4z1/);
+    assert.match(html,/garageMountUI\.js\?v=k5p4/);
+    assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k5p4/);
 });
