@@ -14,7 +14,7 @@ import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
-import {mapForContract,contractAtMap,orderedTeamSpawns} from './maps/mapRegistry.js?v=k5q1';
+import {mapForContract,contractAtMap,orderedTeamSpawns} from './maps/mapRegistry.js?v=k5q2';
 import { createArenaScene } from './scene.js';
 import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {createPhysicalEvidenceCard} from './physicalEvidenceInspector.js';
