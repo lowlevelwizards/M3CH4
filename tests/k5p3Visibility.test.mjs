@@ -45,7 +45,8 @@ test('barrel obstruction warning queries real fire ray, without shooting',()=>{
 });
 test('entry cache keys cover scene, workshop and CSS changes',()=>{
  const html=source('index.html'),bridge=source('sceneAssembly.js'),mount=source('garageMountUI.js');
- for(const suffix of ['sceneAssembly.js','garageMountUI.js','polishPass.css']) assert.ok(html.includes(suffix+'?v=k5p3'));
+ for(const suffix of ['sceneAssembly.js','garageMountUI.js']) assert.ok(html.includes(suffix+'?v=k5p3'));
+ assert.match(html,/polishPass\.css\?v=k[0-9]+[a-z][0-9]+/);
  assert.match(html,/main\.js\?v=k[0-9]+[a-z][0-9]+/);
  assert.ok(mount.includes('unifiedGarageUI.js?v=k5p3'));
  assert.match(bridge,/scene\.js\?source=k5p3/);

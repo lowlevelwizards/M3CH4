@@ -37,6 +37,7 @@ import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
 import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
 import { prioritizeVisibleTarget, shouldAttemptTacticalShot, tacticalAimSlot } from './ai/adaptiveTactics.js';
 import { aiWeaponEngagement } from './ai/weaponTactics.js';
+import { createRoundClock,advanceRoundClock,formatRoundClock } from './roundClock.js';
 import { createFaultSupportState, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
 import { advanceSortieObjective, createSortieObjective, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
@@ -404,6 +405,11 @@ rangeCrosshair.textContent='';
 let shotSafetyTimer=0;
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
+const roundClockHud=document.createElement('div');
+roundClockHud.id='round-clock-hud';
+roundClockHud.setAttribute('role','timer');
+roundClockHud.setAttribute('aria-label','Round time remaining');
+teamStatus.insertAdjacentElement('afterend',roundClockHud);
 const objectiveStatus = required('#objective-status');
 const playerDamageHud = required('#player-damage-hud');
 const hitConfirm = required('#hit-confirm');
@@ -518,6 +524,8 @@ let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
     aiPlanCooldown=0,aiPerceptionCooldown=0;
 let strategicMemory=createStrategicState();
 let aiAssaultMemory={friendly:{},hostile:{}};
+let roundClock=createRoundClock();
+let lastRoundClockText='';
 const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
@@ -653,6 +661,14 @@ function renderObjectiveStatus() {
     }
     arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 }
+function renderRoundClock(){
+    const label=formatRoundClock(roundClock);
+    if(label===lastRoundClockText)return;
+    lastRoundClockText=label;roundClockHud.textContent=label;
+    roundClockHud.classList.toggle('overtime',!!roundClock.overtime);
+    roundClockHud.classList.toggle('urgent',!!roundClock.overtime||
+        roundClock.limitSeconds-roundClock.elapsed<30);
+}
 function renderSquadStatus() {
     const counts = squadCounts(playerCombatActive, aiActors);
     const screener = friendlySupportActors.find(actor => faultSupportForActor(faultSupportState, actor.id)?.casualtyId === 'player');
@@ -661,6 +677,7 @@ function renderSquadStatus() {
     teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
     teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
     renderObjectiveStatus();
+    renderRoundClock();
     syncCockpitInstruments();
 }
 // Cockpit percentages display INTERNAL integrity, exactly as the pit patch
@@ -911,6 +928,7 @@ function resetSquadBattle() {
     leaveAlliedObservation();
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;
     aiPlanCooldown=0;aiPerceptionCooldown=0;
+    roundClock=createRoundClock();lastRoundClockText='';
     strategicMemory=createStrategicState();
     aiAssaultMemory={friendly:{},hostile:{}};
     aiTrace.rows.length=0;
@@ -1984,6 +2002,11 @@ function frame(now) {
                 const objectiveOutcome = advanceSortieObjective(sortieObjective, battleParticipants(), FIXED_DT);
                 renderObjectiveStatus();
                 if (objectiveOutcome) finishSortie(objectiveOutcome.victory, objectiveOutcome.reason);
+                else {
+                    const timeout=advanceRoundClock(roundClock,FIXED_DT,sortieObjective,battleParticipants());
+                    renderRoundClock();
+                    if(timeout)finishSortie(timeout.victory,timeout.reason);
+                }
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
@@ -2422,7 +2445,10 @@ function finishSortie(victory, reason) {
     economy.credits = summary.creditsAfter;
     renderEconomy();
     persistMachine();
-    faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
+    const timedDecision=reason?.startsWith('TIME LIMIT')||reason?.startsWith('OVERTIME');
+    faultStrip.textContent = timedDecision
+        ? (victory?'ROUND WON · TIME DECISION':'ROUND LOST · TIME DECISION')
+        : victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
     faultStrip.classList.remove('nominal');
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');

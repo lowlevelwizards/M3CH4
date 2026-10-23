@@ -1,0 +1,31 @@
+name: k5a2 Timed Rounds and Overtime
+on:
+  pull_request:
+    paths:
+      - 'roundClock.js'
+      - 'research/headlessDominationStudy.mjs'
+      - 'main.js'
+      - 'index.html'
+      - 'polishPass.css'
+      - 'tests/k5a2RoundClock.test.mjs'
+      - '.github/workflows/k5a2-clock.yml'
+jobs:
+  regulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check roundClock.js
+          node --check main.js
+          node --check research/headlessDominationStudy.mjs
+      - name: Regulation and dependency regressions
+        run: node --test tests/k5a2RoundClock.test.mjs tests/k5a1CombatJudgment.test.mjs tests/k4w6CampaignAiBalance.test.mjs tests/k5p1Presentation.test.mjs tests/k5p3Visibility.test.mjs
+      - name: Paired physical AI Olympics — three mobility families
+        run: node research/aiOlympics.mjs --seeds=3 --families=yard,kestrel,hauler --profiles=baseline,cautious --difficulties=pro --out=/tmp/k5a2-ai-olympics
+      - name: Campaign 3v3 weapon-and-economy smoke
+        run: node research/campaignAiBalanceStudy.mjs --pairs=1 --seconds=180 --economy-seeds=1 --out=/tmp/k5a2-campaign-proxy
