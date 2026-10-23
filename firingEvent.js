@@ -32,7 +32,10 @@ export function triggerFiringEvent(state,weaponId,{brace=0,condition=1}={}){
 }
 export function advanceFiringEvent(state,dt){
   if(!state||!Number.isFinite(dt)||dt<0)return {...EMPTY};
-  const result={...EMPTY};
+  // Reuse the same small pose object: no allocations in the 60 Hz render path.
+  const result=state.pose;
+  result.travel=0;result.mount=0;result.cab=0;
+  result.bolt=0;result.stop=0;result.feeder=0;result.active=false;
   for(let i=state.pulses.length-1;i>=0;i--){
     const p=state.pulses[i],profile=firingProfile(p.id);
     p.age+=Math.min(dt,.12);
