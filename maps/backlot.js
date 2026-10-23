@@ -30,7 +30,7 @@ export const BACKLOT=Object.freeze({
  },
  sites:{
  recovery:{x:21,z:5},control:{x:-20,z:4},
- domination:[{id:'A',x:-20,z:4},{id:'B',x:0,z:-11},{id:'C',x:20,z:4}],
+ domination:[{id:'A',x:-20,z:-4},{id:'B',x:0,z:-11},{id:'C',x:20,z:0}],
  breakthrough:{friendlyGoal:{x:0,z:-22},hostileGoal:{x:0,z:22}},
  },
 });

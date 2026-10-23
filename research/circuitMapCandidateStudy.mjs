@@ -8,16 +8,23 @@ import {pointClear} from '../maps/mapValidation.js';
 import {runBout} from './headlessDominationStudy.mjs';
 import {mkdirSync,writeFileSync} from 'node:fs';
 
+const spawnDistance=(map,sites)=>Math.min(...['friendly','hostile'].flatMap(team=>
+ map.spawns[team].flatMap(p=>sites.map(site=>Math.hypot(site.x-p.x,site.z-p.z)))));
 const points=(a,b,c)=>[{id:'A',x:a[0],z:a[1]},
  {id:'B',x:b[0],z:b[1]},{id:'C',x:c[0],z:c[1]}];
 const candidates={
  'backlot-dustbowl':[
+  ['previous-live',points([-20,4],[0,-11],[20,4])],
   ['north-balanced',points([-20,-5],[0,-11],[20,-2])],
   ['north-a',points([-20,-4],[0,-11],[20,0])],
   ['split',points([-20,-2],[0,12],[20,2])],
   ['north-flanks',points([-20,-4],[0,12],[20,-4])],
  ],
  grainhouse:[
+  ['previous-live',points([-10,-12],[25,-8.3],[11,20])],
+  ['middle-z14',points([-10,-13],[24.5,-8],[11,14])],
+  ['middle-z15',points([-10,-13],[24.5,-8],[11,15])],
+  ['middle-z16',points([-10,-13],[24.5,-8],[11,16])],
   ['middle-delta',points([-10,-13],[24.5,-8],[11,17])],
   ['middle-epsilon',points([-10,-13],[24.5,-7.5],[11,18])],
   ['middle-alpha',points([-10,-13],[24.5,-7],[11,16])],
@@ -52,7 +59,9 @@ for(const map of MAPS){
   const south=rows.filter(r=>r.winner==='friendly'&&!r.swapSpawns||
      r.winner==='hostile'&&r.swapSpawns).length;
   const draws=rows.length-north-south;
+  const nearestSpawnMeters=spawnDistance(map,sites);
   const summary={map:map.id,variant,sites,matchedPairs:pairs,
+    nearestSpawnMeters,spawnSafe:nearestSpawnMeters>=6.25,
     northWins:north,southWins:south,draws,
     meanRouteErrors:rows.reduce((s,r)=>s+r.routeErrors,0)/rows.length,
     meanCaptures:rows.reduce((s,r)=>s+r.captures,0)/rows.length,

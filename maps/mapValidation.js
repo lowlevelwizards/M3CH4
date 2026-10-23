@@ -44,6 +44,13 @@ export function certifyArena(map,{radius=1.55,checkRoutes=true}={}){
    {...map.sites.breakthrough.hostileGoal,id:'breakthrough-h'}];
  for(const site of sites)if(!pointClear(map,site,radius))
   errors.push('OBJECTIVE BLOCKED '+site.id);
+ // Prevent an automatic capture from inside a spawn zone. The extra rig
+ // radius provides a modest roll-out buffer for the heavy chassis.
+ for(const team of ['friendly','hostile'])
+  for(const [i,spawn] of map.spawns[team].entries())
+   for(const site of map.sites.domination)
+    if(distance(spawn,site)<4.7+radius)
+     errors.push('SPAWN INSIDE DOMINATION APPROACH '+team+'-'+i+' '+site.id);
  if(map.sites.domination.length!==3||
    new Set(map.sites.domination.map(p=>p.id)).size!==3)
   errors.push('DOMINATION REQUIRES DISTINCT A/B/C');

@@ -35,6 +35,10 @@ test('maps pass real physical collision clearance, primary sightline and route c
   const report=certifyArena(map,{radius:1.55,checkRoutes:true});
   assert.equal(report.ok,true,map.name+' '+report.errors.join('; '));
   assert.equal(report.routes.length,14);
+  for(const side of ['friendly','hostile'])for(const spawn of map.spawns[side])
+   for(const site of map.sites.domination)
+    assert.ok(Math.hypot(spawn.x-site.x,spawn.z-site.z)>=6.25,
+      `${map.id}: ${side} begins at capture point ${site.id}`);
   assert.ok(report.routes.every(r=>r.ok));
  }
 });
