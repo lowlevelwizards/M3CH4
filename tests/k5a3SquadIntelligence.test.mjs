@@ -95,10 +95,12 @@ test('squad planner presses weakly defended majority with distinct physical appr
  assert.ok(Object.values(plan.orders).some(o=>o.objectiveId==='B'));
  assert.equal(plan.advantage.forceEdge,2);
  const wing=Object.values(plan.orders).find(o=>o.assaultFlank);
- if(wing){
-  assert.equal(wing.role,'FLANKER');
-  assert.ok(wing.viaPoint);
- }
+ assert.ok(wing,'an observed, locally outnumbered defender should face two angles');
+ assert.equal(wing.role,'FLANKER');
+ assert.ok(wing.viaPoint);
+ const breacher=Object.values(plan.orders).find(o=>o.role==='BREACHER');
+ assert.ok(breacher,'one rig must take the direct route');
+ assert.notDeepEqual(wing.viaPoint,breacher.point);
 });
 test('deliberate assault flank persists across brain refresh while enemy is seen',()=>{
  const brain=createPilotBrain(),a={id:'wing',position:pos(0,0)};
