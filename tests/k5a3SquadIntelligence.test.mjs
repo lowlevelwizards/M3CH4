@@ -5,7 +5,7 @@ import {createWorldModel,observeBattlefield} from '../ai/worldModel.js';
 import {assessTacticalAdvantage,localAttackWindow,searchSectorPoint,flankApproach} from '../ai/advantageTactics.js';
 import {planTeam} from '../ai/teamPlanner.js';
 import {createPilotBrain,decidePilot} from '../ai/pilotBrain.js';
-import {createIntentExecutor,executeIntent} from '../ai/intentExecutor.js';
+import {createIntentExecutor,executeIntent,trafficPolicyForIntent} from '../ai/intentExecutor.js';
 import {coordinateSquadArrivals} from '../ai/squadPositioning.js';
 import {coordinateCorridors} from '../ai/corridorCoordinator.js';
 const pos=(x,z)=>({x,z});
@@ -132,8 +132,22 @@ test('real route coordination policies return bounded assignments and do not mut
 test('live and headless games share tactical information and enabled traffic policies',()=>{
  const live=readFileSync(new URL('../main.js',import.meta.url),'utf8');
  const headless=readFileSync(new URL('../research/headlessDominationStudy.mjs',import.meta.url),'utf8');
- for(const marker of ["arrivalPolicy:'coordinated'","corridorPolicy:'stagger'","trafficPolicy:'gated'"])assert.ok(live.includes(marker),marker);
+ for(const marker of ["arrivalPolicy:'coordinated'","corridorPolicy:'stagger'","trafficPolicy:'adaptive'"])assert.ok(live.includes(marker),marker);
  assert.match(live,/aiCorridorMemory=\{friendly:\{\},hostile:\{\}\}/);
  assert.match(live,/aiClock-c.lastSeen<=6\.0/);
- for(const marker of ["??'coordinated'","??'stagger'","??'gated'"])assert.ok(headless.includes(marker));
+ for(const marker of ["??'coordinated'","??'stagger'","??'adaptive'"])assert.ok(headless.includes(marker));
+});
+
+test('new circuit arena is the actual tactical world and adaptive traffic preserves scoring arrivals',()=>{
+ const main=readFileSync(new URL('../main.js',import.meta.url),'utf8');
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.equal(main.includes('world:DEFAULT_WORLD'),false,'never plan an unseen default arena instead of real arena');
+ assert.match(main,/world:selectedWorld,arrivalPolicy:'coordinated'/);
+ assert.equal(trafficPolicyForIntent({goal:'CAPTURE',arrivalPoint:pos(1,2)},'adaptive'),'gated');
+ assert.equal(trafficPolicyForIntent({goal:'CAPTURE',point:pos(1,2)},'adaptive'),'lanes');
+ assert.equal(trafficPolicyForIntent({goal:'SEARCH'},'adaptive'),'lanes');
+ assert.equal(trafficPolicyForIntent({goal:'DEFEND'},'adaptive'),'lanes');
+ assert.equal(trafficPolicyForIntent({goal:'CAPTURE',arrivalPoint:pos(1,2)},'legacy'),'legacy');
+ assert.match(html,/ai\/intentExecutor\.js\?v=k5a4/);
+ assert.match(html,/ai\/trafficCoordination\.js\?v=k5a4/);
 });
