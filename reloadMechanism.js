@@ -66,7 +66,7 @@ export const RELOAD_VISUAL_LAYOUTS=Object.freeze({
  'gun-rivet':view([-.25,.205,.20],[-.29,-.16,-.36,-.07,-.015],'integral rotary drum',.14,true),
  'gun-breaker':view([0,.38,.28],[-.38,-.055,-.42,-.085,.035],'enormous penetrator',.21),
  'gun-rocket':view([0,.275,.32],[-.36,-.12,-.39,-.08,.02],'single ordnance carrier',.18),
- 'gun-arc':view([-.08,.295,.40],[-.31,-.11,-.34,-.075,-.01],'plug-in power cell',.15,true),
+ 'gun-arc':view([-.08,.295,.34],[-.34,-.11,-.38,-.075,-.01],'plug-in power cell',.15,true),
 });
 export function reloadVisualLayout(id){
  return RELOAD_VISUAL_LAYOUTS[id]??RELOAD_VISUAL_LAYOUTS['gun-cannon'];
