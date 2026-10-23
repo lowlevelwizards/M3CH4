@@ -173,14 +173,20 @@ export function stepRig(state, input, dt, config = DEFAULT_RIG_CONFIG, world = D
     // sidestepping and cornering correction. The budget uses the *existing*
     // grip, motor and installed mass; yaw simply rotates the existing world
     // velocity into local lateral slip on the next fixed step.
+    // The ordinary campaign defaults to 1.0. The lab can sample surface
+    // grip through the same force budget (including cornering and braking),
+    // rather than reducing speed by an invented terrain/class modifier.
+    const groundGrip=Math.max(.35,Math.min(1.15,Number.isFinite(config.groundGripScale)
+        ?config.groundGripScale:1));
     const groundBudgetN = Math.max(1, Math.min(
         config.massKg * 9.81,
         config.lateralGripNsPerM * 2.75 + config.driveForceN * .4,
-    )) * (1 - .22 * (state.recoilLoad ?? 0));
+    )) * groundGrip * (1 - .22 * (state.recoilLoad ?? 0));
     const demandedGroundN = Math.hypot(longitudinalForce, lateralForce);
     const contactRatio = demandedGroundN > groundBudgetN ? groundBudgetN / demandedGroundN : 1;
     longitudinalForce *= contactRatio;
     lateralForce *= contactRatio;
+    state.groundGrip=groundGrip;
     state.tractionUse = clamp(demandedGroundN * contactRatio / groundBudgetN, 0, 1);
     state.tractionSaturated = demandedGroundN > groundBudgetN;
     // Intentional sidestepping is not a skid. Only unmet lateral correction

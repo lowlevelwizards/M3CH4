@@ -118,7 +118,7 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.doesNotMatch(main,/audioSystemsPresets|systems-sound-lab-v1/);
   assert.match(html,/liveSystemsAudio\.js\?v=k4i/);
   assert.match(html,/liveSystemsEvents\.js\?v=k5a5/);
-  assert.match(html,/main\.js\?v=k5a5/);
+  assert.match(html,/main\.js\?v=k5a7/);
   assert.match(html,/audio\.js\?v=k4i/);
-  assert.match(html,/0\.0\.1k\.5a\.5 — Contact-Driven Locomotion Audio/);
+  assert.match(html,/0\.0\.1k\.5a\.7 — Physical Footing and Terrain Lab/);
 });

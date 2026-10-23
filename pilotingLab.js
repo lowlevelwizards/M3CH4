@@ -6,9 +6,10 @@ import * as THREE from 'three';
 import {makeTestAssembly,equip} from './components.js';
 import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
-import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js';
+import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
 import {createArenaScene} from './sceneAssembly.js?v=a5';
+import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
 import {advanceFootContacts} from './footContactController.js';
 import {soundSystemEvent} from './audio.js';
@@ -39,6 +40,22 @@ function heldButton(id,key){
 }
 heldButton('turn-left','left');heldButton('turn-right','right');
 const markers=new THREE.Group();arena.scene.add(markers);
+// Paint visible patches over the real existing arena floor. The meshes have
+// no collision geometry; groundMaterialAt supplies the authoritative grip.
+const terrainVisuals=new THREE.Group();
+terrainVisuals.name='piloting-ground-material-samples';
+arena.scene.add(terrainVisuals);
+for(const patch of PILOTING_GROUND_PATCHES){
+ const surface=GROUND_MATERIALS[patch.surface];
+ const width=patch.maxX-patch.minX,height=patch.maxZ-patch.minZ;
+ const mesh=new THREE.Mesh(new THREE.PlaneGeometry(width,height),
+   new THREE.MeshStandardMaterial({color:surface.color,roughness:.95,metalness:.08,
+     transparent:true,opacity:.84,depthWrite:false,side:THREE.DoubleSide}));
+ mesh.rotation.x=-Math.PI/2;
+ mesh.position.set((patch.maxX+patch.minX)/2,.05,(patch.maxZ+patch.minZ)/2);
+ mesh.receiveShadow=true;
+ terrainVisuals.add(mesh);
+}
 const markerMat=new THREE.MeshStandardMaterial({color:0xb68b37,metalness:.18,roughness:.89});
 const metalMat=new THREE.MeshStandardMaterial({color:0x3b7770,metalness:.27,roughness:.8});
 const extraObstacles=[];
@@ -81,6 +98,10 @@ function fit(){
 }
 $('family').addEventListener('change',fit);
 $('handling').addEventListener('change',reset);
+$('surface-mode').addEventListener('change',()=>{
+ terrainVisuals.visible=$('surface-mode').value==='mixed';
+ reset();
+});
 $('view').addEventListener('change',setCamera);
 $('reset').addEventListener('click',reset);
 $('audio').addEventListener('click',()=>{
@@ -114,12 +135,18 @@ function loop(now){
     const follow=bodyFollowSteer(input.lookYaw);
     const steer=THREE.MathUtils.clamp(input.steer+requestedTurn+follow,-1,1);
     const beforeX=state.x,beforeZ=state.z,yawBefore=state.yaw;
+    const ground=$('surface-mode').value==='mixed'
+      ?groundMaterialAt(state.x,state.z):GROUND_MATERIALS.concrete;
     stepRig(state,{throttle:input.throttle,strafe:input.strafe,steer,brake:input.brake},DT,
-      {...config,walkingAssistEnabled:$('handling').value==='assisted'},world);
+      {...config,walkingAssistEnabled:$('handling').value==='assisted',
+        groundGripScale:groundGripScale(ground)},world);
     travel+=Math.hypot(state.x-beforeX,state.z-beforeZ);
     gait.contactFeet=advanceFootContacts(gait.contactFeet,state,$('family').value,DT);
     const events=advanceContactMotionSound(gait,soundFamilyFor($('family').value),Math.hypot(state.vx,state.vz),DT,gait.contactFeet);
-    if(soundOn)for(const id of events)soundSystemEvent(id,{cockpit:$('view').value==='cockpit',strength:id==='engine'?.2:.65});
+    if(soundOn)for(const id of events)soundSystemEvent(id,{
+      cockpit:$('view').value==='cockpit',
+      strength:(id==='engine'?.2:.65)*(id===soundFamilyFor($('family').value).id?ground.impact:1),
+    });
     if(Math.abs(follow)>.001)controls.compensateBodyTurn(state.yaw-yawBefore);
     accumulator-=DT;iterations++;
   }
@@ -134,6 +161,7 @@ function loop(now){
   if(frameCount%10===0){
    $('fps').textContent=Math.round(fps)+' FPS';
    const feet=arena.pilotingLabFootReadout();
+   const ground=$('surface-mode').value==='mixed'?groundMaterialAt(state.x,state.z):GROUND_MATERIALS.concrete;
    $('telemetry').textContent=[
     'MACHINE  '+$('family').selectedOptions[0].textContent,
     'MODE     '+($('handling').value==='assisted'?'ASSISTED WALK':'LEGACY'),
@@ -143,6 +171,7 @@ function loop(now){
     'YAW      '+(state.yaw*180/Math.PI).toFixed(1)+'°',
     'STOP F   '+Math.abs(state.walkSettleForceN||0).toFixed(0)+' N',
     'GRIP     '+(state.tractionUse*100).toFixed(0)+'%',
+    'GROUND   '+ground.label+' · '+Math.round(groundGripScale(ground)*100)+'% CAP',
     'SLIP     '+state.footSlipMps.toFixed(2)+' m/s',
     'DRIVE    '+(state.driveLoad*100).toFixed(0)+'%',
     'CONTACT  '+(feet?.feet.map(f=>(f.side<0?'L':'R')+':'+(f.mode==='stance'?'PLANT':'STEP')).join(' / ')??'—'),
