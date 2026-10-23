@@ -153,8 +153,8 @@ compareBtn.addEventListener('click',()=>{
  if(expState.view==='both'){
    // Both models must be readable from one camera angle, not a near-field
    // giant old box with the rebuilt tractor tiny behind it.
-   setPose(new THREE.Vector3(entry.x,5.1,entry.z+18),
-     new THREE.Vector3(entry.x,1.55,entry.z));
+   setPose(new THREE.Vector3(entry.x,4.5,entry.z+11.6),
+     new THREE.Vector3(entry.x,1.45,entry.z));
  }else{
    // Restore the same authored three-quarter angle for fair OLD/NEW swaps.
    const distance=clamp(Math.max(entry.depth*1.4,entry.width*.85,5.4),5.4,21);
