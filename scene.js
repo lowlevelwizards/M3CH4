@@ -488,7 +488,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         screen.mesh.material.depthTest = false;
         screen.mesh.material.depthWrite = false;
     }
-    const debugColliders = buildDebugColliders(scene);
+    const debugColliders = buildDebugColliders(scene,world);
     debugColliders.visible = false;
     const navMarker = new THREE.Mesh(new THREE.RingGeometry(.42, .52, 16), new THREE.MeshBasicMaterial({ color: 0x73dfc8, side: THREE.DoubleSide, depthTest: false }));
     navMarker.rotation.x = -Math.PI / 2;
@@ -3486,7 +3486,7 @@ function buildCockpit(scene) {
     cockpit.userData.warningLamps = { amberLampMat, redLampMat, amberWash, redWash };
     return cockpit;
 }
-function buildDebugColliders(scene) {
+function buildDebugColliders(scene,world) {
     const group = new THREE.Group();
     const material = new THREE.MeshBasicMaterial({ color: 0x65ff91, wireframe: true, transparent: true, opacity: 0.7, depthTest: false });
     for (const obstacle of world.obstacles) {
