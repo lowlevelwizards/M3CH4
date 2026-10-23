@@ -1,12 +1,14 @@
 import {BACKLOT} from './backlot.js?v=k5q2';
 import {CULVERT_NINE} from './culvertNine.js';
 import {GRAINHOUSE} from './grainhouse.js';
+import {TEST_YARD} from './testYard.js';
 
 export const MAPS=Object.freeze([BACKLOT,CULVERT_NINE,GRAINHOUSE]);
 const BY_ID=new Map(MAPS.map(map=>[map.id,map]));
 export const DEFAULT_MAP_ID='backlot-dustbowl';
 export function mapById(id){return BY_ID.get(id)||BY_ID.get(DEFAULT_MAP_ID);}
 export function mapForContract(contract){
+  if(contract?.trainingGround === true)return TEST_YARD;
   const id=contract?.mapId||DEFAULT_MAP_ID;
   if(!BY_ID.has(id))throw Error('Unknown authored contract map '+id);
   return BY_ID.get(id);
