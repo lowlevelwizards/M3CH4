@@ -2978,8 +2978,7 @@ function attemptFire() {
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
         if (weaponState.loaded <= 0 && weaponState.reloadLeft === 0) {
-            startReload(weaponState, weaponSpec);
-            else {
+            if (!startReload(weaponState, weaponSpec)) {
                 soundEmpty();
                 fireHeld = false;
             }
