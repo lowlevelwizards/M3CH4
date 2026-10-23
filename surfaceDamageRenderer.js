@@ -78,6 +78,8 @@ function resources(){
     materials.set(kind,new THREE.MeshStandardMaterial({
       map:pixelTexture(kind),transparent:false,alphaTest:.3,
       roughness:kind==='service-patch'?.70:.91,metalness:kind==='service-patch'?.32:.06,
+      emissive:kind==='fresh-breach'?0x803008:0x000000,
+      emissiveIntensity:kind==='fresh-breach'?.55:0,
       polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
       side:THREE.DoubleSide,depthWrite:false,
     }));
@@ -207,7 +209,8 @@ export function createSurfaceScarRenderer({perSerialLimit=4}={}){
     const newHeat=event.event==='impact'&&event.internalDamage>0&&
       Number.isFinite(event.timestamp)&&Date.now()-event.timestamp<FRESH_BREACH_MS&&
       Date.now()-event.timestamp>=0;
-    const kind=newHeat&&profile.kind==='breach'?'fresh-breach':profile.kind;
+    const kind=newHeat&&['breach','destroyed-breach'].includes(profile.kind)
+      ?'fresh-breach':profile.kind;
     const mark=new THREE.Mesh(decal,r.materials.get(kind)||r.materials.get('breach'));
     if(kind==='fresh-breach'){
       mark.userData.coolAt=event.timestamp+FRESH_BREACH_MS;
