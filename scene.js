@@ -149,6 +149,35 @@ export function rigThumbnailDataUrl(assembly){
 }
 export function createArenaScene(initial, targetAssembly) {
     const scene = new THREE.Scene();
+    // Recycled ground decals: no permanent textures, runtime allocations on
+    // landing, save changes, or hundreds of expensive particle emitters.
+    const footEvidenceRoot=new THREE.Group();
+    footEvidenceRoot.name='mechanical-footstep-evidence';
+    scene.add(footEvidenceRoot);
+    const soleGeometry=new THREE.PlaneGeometry(1,1);
+    const footEvidencePool=Array.from({length:56},()=>{
+      const material=new THREE.MeshBasicMaterial({color:0x282e2b,
+        transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide,
+        polygonOffset:true,polygonOffsetFactor:-1});
+      const mesh=new THREE.Mesh(soleGeometry,material);
+      mesh.rotation.order='YXZ';
+      mesh.visible=false;
+      mesh.renderOrder=3;
+      footEvidenceRoot.add(mesh);
+      return mesh;
+    });
+    let footEvidenceIndex=0;
+    function recordFootprint(mark){
+      if(!mark||!Number.isFinite(mark.x)||!Number.isFinite(mark.z))return;
+      const mesh=footEvidencePool[footEvidenceIndex++%footEvidencePool.length];
+      mesh.position.set(mark.x,.046,mark.z);
+      mesh.rotation.set(-Math.PI/2,-(mark.yaw??0),0,'YXZ');
+      mesh.scale.set(mark.width??.45,mark.length??.7,1);
+      mesh.material.color.setHex(mark.surface==='dirt'?0x322518:
+        mark.surface==='metal'?0x101c1d:0x2f3028);
+      mesh.material.opacity=Math.min(.27,Math.max(.05,mark.opacity??.13));
+      mesh.visible=true;
+    }
     scene.background = new THREE.Color(0x20241f);
     scene.fog = new THREE.FogExp2(0x20241f, 0.0105);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
@@ -1573,6 +1602,7 @@ export function createArenaScene(initial, targetAssembly) {
     // cues, without the old unrelated wall-clock sine bob.
     let pilotFeet=null,pilotLandingKick=0,cockpitLagX=0,cockpitLagZ=0;
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
+        footEvidenceRoot.visible=!inspecting;
         const wasServicing = pilotWeaponServicing;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
         pilotWeaponServicing = !!serviceVisual?.weaponServicing;
@@ -2957,7 +2987,7 @@ export function createArenaScene(initial, targetAssembly) {
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
-        setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout,
+        setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout, recordFootprint,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
