@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent, setBacklotAmbienceActive } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
 import {advanceFootContacts} from './footContactController.js?v=k5b5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
@@ -2147,6 +2147,11 @@ function frame(now) {
         reloadLeft:weaponState?.reloadLeft??0,
         reloadSeconds:weaponSpec?.reloadSeconds??0,
     });
+    // Only actual Backlot competition runs the distant yard generator loop.
+    // This is a state toggle; AudioContext remains locked until a real tap.
+    setBacklotAmbienceActive(selectedMap.id==='backlot-dustbowl' &&
+        !inspecting && !testEnded && appSheet.classList.contains('hidden') &&
+        document.visibilityState==='visible');
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {
         sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);

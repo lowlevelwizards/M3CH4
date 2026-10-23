@@ -15,6 +15,7 @@ import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import {lightingProfile} from './visualLightingLanguage.js';
 import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './backlotDerbyWorld.js';
+import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironmentPass.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
@@ -223,6 +224,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     arenaPresentationRoot.name = 'arena-presentation';
     scene.add(arenaPresentationRoot);
     const worldSolids = buildArenaWorld(arenaRoot,world,arenaMap,playerSpawn,hostileSpawn);
+    const backlotEnvironment=arenaMap.id==='backlot-dustbowl'
+        ?scene.getObjectByName('backlot-outdoor-derby-world'):null;
     const garageRoot = buildGarageBay();
     // A circuit-side service lane is a different *physical place* from home.
     // Reuse the same authored jacks and diagnostics, not the entire garage.
@@ -2729,6 +2732,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
     }
     function showShot(contact, outcome) {
+        // Only actual world-cover hits add marks or rattle welded scraps.
+        // This never changes penetration, damage, AI LOS or navigation.
+        if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
         muzzleKick = Math.min(1.6, muzzleKick + (pilotWeaponPresentation.visualRecoil ?? 1));
         muzzleFlash = pilotWeaponPresentation.muzzleFlashSeconds ?? .10;
         const hit = outcome !== null;
@@ -2769,6 +2775,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
     }
     function showHostileShot(contact, outcome) {
+        // Only actual world-cover hits add marks or rattle welded scraps.
+        // This never changes penetration, damage, AI LOS or navigation.
+        if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
         const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xff9e62 : 0xb97955, transparent: true, opacity: .88 });
@@ -2848,6 +2857,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         updateCombatantDamage('enemy-0', condition);
     }
     function showCombatantShot(shooterId, contact, outcome) {
+        // Only actual world-cover hits add marks or rattle welded scraps.
+        // This never changes penetration, damage, AI LOS or navigation.
+        if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
         const shooter = squadCombatants.get(shooterId);
         const friendly = shooter?.team === 'friendly';
         if (shooter) {
@@ -2981,6 +2993,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
     }
     function updateCombatEffects(dt) {
+        if(backlotEnvironment)advanceBacklotTerrain(backlotEnvironment,dt);
         updateGarageFailureEffects(dt);
         // No frame may synchronously clip an unbounded impact queue. Persistent
         // damage is recorded on hit; its cosmetic mesh catches up incrementally.
