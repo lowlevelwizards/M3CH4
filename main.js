@@ -30,6 +30,7 @@ import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyM
 import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
 import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from './aiFieldService.js';
 import { createWorldModel, observeBattlefield } from './ai/worldModel.js';
+import {soundBearing} from './battlefieldPressure.js';
 import { shotThreatEvidence,recordShotEvidence,counterFlankOrder,
     recordSubsystemHit,threatenedSubsystem,threatFacingPoint } from './ai/combatIntelligence.js';
 import { planTeam } from './ai/teamPlanner.js';
@@ -2819,6 +2820,7 @@ function attemptAiFire(actor, target, shotIndex) {
     if(actor.weaponSpec.fireMode!=='continuous'||consumed%3===1)soundWeaponShot(actor.weaponSpec.id,{
         shotIndex:consumed,
         distance:Math.hypot(actor.rig.x-rig.x,actor.rig.z-rig.z),
+        pan:soundBearing(actor.rig,rig,rig.yaw),
         cockpit:false,
     });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
