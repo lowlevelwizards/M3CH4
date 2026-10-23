@@ -203,8 +203,8 @@ function combatWorldFor(me,actors,baseWorld=DEFAULT_WORLD){
 export function runBout(seed,settings){
     const arenaMap=settings.mapId?mapById(settings.mapId):null;
     const selectedWorld=arenaMap?.world??DEFAULT_WORLD;
-    const traffic={friendly:settings.trafficFriendly??'gated',
-        hostile:settings.trafficHostile??'gated'};
+    const traffic={friendly:settings.trafficFriendly??'adaptive',
+        hostile:settings.trafficHostile??'adaptive'};
     const corridorPolicy={friendly:settings.corridorFriendly??'stagger',
       hostile:settings.corridorHostile??'stagger'};
     if(!CORRIDOR_POLICIES.includes(corridorPolicy.friendly)||
