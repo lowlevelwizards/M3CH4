@@ -22,7 +22,7 @@ import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulatio
 import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { physicsYawToViewYaw } from './locomotion.js';
-import {BACKLOT} from './maps/backlot.js?v=k5q1';
+import {BACKLOT} from './maps/backlot.js?v=k5q2';
 import {venueFloorTexture,buildVenueDressing} from './maps/venueVisuals.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';

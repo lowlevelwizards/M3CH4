@@ -1,6 +1,6 @@
 /** The local open-rotation proving ground; new layout, not the old warehouse. */
 export const BACKLOT=Object.freeze({
- id:'backlot-dustbowl',name:'BACKLOT DUSTBOWL',version:2,theme:'dirt',
+ id:'backlot-dustbowl',name:'BACKLOT DUSTBOWL',version:3,theme:'dirt',
  world:{minX:-34,maxX:34,minZ:-28,maxZ:28,obstacles:[
  // Each large rectangular obstacle was previously a single solid monolith.
  // These machine bodies, cabins, buckets and exposed wheels are instead
@@ -23,19 +23,19 @@ export const BACKLOT=Object.freeze({
  {id:'exposed-engine-rail',minX:-1.49,maxX:3.05,minZ:4.91,maxZ:6.19,height:1.21,kind:'barrier-low',art:'engine-rail'},
  {id:'exposed-engine-left',minX:-1.55,maxX:-.04,minZ:4.34,maxZ:6.83,height:1.63,kind:'barrier-low',art:'engine-bank'},
  {id:'exposed-engine-right',minX:.94,maxX:2.94,minZ:4.34,maxZ:6.83,height:1.63,kind:'barrier-low',art:'engine-bank'},
- {id:'scrap-flywheel-screen',minX:-10.5,maxX:-7.45,minZ:-3.8,maxZ:-.5,height:2.85,kind:'barrier'},
-  {id:'west-tractor',minX:-27.5,maxX:-22.9,minZ:-12.5,maxZ:-6.0,height:2.8,kind:'container'},
- {id:'west-axles',minX:-27.0,maxX:-22.5,minZ:9,maxZ:13.8,height:2.3,kind:'barrier'},
- {id:'west-plate-north',minX:-19.0,maxX:-12.4,minZ:-13.8,maxZ:-11.7,height:2.7,kind:'barrier'},
- {id:'west-plate-south',minX:-20,maxX:-13.5,minZ:12.5,maxZ:14.8,height:1.9,kind:'barrier-low'},
- {id:'east-implement',minX:23,maxX:28.3,minZ:-10.9,maxZ:-4.1,height:3.0,kind:'container'},
- {id:'east-tyres',minX:23.8,maxX:28.5,minZ:11.1,maxZ:15.1,height:2.2,kind:'barrier'},
- {id:'east-plate-north',minX:12.6,maxX:19.2,minZ:-14.0,maxZ:-11.9,height:1.8,kind:'barrier-low'},
- {id:'east-plate-south',minX:13.3,maxX:19.7,minZ:13.1,maxZ:15.0,height:2.6,kind:'barrier'},
- {id:'near-west',minX:-15.5,maxX:-11.1,minZ:16.9,maxZ:18.4,height:1.65,kind:'barrier-low'},
- {id:'near-east',minX:11.1,maxX:15.5,minZ:16.9,maxZ:18.4,height:1.65,kind:'barrier-low'},
- {id:'far-west',minX:-15.5,maxX:-11.1,minZ:-18.4,maxZ:-16.9,height:1.65,kind:'barrier-low'},
- {id:'far-east',minX:11.1,maxX:15.5,minZ:-18.4,maxZ:-16.9,height:1.65,kind:'barrier-low'},
+ {id:'scrap-flywheel-screen',minX:-10.5,maxX:-7.45,minZ:-3.8,maxZ:-.5,height:2.85,kind:'barrier',artKit:'turbine-housing'},
+  {id:'west-tractor',minX:-27.5,maxX:-22.9,minZ:-12.5,maxZ:-6.0,height:2.8,kind:'container',artKit:'tractor-wreck'},
+ {id:'west-axles',minX:-27.0,maxX:-22.5,minZ:9,maxZ:13.8,height:2.3,kind:'barrier',artKit:'tire-stack'},
+ {id:'west-plate-north',minX:-19.0,maxX:-12.4,minZ:-13.8,maxZ:-11.7,height:2.7,kind:'barrier',artKit:'shipping-container'},
+ {id:'west-plate-south',minX:-20,maxX:-13.5,minZ:12.5,maxZ:14.8,height:1.9,kind:'barrier-low',artKit:'scrap-barricade'},
+ {id:'east-implement',minX:23,maxX:28.3,minZ:-10.9,maxZ:-4.1,height:3.0,kind:'container',artKit:'combine-harvester'},
+ {id:'east-tyres',minX:23.8,maxX:28.5,minZ:11.1,maxZ:15.1,height:2.2,kind:'barrier',artKit:'tire-stack'},
+ {id:'east-plate-north',minX:12.6,maxX:19.2,minZ:-14.0,maxZ:-11.9,height:1.8,kind:'barrier-low',artKit:'shipping-container'},
+ {id:'east-plate-south',minX:13.3,maxX:19.7,minZ:13.1,maxZ:15.0,height:2.6,kind:'barrier',artKit:'flatbed-fragment'},
+ {id:'near-west',minX:-15.5,maxX:-11.1,minZ:16.9,maxZ:18.4,height:1.65,kind:'barrier-low',artKit:'generator-unit'},
+ {id:'near-east',minX:11.1,maxX:15.5,minZ:16.9,maxZ:18.4,height:1.65,kind:'barrier-low',artKit:'barrel-cluster'},
+ {id:'far-west',minX:-15.5,maxX:-11.1,minZ:-18.4,maxZ:-16.9,height:1.65,kind:'barrier-low',artKit:'pickup-wreck'},
+ {id:'far-east',minX:11.1,maxX:15.5,minZ:-18.4,maxZ:-16.9,height:1.65,kind:'barrier-low',artKit:'concrete-barrier'},
  ...[-29,29].flatMap(x=>[-23.5,23.5].map(z=>({
    id:'pillar-'+x+'-'+z,minX:x-.34,maxX:x+.34,minZ:z-.34,maxZ:z+.34,
    height:7.5,kind:'pillar',
