@@ -39,6 +39,12 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
         position:{x:a.rig.x,z:a.rig.z},
         yaw:a.rig.yaw??0,
         underFireSeconds:a.motion?.awareness?.underFireSeconds??0,
+        // Approximate incoming-fire sector from sensed impact/bearing.
+        // This is never a new enemy sighting or an exact position.
+        threatPosition:a.motion?.awareness?.underFireSeconds>.2 &&
+            a.motion?.awareness?.lastThreat
+            ? {...a.motion.awareness.lastThreat}:null,
+        recentAttackerId:a.motion?.awareness?.recentAttackerId??null,
         behavior:a.behavior?.id??'pressure',capability:actorCapabilities(a),
     }));
     const teams=['friendly','hostile'],knowledge={};
