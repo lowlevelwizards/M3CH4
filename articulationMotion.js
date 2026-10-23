@@ -60,7 +60,7 @@ export function solveLegIK(upper,lower,deltaY,deltaZ){
  */
 export function legPose(upper,lower,{phase=0,side=-1,weight=0,family='legs-yard',
   backward=false,strafe=0,forward=0,brace=0,health=1,disabled=false,
-  upperX=0,lowerX=0}={}){
+  upperX=0,lowerX=0,contact=null}={}){
   const f=familyAnimation(family);
   const working=clamp(weight,0,1)*clamp(health,.08,1)*(disabled?.035:1);
   const strafeSigned=clamp(strafe,-1,1),fwd=Math.abs(clamp(forward,-1,1));
@@ -73,11 +73,16 @@ export function legPose(upper,lower,{phase=0,side=-1,weight=0,family='legs-yard'
   const reachX=Math.sign(strafeSigned)*strideShift*f.lateralReach*
     working*lateral;
   // Strong side strafing should not look like a forward march.
-  const forwardTravel=p.z*(1-lateral*.88);
-  const ik=solveLegIK(upper,lower,p.y,forwardTravel);
-  const lateralIK=lateral>.001?solveLegIK(
+  // When a real contact controller is present, use its fixed world anchor
+  // transformed into body space rather than sliding an analytic stance foot.
+  const forwardTravel=contact?contact.z:p.z*(1-lateral*.88);
+  const footLift=contact?contact.y:p.y;
+  const planted=contact?contact.planted:p.planted;
+  const sideways=contact?contact.x:reachX;
+  const ik=solveLegIK(upper,lower,footLift,forwardTravel);
+  const lateralIK=Math.abs(sideways)>.0001?solveLegIK(
     [upper[0],upperX],[lower[0],lowerX],
-    p.y*.50,reachX
+    footLift*.50,sideways
   ):{hip:0,knee:0};
   // Three-axis foot counter-rotation keeps the pads comparatively flat
   // even though the hip moves them laterally.
@@ -89,10 +94,10 @@ export function legPose(upper,lower,{phase=0,side=-1,weight=0,family='legs-yard'
   return {
     hip:ik.hip,
     knee:ik.knee-braceBend-(disabled?.33:0),
-    ankle:-(ik.hip+ik.knee)*.65+p.pitch*.35+(disabled?.13:0),
-    foot:-(ik.hip+ik.knee)*.22-p.pitch*.70,
+    ankle:-(ik.hip+ik.knee)*.65+(contact?0:p.pitch*.35)+(disabled?.13:0),
+    foot:-(ik.hip+ik.knee)*.22-(contact?0:p.pitch*.70),
     hipRoll,kneeRoll,ankleRoll,footRoll,spread:hipRoll,
-    lateralReach:reachX,lift:p.y,planted:p.planted,phase:p.phase,
+    lateralReach:sideways,lift:footLift,planted,phase:p.phase,
   };
 }
 

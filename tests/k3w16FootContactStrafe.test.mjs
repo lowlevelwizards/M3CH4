@@ -65,9 +65,9 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(scene,/sideStep\*speed/);
  assert.match(html,/<option value="strafe-left">STRAFE LEFT<\/option>/);
  assert.match(html,/<option value="strafe-right">STRAFE RIGHT<\/option>/);
- assert.match(html,/articulationMotion\.js\?v=k3w16/);
- assert.match(html,/sceneAssembly\.js\?v=k4s2/);
- assert.match(html,/main\.js\?v=k4s2/);
- assert.match(source('sceneAssembly.js'),/scene\.js\?source=k4s2/);
- assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
+ assert.match(html,/articulationMotion\.js\?v=k5a2/);
+ assert.match(html,/sceneAssembly\.js\?v=k5a2/);
+ assert.match(html,/main\.js\?v=k5a2/);
+ assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5a2/);
+ assert.match(html,/0\.0\.1k\.5a\.2 — Grounded Steps/);
 });
