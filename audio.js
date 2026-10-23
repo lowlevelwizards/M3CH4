@@ -248,6 +248,70 @@ export function soundCombatImpact(hit,options={}) {
 
 /** Light UI sounds are synthesized instantly, independent of the background
  * industrial PCM worker. Only play after a permitted browser gesture. */
+/** k5r.4 short spatial battlefield transients, synthesized only once per
+ * AudioContext and rate-limited. Never unlock WebAudio from a simulation tick.
+ * Pan/rolloff refer to the physical listener position and first impact.
+ */
+const FIELD_AUDIO_LIMIT=8;
+let fieldContext=null,fieldBuffers=null,fieldActive=0,lastFieldAt=-Infinity;
+function fieldBuffer(ctx,kind){
+ if(fieldContext!==ctx){fieldContext=ctx;fieldBuffers=new Map();}
+ if(fieldBuffers.has(kind))return fieldBuffers.get(kind);
+ const seconds=kind==='heavy-flyby'?.29:kind==='flyby'?.19:kind==='cover-metal'?.22:
+     kind==='cover-concrete'?.23:.18;
+ const length=Math.floor(ctx.sampleRate*seconds);
+ const buffer=ctx.createBuffer(1,length,ctx.sampleRate);
+ const data=buffer.getChannelData(0);
+ let seed=(kind.length*541+31);
+ for(let i=0;i<length;i++){
+    seed=(seed*16807)%2147483647;
+    const t=i/ctx.sampleRate,u=i/length;
+    const noise=seed/1073741823.5-1;
+    const flyby=kind.includes('flyby');
+    const freq=flyby?410+1300*u:kind==='ricochet'?2200-1250*u:
+        kind==='cover-metal'?1150:kind==='cover-concrete'?290:120;
+    const grit=Math.sin(t*freq*6.28318);
+    const envelope=flyby
+      ?Math.pow(Math.sin(Math.PI*u),1.5)*Math.exp(-u*1.8)
+      :Math.exp(-u*(kind==='cover-metal'?13:19));
+    data[i]=(noise*(flyby?.72:.84)+grit*(flyby?.25:.17))*envelope;
+ }
+ fieldBuffers.set(kind,buffer);
+ return buffer;
+}
+export function soundBattlefieldEvent(kind,{distance=0,pan=0,strength=1}={}){
+ const types=['flyby','heavy-flyby','cover-metal','cover-concrete',
+   'cover-earth','cover-wood','cover-rubber','ricochet'];
+ if(!types.includes(kind))return {ok:false,reason:'unknown battlefield sound'};
+ const d=Math.max(0,Number.isFinite(distance)?distance:0);
+ if(d>38||fieldActive>=FIELD_AUDIO_LIMIT)return {ok:true,skipped:true};
+ const ctx=context();
+ if(!ctx||ctx.state==='suspended')return {ok:true,skipped:true};
+ // Burst/shotgun caps; do not flood iPhone's mixer with six identical pellets.
+ if(ctx.currentTime-lastFieldAt<.065)return {ok:true,skipped:true};
+ lastFieldAt=ctx.currentTime;
+ try{
+   const source=ctx.createBufferSource();source.buffer=fieldBuffer(ctx,kind);
+   const filter=ctx.createBiquadFilter();filter.type='lowpass';
+   filter.frequency.value=Math.max(550,10500/(1+d/13));
+   const panner=ctx.createStereoPanner?.();
+   if(panner)panner.pan.value=Math.max(-.96,Math.min(.96,Number(pan)||0));
+   const volume=ctx.createGain();
+   const close=kind.includes('flyby')?.24:kind==='ricochet'?.15:.27;
+   volume.gain.value=close*Math.max(0,Math.min(1.2,strength))/
+       (1+Math.pow(d/12,1.7));
+   source.connect(filter);
+   if(panner){filter.connect(panner);panner.connect(volume);}
+   else filter.connect(volume);
+   volume.connect(ctx.destination);
+   fieldActive++;
+   source.onended=()=>{fieldActive=Math.max(0,fieldActive-1);
+       try{source.disconnect();filter.disconnect();panner?.disconnect();volume.disconnect();}catch{}};
+   source.start();
+   return {ok:true,kind,distance:d,pan:Math.max(-1,Math.min(1,Number(pan)||0))};
+ }catch(error){return {ok:false,reason:String(error?.message??error)};}
+}
+
 export function soundWorkshop(kind='select'){
     const ctx=context();
     if(!ctx||ctx.state==='suspended')return false;
