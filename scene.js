@@ -22,6 +22,7 @@ import {advanceFootContacts,createFootContacts,footPresentation} from './footCon
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { physicsYawToViewYaw } from './locomotion.js';
 import {BACKLOT} from './maps/backlot.js';
+import {venueFloorTexture,buildVenueDressing} from './maps/venueVisuals.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
@@ -181,8 +182,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
       mesh.material.opacity=Math.min(.27,Math.max(.05,mark.opacity??.13));
       mesh.visible=true;
     }
-    scene.background = new THREE.Color(0x20241f);
-    scene.fog = new THREE.FogExp2(0x20241f, 0.0105);
+    const fogColor=arenaMap.theme==='concrete'?0x263537:
+        arenaMap.theme==='mill'?0x312d24:0x20241f;
+    scene.background = new THREE.Color(fogColor);
+    scene.fog = new THREE.FogExp2(fogColor,
+        arenaMap.theme==='mill'?.013:arenaMap.theme==='concrete'?.0098:.0105);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
@@ -206,6 +210,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     scene.add(coolRim);
     const arenaRoot = new THREE.Group();
     arenaRoot.name = 'arena-environment';
+    arenaRoot.userData.mapId=arenaMap.id;
     scene.add(arenaRoot);
     const arenaPresentationRoot = new THREE.Group();
     arenaPresentationRoot.name = 'arena-presentation';
@@ -3231,7 +3236,7 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     // Terrain is purely visual. Keep one flat, identical collision slab and
     // the existing obstacle definitions; the yard texture never changes cover.
     const groundSide=mat(C.concreteDark,1,0);
-    const groundTop=new THREE.MeshStandardMaterial({map:createYardGroundTexture(),roughness:.99,metalness:0});
+    const groundTop=new THREE.MeshStandardMaterial({map:venueFloorTexture(arenaMap),roughness:.99,metalness:0});
     const floor = box(width + 3, 0.35, depth + 3,
         [groundSide,groundSide,groundTop,groundSide,groundSide,groundSide]);
     floor.position.set((world.minX + world.maxX) / 2, -0.18, (world.minZ + world.maxZ) / 2);
@@ -3245,7 +3250,7 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     grid.visible = false;
     scene.add(grid);
 
-    const wallMat = mat(C.concrete, 0.98, 0.02);
+    const wallMat = mat(arenaMap.theme==='mill'?0x57594d:arenaMap.theme==='concrete'?0x68706a:C.concrete,.98,.02);
     const wallThickness = 0.6;
     const wallHeight = 8;
     const wallOffset = 1.0;
@@ -3282,6 +3287,13 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     }
 
     const obstacleMaterial = obstacle => {
+        if(arenaMap.theme==='concrete')return obstacle.kind==='pillar'
+            ?mat(0x41514c,.74,.45):obstacle.kind==='building'
+            ?mat(0x707873,.92,.07):mat(0x626b62,.94,.05);
+        if(arenaMap.theme==='mill')return obstacle.kind==='pillar'
+            ?mat(0x46534b,.78,.37):obstacle.kind==='building'
+            ?mat(0x82785f,.88,.09):obstacle.kind==='container'
+            ?mat(0x6c704f,.86,.20):mat(0x56564a,.93,.08);
         if (obstacle.kind === 'pillar') return mat(C.metal, .70, .65);
         if (obstacle.kind === 'container') return mat(obstacle.id.endsWith('east') ? C.teal : C.rust, .82, .20);
         if (obstacle.kind === 'building') return mat(0x565750, .96, .05);
@@ -3327,29 +3339,33 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
         }
     }
 
-    const signCanvas = document.createElement('canvas');
-    signCanvas.width = 384;
-    signCanvas.height = 64;
-    const ctx = signCanvas.getContext('2d');
-    const drawYardSign=()=>{
-        if (!ctx) return;
-        ctx.fillStyle = '#161a18';
-        ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
-        ctx.fillStyle = '#d6a64a';
-        ctx.font = canvasFont(23, 'identity');
-        ctx.fillText('BACKLOT DUSTBOWL / YARD 01', 20, 39, signCanvas.width - 40);
-    };
-    drawYardSign();
-    const texture = new THREE.CanvasTexture(signCanvas);
-    whenGameFontsReady(()=>{drawYardSign();texture.needsUpdate=true;});
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
-    sign.position.set(centerX, 5, world.minZ - .67);
-    scene.add(sign);
-    // The second art direction slice completes the yard's venue identity.
-    // Dressing never joins the collision solids list or certified cover map.
-    scene.add(buildBacklotDressing(world));
+    if(arenaMap.id==='backlot-dustbowl'){
+        const signCanvas = document.createElement('canvas');
+        signCanvas.width = 384;
+        signCanvas.height = 64;
+        const ctx = signCanvas.getContext('2d');
+        const drawYardSign=()=>{
+            if (!ctx) return;
+            ctx.fillStyle = '#161a18';
+            ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
+            ctx.fillStyle = '#d6a64a';
+            ctx.font = canvasFont(23, 'identity');
+            ctx.fillText('BACKLOT DUSTBOWL / YARD 01', 20, 39, signCanvas.width - 40);
+        };
+        drawYardSign();
+        const texture = new THREE.CanvasTexture(signCanvas);
+        whenGameFontsReady(()=>{drawYardSign();texture.needsUpdate=true;});
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
+        sign.position.set(centerX, 5, world.minZ - .67);
+        scene.add(sign);
+        // The second art direction slice completes the yard's venue identity.
+        // Dressing never joins the collision solids list or certified cover map.
+        scene.add(buildBacklotDressing(world));
+        } else {
+        scene.add(buildVenueDressing(arenaMap));
+    }
     return solids;
 }
 function buildCockpit(scene) {
