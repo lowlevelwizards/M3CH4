@@ -461,12 +461,13 @@ export function buildBacklotPropCatalog(world){
  buildAnatomicalTractor(newPart);
  const collisionOverlay=new THREE.Group();
  collisionOverlay.name='AUTHORITATIVE OLD BACKLOT AABBs — reference only';
- const colliderMaterial=new THREE.MeshBasicMaterial({
-   color:0xf2be76,transparent:true,opacity:.16,wireframe:true,depthTest:false,
+ const colliderMaterial=new THREE.LineBasicMaterial({
+   color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
  });
  for(const o of currentTractor){
-   const shell=new THREE.Mesh(new THREE.BoxGeometry(
-     o.maxX-o.minX,o.height,o.maxZ-o.minZ),colliderMaterial);
+   const shell=new THREE.LineSegments(
+     new THREE.EdgesGeometry(new THREE.BoxGeometry(
+       o.maxX-o.minX,o.height,o.maxZ-o.minZ)),colliderMaterial);
    shell.name='current-map-collider-'+o.id;
    shell.position.set((o.minX+o.maxX)/2-oldC.x,o.height*.5,
      (o.minZ+o.maxZ)/2-oldC.z);
