@@ -2445,7 +2445,10 @@ function finishSortie(victory, reason) {
     economy.credits = summary.creditsAfter;
     renderEconomy();
     persistMachine();
-    faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
+    const timedDecision=reason?.startsWith('TIME LIMIT')||reason?.startsWith('OVERTIME');
+    faultStrip.textContent = timedDecision
+        ? (victory?'ROUND WON · TIME DECISION':'ROUND LOST · TIME DECISION')
+        : victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
     faultStrip.classList.remove('nominal');
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');
