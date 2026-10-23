@@ -126,7 +126,7 @@ export function poseReloadHardware(mechanism,phase){
      rest.feed.y+.12*shift,rest.feed.z+displacement*.35-.42*shift);
  }
  latch.position.copy(rest.latch);
- latch.position.y-=phase?.slide*.35??0;
+ latch.position.y-=(phase?.slide??0)*.35;
  latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*-.42;
 }
 
