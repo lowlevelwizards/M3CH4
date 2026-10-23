@@ -99,6 +99,7 @@ export function attachReloadHardware(root,id){
  const latch=group(root,'RELOAD / battery locking jaw',[0,.34,.35]);
  block(latch,'RELOAD / massive catch',[0,0,0],[.35,.14,.23],'machined');
  const guide=group(root,'RELOAD / fixed ammunition feed track',[.24,-.20,.24]);
+ for(const node of [feed,latch,guide])node.userData.visualOnly=true;
  block(guide,'RELOAD / feeding rails',[0,0,0],[.13,.12,.46],'dark');
  root.traverse(node=>{if(node.isMesh&&(feed===node.parent||latch===node.parent||guide===node.parent))
    node.userData.visualOnly=true;});
