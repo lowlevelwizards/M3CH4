@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'roundClock.js'
+      - 'research/headlessDominationStudy.mjs'
       - 'main.js'
       - 'index.html'
       - 'polishPass.css'
@@ -21,6 +22,7 @@ jobs:
         run: |
           node --check roundClock.js
           node --check main.js
+          node --check research/headlessDominationStudy.mjs
       - name: Regulation and dependency regressions
         run: node --test tests/k5a2RoundClock.test.mjs tests/k5a1CombatJudgment.test.mjs tests/k5p1Presentation.test.mjs tests/k5p3Visibility.test.mjs
       - name: Paired physical AI Olympics — three mobility families
