@@ -21,19 +21,17 @@ const candidates={
   ['north-flanks',points([-20,-4],[0,12],[20,-4])],
  ],
  grainhouse:[
-  ['midpoint-z19',points([-10,-13],[24.5,-8],[11,19])],
-  ['midpoint-z19.5',points([-10,-13],[24.5,-8],[11,19.5])],
-  ['midpoint-z20',points([-10,-13],[24.5,-8],[11,20])],
-  ['midpoint-a12.5',points([-10,-12.5],[24.5,-8],[11,19])],
-  ['previous-live',points([-10,-12],[25,-8.3],[11,20])],
-  ['middle-z14',points([-10,-13],[24.5,-8],[11,14])],
-  ['middle-z15',points([-10,-13],[24.5,-8],[11,15])],
-  ['middle-z16',points([-10,-13],[24.5,-8],[11,16])],
-  ['middle-delta',points([-10,-13],[24.5,-8],[11,17])],
-  ['middle-epsilon',points([-10,-13],[24.5,-7.5],[11,18])],
-  ['middle-alpha',points([-10,-13],[24.5,-7],[11,16])],
-  ['middle-beta',points([-10,-12],[24.5,-8],[11,15])],
-  ['middle-gamma',points([-10,-14],[24.5,-8],[11,18])],
+  // Probe the newly rebuilt north/south silo approaches, not just a small
+  // offset within the old north-owned objective. Same geometry for each bout.
+  ['court-live',points([-10,-13],[19,-1],[11,19])],
+  ['court-north',points([-10,-13],[19,-3],[11,19])],
+  ['court-south',points([-10,-13],[19,1],[11,19])],
+  ['court-east',points([-10,-13],[23,0],[11,19])],
+  ['court-west',points([-10,-13],[16,-1],[11,19])],
+  ['court-c-south',points([-10,-13],[19,-1],[11,17])],
+  ['court-a-south',points([-10,-11.5],[19,-1],[11,19])],
+  ['court-diagonal',points([-10,-13],[18,-1],[11,18])],
+  ['old-north-b',points([-10,-13],[24.5,-8],[11,19])],
  ],
 };
 const pairs=Math.max(1,Math.min(16,Number(process.argv[2]||8)));
