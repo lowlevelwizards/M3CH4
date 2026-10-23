@@ -78,7 +78,7 @@ test('physical fire rejects blocked and friendly-first shots on every module',()
     }),'enemy','command');
     assert.equal(blocked.clear,false);
     assert.equal(blocked.aimSlot,null);
-    assert.equal(blocked.blocker,'steel-wall');
+    assert.equal(blocked.blocker,'ally');
 });
 
 test('blocked lane produces new side/around-cover movement after failed approach',()=>{
