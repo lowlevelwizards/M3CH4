@@ -20,7 +20,9 @@ import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
-import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
+import { physicsYawToViewYaw } from './locomotion.js';
+import {BACKLOT} from './maps/backlot.js';
+import {venueFloorTexture,buildVenueDressing} from './maps/venueVisuals.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
 import { combinerTetherFromLook } from './cockpitView.js';
@@ -149,7 +151,9 @@ export function rigThumbnailDataUrl(assembly){
     disposePreviewObject(visual.root);
     return url;
 }
-export function createArenaScene(initial, targetAssembly) {
+export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
+    const world=arenaMap.world;
+    const playerSpawn=arenaMap.spawns.friendly[0],hostileSpawn=arenaMap.spawns.hostile[0];
     const scene = new THREE.Scene();
     // Recycled ground decals: no permanent textures, runtime allocations on
     // landing, save changes, or hundreds of expensive particle emitters.
@@ -180,8 +184,11 @@ export function createArenaScene(initial, targetAssembly) {
       mesh.material.opacity=Math.min(.27,Math.max(.05,mark.opacity??.13));
       mesh.visible=true;
     }
-    scene.background = new THREE.Color(0x20241f);
-    scene.fog = new THREE.FogExp2(0x20241f, 0.0105);
+    const fogColor=arenaMap.theme==='concrete'?0x263537:
+        arenaMap.theme==='mill'?0x312d24:0x20241f;
+    scene.background = new THREE.Color(fogColor);
+    scene.fog = new THREE.FogExp2(fogColor,
+        arenaMap.theme==='mill'?.013:arenaMap.theme==='concrete'?.0098:.0105);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
     camera.rotation.order = 'YXZ';
     scene.add(camera);
@@ -205,11 +212,12 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(coolRim);
     const arenaRoot = new THREE.Group();
     arenaRoot.name = 'arena-environment';
+    arenaRoot.userData.mapId=arenaMap.id;
     scene.add(arenaRoot);
     const arenaPresentationRoot = new THREE.Group();
     arenaPresentationRoot.name = 'arena-presentation';
     scene.add(arenaPresentationRoot);
-    const worldSolids = buildWarehouse(arenaRoot);
+    const worldSolids = buildArenaWorld(arenaRoot,world,arenaMap,playerSpawn,hostileSpawn);
     const garageRoot = buildGarageBay();
     // A circuit-side service lane is a different *physical place* from home.
     // Reuse the same authored jacks and diagnostics, not the entire garage.
@@ -254,11 +262,11 @@ export function createArenaScene(initial, targetAssembly) {
             g.fillStyle='#111c19';g.fillRect(0,0,128,64);
             g.fillStyle='#344c43';g.fillRect(2,2,124,60);
             g.fillStyle='#13221b';g.fillRect(5,5,118,54);
-            g.fillStyle='#b0c4a8';g.font='bold 11px monospace';g.fillText(pitPresentation?'PIT DIAGNOSTIC':'SERVICE BAY',10,19);
+            g.fillStyle='#b0c4a8';g.font=canvasFont(11,'data',700);g.fillText(pitPresentation?'PIT DIAGNOSTIC':'SERVICE BAY',10,19);
             g.fillStyle=policy.critical?'#eda16c':'#d9b977';
-            g.font='bold 13px monospace';
+            g.font=canvasFont(13,'data',700);
             g.fillText(policy.focus?.toUpperCase()?.slice(0,11)||'ALL SYSTEMS',10,37);
-            g.font='bold 10px monospace';
+            g.font=canvasFont(10,'data',700);
             g.fillStyle=policy.critical?'#ff9876':'#94bfb2';
             g.fillText(policy.mode+' / '+policy.damagedCount+' ALERT',10,51);
             stage.readout.needsUpdate=true;
@@ -421,7 +429,7 @@ export function createArenaScene(initial, targetAssembly) {
                     ctx.fillStyle='#3c261d';ctx.fillRect(0,0,256,96);
                     ctx.strokeStyle='#d7a478';ctx.lineWidth=5;ctx.strokeRect(5,5,246,86);
                     ctx.textAlign='center';ctx.textBaseline='middle';
-                    ctx.font='bold 54px monospace';ctx.fillStyle='#f7c18e';
+                    ctx.font=canvasFont(54,'identity');ctx.fillStyle='#f7c18e';
                     ctx.fillText('SOLD OUT',128,47,239);
                     const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
                     const placard=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.70),
@@ -523,7 +531,7 @@ export function createArenaScene(initial, targetAssembly) {
         screen.mesh.material.depthTest = false;
         screen.mesh.material.depthWrite = false;
     }
-    const debugColliders = buildDebugColliders(scene);
+    const debugColliders = buildDebugColliders(scene,world);
     debugColliders.visible = false;
     const navMarker = new THREE.Mesh(new THREE.RingGeometry(.42, .52, 16), new THREE.MeshBasicMaterial({ color: 0x73dfc8, side: THREE.DoubleSide, depthTest: false }));
     navMarker.rotation.x = -Math.PI / 2;
@@ -586,7 +594,7 @@ export function createArenaScene(initial, targetAssembly) {
     // as the player. It has its own installed serials and never inherits player swaps.
     let targetExterior = buildExteriorRig(targetAssembly);
     calibrateExteriorSoles(targetExterior);
-    targetExterior.root.position.set(HOSTILE_SPAWN.x, targetExterior.groundOffset, HOSTILE_SPAWN.z);
+    targetExterior.root.position.set(hostileSpawn.x, targetExterior.groundOffset, hostileSpawn.z);
     targetExterior.root.rotation.y = Math.PI; // Look back toward the pilot.
     arenaPresentationRoot.add(targetExterior.root);
     const rangeMarks = new THREE.Group();
@@ -1337,11 +1345,11 @@ export function createArenaScene(initial, targetAssembly) {
     // Ring, not another obstacle or an invisible hit volume.
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: 0xcf9750, side: THREE.DoubleSide, transparent: true, opacity: .52 }));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(HOSTILE_SPAWN.x, .035, HOSTILE_SPAWN.z);
+    ring.position.set(hostileSpawn.x, .035, hostileSpawn.z);
     arenaPresentationRoot.add(ring);
     const pilotRing = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.84, 32), new THREE.MeshBasicMaterial({ color: C.green, side: THREE.DoubleSide, transparent: true, opacity: .26 }));
     pilotRing.rotation.x = -Math.PI / 2;
-    pilotRing.position.set(PLAYER_SPAWN.x, .034, PLAYER_SPAWN.z);
+    pilotRing.position.set(playerSpawn.x, .034, playerSpawn.z);
     arenaPresentationRoot.add(pilotRing);
     const objectiveMaterial = new THREE.MeshBasicMaterial({ color: 0xd7a24b, side: THREE.DoubleSide, transparent: true, opacity: .58, depthWrite: false });
     const objectiveRing = new THREE.Mesh(new THREE.RingGeometry(.90, 1, 48), objectiveMaterial);
@@ -1509,7 +1517,7 @@ export function createArenaScene(initial, targetAssembly) {
     // cover decoration can never permit a target hit through the obstacle volume.
     function certifiedCoverHit(muzzle, bore, maxDistance, actual) {
         const meshDistance = actual ? muzzle.distanceTo(actual.point) : maxDistance;
-        const cover = firstCoverHit(muzzle, bore, DEFAULT_WORLD.obstacles, maxDistance, .035);
+        const cover = firstCoverHit(muzzle, bore, world.obstacles, maxDistance, .035);
         if (!cover || cover.distance >= meshDistance - .005) return null;
         return {
             id: cover.id,
@@ -2509,7 +2517,7 @@ export function createArenaScene(initial, targetAssembly) {
                 raycaster.set(position,direct);raycaster.far=Math.min(radius+1,length+.8);
                 const hit=raycaster.intersectObjects(blockers,false)[0];
                 if(!hit)continue;
-                const cover=firstCoverHit(position,direct,DEFAULT_WORLD.obstacles,raycaster.far,.035);
+                const cover=firstCoverHit(position,direct,world.obstacles,raycaster.far,.035);
                 if(cover&&cover.distance<hit.distance-.01)continue;
                 if(hit.object.userData.actorId!==rig.id||hit.object.userData.slot!==slot)continue;
                 const damage=blastDamage(hit.distance,radius,nominal);
@@ -2540,7 +2548,7 @@ export function createArenaScene(initial, targetAssembly) {
             const hit=raycaster.intersectObjects([
                 ...combatPickMeshes(p.ownerId),
                 ...(p.ownerId==='player'?[]:exterior.pickMeshes),...worldSolids],false)[0]??null;
-            const cover=firstCoverHit(start,p.direction,DEFAULT_WORLD.obstacles,sweep.distance,.035);
+            const cover=firstCoverHit(start,p.direction,world.obstacles,sweep.distance,.035);
             const coverFirst=!!cover&&(!hit||cover.distance<hit.distance-.01);
             if(coverFirst||hit) {
                 const point=coverFirst?new THREE.Vector3(...cover.point):hit.point.clone();
@@ -3284,9 +3292,9 @@ function buildPitLane() {
     if(ctx){
         ctx.fillStyle='#3b392d';ctx.fillRect(0,0,384,96);
         ctx.strokeStyle='#bda15c';ctx.lineWidth=5;ctx.strokeRect(4,4,376,88);
-        ctx.fillStyle='#e5bd72';ctx.font='bold 42px monospace';
+        ctx.fillStyle='#e5bd72';ctx.font=canvasFont(42,'identity');
         ctx.textAlign='center';ctx.fillText('FIELD PIT',192,52);
-        ctx.fillStyle='#a7b3a2';ctx.font='bold 17px monospace';
+        ctx.fillStyle='#a7b3a2';ctx.font=canvasFont(17,'data',700);
         ctx.fillText('ROUND SERVICE // CREW LANE',192,78);
         const texture=new THREE.CanvasTexture(signCanvas);
         texture.colorSpace=THREE.SRGBColorSpace;
@@ -3453,17 +3461,17 @@ function buildGarageBay() {
     return root;
 }
 
-function buildWarehouse(scene) {
+function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     const solids = [];
-    const width = DEFAULT_WORLD.maxX - DEFAULT_WORLD.minX;
-    const depth = DEFAULT_WORLD.maxZ - DEFAULT_WORLD.minZ;
+    const width = world.maxX - world.minX;
+    const depth = world.maxZ - world.minZ;
     // Terrain is purely visual. Keep one flat, identical collision slab and
     // the existing obstacle definitions; the yard texture never changes cover.
     const groundSide=mat(C.concreteDark,1,0);
-    const groundTop=new THREE.MeshStandardMaterial({map:createYardGroundTexture(),roughness:.99,metalness:0});
+    const groundTop=new THREE.MeshStandardMaterial({map:venueFloorTexture(arenaMap),roughness:.99,metalness:0});
     const floor = box(width + 3, 0.35, depth + 3,
         [groundSide,groundSide,groundTop,groundSide,groundSide,groundSide]);
-    floor.position.set((DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2, -0.18, (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2);
+    floor.position.set((world.minX + world.maxX) / 2, -0.18, (world.minZ + world.maxZ) / 2);
     floor.userData.arenaObstacleId = 'floor';
     scene.add(floor);
     solids.push(floor);
@@ -3474,36 +3482,36 @@ function buildWarehouse(scene) {
     grid.visible = false;
     scene.add(grid);
 
-    const wallMat = mat(C.concrete, 0.98, 0.02);
+    const wallMat = mat(arenaMap.theme==='mill'?0x57594d:arenaMap.theme==='concrete'?0x68706a:C.concrete,.98,.02);
     const wallThickness = 0.6;
     const wallHeight = 8;
     const wallOffset = 1.0;
-    const centerX = (DEFAULT_WORLD.minX + DEFAULT_WORLD.maxX) / 2;
-    const centerZ = (DEFAULT_WORLD.minZ + DEFAULT_WORLD.maxZ) / 2;
+    const centerX = (world.minX + world.maxX) / 2;
+    const centerZ = (world.minZ + world.maxZ) / 2;
     const north = box(width + 2, wallHeight, wallThickness, wallMat);
-    north.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.minZ - wallOffset);
+    north.position.set(centerX, wallHeight / 2, world.minZ - wallOffset);
     north.userData.arenaObstacleId = 'wall-north';
     scene.add(north);
     solids.push(north);
     const south = box(width + 2, wallHeight, wallThickness, wallMat);
-    south.position.set(centerX, wallHeight / 2, DEFAULT_WORLD.maxZ + wallOffset);
+    south.position.set(centerX, wallHeight / 2, world.maxZ + wallOffset);
     south.userData.arenaObstacleId = 'wall-south';
     scene.add(south);
     solids.push(south);
     const west = box(wallThickness, wallHeight, depth + 2, wallMat);
-    west.position.set(DEFAULT_WORLD.minX - wallOffset, wallHeight / 2, centerZ);
+    west.position.set(world.minX - wallOffset, wallHeight / 2, centerZ);
     west.userData.arenaObstacleId = 'wall-west';
     scene.add(west);
     solids.push(west);
     const east = box(wallThickness, wallHeight, depth + 2, wallMat);
-    east.position.set(DEFAULT_WORLD.maxX + wallOffset, wallHeight / 2, centerZ);
+    east.position.set(world.maxX + wallOffset, wallHeight / 2, centerZ);
     east.userData.arenaObstacleId = 'wall-east';
     scene.add(east);
     solids.push(east);
 
     const stripeMat = mat(C.yellow, 0.9, 0.08);
-    for (const z of [PLAYER_SPAWN.z + 2.6, HOSTILE_SPAWN.z - 2.6]) {
-        for (let x = DEFAULT_WORLD.minX + 4; x <= DEFAULT_WORLD.maxX - 4; x += 8) {
+    for (const z of [playerSpawn.z + 2.6, hostileSpawn.z - 2.6]) {
+        for (let x = world.minX + 4; x <= world.maxX - 4; x += 8) {
             const stripe = box(3.5, 0.03, 0.22, stripeMat);
             stripe.position.set(x, 0.03, z);
             scene.add(stripe);
@@ -3511,12 +3519,19 @@ function buildWarehouse(scene) {
     }
 
     const obstacleMaterial = obstacle => {
+        if(arenaMap.theme==='concrete')return obstacle.kind==='pillar'
+            ?mat(0x41514c,.74,.45):obstacle.kind==='building'
+            ?mat(0x707873,.92,.07):mat(0x626b62,.94,.05);
+        if(arenaMap.theme==='mill')return obstacle.kind==='pillar'
+            ?mat(0x46534b,.78,.37):obstacle.kind==='building'
+            ?mat(0x82785f,.88,.09):obstacle.kind==='container'
+            ?mat(0x6c704f,.86,.20):mat(0x56564a,.93,.08);
         if (obstacle.kind === 'pillar') return mat(C.metal, .70, .65);
         if (obstacle.kind === 'container') return mat(obstacle.id.endsWith('east') ? C.teal : C.rust, .82, .20);
         if (obstacle.kind === 'building') return mat(0x565750, .96, .05);
         return mat(C.concreteDark, .98, .02);
     };
-    for (const obstacle of DEFAULT_WORLD.obstacles) {
+    for (const obstacle of world.obstacles) {
         const w = obstacle.maxX - obstacle.minX;
         const d = obstacle.maxZ - obstacle.minZ;
         const h = Number.isFinite(obstacle.height) ? obstacle.height : 1.1;
@@ -3556,29 +3571,33 @@ function buildWarehouse(scene) {
         }
     }
 
-    const signCanvas = document.createElement('canvas');
-    signCanvas.width = 384;
-    signCanvas.height = 64;
-    const ctx = signCanvas.getContext('2d');
-    const drawYardSign=()=>{
-        if (!ctx) return;
-        ctx.fillStyle = '#161a18';
-        ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
-        ctx.fillStyle = '#d6a64a';
-        ctx.font = canvasFont(23, 'identity');
-        ctx.fillText('BACKLOT DUSTBOWL / YARD 01', 20, 39, signCanvas.width - 40);
-    };
-    drawYardSign();
-    const texture = new THREE.CanvasTexture(signCanvas);
-    whenGameFontsReady(()=>{drawYardSign();texture.needsUpdate=true;});
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
-    sign.position.set(centerX, 5, DEFAULT_WORLD.minZ - .67);
-    scene.add(sign);
-    // The second art direction slice completes the yard's venue identity.
-    // Dressing never joins the collision solids list or certified cover map.
-    scene.add(buildBacklotDressing(DEFAULT_WORLD));
+    if(arenaMap.id==='backlot-dustbowl'){
+        const signCanvas = document.createElement('canvas');
+        signCanvas.width = 384;
+        signCanvas.height = 64;
+        const ctx = signCanvas.getContext('2d');
+        const drawYardSign=()=>{
+            if (!ctx) return;
+            ctx.fillStyle = '#161a18';
+            ctx.fillRect(0, 0, signCanvas.width, signCanvas.height);
+            ctx.fillStyle = '#d6a64a';
+            ctx.font = canvasFont(23, 'identity');
+            ctx.fillText('BACKLOT DUSTBOWL / YARD 01', 20, 39, signCanvas.width - 40);
+        };
+        drawYardSign();
+        const texture = new THREE.CanvasTexture(signCanvas);
+        whenGameFontsReady(()=>{drawYardSign();texture.needsUpdate=true;});
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestFilter;
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.4), new THREE.MeshBasicMaterial({ map: texture }));
+        sign.position.set(centerX, 5, world.minZ - .67);
+        scene.add(sign);
+        // The second art direction slice completes the yard's venue identity.
+        // Dressing never joins the collision solids list or certified cover map.
+        scene.add(buildBacklotDressing(world));
+        } else {
+        scene.add(buildVenueDressing(arenaMap));
+    }
     return solids;
 }
 function buildCockpit(scene) {
@@ -3699,10 +3718,10 @@ function buildCockpit(scene) {
     cockpit.userData.warningLamps = { amberLampMat, redLampMat, amberWash, redWash };
     return cockpit;
 }
-function buildDebugColliders(scene) {
+function buildDebugColliders(scene,world) {
     const group = new THREE.Group();
     const material = new THREE.MeshBasicMaterial({ color: 0x65ff91, wireframe: true, transparent: true, opacity: 0.7, depthTest: false });
-    for (const obstacle of DEFAULT_WORLD.obstacles) {
+    for (const obstacle of world.obstacles) {
         const w = obstacle.maxX - obstacle.minX;
         const d = obstacle.maxZ - obstacle.minZ;
         const mesh = box(w + 1.9, 0.4, d + 1.9, material);
