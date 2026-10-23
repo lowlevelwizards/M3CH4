@@ -27,7 +27,7 @@ export const GRAINHOUSE=Object.freeze({
  }))),
  ]},
  spawns:{
- friendly:[{x:0,z:23,yaw:0},{x:-9,z:22,yaw:0},{x:14,z:24,yaw:0}],
+ friendly:[{x:0,z:23,yaw:0},{x:-9,z:22,yaw:0},{x:17,z:24,yaw:0}],
  hostile:[{x:0,z:-22,yaw:Math.PI},{x:-9,z:-22,yaw:Math.PI},{x:9,z:-22,yaw:Math.PI}],
  },
  sites:{
