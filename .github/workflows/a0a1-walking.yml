@@ -12,6 +12,31 @@ on:
       - 'scene.js'
       - 'tests/a0a1Walking.test.mjs'
 jobs:
+  lab-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Host production static files
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/m3ch4-piloting-lab.log 2>&1 &
+          sleep 2
+      - name: Piloting lab real browser smoke
+        run: node research/pilotingLabBrowserSmoke.mjs
+      - name: Screenshot lab views on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: piloting-lab-browser
+          path: browser-smoke-artifacts/
+          if-no-files-found: warn
   physics:
     runs-on: ubuntu-latest
     timeout-minutes: 7
