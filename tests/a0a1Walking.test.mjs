@@ -76,5 +76,5 @@ test('real isolated lab is a dedicated page with no persistence, combat or econo
  assert.match(js,/arena\.updatePilotingLabRig\(state,gait,frameDt\)/);
  assert.match(src('scene.js'),/function setPilotingLab\(enabled,showExterior=true\)/);
  assert.doesNotMatch(js,/localStorage|storeMachine|persistMachine|settleSortie|startSeries/);
- assert.match(src('index.html'),/href="\.\/piloting-lab\.html\?v=k5b4"/);
+ assert.match(src('index.html'),/href="\.\/piloting-lab\.html\?v=k5b5"/);
 });
