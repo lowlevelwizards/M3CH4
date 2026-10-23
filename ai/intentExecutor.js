@@ -3,7 +3,20 @@
  * geometry A* plus the legacy local avoidance/stuck recovery.
  */
 import { planRoute, planApproachRoute, nextWaypoint } from './navigation.js';
-import { trafficAdvice } from './trafficCoordination.js';
+import { trafficAdvice,isPhysicalChoke } from './trafficCoordination.js';
+/** Score-circle arrivals wait at valid reserved points; free traffic passes.
+ * Uses assigned physical routes, not hidden enemy state.
+ */
+export function trafficPolicyForIntent(intent,policy='legacy',rig=null,waypoint=null,world=null,radius=1.1){
+    if(policy!=='adaptive')return policy;
+    // Shared scoring-zone arrival needs an orderly inside footprint.
+    if(['CAPTURE','CONTEST'].includes(intent?.goal)&&intent?.arrivalPoint)
+        return 'gated';
+    // Strong coordinated yielding helps in true narrow concrete gates, but
+    // not in open ground where the machines can simply overtake one another.
+    return rig&&waypoint&&world&&isPhysicalChoke(rig,waypoint,world,radius)
+        ? 'hybrid':'lanes';
+}
 const d=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createIntentExecutor(){return {route:null,key:null,
     lastPosition:null,stalledFor:0,lastFailure:null,failures:0,retryLeft:0,
@@ -130,7 +143,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         // ally avoidance; dynamic body physics still resolves actual contact.
         if(intent?.goal!=='DEFEND'||d(rig,goal)>2.3){
             const advice=trafficAdvice(rig,waypoint,traffic,world,collisionRadius,{
-                policy:options.trafficPolicy??'legacy',
+                policy:trafficPolicyForIntent(intent,options.trafficPolicy??'legacy',rig,waypoint,world,collisionRadius),
                 actorId:options.actorId??null,waitedSeconds:state.trafficWaitTime});
             if(advice?.kind==='WAIT'){
                 state.trafficWaitTime+=dt;

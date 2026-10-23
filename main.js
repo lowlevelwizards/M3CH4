@@ -37,6 +37,8 @@ import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
 import { createIntentExecutor, executeIntent } from './ai/intentExecutor.js';
 import { createAiTrace, recordAiDecision, formatAiTrace } from './ai/debug.js';
 import { prioritizeVisibleTarget, shouldAttemptTacticalShot, tacticalAimSlot } from './ai/adaptiveTactics.js';
+import { aiWeaponEngagement } from './ai/weaponTactics.js';
+import { createRoundClock,advanceRoundClock,formatRoundClock } from './roundClock.js';
 import { createFaultSupportState, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
 import { advanceSortieObjective, createSortieObjective, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
@@ -412,6 +414,11 @@ rangeCrosshair.textContent='';
 let shotSafetyTimer=0;
 const faultStrip = required('#fault-strip');
 const teamStatus = required('#team-status');
+const roundClockHud=document.createElement('div');
+roundClockHud.id='round-clock-hud';
+roundClockHud.setAttribute('role','timer');
+roundClockHud.setAttribute('aria-label','Round time remaining');
+teamStatus.insertAdjacentElement('afterend',roundClockHud);
 const objectiveStatus = required('#objective-status');
 const playerDamageHud = required('#player-damage-hud');
 const hitConfirm = required('#hit-confirm');
@@ -526,6 +533,9 @@ let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
     aiPlanCooldown=0,aiPerceptionCooldown=0;
 let strategicMemory=createStrategicState();
 let aiAssaultMemory={friendly:{},hostile:{}};
+let aiCorridorMemory={friendly:{},hostile:{}};
+let roundClock=createRoundClock();
+let lastRoundClockText='';
 const aiTrace=createAiTrace();
 let selectedPart = null;
 let statusTimeout = null;
@@ -661,6 +671,14 @@ function renderObjectiveStatus() {
     }
     arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 }
+function renderRoundClock(){
+    const label=formatRoundClock(roundClock);
+    if(label===lastRoundClockText)return;
+    lastRoundClockText=label;roundClockHud.textContent=label;
+    roundClockHud.classList.toggle('overtime',!!roundClock.overtime);
+    roundClockHud.classList.toggle('urgent',!!roundClock.overtime||
+        roundClock.limitSeconds-roundClock.elapsed<30);
+}
 function renderSquadStatus() {
     const counts = squadCounts(playerCombatActive, aiActors);
     const screener = friendlySupportActors.find(actor => faultSupportForActor(faultSupportState, actor.id)?.casualtyId === 'player');
@@ -669,6 +687,7 @@ function renderSquadStatus() {
     teamStatus.classList.toggle('friendly-critical', counts.friendly <= 1);
     teamStatus.classList.toggle('hostile-critical', counts.hostile <= 1);
     renderObjectiveStatus();
+    renderRoundClock();
     syncCockpitInstruments();
 }
 // Cockpit percentages display INTERNAL integrity, exactly as the pit patch
@@ -919,8 +938,10 @@ function resetSquadBattle() {
     leaveAlliedObservation();
     aiMemory=createWorldModel();aiSnapshot=null;aiPlans={};aiClock=0;
     aiPlanCooldown=0;aiPerceptionCooldown=0;
+    roundClock=createRoundClock();lastRoundClockText='';
     strategicMemory=createStrategicState();
     aiAssaultMemory={friendly:{},hostile:{}};
+    aiCorridorMemory={friendly:{},hostile:{}};
     aiTrace.rows.length=0;
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
@@ -1821,9 +1842,13 @@ function frame(now) {
                     const previousPlans=aiPlans;
                     aiPlans={
                         friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy,
-                            assaultMemory:aiAssaultMemory.friendly,previousOrders:previousPlans.friendly?.orders}),
+                            assaultMemory:aiAssaultMemory.friendly,previousOrders:previousPlans.friendly?.orders,
+                            world:selectedWorld,arrivalPolicy:'coordinated',
+                            corridorPolicy:'stagger',corridorMemory:aiCorridorMemory.friendly}),
                         hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy,
-                            assaultMemory:aiAssaultMemory.hostile,previousOrders:previousPlans.hostile?.orders}),
+                            assaultMemory:aiAssaultMemory.hostile,previousOrders:previousPlans.hostile?.orders,
+                            world:selectedWorld,arrivalPolicy:'coordinated',
+                            corridorPolicy:'stagger',corridorMemory:aiCorridorMemory.hostile}),
                     };
                     aiPlanCooldown=.85;
                 }
@@ -1867,6 +1892,11 @@ function frame(now) {
                 let order=aiPlans[actor.team]?.orders?.[actor.id]??null;
                 const alliedView=aiSnapshot?.knowledge?.[actor.team];
                 const me=alliedView?.allies.find(p=>p.id===actor.id);
+                // Recent shared contact may guide facing/search, but never
+                // authorize shots or reveal an opponent's current position.
+                const lastSeen=alliedView?.contacts?.filter(c=>!c.visible &&
+                    c.confidence>.32 && aiClock-c.lastSeen<=6.0)
+                    .sort((a,b)=>b.lastSeen-a.lastSeen)[0]??null;
                 const support=counterFlankOrder(me,order,alliedView?.allies,
                     alliedView?.contacts,selectedWorld,aiClock);
                 if(support&&!screenTarget?.active)order=support;
@@ -1917,10 +1947,11 @@ function frame(now) {
                         speed:Math.hypot(p.rig.vx??0,p.rig.vz??0),
                         velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
-                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
+                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic,
+                    {now:aiClock,actorId:actor.id,trafficPolicy:'adaptive'});
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
-                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig);
+                let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig, lastSeen?.position??null);
                 if (actor.fieldService.held || recovery.mode === 'SETTLE')
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
@@ -1963,7 +1994,18 @@ function frame(now) {
                             !!sortieObjective.domination?.points?.some(p=>
                                 Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<
                                   sortieObjective.radius &&
-                                (p.contested||p.owner===actor.team))});
+                                (p.contested||p.owner===actor.team))}) &&
+                        aiWeaponEngagement(actor.weaponSpec,{
+                            distance:Math.hypot(target.rig.x-actor.rig.x,
+                                target.rig.z-actor.rig.z),
+                            rigSpeed:Math.hypot(actor.rig.vx,actor.rig.vz),
+                            yawError:Math.abs(Math.atan2(
+                                Math.sin(Math.atan2(target.rig.x-actor.rig.x,
+                                    actor.rig.z-target.rig.z)-actor.rig.yaw),
+                                Math.cos(Math.atan2(target.rig.x-actor.rig.x,
+                                    actor.rig.z-target.rig.z)-actor.rig.yaw))),
+                            brace:actor.rig.brace??0,
+                        }).fire;
                     const triggerReady=actor.weaponSpec.fireMode==='charged'
                         ? advanceChargedTrigger(actor.weaponState,actor.weaponSpec,ready,FIXED_DT) : ready;
                     const shot=advanceHostileController(actor.controller,
@@ -1976,6 +2018,11 @@ function frame(now) {
                 const objectiveOutcome = advanceSortieObjective(sortieObjective, battleParticipants(), FIXED_DT);
                 renderObjectiveStatus();
                 if (objectiveOutcome) finishSortie(objectiveOutcome.victory, objectiveOutcome.reason);
+                else {
+                    const timeout=advanceRoundClock(roundClock,FIXED_DT,sortieObjective,battleParticipants());
+                    renderRoundClock();
+                    if(timeout)finishSortie(timeout.victory,timeout.reason);
+                }
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
@@ -2414,7 +2461,10 @@ function finishSortie(victory, reason) {
     economy.credits = summary.creditsAfter;
     renderEconomy();
     persistMachine();
-    faultStrip.textContent = victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
+    const timedDecision=reason?.startsWith('TIME LIMIT')||reason?.startsWith('OVERTIME');
+    faultStrip.textContent = timedDecision
+        ? (victory?'ROUND WON · TIME DECISION':'ROUND LOST · TIME DECISION')
+        : victory ? `CONTRACT CLEARED · HOSTILE TEAM DOWN` : `SORTIE LOST · FRIENDLY TEAM DOWN`;
     faultStrip.classList.remove('nominal');
     faultStrip.classList.toggle('faulted', !victory);
     shotReport.classList.remove('faded');

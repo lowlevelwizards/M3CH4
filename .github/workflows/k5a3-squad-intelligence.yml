@@ -1,0 +1,66 @@
+name: k5a3 Squad Intelligence & Route Coordination
+on:
+  pull_request:
+    paths:
+      - 'ai/worldModel.js'
+      - 'ai/advantageTactics.js'
+      - 'ai/teamPlanner.js'
+      - 'ai/pilotBrain.js'
+      - 'ai/squadPositioning.js'
+      - 'main.js'
+      - 'index.html'
+      - 'research/headlessDominationStudy.mjs'
+      - 'tests/k5a3SquadIntelligence.test.mjs'
+      - '.github/workflows/k5a3-squad-intelligence.yml'
+jobs:
+  squad-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check main.js
+          node --check research/headlessDominationStudy.mjs
+          for f in ai/*.js; do node --check "$f"; done
+      - name: Squad perception, tactical and existing AI tests
+        run: node --test tests/k5a3SquadIntelligence.test.mjs tests/k5a1CombatJudgment.test.mjs tests/k3u7CombatCompetency.test.mjs tests/k4v1AiOlympics.test.mjs tests/k4w6CampaignAiBalance.test.mjs
+      - name: Matched old coordination physics — 3 mobility families
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=legacy --arrivals=legacy --corridors=legacy --out=/tmp/k5a3-baseline
+      - name: Matched new coordination physics — same seeds and families
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=gated --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-enhanced
+      - name: Candidate B — physical passing lanes
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=lanes --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-lanes
+      - name: Candidate C — mixed yielding with clearance
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=hybrid --arrivals=coordinated --corridors=clearance --out=/tmp/k5a3-hybrid
+      - name: Candidate D — front-of-queue priority
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=zipper --arrivals=slots --corridors=priority --out=/tmp/k5a3-zipper
+      - name: Candidate E — physically adaptive traffic
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=adaptive --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-adaptive
+      - name: Stress physical adaptive coordination with eight matched seeds
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=8 --families=yard,kestrel,hauler --profiles=baseline --traffic=adaptive --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-adaptive-stress
+      - name: Stress physically gated hybrid right-of-way with same seeds
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=8 --families=yard,kestrel,hauler --profiles=baseline --traffic=hybrid --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-hybrid-stress
+      - name: Compare eight-seed coordination stress cohorts
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const read=(name)=>JSON.parse(fs.readFileSync('/tmp/k5a3-'+name+'-stress/results.json')).summary.events.filter(e=>e.n>0).map(e=>({id:e.id,n:e.n,pass:e.passRate,score:e.meanScore}));
+          console.log('SQUAD_STRESS '+JSON.stringify({adaptive:read('adaptive'),hybrid:read('hybrid')}));
+          "
+      - name: Compare all five matched movement cohorts
+        run: |
+          node --input-type=module -e "
+          import fs from 'node:fs';
+          const cases={baseline:'baseline',gated:'enhanced',lanes:'lanes',hybrid:'hybrid',zipper:'zipper',adaptive:'adaptive'};
+          const out={};
+          for(const [name,dir]of Object.entries(cases)){
+            const r=JSON.parse(fs.readFileSync('/tmp/k5a3-'+dir+'/results.json'));
+            out[name]=r.summary.events.filter(e=>e.n>0).map(e=>
+              [e.id,e.passRate,e.meanScore,e.meanLoop,e.meanCollisions]);
+          }
+          console.log('SQUAD_A_B '+JSON.stringify(out));
+          "

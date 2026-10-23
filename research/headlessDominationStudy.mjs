@@ -21,6 +21,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {getAiResearchProfile,getAiResearchDifficulty} from '../ai/researchProfiles.js';
 import {prioritizeVisibleTarget,shouldAttemptTacticalShot,tacticalAimSlot} from '../ai/adaptiveTactics.js';
+import {aiWeaponEngagement} from '../ai/weaponTactics.js';
+import {timeDecision} from '../roundClock.js';
 import {counterFlankOrder,shotThreatEvidence,recordShotEvidence} from '../ai/combatIntelligence.js';
 import {recentThreatTargetId} from '../tacticalAwareness.js';
 import {TRAFFIC_POLICIES} from '../ai/trafficCoordination.js';
@@ -201,15 +203,15 @@ function combatWorldFor(me,actors,baseWorld=DEFAULT_WORLD){
 export function runBout(seed,settings){
     const arenaMap=settings.mapId?mapById(settings.mapId):null;
     const selectedWorld=arenaMap?.world??DEFAULT_WORLD;
-    const traffic={friendly:settings.trafficFriendly??'legacy',
-        hostile:settings.trafficHostile??'legacy'};
-    const corridorPolicy={friendly:settings.corridorFriendly??'legacy',
-      hostile:settings.corridorHostile??'legacy'};
+    const traffic={friendly:settings.trafficFriendly??'adaptive',
+        hostile:settings.trafficHostile??'adaptive'};
+    const corridorPolicy={friendly:settings.corridorFriendly??'stagger',
+      hostile:settings.corridorHostile??'stagger'};
     if(!CORRIDOR_POLICIES.includes(corridorPolicy.friendly)||
        !CORRIDOR_POLICIES.includes(corridorPolicy.hostile))
       throw new RangeError('Invalid corridor coordination policy');
-    const arrivals={friendly:settings.arrivalFriendly??'legacy',
-      hostile:settings.arrivalHostile??'legacy'};
+    const arrivals={friendly:settings.arrivalFriendly??'coordinated',
+      hostile:settings.arrivalHostile??'coordinated'};
     if(!ARRIVAL_POLICIES.includes(arrivals.friendly)||
       !ARRIVAL_POLICIES.includes(arrivals.hostile))
       throw new RangeError('Invalid squad destination policy');
@@ -365,7 +367,7 @@ export function runBout(seed,settings){
         if(a.brain.history.length>before)a.stats.goalChanges++;
         const instruction=executeIntent(a.executor,decision,a.rig,physicalWorld,
           config.collisionRadiusM,DT,nearbyTraffic,
-          {trafficPolicy:traffic[a.team],actorId:a.id});
+          {trafficPolicy:traffic[a.team],actorId:a.id,now:t});
         if(instruction.routeFailure&&!a._lastRouteFailure)a.stats.routeErrors++;
         a._lastRouteFailure=!!instruction.routeFailure;
         if(recovery.begin&&!a.fieldService.held)
@@ -373,7 +375,9 @@ export function runBout(seed,settings){
         const posture=aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),recovery);
         let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??null,DT,
           capability?.canMove??true,physicalWorld,config.collisionRadiusM,
-          a.behavior,instruction,config);
+          a.behavior,instruction,config,
+          view.contacts.filter(c=>!c.visible&&c.confidence>.32&&t-c.lastSeen<=6)
+            .sort((x,y)=>y.lastSeen-x.lastSeen)[0]?.position??null);
         if(a.fieldService.held||recovery.mode==='SETTLE')
           drive={throttle:0,strafe:0,steer:0,brake:1};
         else drive={...drive,
@@ -407,19 +411,30 @@ export function runBout(seed,settings){
           withinFiringArc(a.rig,target.rig)&&
           (a.weaponSpec.fireMode!=='continuous'||dist(a.rig,target.rig)<=a.weaponSpec.rangeMeters)&&
           tacticalLineOfSight(a.rig,target.rig,selectedWorld)&&
-          shouldAttemptTacticalShot(a,target);
-        // Trigger authority is the real fitted weapon cycle, regardless of policy.
+          shouldAttemptTacticalShot(a,target) &&
+          aiWeaponEngagement(a.weaponSpec,{
+            distance:dist(a.rig,target.rig),
+            rigSpeed:Math.hypot(a.rig.vx,a.rig.vz),
+            yawError:Math.abs(Math.atan2(
+              Math.sin(Math.atan2(target.rig.x-a.rig.x,
+                a.rig.z-target.rig.z)-a.rig.yaw),
+              Math.cos(Math.atan2(target.rig.x-a.rig.x,
+                a.rig.z-target.rig.z)-a.rig.yaw))),
+            brace:a.rig.brace??0,
+          }).fire;
+        // Share production's authoritative order: charging/launch-release
+        // becomes ready BEFORE the controller consumes a trigger event.
         if(settings.physicalEquipment&&!a.power.weaponReady&&target&&a.weaponState.loaded>0)
           a.stats.powerBlockedFrames++;
-        const fired=advanceHostileController(a.controller,a.condition,DT,!target,fireReady);
         const released=(a._releaseFrames??0)>0;
         if(released)a._releaseFrames--;
         const authorized=a.weaponSpec.fireMode==='charged'
-          ? advanceChargedTrigger(a.weaponState,a.weaponSpec,!!fired&&!released,DT)
+          ? advanceChargedTrigger(a.weaponState,a.weaponSpec,fireReady&&!released,DT)
           : a.weaponSpec.fireMode==='projectile'
-            ? advanceProjectileTrigger(a.weaponState,a.weaponSpec,!!fired&&!released)
-            : !!fired;
-        if(!authorized||!target)continue;
+            ? advanceProjectileTrigger(a.weaponState,a.weaponSpec,fireReady&&!released)
+            : fireReady;
+        const fired=advanceHostileController(a.controller,a.condition,DT,!target,authorized);
+        if(fired===null||!target)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
@@ -535,7 +550,13 @@ export function runBout(seed,settings){
       // All surviving machines may still be stranded: bounded timed draw.
     }
     if(metrics.win===null){
-        metrics.win='draw';metrics.winReason='TIME LIMIT';
+        // A bounded headless sample uses the live scoring/survivor/integrity
+        // tiebreak instead of returning a fictional free draw. This proxy
+        // intentionally does not model contested overtime, so its horizon
+        // remains the caller's requested research seconds.
+        const decision=timeDecision(state,actors);
+        metrics.win=decision.team;metrics.winReason='TIME LIMIT';
+        metrics.timeoutCriterion=decision.criterion;
     }
     metrics.points={friendly:+state.friendlyProgress.toFixed(2),
       hostile:+state.hostileProgress.toFixed(2)};

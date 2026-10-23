@@ -13,13 +13,15 @@ export function scoreForecast(zone,team,majority=false){
   const risk=Math.max(0,theirs-ours)*.18+(zone.contested?.22:0);
   return gain-risk;
 }
-export function assignmentSwitchCost(actor,job,previous,zone,team){
+export function assignmentSwitchCost(actor,job,previous,zone,team,needMajority=false){
   if(!previous||!job)return 0;
   if(previous.objectiveId===job.objectiveId){
     return previous.goal===job.kind?-.18:-.06; // preserving work is a bonus
   }
   if(zone?.owner===team&&!zone.contested&&nearZone(actor,zone,3.8)){
-    return .62; // do not leave paying territory for small utility gains
+    // Owned but insufficient for scoring is not a paying majority. Leaving
+    // one such circle to secure a second is often the *winning* move.
+    return needMajority?.08:.62;
   }
   return .12;
 }

@@ -92,10 +92,11 @@ export function decidePilot(brain,actor,assignment,context,now) {
         brain.intent={...last,point:proposed.point??last.point,
             // Known enemy contact ends the speculative sheltered crossing;
             // ordinary objective commitment remains, only the via-stop drops.
-            viaPoint:context?.enemySeen?null:(proposed.viaPoint??last.viaPoint),
+            viaPoint:context?.enemySeen&&!proposed.assaultFlank?null:(proposed.viaPoint??last.viaPoint),
             arrivalPoint:proposed.arrivalPoint??last.arrivalPoint,
             reservationPoint:proposed.reservationPoint??last.reservationPoint,
             corridorReservation:proposed.corridorReservation??null,
+            assaultFlank:!!proposed.assaultFlank,
             utility:proposed.utility};
         return brain.intent;
     }

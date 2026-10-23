@@ -198,7 +198,7 @@ export function tacticalManeuver(motion, enemy, player, behavior = activeBehavio
 /** One deterministic fixed simulation step. Pass the SAME obstacle map used by stepRig.
  * The optional behavior argument is mainly for tests/tools; gameplay defaults to the
  * currently selected contract profile captured by createEnemyMotion(). */
-export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null, teamIntent = null, liveConfig = null) {
+export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, world = DEFAULT_WORLD, radius = .95, behavior = null, teamIntent = null, liveConfig = null, recentContact = null) {
     if (!Number.isFinite(dt) || dt <= 0)
         return { throttle: 0, strafe: 0, steer: 0, brake: 1 };
     const profile = activeBehavior(motion, behavior);
@@ -242,9 +242,17 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     // a close, visible adversary should not force a 90° or 180° chassis turn
     // merely because the route waypoint sits to the side or behind us.
     // stepRig remains authoritative for leg grip, reverse speed and strafing.
-    const threatFacing = !!player && motion.awareness?.lineOfSight === true &&
-        distance(enemy,player) < 17;
-    const steerFor=point=>clamp(headingError(enemy,threatFacing?player:point)*profile.steerGain-
+    // The caller supplies only *currently observed* enemies. Do not discard
+    // that authoritative visual contact just because a slower local LOS cache
+    // briefly differs while navigating around a corner. Last-known positions
+    // are permitted as short-lived facing hints, never firing targets.
+    const threatFacing=!!player && distance(enemy,player)<
+        Math.max(18,(profile.preferredRangeM??7)*2.2);
+    const remembered=!player && recentContact && Number.isFinite(recentContact.x) &&
+        Number.isFinite(recentContact.z) && distance(enemy,recentContact)<24 ?
+        recentContact:null;
+    const watched=threatFacing?player:remembered;
+    const steerFor=point=>clamp(headingError(enemy,watched??point)*profile.steerGain-
         enemy.yawRate*profile.yawRateDamping);
     let base;
     // Only the pilot brain owns strategic intent. Movement tracks a reachable
@@ -253,17 +261,22 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     if (navigationOrderActive && teamIntent.point) {
         const point=teamIntent.point;
         const d=distance(from,point);
-        if(d>1.6){
+        // CAPTURE/CONTEST routes must actually penetrate the scoring
+        // footprint. A 1.6m generic waypoint tolerance can brake a rig
+        // outside the safe inner circle (especially after a side detour).
+        // This only changes approach precision, not capture radius/physics.
+        const closeEnough=['CAPTURE','CONTEST'].includes(teamIntent.goal)?.85:1.6;
+        if(d>closeEnough){
             base=driveToward(enemy,point,d);
             base.steer=steerFor(point);
             base.throttle*=teamIntent.throttleScale??1;
         }else{
-            const hasContact=!!player && distance(enemy,player)>.3;
-            // Route arrival requires stable braking, not idle sector scans.
-            // Scan only once a true stationary/anchored order is established.
+            const hasContact=!!watched && distance(enemy,watched)>.3;
+            // An observed or fresh remembered threat takes precedence over
+            // looking at the wall beside the reached objective waypoint.
             if(!hasContact&&motion.scanBaseYaw===null)motion.scanBaseYaw=enemy.yaw;
             if(hasContact)motion.scanBaseYaw=null;
-            const face=hasContact?clamp(headingError(enemy,player)*
+            const face=hasContact?clamp(headingError(enemy,watched)*
                 profile.steerGain-enemy.yawRate*profile.yawRateDamping):0;
             base={throttle:0,strafe:0,steer:face,brake:.85};
         }
@@ -314,9 +327,9 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     }
     else if (teamIntent?.point) {
         const intentDistance = distance(from, teamIntent.point);
-        const targetSteer = player ? clamp(headingError(enemy, player) * profile.steerGain - enemy.yawRate * profile.yawRateDamping) : 0;
+        const targetSteer = watched ? clamp(headingError(enemy, watched) * profile.steerGain - enemy.yawRate * profile.yawRateDamping) : 0;
         if (teamIntent.mode === 'ANCHOR' && intentDistance < 2.2) {
-            const unknown=!player;
+            const unknown=!watched;
             if(unknown&&motion.scanBaseYaw===null)motion.scanBaseYaw=enemy.yaw;
             if(!unknown)motion.scanBaseYaw=null;
             // A wider sweep eventually covers the rear optic blind sector.

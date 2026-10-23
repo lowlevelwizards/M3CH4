@@ -6,6 +6,21 @@ import { tacticalLineOfSight } from '../tacticalAwareness.js';
 import { partHealth } from '../damageBehavior.js';
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+const MEMORY_SECONDS=13;
+const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+/** Coarse field-visible damage cues. Do NOT give a hidden-contact planner
+ * precise structure/weapon damage. Frozen at the last genuine sighting. */
+const observedCondition=actor=>{
+    const c=actor.capability;
+    const integrity=Math.min(c.structure,c.mobility,c.command,c.power);
+    return integrity<.38?'CRITICAL':integrity<.76?'DAMAGED':'WORKING';
+};
+export function contactSearchRadius(contact,now){
+    if(!contact)return 0;
+    const age=Math.max(0,now-(contact.lastSeen??now));
+    // A growing *area of uncertainty*, never an invented extrapolated enemy.
+    return clamp(1.2+age*1.45,1.2,20);
+}
 export function createWorldModel() {return { contacts:new Map(), lastTime:0 }; }
 export function actorCapabilities(actor) {
     const condition=actor.condition;
@@ -44,12 +59,23 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
                 return fwd>Math.cos(112*Math.PI/180)&&
                     tacticalLineOfSight(friend.position,enemy.position,world);
             });
-            if(spotted)known.set(enemy.id,{id:enemy.id,team:enemy.team,
-                position:{...enemy.position},lastSeen:time,confidence:1,visible:true});
-            else {
+            if(spotted){
+                const report={id:enemy.id,team:enemy.team,
+                    position:{...enemy.position},lastSeen:time,
+                    confidence:1,visible:true,searchRadius:1.2,
+                    // Only a qualitative exterior estimate while observed.
+                    damageCue:observedCondition(enemy)};
+                known.set(enemy.id,report);
+            }else{
                 const old=previous.get(enemy.id);
-                if(old&&time-old.lastSeen<5.5)known.set(enemy.id,{
-                    ...old,visible:false,confidence:Math.max(0,1-(time-old.lastSeen)/5.5)});
+                const age=old?time-old.lastSeen:Infinity;
+                if(old&&age<MEMORY_SECONDS)known.set(enemy.id,{
+                    ...old,visible:false,
+                    confidence:clamp(1-age/MEMORY_SECONDS,.02,1),
+                    searchRadius:contactSearchRadius(old,time),
+                    // Keep exact last SIGHTING location, not current location.
+                    position:{...old.position},
+                });
             }
         }
         memory.contacts.set(team,known);

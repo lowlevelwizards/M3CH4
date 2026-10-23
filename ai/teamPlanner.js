@@ -2,6 +2,7 @@ import { zoneOpportunity, casualtyAssignment, assaultStagingPoint } from './adap
 import { scoreForecast,reserveAnchors,assignmentSwitchCost,canStageAssault,teamPosture } from './objectiveDiscipline.js';
 import {coordinateSquadArrivals} from './squadPositioning.js';
 import {coordinateCorridors} from './corridorCoordinator.js';
+import {assessTacticalAdvantage,localAttackWindow,searchSectorPoint,flankApproach} from './advantageTactics.js';
 /** Small exhaustive team assignment planner. Six rigs total makes a full general
  * scheduler unnecessary. Jobs are real tactical consequences of the objective.
  * No path, transform, ammo or damage mutation happens here.
@@ -9,7 +10,7 @@ import {coordinateCorridors} from './corridorCoordinator.js';
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
 const other=team=>team==='friendly'?'hostile':'friendly';
-function zoneJobs(snapshot,team,strategy=null,policy=null) {
+function zoneJobs(snapshot,team,strategy=null,policy=null,advantage=null) {
     const zones=snapshot.zones??[], ours=zones.filter(z=>z.owner===team&&!z.contested).length;
     const theirs=zones.filter(z=>z.owner===other(team)&&!z.contested).length;
     const enemyMajority=theirs>=2;
@@ -23,9 +24,16 @@ function zoneJobs(snapshot,team,strategy=null,policy=null) {
         const urgency=enemyMajority&&threat?1.34:
             ourMajority&&friendlyOwned?1.11:
             z.contested?1.18:1;
-        let base=(enemyOwned?.94:friendlyOwned?.59:.83)*urgency+
+        // A single uncontested owned point earns ZERO Domination score.
+        // Stop rewarding a whole team for remaining there indefinitely.
+        const holdingOnlyOne=friendlyOwned&&!z.contested&&ours<2;
+        let base=(enemyOwned?.94:friendlyOwned?(holdingOnlyOne?.19:.59):.83)*urgency+
             (zoneOpportunity(z,team,ourMajority)-.95)*.55;
         base+=(scoreForecast(z,team,ourMajority)-1)*.27;
+        const attack=localAttackWindow(snapshot,team,z);
+        if(!friendlyOwned&&attack.majority&&advantage?.exploit)base+=.26;
+        if(!friendlyOwned&&advantage?.lastSeenWeak&&attack.majority)base+=.08;
+        if(friendlyOwned&&ours===1&&advantage?.forceEdge>=1)base-=.12;
         if(friendlyOwned&&!z.contested&&ourMajority)base+=.35;
         if(strategy?.target===z.id && ['ROTATE','BREAK_MAJORITY'].includes(strategy.phase))
             base+=.55;
@@ -72,7 +80,7 @@ function suitability(actor,job,team,policy=null) {
     return job.priority+offense+toughness+maneuver+positional-penalty+
         (cap.canFight?.04:-.09)+casualtyAssignment(actor,job,job.zone);
 }
-function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={},policy=null) {
+function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previous={},policy=null,needMajority=false) {
     const entries=actors.slice(0,4).sort((a,b)=>a.id.localeCompare(b.id));
     let best=-Infinity,bestList=[];
     function walk(i,score,chosen,counts){
@@ -87,7 +95,7 @@ function assignExhaustive(actors,jobs,team,playerZoneId=null,strategy=null,previ
         for(const job of jobs) {
             const previousOrder=previous[entries[i].id];
             const oldZone=jobs.find(j=>j.objectiveId===previousOrder?.objectiveId)?.zone;
-            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team)*
+            const switchPenalty=assignmentSwitchCost(entries[i],job,previousOrder,oldZone,team,needMajority)*
               (policy?.weights?.switching??1);
             const value=suitability(entries[i],job,team,policy)-switchPenalty;
             if(value<0)continue;
@@ -112,9 +120,10 @@ export function planTeam(snapshot,team,options={}) {
     if(!view)return {team,orders:{},reason:'NO KNOWLEDGE'};
     const actors=view.allies.filter(a=>a.id!=='player'&&a.active);
     const orders={};
+    const advantage=assessTacticalAdvantage(snapshot,team);
     if(snapshot.kind==='domination'&&snapshot.zones.length) {
         const strategy=options.strategy??null;
-        const jobs=zoneJobs(snapshot,team,strategy,options.policy??null);
+        const jobs=zoneJobs(snapshot,team,strategy,options.policy??null,advantage);
         const posture=teamPosture(snapshot,team);
         // A crippled/outnumbered squad should not allocate its remaining
         // fighting machine to a speculative screening maneuver.
@@ -135,7 +144,8 @@ export function planTeam(snapshot,team,options={}) {
                 strategy:strategy?.phase??'TAKE_GROUND'};
         }
         const assignedPairs=assignExhaustive(actors.filter(a=>!anchoredIds.has(a.id)),
-            jobs,team,playerZone?.id,strategy,previous,options.policy??null);
+            jobs,team,playerZone?.id,strategy,previous,options.policy??null,
+            posture.held<2);
         for(const pair of assignedPairs) {
             const {actor,job}=pair;
             if(!job){orders[actor.id]={goal:'HOLD',point:{...actor.position},
@@ -152,6 +162,12 @@ export function planTeam(snapshot,team,options={}) {
                 reason:strategy?.phase==='ROTATE'&&job.objectiveId===strategy.target?
                     'ROTATE · '+job.note:job.note,
                 strategy:strategy?.phase??'TAKE_GROUND',
+                // Break an old local DEFEND commitment when that owned point
+                // cannot contribute to the required two-point majority.
+                emergency:posture.held<2 &&
+                    previous[actor.id]?.goal==='DEFEND' &&
+                    previous[actor.id]?.objectiveId!==job.objectiveId &&
+                    job.kind!=='DEFEND',
                 role:job.kind==='DEFEND'?'ANCHOR':
                     job.kind==='SCREEN'?'SCREEN':
                     job.kind==='CONTEST'?'INTERCEPT':
@@ -221,6 +237,44 @@ export function planTeam(snapshot,team,options={}) {
                 }
             }
         }
+        // Exploit LOCAL visible/public two-versus-one strength, not invisible
+        // enemy health. A second attacker flanks the objective approach
+        // while the first takes the straightforward scoring route.
+        if(advantage.exploit&&advantage.forceEdge>=1&&!advantage.protect){
+            const targetZone=snapshot.zones.find(z=>z.id===strategy?.target&&
+                z.owner!==team)??snapshot.zones.find(z=>z.owner!==team);
+            const visibleNear=targetZone?view.contacts.filter(c=>
+                c.visible&&dist(c.position,targetZone.point)<14):[];
+            const recentNear=targetZone?view.contacts.filter(c=>!c.visible&&
+                c.confidence>.55&&dist(c.position,targetZone.point)<11):[];
+            const credible=visibleNear[0]??recentNear[0]??null;
+            const attacking=targetZone?actors.filter(a=>
+                orders[a.id]?.objectiveId===targetZone.id&&!orders[a.id]?.anchor&&
+                ['CAPTURE','CONTEST','SCREEN'].includes(orders[a.id]?.goal)&&
+                a.capability?.canFight&&a.capability?.canMove):[];
+            const contested=targetZone&&
+                localAttackWindow(snapshot,team,targetZone);
+            // A locally credible opponent is required before exposing an
+            // additional mech on a flank. Other teammates may still claim
+            // neutral territory as normal.
+            if(targetZone&&credible&&contested?.majority&&attacking.length>=2){
+                const ordered=[...attacking].sort((a,b)=>
+                    dist(a.position,targetZone.point)-dist(b.position,targetZone.point)||
+                    a.id.localeCompare(b.id));
+                const leader=ordered[0],wing=ordered[1];
+                const side=wing.id.localeCompare(leader.id)<0?-1:1;
+                const via=flankApproach(options.world,wing.position,
+                    targetZone.point,credible.position,side,
+                    options.collisionRadius??1.12);
+                if(via){
+                    orders[leader.id]={...orders[leader.id],role:'BREACHER',
+                        reason:'LOCAL ADVANTAGE · DIRECT PRESS'};
+                    orders[wing.id]={...orders[wing.id],role:'FLANKER',
+                        viaPoint:via,assaultFlank:true,reason:'LOCAL ADVANTAGE · FLANK',
+                        note:'COVER THE DIRECT PUSH'};
+                }
+            }
+        }
         const coordinated=coordinateSquadArrivals(orders,actors,snapshot.zones,{
             policy:options.arrivalPolicy??'legacy',world:options.world??null,
             zoneRadius:snapshot.zoneRadius??4.7,previousOrders:previous,
@@ -235,15 +289,24 @@ export function planTeam(snapshot,team,options={}) {
             strategy:strategy?.phase??'TAKE_GROUND',
             target:strategy?.target??null,stalledFor:strategy?.stalledFor??0,
             scoring:Math.floor(snapshot.score[team]),
-            anchors:anchorPairs.length,posture};
+            anchors:anchorPairs.length,posture,advantage};
     }
     const contacts=view.contacts.filter(c=>c.confidence>.12);
     for(const [index,actor] of actors.entries()) {
         const nearest=[...contacts].sort((a,b)=>
-            dist(actor.position,a.position)-dist(actor.position,b.position))[0];
-        if(nearest) orders[actor.id]={goal:nearest.visible?'ENGAGE':'SEARCH',
-            targetActorId:nearest.id,point:{...nearest.position},
-            score:nearest.confidence,note:nearest.visible?'ENGAGE OBSERVED THREAT':'LAST KNOWN CONTACT'};
+            (b.visible?1:0)-(a.visible?1:0)||
+            (dist(actor.position,a.position)-(a.confidence??0)*3)-
+            (dist(actor.position,b.position)-(b.confidence??0)*3))[0];
+        if(nearest){
+            const point=nearest.visible?{...nearest.position}:
+                searchSectorPoint(nearest,index,actors.length,options.world,actor.position);
+            orders[actor.id]={goal:nearest.visible?'ENGAGE':'SEARCH',
+                targetActorId:nearest.id,point,searchCentre:{...nearest.position},
+                searchRadius:nearest.searchRadius??1.2,
+                score:nearest.confidence,
+                note:nearest.visible?'ENGAGE OBSERVED THREAT':
+                    'SWEEP LAST KNOWN SECTOR · UNCERTAINTY '+Math.round(nearest.searchRadius??2)+'M'};
+        }
         else if(snapshot.missions?.[team]){
             const rally=snapshot.missions[team];
             const search=snapshot.kind==='elimination';

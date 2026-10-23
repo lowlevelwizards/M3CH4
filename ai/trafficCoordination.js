@@ -11,7 +11,7 @@
  */
 import {trafficWaypoint} from './adaptiveTactics.js';
 
-export const TRAFFIC_POLICIES=Object.freeze(['legacy','zipper','lanes','hybrid','gated']);
+export const TRAFFIC_POLICIES=Object.freeze(['legacy','zipper','lanes','hybrid','gated','adaptive']);
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const position=entry=>entry?.position??entry?.rig??entry;
 const valid=(p,world,radius)=>

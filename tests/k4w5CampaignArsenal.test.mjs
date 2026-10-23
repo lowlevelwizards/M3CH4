@@ -103,5 +103,5 @@ test('live encounter composition and counter cache are used by browser entrypoin
  assert.match(main,/weaponDoctrine\(activeContract.behavior,hostileWeaponSpec.id\)/);
  assert.match(main,/fitEncounterWeapon/);
  assert.match(src('usedPartsCounter.js'),/generateCounterStock\(number,loadCampaign\(storage\)\)/);
- assert.match(src('index.html'),/main\.js\?v=k4w5/);
+ assert.match(src('index.html'),/main\.js\?v=k[0-9]+[a-z][0-9]+/);
 });
