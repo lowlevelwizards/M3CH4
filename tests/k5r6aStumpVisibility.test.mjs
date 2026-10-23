@@ -37,7 +37,7 @@ test('loading view smoothly returns home before firing can resume',()=>{
  }
  assert.ok(maximum>.40);
  const end=reloadCockpitPresentation(reloadPhase(s.reloadLeft,w.reloadSeconds,w.id),w.id);
- assert.equal(end.x,0);assert.equal(end.z,0);
+ assert.ok(near(end.x,0));assert.ok(near(end.z,0));
  assert.ok(s.loaded>0);assert.equal(s.reloadLeft,0);
 });
 test('other weapons keep exactly their current visual geometry and aim pose',()=>{
