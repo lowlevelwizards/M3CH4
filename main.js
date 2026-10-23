@@ -2815,8 +2815,11 @@ function resolveAiShotContact(actor,target,contact,damage) {
     if (showColliders) arena.updateShotAudit(contact, !obstruction && contact.actorId === target.id);
     // AI pilots register fire directed at them even if a crate catches it. That gives
     // suppression/cover behavior before the first internal-damage event.
-    if (target.id !== 'player' && target.motion)
-        noteIncomingFire(target.motion, actor.rig, actor.id, contact.actorId === target.id ? 1.0 : .48, target.rig);
+    // Physical impacts reveal an attacker bearing. A distant shot intercepted
+    // by a wall is not evidence that this target personally came under fire;
+    // genuine nearby misses are already handled by warnNearbyAiFromShot().
+    if (target.id !== 'player' && target.motion && contact.actorId === target.id)
+        noteIncomingFire(target.motion, actor.rig, actor.id, 1.0, target.rig);
     if (obstruction)
         noteBlockedFire(actor.motion, contact.blockedBy ?? (contact.actorId !== target.id ? contact.actorId : null));
     if (contact.slot === null || contact.actorId !== target.id) {
