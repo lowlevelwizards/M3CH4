@@ -41,13 +41,15 @@ export function advanceHitResponse(state,dt){
   // mobile frames, even if 60 Hz physics temporarily renders at 20–30 fps.
   const segments=Math.max(1,Math.ceil(t/(1/120))),h=t/segments;
   for(let i=0;i<segments;i++){
-    for(const [key,vkey,spring,damping] of [
-      ['pitch','vPitch',98,19],['roll','vRoll',93,18],
-      ['mount','vMount',146,23],['translation','vTranslation',132,24],
-    ]){
-      state[vkey]+=(-state[key]*spring-state[vkey]*damping)*h;
-      state[key]+=state[vkey]*h;
-    }
+    // Unrolled: no tuple-array allocation in the hot 60 Hz rendering loop.
+    state.vPitch+=(-state.pitch*98-state.vPitch*19)*h;
+    state.pitch+=state.vPitch*h;
+    state.vRoll+=(-state.roll*93-state.vRoll*18)*h;
+    state.roll+=state.vRoll*h;
+    state.vMount+=(-state.mount*146-state.vMount*23)*h;
+    state.mount+=state.vMount*h;
+    state.vTranslation+=(-state.translation*132-state.vTranslation*24)*h;
+    state.translation+=state.vTranslation*h;
   }
   state.pitch=clamp(state.pitch,-HIT_REACTION_LIMITS.pitch,HIT_REACTION_LIMITS.pitch);
   state.roll=clamp(state.roll,-HIT_REACTION_LIMITS.roll,HIT_REACTION_LIMITS.roll);
