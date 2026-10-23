@@ -38,11 +38,13 @@ jobs:
         run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=hybrid --arrivals=coordinated --corridors=clearance --out=/tmp/k5a3-hybrid
       - name: Candidate D — front-of-queue priority
         run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=zipper --arrivals=slots --corridors=priority --out=/tmp/k5a3-zipper
+      - name: Candidate E — physically adaptive traffic
+        run: node research/aiOlympics.mjs --events=ally-choke,squad-arrival,corridor-crossing --seeds=3 --families=yard,kestrel,hauler --profiles=baseline --traffic=adaptive --arrivals=coordinated --corridors=stagger --out=/tmp/k5a3-adaptive
       - name: Compare all five matched movement cohorts
         run: |
           node --input-type=module -e "
           import fs from 'node:fs';
-          const cases={baseline:'baseline',gated:'enhanced',lanes:'lanes',hybrid:'hybrid',zipper:'zipper'};
+          const cases={baseline:'baseline',gated:'enhanced',lanes:'lanes',hybrid:'hybrid',zipper:'zipper',adaptive:'adaptive'};
           const out={};
           for(const [name,dir]of Object.entries(cases)){
             const r=JSON.parse(fs.readFileSync('/tmp/k5a3-'+dir+'/results.json'));
