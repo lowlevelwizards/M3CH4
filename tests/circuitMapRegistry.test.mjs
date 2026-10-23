@@ -34,7 +34,7 @@ test('maps pass real physical collision clearance, primary sightline and route c
  for(const map of MAPS){
   const report=certifyArena(map,{radius:1.55,checkRoutes:true});
   assert.equal(report.ok,true,map.name+' '+report.errors.join('; '));
-  assert.equal(report.routes.length,12);
+  assert.equal(report.routes.length,14);
   assert.ok(report.routes.every(r=>r.ok));
  }
 });
