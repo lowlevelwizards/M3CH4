@@ -524,6 +524,7 @@ let aiMemory=createWorldModel(), aiSnapshot=null, aiPlans={}, aiClock=0,
     aiPlanCooldown=0,aiPerceptionCooldown=0;
 let strategicMemory=createStrategicState();
 let aiAssaultMemory={friendly:{},hostile:{}};
+let aiCorridorMemory={friendly:{},hostile:{}};
 let roundClock=createRoundClock();
 let lastRoundClockText='';
 const aiTrace=createAiTrace();
@@ -931,6 +932,7 @@ function resetSquadBattle() {
     roundClock=createRoundClock();lastRoundClockText='';
     strategicMemory=createStrategicState();
     aiAssaultMemory={friendly:{},hostile:{}};
+    aiCorridorMemory={friendly:{},hostile:{}};
     aiTrace.rows.length=0;
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
@@ -1831,9 +1833,13 @@ function frame(now) {
                     const previousPlans=aiPlans;
                     aiPlans={
                         friendly:planTeam(aiSnapshot,FRIENDLY_TEAM,{strategy:friendlyStrategy,
-                            assaultMemory:aiAssaultMemory.friendly,previousOrders:previousPlans.friendly?.orders}),
+                            assaultMemory:aiAssaultMemory.friendly,previousOrders:previousPlans.friendly?.orders,
+                            world:DEFAULT_WORLD,arrivalPolicy:'coordinated',
+                            corridorPolicy:'stagger',corridorMemory:aiCorridorMemory.friendly}),
                         hostile:planTeam(aiSnapshot,HOSTILE_TEAM,{strategy:hostileStrategy,
-                            assaultMemory:aiAssaultMemory.hostile,previousOrders:previousPlans.hostile?.orders}),
+                            assaultMemory:aiAssaultMemory.hostile,previousOrders:previousPlans.hostile?.orders,
+                            world:DEFAULT_WORLD,arrivalPolicy:'coordinated',
+                            corridorPolicy:'stagger',corridorMemory:aiCorridorMemory.hostile}),
                     };
                     aiPlanCooldown=.85;
                 }
@@ -1880,7 +1886,7 @@ function frame(now) {
                 // Recent shared contact may guide facing/search, but never
                 // authorize shots or reveal an opponent's current position.
                 const lastSeen=alliedView?.contacts?.filter(c=>!c.visible &&
-                    c.confidence>.58 && aiClock-c.lastSeen<=2.2)
+                    c.confidence>.32 && aiClock-c.lastSeen<=6.0)
                     .sort((a,b)=>b.lastSeen-a.lastSeen)[0]??null;
                 const support=counterFlankOrder(me,order,alliedView?.allies,
                     alliedView?.contacts,DEFAULT_WORLD,aiClock);
@@ -1932,7 +1938,8 @@ function frame(now) {
                         speed:Math.hypot(p.rig.vx??0,p.rig.vz??0),
                         velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
-                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic);
+                    combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic,
+                    {now:aiClock,actorId:actor.id,trafficPolicy:'gated'});
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
                 let maneuver = advanceEnemyMotion(actor.motion, actor.rig, target?.rig ?? null, FIXED_DT, canManeuver, combatWorldFor(actor.id), actorConfig.collisionRadiusM, actor.behavior, actor.teamIntent, actorConfig, lastSeen?.position??null);
