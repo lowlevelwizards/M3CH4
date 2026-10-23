@@ -15,7 +15,7 @@ for(const map of MAPS){
  for(let seed=0;seed<seeds;seed++){
   const result=runBout(51072+seed*70139,{
    mapId:map.id,contractId:'domination',accuracy:.65,policy:'strict',
-   variantTeam:'none',maxSeconds:65,
+   variantTeam:'none',maxSeconds:145,
    policyFriendly:'baseline',policyHostile:'baseline',
    name:map.id,
   });
