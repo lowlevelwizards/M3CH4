@@ -18,7 +18,7 @@ import {buildBacklotDressing} from './backlotDressing.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
-import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js';
+import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b2';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
