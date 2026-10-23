@@ -161,7 +161,8 @@ const friendlySupportActors = FRIENDLY_SUPPORTS.map((recipe,index) =>
 const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).map((contractId, index) => {
     const spawn = hostileSpawns[index+1];
     const arm = encounterWingArms(targetAssembly.contractId)[index];
-    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn, null, index+1, arm);
+    return makeSupportActor(HOSTILE_SUPPORT_SPAWNS[index].id, HOSTILE_TEAM,
+        contractId, spawn, null, index+1, arm);
 });
 const supportActors = [...friendlySupportActors, ...hostileSupportActors];
 const aiActors = [primaryEnemyActor, ...supportActors];
