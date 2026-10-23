@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent, setBacklotAmbienceActive } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundWeaponMechanism, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent, setBacklotAmbienceActive } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
 import {advanceFootContacts} from './footContactController.js?v=k5b5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
@@ -2751,6 +2751,12 @@ function attemptAiFire(actor, target, shotIndex) {
     // Cover impacts, misses and friendly obstruction are still fired rounds.
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
     if (consumed === null) return;
+    // One external recoil stroke per consumed trigger, not one per physical pellet.
+    arena.triggerCombatantFiringEvent(actor.id,actor.weaponSpec.id,{
+        brace:actor.rig.brace??0,
+        condition:(actor.condition.parts.combat?.integrity??0)/
+            Math.max(1,actor.condition.parts.combat?.maxIntegrity??1),
+    });
     // Same physical weapon fire-rate authority as the player; degradation
     // can still slow mechanical cycling, but no arbitrary AI trigger clamp.
     actor.weaponState.cooldown *= 1+
@@ -2870,6 +2876,16 @@ function resolveAiShotContact(actor,target,contact,damage) {
     const kill = aiWeaponMissionKillReason(target.condition, target.behavior, target.fieldService);
     if (kill) missionKillAiActor(target, kill, actor.id);
 }
+/** The consumed-round event is the sole authority for mechanical animation.
+ * Pellets, penetrated layers and delayed rocket impacts never generate duplicate kicks.
+ */
+function presentPlayerDischarge(contact,shot) {
+    arena.triggerPilotFiringEvent(weaponSpec.id,{
+        muzzle:contact?.muzzle,brace:rig.brace??0,
+        condition:weaponIntegrityRatio(playerCondition),shotIndex:shot,
+    });
+    soundWeaponMechanism(weaponSpec.id,{shotIndex:shot,cockpit:true});
+}
 function attemptFire() {
     if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !playerPower.weaponReady || !appSheet.classList.contains('hidden'))
         return;
@@ -2900,6 +2916,7 @@ function attemptFire() {
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
         applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
         shotsFired++;sortieRoundsFired++;sortieProjectiles++;
+        presentPlayerDischarge(aim,shot);
         soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
         arena.launchRocket({ownerId:'player',muzzle:aim.muzzle,point:aim.point,
             speed:weaponSpec.projectileSpeed,radius:weaponSpec.blastRadius,
@@ -2926,6 +2943,7 @@ function attemptFire() {
             resolvePlayerShotContact(center,thermal.damage,false,true);
         }
         shotsFired++;sortieRoundsFired++;
+        presentPlayerDischarge(center,shot);
         if(shot%3===1)soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
         renderAmmo();
         return;
@@ -2937,6 +2955,7 @@ function attemptFire() {
     applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
     shotsFired++;
     sortieRoundsFired++;
+    presentPlayerDischarge(center,shot);
     // The only cockpit-local blast: short muffled cabin reflections rather
     // than distant outdoor echo. No damage or weapon cadence is modified.
     soundWeaponShot(weaponSpec.id,{shotIndex:shot,cockpit:true});
