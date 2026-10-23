@@ -270,7 +270,7 @@ export function planTeam(snapshot,team,options={}) {
                     orders[leader.id]={...orders[leader.id],role:'BREACHER',
                         reason:'LOCAL ADVANTAGE · DIRECT PRESS'};
                     orders[wing.id]={...orders[wing.id],role:'FLANKER',
-                        viaPoint:via,reason:'LOCAL ADVANTAGE · FLANK',
+                        viaPoint:via,assaultFlank:true,reason:'LOCAL ADVANTAGE · FLANK',
                         note:'COVER THE DIRECT PUSH'};
                 }
             }
