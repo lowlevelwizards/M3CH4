@@ -16,4 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install Three.js for Node geometry
+        run: npm install --no-save --no-package-lock three@0.186.0
       - run: node research/frameShieldingAudit.mjs --assert
