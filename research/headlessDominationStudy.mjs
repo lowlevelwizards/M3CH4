@@ -198,15 +198,15 @@ function combatWorldFor(me,actors){
   return {...DEFAULT_WORLD,obstacles:[...DEFAULT_WORLD.obstacles,...others]};
 }
 export function runBout(seed,settings){
-    const traffic={friendly:settings.trafficFriendly??'legacy',
-        hostile:settings.trafficHostile??'legacy'};
-    const corridorPolicy={friendly:settings.corridorFriendly??'legacy',
-      hostile:settings.corridorHostile??'legacy'};
+    const traffic={friendly:settings.trafficFriendly??'gated',
+        hostile:settings.trafficHostile??'gated'};
+    const corridorPolicy={friendly:settings.corridorFriendly??'stagger',
+      hostile:settings.corridorHostile??'stagger'};
     if(!CORRIDOR_POLICIES.includes(corridorPolicy.friendly)||
        !CORRIDOR_POLICIES.includes(corridorPolicy.hostile))
       throw new RangeError('Invalid corridor coordination policy');
-    const arrivals={friendly:settings.arrivalFriendly??'legacy',
-      hostile:settings.arrivalHostile??'legacy'};
+    const arrivals={friendly:settings.arrivalFriendly??'coordinated',
+      hostile:settings.arrivalHostile??'coordinated'};
     if(!ARRIVAL_POLICIES.includes(arrivals.friendly)||
       !ARRIVAL_POLICIES.includes(arrivals.hostile))
       throw new RangeError('Invalid squad destination policy');
@@ -349,7 +349,7 @@ export function runBout(seed,settings){
         if(a.brain.history.length>before)a.stats.goalChanges++;
         const instruction=executeIntent(a.executor,decision,a.rig,physicalWorld,
           config.collisionRadiusM,DT,nearbyTraffic,
-          {trafficPolicy:traffic[a.team],actorId:a.id});
+          {trafficPolicy:traffic[a.team],actorId:a.id,now:t});
         if(instruction.routeFailure&&!a._lastRouteFailure)a.stats.routeErrors++;
         a._lastRouteFailure=!!instruction.routeFailure;
         if(recovery.begin&&!a.fieldService.held)
@@ -357,7 +357,9 @@ export function runBout(seed,settings){
         const posture=aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),recovery);
         let drive=advanceEnemyMotion(a.motion,a.rig,target?.rig??null,DT,
           capability?.canMove??true,physicalWorld,config.collisionRadiusM,
-          a.behavior,instruction,config);
+          a.behavior,instruction,config,
+          view.contacts.filter(c=>!c.visible&&c.confidence>.32&&t-c.lastSeen<=6)
+            .sort((x,y)=>y.lastSeen-x.lastSeen)[0]?.position??null);
         if(a.fieldService.held||recovery.mode==='SETTLE')
           drive={throttle:0,strafe:0,steer:0,brake:1};
         else drive={...drive,
