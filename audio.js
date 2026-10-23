@@ -2,6 +2,7 @@ import { makeLiveWeaponAudio } from './liveWeaponAudio.js';
 import { makeLiveSystemsAudio } from './liveSystemsAudio.js';
 import { hitSoundPlan } from './liveSystemsEvents.js';
 import { firingProfile } from './firingEvent.js';
+import {reloadMechanism,RELOAD_STAGES} from './reloadMechanism.js';
 import { beginAudioWarmup } from './audioWarmup.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
@@ -226,6 +227,65 @@ export function soundWeaponMechanism(id,{shotIndex=0,cockpit=true}={}){
         }
     }catch{ /* Audio never changes the weapon or projectile state. */ }
 }
+/** k5r.6 physically staged reloading. A brief sampled steel edge plus a
+ * low loading-ram body is cheaper and more industrial than pitched UI tones.
+ * Each phase is called only by the authoritative reload timer cue gate.
+ * No AudioContext construction outside a trusted gesture.
+ */
+let reloadVoices=0;
+export function soundWeaponReloadPhase(weaponId,stage,{distance=0,pan=0,cockpit=false}={}){
+ if(stage!=='ready'&&!RELOAD_STAGES.includes(stage))return {ok:false,reason:'invalid phase'};
+ const ctx=context();
+ if(!ctx||ctx.state==='suspended'||reloadVoices>=9)return {ok:true,skipped:true};
+ const profile=reloadMechanism(weaponId);
+ const d=Math.max(0,Number(distance)||0);
+ if(d>23&&!cockpit)return {ok:true,skipped:true};
+ const n=stage==='unlock'?0:stage==='extract'?1:stage==='feed'?2:stage==='chamber'?3:stage==='lock'?4:5;
+ const heavy=profile.mass;
+ try{
+   const start=ctx.currentTime;
+   const source=ctx.createBufferSource();
+   source.buffer=mechanismNoise(ctx);
+   source.playbackRate.value=[1.28,.85,.97,.70,.72,1.10][n]/
+       (0.75+heavy*.23);
+   const filter=ctx.createBiquadFilter();filter.type='bandpass';
+   filter.frequency.value=[2000,1100,1350,830,950,1450][n]/
+       (0.81+heavy*.12);
+   filter.Q.value=.65;
+   const panner=ctx.createStereoPanner?.();
+   if(panner)panner.pan.value=Math.max(-.92,Math.min(.92,Number(pan)||0));
+   const gain=ctx.createGain();
+   const loud=[.25,.36,.32,.48,.53,.35][n]*Math.min(1.65,.65+heavy*.46)*
+       (cockpit?.48:.25/(1+Math.pow(d/11,1.6)));
+   gain.gain.setValueAtTime(Math.max(.0005,loud),start);
+   gain.gain.exponentialRampToValueAtTime(.001,start+.10);
+   source.connect(filter);
+   if(panner){filter.connect(panner);panner.connect(gain);}
+   else filter.connect(gain);
+   gain.connect(ctx.destination);
+   reloadVoices++;
+   source.onended=()=>{
+     reloadVoices=Math.max(0,reloadVoices-1);
+     for(const node of [source,filter,panner,gain])try{node?.disconnect();}catch{}
+   };
+   source.start(start);
+   // A deep industrial ram body on chamber/lock. Not another shot or
+   // artificially delayed reload: one tiny oscillator per mechanical event.
+   if(n===3||n===4){
+     const body=ctx.createOscillator();body.type='triangle';
+     const low=ctx.createGain();const dur=.12+heavy*.045;
+     body.frequency.setValueAtTime(165/(.6+heavy*.5),start);
+     body.frequency.exponentialRampToValueAtTime(51/(.6+heavy*.35),start+dur);
+     low.gain.setValueAtTime(loud*.46,start);
+     low.gain.exponentialRampToValueAtTime(.001,start+dur);
+     body.connect(low);low.connect(ctx.destination);
+     body.onended=()=>{try{body.disconnect();low.disconnect();}catch{}};
+     body.start(start);body.stop(start+dur+.008);
+   }
+   return {ok:true,weaponId,stage};
+ }catch(error){return {ok:false,reason:String(error?.message??error)};}
+}
+
 /** Live systems soundscape. The same unlocked audio context services weapons,
  * impacts and machinery. This bus never touches the old laboratory presets. */
 const systemsBus=makeLiveSystemsAudio(context);
