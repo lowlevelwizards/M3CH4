@@ -10,7 +10,7 @@ const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
   tyre:0x282b29,wood:0x705339,rope:0x968467,canvas:0xb99a66,
   motor:0x515a52,glass:0x405d60};
-const mats=new Map(),boxes=new Map();
+const mats=new Map(),boxes=new Map(),cylinders=new Map();
 function mat(c,metal=.14,emission=0){
   const key=c+':'+metal+':'+emission;
   if(!mats.has(key))mats.set(key,new THREE.MeshStandardMaterial({
@@ -30,7 +30,10 @@ function block(parent,name,w,h,d,x,y,z,color,metal=0.2){
  o.castShadow=false;parent.add(o);return o;
 }
 function drum(parent,name,r,length,x,y,z,color,axis='z',segments=10){
- const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,length,segments),mat(color,.32));
+ const key=[r,length,segments].map(v=>Number(v).toFixed(3)).join(':');
+ if(!cylinders.has(key))
+   cylinders.set(key,new THREE.CylinderGeometry(r,r,length,segments));
+ const o=new THREE.Mesh(cylinders.get(key),mat(color,.32));
  o.name=name;o.position.set(x,y,z);
  if(axis==='x')o.rotation.z=Math.PI/2;
  if(axis==='z')o.rotation.x=Math.PI/2;
@@ -249,13 +252,47 @@ function dirtMarks(root,w){
      Math.sin(angle)*r*.7);mesh.name='sunbleached-dirt-patch';root.add(mesh);
  }
 }
+/** Static outdoor scenery is aggressively instanced on mobile. The 21 real
+ * collider meshes are NEVER batched: raycast hits must retain obstacle IDs,
+ * while the repeated planks, tyres, spectators and scrap stay purely visual.
+ */
+export function batchBacklotDerbyDecorations(root){
+ const buckets=new Map();let sourceMeshes=0;
+ for(const node of [...root.children]){
+   if(!node.isMesh||node.userData?.arenaObstacleId||
+      node.material?.transparent)continue;
+   sourceMeshes++;
+   const key=node.geometry.uuid+':'+node.material.uuid;
+   if(!buckets.has(key))buckets.set(key,[]);
+   buckets.get(key).push(node);
+ }
+ let batches=0,instances=0;
+ for(const items of buckets.values()){
+   if(items.length<2)continue;
+   const mesh=new THREE.InstancedMesh(items[0].geometry,items[0].material,items.length);
+   mesh.name='batched-outdoor-props';
+   mesh.castShadow=false;mesh.receiveShadow=true;
+   for(let i=0;i<items.length;i++){
+     const item=items[i];
+     item.updateMatrix();
+     mesh.setMatrixAt(i,item.matrix);
+     root.remove(item);
+   }
+   mesh.instanceMatrix.needsUpdate=true;
+   root.add(mesh);batches++;instances+=items.length;
+ }
+ return Object.freeze({sourceMeshes,batches,instances,
+   callsSaved:instances-batches});
+}
 export function buildBacklotDerbyWorld(scene,world,solids){
  const root=new THREE.Group();root.name='backlot-outdoor-derby-world';
  root.userData.venue='open-sky-scrap-derby';
  perimeter(root,world);
  for(const obstacle of world.obstacles)createWreck(root,obstacle,solids);
  dirtMarks(root,world);spectatorYard(root,world);
+ const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
+   fixtureBatch,
    obstacleCount:world.obstacles.length,collisionSolids:world.obstacles.length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
    perimeter:'two-metre-stockyard-rails',sky:'open',
