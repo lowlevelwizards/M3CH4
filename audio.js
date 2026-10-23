@@ -1,6 +1,7 @@
 import { makeLiveWeaponAudio } from './liveWeaponAudio.js';
 import { makeLiveSystemsAudio } from './liveSystemsAudio.js';
 import { hitSoundPlan } from './liveSystemsEvents.js';
+import { firingProfile } from './firingEvent.js';
 import { beginAudioWarmup } from './audioWarmup.js';
 /** Small synthesized industrial range feedback, no downloaded audio assets. */
 let audio = null;
@@ -165,6 +166,66 @@ export function soundWeaponShot(weaponId,options={}) {
     return result;
 }
 
+/** A tiny shared, precomputed inharmonic steel transient played at the
+ * recoil stop and return-to-battery times. No oscillator bank, per-shot PCM
+ * generation or timeout; WebAudio's sample clock keeps the sound synchronized
+ * even when a mobile graphics frame arrives late. The selected Pressure Forge
+ * report is still authoritative for the explosive component.
+ */
+let mechanismContext=null,mechanismBuffer=null,mechanismVoices=0;
+function mechanismNoise(ctx){
+    if(mechanismBuffer&&mechanismContext===ctx)return mechanismBuffer;
+    mechanismContext=ctx;
+    const length=Math.floor(ctx.sampleRate*.105);
+    const buffer=ctx.createBuffer(1,length,ctx.sampleRate);
+    const samples=buffer.getChannelData(0);
+    let seed=71593;
+    for(let i=0;i<length;i++){
+        seed=(seed*16807)%2147483647;
+        const t=i/ctx.sampleRate;
+        // Noise-rich steel edge, a low asymmetric body and damped inharmonic
+        // ring. Never a single pitched sine or an arcade-like "pong".
+        const noise=seed/1073741823.5-1;
+        samples[i]=(noise*.74+Math.sin(t*2130)*.18+
+            Math.sin(t*3675)*.08)*Math.exp(-t*49);
+    }
+    mechanismBuffer=buffer;
+    return buffer;
+}
+export function soundWeaponMechanism(id,{shotIndex=0,cockpit=true}={}){
+    if(id==='gun-arc'||id==='gun-rivet'&&shotIndex%2===0)return;
+    const ctx=context();
+    if(!ctx||ctx.state==='suspended'||mechanismVoices>=14)return;
+    try{
+        const profile=firingProfile(id);
+        const heavy=id==='gun-short'||id==='gun-scatter'||id==='gun-breaker';
+        const shots=heavy?[
+            {offset:profile.stop,level:.12,frequency:1750,rate:.84},
+            {offset:profile.cycle,level:.10,frequency:980,rate:1.14},
+        ]:[{offset:profile.cycle,level:id==='gun-light'?.052:.065,
+            frequency:id==='gun-rivet'?2600:1400,rate:1.12}];
+        const buffer=mechanismNoise(ctx);
+        for(const layer of shots){
+            if(mechanismVoices>=14)break;
+            const source=ctx.createBufferSource();
+            source.buffer=buffer;source.playbackRate.value=layer.rate;
+            const filter=ctx.createBiquadFilter();filter.type='bandpass';
+            filter.frequency.value=layer.frequency;filter.Q.value=.58;
+            const gain=ctx.createGain();
+            const start=ctx.currentTime+Math.min(.60,layer.offset);
+            const level=layer.level*(cockpit?1:.26);
+            gain.gain.setValueAtTime(level,start);
+            gain.gain.exponentialRampToValueAtTime(.001,start+.095);
+            source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+            mechanismVoices++;
+            source.onended=()=>{
+                mechanismVoices=Math.max(0,mechanismVoices-1);
+                source.disconnect();filter.disconnect();gain.disconnect();
+            };
+            source.start(start);source.stop(start+.105);
+        }
+    }catch{ /* Audio never changes the weapon or projectile state. */ }
+}
 /** Live systems soundscape. The same unlocked audio context services weapons,
  * impacts and machinery. This bus never touches the old laboratory presets. */
 const systemsBus=makeLiveSystemsAudio(context);
