@@ -1,6 +1,6 @@
 /** A.0 — isolated, no-save proving ground using production rig models,
  * locomotion, animation, joystick, terrain collision and audio event logic.
- * No combat initialization, economy, campaign state or localStorage writes.
+ * No combat initialization, economy, campaign state or browser save writes.
  */
 import * as THREE from 'three';
 import {makeTestAssembly,equip} from './components.js';
