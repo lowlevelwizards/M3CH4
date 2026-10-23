@@ -1,0 +1,24 @@
+name: A.5 Contact-Driven Locomotion Sound
+on:
+  push:
+    branches: [feat/a5-contact-driven-locomotion-audio]
+  pull_request:
+    paths:
+      - 'liveSystemsEvents.js'
+      - 'main.js'
+      - 'scene.js'
+      - 'pilotingLab.js'
+      - 'tests/a5ContactAudio.test.mjs'
+jobs:
+  contact-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and contact-to-sound determinism
+        run: |
+          for f in liveSystemsEvents.js main.js scene.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/a5ContactAudio.test.mjs tests/a2a4GroundedGait.test.mjs tests/k3w10LiveSystemsSoundscape.test.mjs tests/k3w11AcousticPerformance.test.mjs
