@@ -3960,6 +3960,10 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     scene.add(buildVenueDressing(arenaMap));
     return solids;
 }
+/** One physical cockpit constructor for gameplay and the browser's iPhone-sized
+ * reload framing audit. Import this base renderer via ?source=k5r6b to bypass
+ * the index import-map alias that points './scene.js' to sceneAssembly.js.
+ */
 export function buildCockpit(scene) {
     const cockpit = new THREE.Group();
     scene.add(cockpit);
