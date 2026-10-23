@@ -13,9 +13,9 @@ button:active{background:#5d5030}label{display:flex;gap:8px;align-items:center}
 .stick-ring{position:absolute;width:112px;height:112px;left:50%;top:50%;transform:translate(-50%,-50%);border:2px solid #ceaa66;border-radius:50%}
 #drive-knob{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:56px;height:56px;background:#b78b4670;border:2px solid #e9c174;border-radius:50%;pointer-events:none}
 .lab-middle{text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;text-shadow:0 1px 4px black;font-size:11px}
-.lab-middle small{font-size:10px;color:#b6c7b7}.steer{display:flex;gap:9px}.steer button{min-width:85px}
+.lab-middle small{font-size:10px;color:#b6c7b7}.steer{display:flex;gap:9px}.steer button{min-width:65px}
 #brake{min-width:90px;min-height:78px;background:#ae8438;color:#141915;font-size:15px}
 #look-zone{position:absolute;inset:0 0 165px 45%;z-index:-1;touch-action:none}
 #lab-error{position:fixed;inset:25%;background:#301b18;border:2px solid orange;padding:18px;overflow:auto;z-index:5}
 @media(max-width:1000px){#telemetry{top:calc(env(safe-area-inset-top) + 160px);right:8px;font-size:10px}.lab-tools{right:3px}.lab-header{font-size:11px}.lab-bottom{padding:0 10px}#drive-zone{width:135px;height:135px}.lab-middle small{display:none}}
-@media(max-width:680px){.lab-tools{top:calc(env(safe-area-inset-top) + 60px)}.lab-tools label{font-size:0}.lab-tools select{font-size:10px;padding:6px;max-width:130px}.lab-tools button{padding:7px}.lab-middle>span{display:none}.steer button{min-width:65px;padding:8px;font-size:10px}#telemetry{top:calc(env(safe-area-inset-top) + 125px)}}
+@media(max-width:680px){.lab-tools{top:calc(env(safe-area-inset-top) + 60px)}.lab-tools label{font-size:0}.lab-tools select{font-size:10px;padding:6px;max-width:130px}.lab-tools button{padding:7px}.lab-middle>span{display:none}.steer button{min-width:55px;padding:8px;font-size:10px}#telemetry{top:calc(env(safe-area-inset-top) + 125px)}}

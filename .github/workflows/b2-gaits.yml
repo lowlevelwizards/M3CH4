@@ -1,0 +1,22 @@
+name: B.2 Gaits and Controlled Recovery
+on:
+  push:
+    branches: [feat/b2-movement-rhythm-and-recovery]
+  pull_request:
+    paths:
+      - 'footContactController.js'
+      - 'scene.js'
+      - 'pilotingLab.js'
+      - 'tests/b2GaitRecovery.test.mjs'
+jobs:
+  gait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in footContactController.js scene.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/b2GaitRecovery.test.mjs tests/b1SupportLoad.test.mjs tests/a2a4GroundedGait.test.mjs

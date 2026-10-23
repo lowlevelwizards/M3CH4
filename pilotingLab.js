@@ -8,11 +8,11 @@ import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
-import {createArenaScene} from './sceneAssembly.js?v=b1';
+import {createArenaScene} from './sceneAssembly.js?v=b2';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
-import {advanceFootContacts} from './footContactController.js';
+import {advanceFootContacts} from './footContactController.js?v=k5b2';
 import {soundSystemEvent} from './audio.js';
 const $=id=>document.getElementById(id);
 const machine=makeTestAssembly();
@@ -32,6 +32,7 @@ let soundOn=false,frameCount=0,worstGap=0,hitches=0,travel=0,lastTime=0,accumula
 const DT=1/60;
 const controls=new Controls($('drive-zone'),$('drive-knob'),$('look-zone'),$('brake'));
 const turn={left:false,right:false};
+let quickstep={side:0,remaining:0};
 function heldButton(id,key){
  const button=$(id);
  const end=()=>{turn[key]=false;button.classList.remove('active');};
@@ -40,6 +41,15 @@ function heldButton(id,key){
  window.addEventListener('blur',end);
 }
 heldButton('turn-left','left');heldButton('turn-right','right');
+// Quickstep is an intent sustained briefly through the unchanged lateral
+// motor and traction limits. It cannot teleport, exceed max acceleration,
+// or operate on a disabled mobility system.
+for(const [id,side] of [['quick-left',-1],['quick-right',1]]){
+ $(id).addEventListener('pointerdown',event=>{
+  event.preventDefault();
+  quickstep={side,remaining:.26};
+ });
+}
 const markers=new THREE.Group();arena.scene.add(markers);
 // Paint visible patches over the real existing arena floor. The meshes have
 // no collision geometry; groundMaterialAt supplies the authoritative grip.
@@ -103,6 +113,7 @@ function setCamera(){
 function reset(){
  state=createRigState();
  gait=createMotionSoundState();
+ quickstep={side:0,remaining:0};
  travel=0;worstGap=0;hitches=0;frameCount=0;propImpacts=0;
  resetLabProps(looseProps);
  controls.cancelPointers();
@@ -161,9 +172,11 @@ function loop(now){
     const follow=bodyFollowSteer(input.lookYaw);
     const steer=THREE.MathUtils.clamp(input.steer+requestedTurn+follow,-1,1);
     const beforeX=state.x,beforeZ=state.z,yawBefore=state.yaw;
+    const stepStrafe=quickstep.remaining>0?quickstep.side:input.strafe;
+    quickstep.remaining=Math.max(0,quickstep.remaining-DT);
     const ground=$('surface-mode').value==='mixed'
       ?groundMaterialAt(state.x,state.z):GROUND_MATERIALS.concrete;
-    stepRig(state,{throttle:input.throttle,strafe:input.strafe,steer,brake:input.brake},DT,
+    stepRig(state,{throttle:input.throttle,strafe:stepStrafe,steer,brake:input.brake},DT,
       {...config,walkingAssistEnabled:$('handling').value==='assisted',
         groundGripScale:groundGripScale(ground)},world);
     if($('props-mode').value==='on'){
@@ -215,6 +228,8 @@ function loop(now){
     'DRIVE    '+(state.driveLoad*100).toFixed(0)+'%',
     'CONTACT  '+(feet?.feet.map(f=>(f.side<0?'L':'R')+':'+(f.mode==='stance'?'PLANT':'STEP')).join(' / ')??'—'),
     'WEIGHT   '+((feet?.loadShift??0)*100).toFixed(0)+'% R · EFFORT '+((feet?.effort??0)*100).toFixed(0)+'%',
+    'GAIT     '+(feet?.gaitMode??'IDLE')+' · '+(feet?.maneuver??'STANDING'),
+    'BALANCE  '+((feet?.recovery??0)*100).toFixed(0)+'% RECOVERY',
     'PREP     '+(feet?.preparing?(feet.preparing<0?'LEFT':'RIGHT'):'—')+' · COMP '+((feet?.compression??0)*100).toFixed(1)+' cm',
     'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',
     'DIST     '+travel.toFixed(1)+' m',
