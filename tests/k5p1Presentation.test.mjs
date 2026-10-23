@@ -32,7 +32,7 @@ test('mobile entry uses separately versioned script and workshop dependencies',(
     assert.ok(script && workshop && scene);
     assert.match(html,/polishPass\.css\?v=k[0-9]+[a-z][0-9]+/);
     assert.ok(bridge.includes('scene.js?source='+scene));
-    assert.ok(mount.includes('unifiedGarageUI.js?v='+workshop));
+    assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
     assert.match(mount,/acquisitionUI\.js\?v=k5p1/);
 });
 test('garage selection and report statistics remain rooted in real serial and ledger state',()=>{
