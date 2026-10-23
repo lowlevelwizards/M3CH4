@@ -96,21 +96,40 @@ export function attachReloadHardware(root,id){
    block(feed,'RELOAD / copper contacts',[0,.22,0],[.26,.09,.22],'raw');
  }
  // Broad, readable latch, never a tiny decorative hinge.
+ // Extract the empty shell, drum, rocket carrier or discharged cell
+ // before loading the replacement. One recycled moving assembly per weapon.
+ const spent=group(root,'RELOAD / withdrawn '+form,[0,.06,.37]);
+ if(form==='shell'||form==='penetrator')
+   tube(spent,'RELOAD / spent steel case',[0,0,0],.115,.34,'heat');
+ else if(form==='drum')
+   bearing(spent,'RELOAD / empty rivet drum',[0,0,0],.25,.20,'steel');
+ else if(form==='rack')
+   block(spent,'RELOAD / empty rocket carrier',[0,0,0],[.47,.23,.39],'heat');
+ else if(form==='cell')
+   block(spent,'RELOAD / discharged cell',[0,0,0],[.27,.31,.25],'dark');
+ else
+   block(spent,'RELOAD / old feed unit',[0,0,0],[.29,.22,.32],'heat');
  const latch=group(root,'RELOAD / battery locking jaw',[0,.34,.35]);
  block(latch,'RELOAD / massive catch',[0,0,0],[.35,.14,.23],'machined');
  const guide=group(root,'RELOAD / fixed ammunition feed track',[.24,-.20,.24]);
- for(const node of [feed,latch,guide])node.userData.visualOnly=true;
+ for(const node of [feed,spent,latch,guide])node.userData.visualOnly=true;
  block(guide,'RELOAD / feeding rails',[0,0,0],[.13,.12,.46],'dark');
- root.traverse(node=>{if(node.isMesh&&(feed===node.parent||latch===node.parent||guide===node.parent))
+ root.traverse(node=>{if(node.isMesh&&(feed===node.parent||spent===node.parent||latch===node.parent||guide===node.parent))
    node.userData.visualOnly=true;});
- feed.visible=false;
- return {feed,latch,rest:{feed:feed.position.clone(),latch:latch.position.clone()}};
+ feed.visible=false;spent.visible=false;
+ return {feed,spent,latch,rest:{feed:feed.position.clone(),
+   spent:spent.position.clone(),latch:latch.position.clone()}};
 }
 export function poseReloadHardware(mechanism,phase){
  const loader=mechanism?.loader;
  if(!loader)return;
- const {feed,latch,rest}=loader;
+ const {feed,spent,latch,rest}=loader;
  feed.visible=!!phase?.feedVisible;
+ const t=phase?.progress??1;
+ spent.visible=!!phase?.active&&t>=.13&&t<.40;
+ const withdrawal=Math.max(0,Math.min(1,(t-.13)/.22));
+ spent.position.set(rest.spent.x+.52*withdrawal,
+   rest.spent.y-.30*withdrawal,rest.spent.z+.19*withdrawal);
  const shift=phase?.feed??0;
  const displacement=phase?.cassette??0;
  const style=mechanism.feedAxis??'z';
