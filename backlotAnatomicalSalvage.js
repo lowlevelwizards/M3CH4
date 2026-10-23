@@ -1,4 +1,4 @@
-/** k.5r.3: distinct structural salvage assemblies for Backlot gallery.
+/** k.5r.5 chunky silhouette pass: distinct structural salvage assemblies for Backlot gallery.
  * These are genuine component models, not facade details on certified AABBs.
  * Battlefield integration requires a separate collision-coverage pass.
  */
@@ -7,109 +7,110 @@ import {block,cylinder,ring,beam,profile,wheel,rustPanel,TRIM_COLORS as C}
  from './propAnatomyPrimitives.js';
 const {iron:I,steel:S,rust:R,paint:P,yellow:Y,soot:D}=C;
 const b=(g,n,w,h,d,x,y,z,c=I)=>block(g,n,w,h,d,x,y,z,c,.27);
-const f=(g,n,a,e,r=.075,c=S)=>beam(g,n,a,e,r,c,7);
+const f=(g,n,a,e,r=.12,c=S)=>beam(g,n,a,e,r,c,7);
 function shell(root,name){
  const g=new THREE.Group();g.name=name;root.add(g);return g;
 }
 export function buildAnatomicalGenerator(root){
  const g=shell(root,'RUSTED GENERATOR · EXPOSED POWERTRAIN');
  for(const s of [-1,1]){
-  f(g,'generator-rail',[s*.83,.20,-1.58],[s*.83,.20,1.62],.14,I);
-  for(const z of [-1.18,1.22])b(g,'generator-ground-mount',.36,.20,.49,s*.82,.18,z,D);
+  f(g,'generator-rail',[s*.83,.20,-1.58],[s*.83,.20,1.62],.21,I);
+  for(const z of [-1.18,1.22])b(g,'generator-ground-mount',.50,.28,.63,s*.82,.18,z,D);
  }
- b(g,'diesel-engine-crankcase',1.35,.93,1.29,0,.91,-.73,I);
- for(let i=0;i<4;i++){
-  const z=-1.23+i*.31;
-  cylinder(g,'diesel-generator-head',.24,.29,-.20,1.55,z,C.clay,'y',9);
-  b(g,'head-cooling-fin',.85,.055,.21,0,1.64,z,S);
+ b(g,'diesel-engine-crankcase',1.66,1.11,1.48,0,.91,-.73,I);
+ for(let i=0;i<3;i++){
+  const z=-1.14+i*.45;
+  cylinder(g,'diesel-generator-head',.31,.38,-.20,1.55,z,C.clay,'y',9);
+  b(g,'head-cooling-fin',1.04,.12,.30,0,1.64,z,S);
  }
- cylinder(g,'dynamo-rotor-core',.68,1.08,0,.98,.61,C.clay,'z',12);
- for(let i=0;i<9;i++)b(g,'alternator-cooling-rib',1.43,.075,.08,
-   0,.91+Math.sin(i*.69)*.52,.13+i*.12,S);
+ cylinder(g,'dynamo-rotor-core',.79,1.34,0,.98,.61,C.clay,'z',12);
+ for(let i=0;i<5;i++)b(g,'alternator-cooling-rib',1.69,.15,.16,
+   0,.98+Math.sin(i*.95)*.63,.17+i*.21,S);
  for(const z of [.13,1.15])ring(g,'generator-rotor-housing',
-   .60,.10,0,.98,z,R,'z',12);
- f(g,'coupling-shaft',[0,.98,-.11],[0,.98,.24],.16,S);
- cylinder(g,'generator-flywheel',.38,.14,0,1.0,-.10,I,'z',11);
- b(g,'starter-battery-tray',.72,.16,.48,-1.12,.55,1.02,D);
- b(g,'battery-body',.51,.36,.35,-1.11,.81,1.02,C.olive);
- f(g,'vertical-exhaust-stack',[.55,1.30,-1.08],[.56,2.28,-1.08],.115,D);
+   .72,.16,0,.98,z,R,'z',12);
+ f(g,'coupling-shaft',[0,.98,-.11],[0,.98,.24],.22,S);
+ cylinder(g,'generator-flywheel',.48,.21,0,1.0,-.10,I,'z',11);
+ b(g,'starter-battery-tray',.86,.23,.64,-1.12,.55,1.02,D);
+ b(g,'battery-body',.66,.46,.46,-1.11,.81,1.02,C.olive);
+ f(g,'vertical-exhaust-stack',[.55,1.30,-1.08],[.56,2.28,-1.08],.18,D);
  cylinder(g,'exhaust-weather-cap',.20,.05,.56,2.31,-1.08,S,'y',8);
  for(const s of [-1,1])f(g,'lifting-frame',
-   [s*.80,.34,-1.43],[s*.86,1.98,-1.43],.085,R);
+   [s*.80,.34,-1.43],[s*.86,1.98,-1.43],.14,R);
  for(const s of [-1,1])f(g,'lifting-roof-rail',
-   [s*.86,1.98,-1.43],[s*.86,1.98,1.36],.065,R);
- b(g,'fallen-inspection-panel',.72,.055,1.23,1.11,.11,.45,Y).rotation.z=.17;
+   [s*.86,1.98,-1.43],[s*.86,1.98,1.36],.13,R);
+ b(g,'fallen-inspection-panel',1.05,.13,1.44,1.11,.11,.45,Y).rotation.z=.17;
  return g;
 }
 export function buildAnatomicalTurbine(root){
  const g=shell(root,'DISCARDED INDUSTRIAL TURBINE · HOLLOW VOLUTE');
  // A genuinely open center: the impeller is visible through the ring.
- for(const z of [-.50,.50])ring(g,'split-heavy-cast-housing',
-   1.18,.22,0,1.42,z,I,'z',16);
- for(let i=0;i<12;i++){
-  const a=i*Math.PI/6;
+ for(const z of [-.48,.48])ring(g,'split-heavy-cast-housing',
+   1.25,.32,0,1.42,z,I,'z',16);
+ for(let i=0;i<6;i++){
+  const a=i*Math.PI/3;
   f(g,'radial-housing-rib',
-   [Math.cos(a)*1.03,1.42+Math.sin(a)*1.03,-.54],
-   [Math.cos(a)*1.03,1.42+Math.sin(a)*1.03,.56],.065,C.clay);
+   [Math.cos(a)*1.08,1.42+Math.sin(a)*1.08,-.54],
+   [Math.cos(a)*1.08,1.42+Math.sin(a)*1.08,.56],.13,C.clay);
  }
- cylinder(g,'impeller-shaft',.19,1.67,0,1.42,.12,S,'z',12);
- for(let i=0;i<9;i++){
-  const a=i*Math.PI*2/9;
-  const blade=b(g,'curved-impeller-vane',.18,.70,.10,
+ cylinder(g,'impeller-shaft',.27,1.67,0,1.42,.12,S,'z',12);
+ for(let i=0;i<5;i++){
+  const a=i*Math.PI*2/5;
+  const blade=b(g,'curved-impeller-vane',.34,.84,.19,
     Math.cos(a)*.52,1.42+Math.sin(a)*.52,.69,S);
   blade.rotation.z=-a+.26;
  }
- ring(g,'center-bearing-ring',.27,.12,0,1.42,.75,R,'z',12);
+ ring(g,'center-bearing-ring',.39,.17,0,1.42,.75,R,'z',12);
  for(const s of [-1,1]){
-  b(g,'turbine-base-foot',.40,.28,.80,s*.78,.21,0,D);
+  b(g,'turbine-base-foot',.55,.34,.94,s*.78,.21,0,D);
   f(g,'turbine-angled-mount',[s*.81,.33,0],
-   [s*.76,1.02,0],.15,I);
+   [s*.76,1.02,0],.22,I);
  }
- f(g,'severed-pressure-pipe',[.93,2.05,.12],[1.62,2.56,.30],.22,R);
- ring(g,'flanged-disconnect',.31,.09,1.67,2.58,.30,S,'x',10);
+ f(g,'severed-pressure-pipe',[.93,2.05,.12],[1.62,2.56,.30],.29,R);
+ ring(g,'flanged-disconnect',.39,.15,1.67,2.58,.30,S,'x',10);
  return g;
 }
 export function buildAnatomicalTyreStack(root){
  const g=shell(root,'DISCARDED AGRICULTURAL TYRE STACK');
  for(let i=0;i<3;i++){
-  const x=(i-1)*1.43,n=i===1?3:2;
+  const x=(i-1)*1.42,n=1;
   for(let j=0;j<n;j++){
-   const radius=i===1?.79:.66;
-   const yy=radius*.22+j*.52+.13,dx=j%2?-.12:.05;
-   ring(g,'real-open-tyre-sidewall',radius*.80,radius*.23,
+   const radius=i===1?.91:.77;
+   const yy=radius*.27+.14+(i===1?.18:0),dx=i===1?.08:0;
+   ring(g,'real-open-tyre-sidewall',radius*.80,radius*.28,
      x+dx,yy,0,C.rubber,'y',12);
-   ring(g,'tyre-inner-bead',radius*.37,.095,
+   ring(g,'tyre-inner-bead',radius*.35,.14,
      x+dx,yy+.08,0,I,'y',12);
    // Radial lugged tread, not a black disc with a painted hole.
-   for(let k=0;k<10;k++){
-    const a=k*Math.PI/5;
-    const p=b(g,'agricultural-rubber-lug',.22,.18,.29,
+   for(let k=0;k<7;k++){
+    const a=k*Math.PI*2/7;
+    const p=b(g,'agricultural-rubber-lug',.35,.25,.41,
       x+dx+Math.cos(a)*radius,yy,Math.sin(a)*radius,D);
     p.rotation.y=-a;
    }
   }
  }
  for(const s of [-1,1])f(g,'old-rack-upright',
-   [s*2.24,.12,-.84],[s*2.24,1.86,-.84],.09,R);
- f(g,'old-rack-beam',[-2.21,.16,-.84],[2.21,.16,-.84],.12,S);
+   [s*2.24,.12,-.84],[s*2.24,1.86,-.84],.16,R);
+ f(g,'old-rack-beam',[-2.21,.16,-.84],[2.21,.16,-.84],.20,S);
  return g;
 }
 export function buildAnatomicalDrums(root){
  const g=shell(root,'RUSTED OIL DRUMS · PALLET');
  for(const s of [-1,1]){
-  f(g,'pallet-lumber-stringer',[s*.82,.14,-1.12],[s*.82,.14,1.10],.12,C.clay);
-  for(const z of [-.79,0,.79])b(g,'pallet-top-board',2.01,.10,.26,0,.25,z,C.cream);
+  f(g,'pallet-lumber-stringer',[s*.82,.14,-1.12],[s*.82,.14,1.10],.20,C.clay);
+  // Wide cross-planks are placed once across the shared skid, below.
  }
+ for(const z of [-.78,0,.78])b(g,'pallet-top-board',2.18,.17,.56,0,.28,z,C.cream);
  let n=0;
  for(const x of [-.59,.58])for(const z of [-.56,.52]){
   const y=.96,c=[C.rust,C.olive,C.yellow,P][n++];
-  cylinder(g,'barrel-curved-wall',.39,1.17,x,y,z,c,'y',12);
+  cylinder(g,'barrel-curved-wall',.46,1.24,x,y,z,c,'y',12);
   for(const a of [-1,1])ring(g,'rolled-barrel-stiffening-rim',
-   .38,.048,x,y+a*.42,z,I,'y',12);
-  cylinder(g,'recessed-barrel-top',.33,.032,x,1.54,z,D,'y',12);
-  cylinder(g,'threaded-barrel-bung',.045,.04,x+.22,1.59,z-.18,S,'y',8);
+   .45,.085,x,y+a*.42,z,I,'y',12);
+  cylinder(g,'recessed-barrel-top',.38,.06,x,1.54,z,D,'y',12);
+  cylinder(g,'threaded-barrel-bung',.073,.07,x+.22,1.59,z-.18,S,'y',8);
  }
- b(g,'fallen-dented-barrel-lid',.65,.05,.65,1.29,.10,.74,S).rotation.z=.16;
+ b(g,'fallen-dented-barrel-lid',.85,.11,.82,1.29,.10,.74,S).rotation.z=.16;
  return g;
 }
 export function buildAnatomicalFlatbed(root){
