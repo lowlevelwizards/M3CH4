@@ -35,7 +35,7 @@ import {soundBearing} from './battlefieldPressure.js';
 import { shotThreatEvidence,recordShotEvidence,counterFlankOrder,
     recordSubsystemHit,threatenedSubsystem,threatFacingPoint } from './ai/combatIntelligence.js';
 import { planTeam } from './ai/teamPlanner.js';
-import { assessPhysicalFireLane, chooseClearFiringPoint } from './ai/firingLane.js';
+import { assessTargetFireLanes, chooseClearFiringPoint } from './ai/firingLane.js?v=k5s1';
 import { planCounterFlankResponses } from './ai/defensiveResponse.js';
 import { createStrategicState, evaluateStrategy } from './ai/strategicState.js';
 import { createPilotBrain, decidePilot } from './ai/pilotBrain.js';
@@ -2026,39 +2026,64 @@ function frame(now) {
                     continue;
                 }
                 const target=resolveActorTarget(actor);
-                // Reuse the authoritative, zero-spread muzzle trace for tactical
-                // planning. It never fires or consumes power/ammo.
+                // Test the real muzzle against multiple target modules: a
+                // cockpit or weapon may be exposed above an obscured frame.
+                // Trace is non-damaging and does not consume ammunition.
                 if(target && (actor.fireLane?.targetId!==target.id ||
                     aiClock>=(actor.fireLane?.validUntil??-Infinity))){
-                    const physical=assessPhysicalFireLane(
-                        arena.traceCombatantShot(actor.id,target.id,'structure',0,0),target.id);
+                    const physical=assessTargetFireLanes(slot=>
+                        arena.traceCombatantShot(actor.id,target.id,slot,0,0),target.id);
                     actor.fireLane={...physical,targetId:target.id,validUntil:aiClock+.27};
                     if(!physical.clear){
                         noteBlockedFire(actor.motion,physical.blocker);
-                        const old=actor.fireReposition;
-                        if(!old||old.targetId!==target.id||
-                            aiClock>=old.until||
-                            Math.hypot(actor.rig.x-old.point.x,actor.rig.z-old.point.z)<1.05){
+                        if(actor.fireLaneSearch?.targetId!==target.id)
+                            actor.fireLaneSearch={targetId:target.id,tried:[]};
+                        const search=actor.fireLaneSearch;
+                        const old=actor.fireReposition?.targetId===target.id
+                            ? actor.fireReposition:null;
+                        const arrived=old&&Math.hypot(
+                            actor.rig.x-old.point.x,actor.rig.z-old.point.z)<1.25;
+                        if(!old||arrived||aiClock>=old.until){
+                            if(old){
+                                search.tried.push(old.point);
+                                if(search.tried.length>12)search.tried.shift();
+                            }
                             const config=aiLocomotionConfig(actor);
-                            const point=chooseClearFiringPoint(actor.rig,target.rig,
-                                combatWorldFor(actor.id),{
-                                    radius:config.collisionRadiusM,
-                                    targetId:target.id,
-                                    side:actor.motion.awareness.repositionSide,
-                                    allies:participants.filter(p=>p.team===actor.team&&
-                                        p.id!==actor.id&&p.active).map(p=>p.rig),
-                                });
+                            const options={
+                                radius:config.collisionRadiusM,
+                                targetId:target.id,
+                                side:actor.motion.awareness.repositionSide,
+                                allies:participants.filter(p=>p.team===actor.team&&
+                                    p.id!==actor.id&&p.active).map(p=>p.rig),
+                                excludePoints:search.tried,
+                            };
+                            let point=chooseClearFiringPoint(actor.rig,target.rig,
+                                combatWorldFor(actor.id),options);
+                            // Exhausted local angles: widen/revisit after a
+                            // complete sweep instead of staring at cover.
+                            if(!point&&search.tried.length){
+                                search.tried=search.tried.slice(-3);
+                                point=chooseClearFiringPoint(actor.rig,target.rig,
+                                    combatWorldFor(actor.id),{...options,excludePoints:search.tried});
+                            }
+                            const travel=point?Math.hypot(
+                                actor.rig.x-point.x,actor.rig.z-point.z):0;
                             actor.fireReposition=point?{
-                                targetId:target.id,point,until:aiClock+1.5}:null;
+                                targetId:target.id,point,
+                                until:aiClock+Math.max(3.8,Math.min(9,travel*.8))}:null;
                         }
                     }else{
                         actor.fireReposition=null;
+                        actor.fireLaneSearch=null;
                         actor.motion.awareness.blockedFireSeconds=0;
                         actor.motion.awareness.blockedLaneCommitted=false;
                         actor.motion.awareness.blockedBy=null;
                     }
                 }
-                if(!target){actor.fireLane=null;actor.fireReposition=null;}
+                if(!target){
+                    actor.fireLane=null;actor.fireReposition=null;
+                    actor.fireLaneSearch=null;
+                }
                 const actorOutput=hostileOutput(actor.condition,actor.behavior);
                 const canManeuver=actorOutput.structure>.05&&actorOutput.command>.05&&
                     actorOutput.power>.12&&actorOutput.mobility>.05;
@@ -2066,7 +2091,7 @@ function frame(now) {
                     actor.weaponSpec?.fireMode==='continuous'&&actor.active&&target&&
                     (actor.weaponState?.loaded??0)>0&&(actor.weaponState?.reloadLeft??0)<=0&&
                     Math.hypot(target.rig.x-actor.rig.x,target.rig.z-actor.rig.z)<=actor.weaponSpec.rangeMeters&&
-                    actor.motion?.awareness?.lineOfSight!==false&&
+                    actor.fireLane?.clear===true&&
                     (actor.weaponState?.action?.ventLeft??0)<=0 ? actor.weaponSpec.activeKw : 0);
                 advancePowerSystem(actor.powerSystem, actor.assembly, actor.rig, FIXED_DT, actorOutput.power);
                 const actorConfig=aiLocomotionConfig(actor);
@@ -2146,10 +2171,9 @@ function frame(now) {
                 actor.teamIntent=executeIntent(actor.executor,selected,actor.rig,
                     combatWorldFor(actor.id),actorConfig.collisionRadiusM,FIXED_DT,nearbyTraffic,
                     {now:aiClock,actorId:actor.id,trafficPolicy:'adaptive'});
-                // Fall back to local blocked-lane strafing only when no safe
-                // path to a new position exists.
-                const navigationIntent=target&&actor.fireLane?.clear===false&&
-                    !actor.fireReposition ? null : actor.teamIntent;
+                // A blocked muzzle without an immediate flank candidate
+                // must not suppress the broader team route indefinitely.
+                const navigationIntent=actor.teamIntent;
                 recordAiDecision(aiTrace,actor,actor.brain,actor.executor,aiClock);
                 if (recovery.begin && !actor.fieldService.held) beginFieldService(actor.condition, actor.fieldService, actor.rig);
                 // A designated screener must actually turn toward the reported
@@ -2169,7 +2193,7 @@ function frame(now) {
                 // the same brake input. Do not add a special AI recoil buff.
                 const settledToShoot = !recovery.active && !!target &&
                     actor.fireLane?.clear===true &&
-                    actor.weaponState?.loaded > 0 && actor.motion?.awareness?.lineOfSight !== false &&
+                    actor.weaponState?.loaded > 0 &&
                     withinFiringArc(actor.rig, target.rig) &&
                     Math.hypot(actor.rig.vx, actor.rig.vz) < .24 &&
                     Math.abs(actor.rig.yawRate) < .2 &&
@@ -2211,7 +2235,6 @@ function frame(now) {
                         actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
                         !!target&&actor.fireLane?.clear===true&&
                         withinFiringArc(actor.rig,target.rig)&&
-                        actor.motion?.awareness?.lineOfSight!==false&&
                         // At range, a disturbed weapon can settle behind cover.
                         // Close, urgent and contested shots remain possible.
                         (actor.stabilizer.settled>.32 ||
@@ -2886,22 +2909,27 @@ function attemptAiFire(actor, target, shotIndex) {
     if (!actor?.active || !target || target.active === false || inspecting || testEnded || !appSheet.classList.contains('hidden')) return;
     const actorOutput = hostileOutput(actor.condition, actor.behavior);
     if (!actorOutput.operational || !actor.powerSystem.weaponReady || !withinFiringArc(actor.rig, target.rig)) return;
-    // Do not knowingly waste a trigger cycle through solid cover. Actual ballistic
-    // raycasts remain authoritative and can still discover low cover / intervening rigs.
-    if (actor.motion?.awareness?.lineOfSight === false) return;
-    // Fresh collision check: a friendly rig or wreck can enter the fire lane
-    // between tactical planning and actual trigger release.
-    const fireControl=assessPhysicalFireLane(
-        arena.traceCombatantShot(actor.id,target.id,'structure',0,0),target.id);
+    // Fresh muzzle check: never grant shots merely from optical contact.
+    // Favor the pilot's chosen subsystem, then use any actually exposed part.
+    const pointUnderThreat=sortieObjective.domination?.points?.some(p=>
+        Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius &&
+        (p.contested||p.owner===actor.team));
+    const assigned=aiPlans[actor.team]?.orders?.[actor.id]??null;
+    const contesting=!!assigned?.objectiveId&&sortieObjective.domination?.points?.some(p=>
+        p.id===assigned.objectiveId && p.contested &&
+        Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius);
+    const preferredAim=tacticalAimSlot(hostileAimSlot(shotIndex,actor.behavior.aimPriority),{
+        targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
+        contesting,visibleService:!!target.fieldService?.held});
+    const fireControl=assessTargetFireLanes(slot=>
+        arena.traceCombatantShot(actor.id,target.id,slot,0,0),target.id,preferredAim);
     if(!fireControl.clear){
         actor.fireLane={...fireControl,targetId:target.id,validUntil:aiClock+.16};
         noteBlockedFire(actor.motion,fireControl.blocker);
         return;
     }
-    const pointUnderThreat=sortieObjective.domination?.points?.some(p=>
-        Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius &&
-        (p.contested||p.owner===actor.team));
     if(!shouldAttemptTacticalShot(actor,target,{urgent:pointUnderThreat}))return;
+    const aimSlot=fireControl.aimSlot;
     if(actor.weaponSpec.fireMode==='continuous'&&
         Math.hypot(actor.rig.x-target.rig.x,actor.rig.z-target.rig.z)>actor.weaponSpec.rangeMeters)return;
     // A real trigger pull consumes ammunition BEFORE resolving the raycast.
@@ -2933,13 +2961,6 @@ function attemptAiFire(actor, target, shotIndex) {
     const mountSpread=actor.weaponSpec.fireMode==='automatic'
         ? weaponActionSpreadRadians(actor.weaponSpec,actor.weaponState,actor.rig.brace??0):0;
     const [spreadX, spreadY] = hostileSpread(shotIndex, actorOutput.spreadRadians+mountSpread);
-    const assigned=aiPlans[actor.team]?.orders?.[actor.id]??null;
-    const contesting=!!assigned?.objectiveId&&sortieObjective.domination?.points?.some(p=>
-        p.id===assigned.objectiveId && p.contested &&
-        Math.hypot(target.rig.x-p.x,target.rig.z-p.z)<sortieObjective.radius);
-    const aimSlot=tacticalAimSlot(hostileAimSlot(shotIndex,actor.behavior.aimPriority),{
-        targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
-        contesting,visibleService:!!target.fieldService?.held});
     if(actor.weaponSpec.fireMode==='continuous') {
         const contact=arena.traceCombatantShot(actor.id,target.id,aimSlot,spreadX,spreadY);
         registerWeaponStabilityShot(actor.stabilizer,actor.weaponSpec.id,{
