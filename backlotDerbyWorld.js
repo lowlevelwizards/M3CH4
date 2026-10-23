@@ -446,6 +446,25 @@ export function buildBacklotPropCatalog(world){
  const catalog=[],seenIds=new Set(),collisionMeshes=[];
  const describe=o=>o.artKit||o.art||(
    o.kind==='pillar'?'floodlight mast':'salvage cover');
+ // Hero composites: all component colliders exactly as assembled in a real
+ // match, displayed BEFORE their separately inspectable part entries.
+ const featured=[
+   {id:'tractor-complete',label:'COMPLETE WRECKED TRACTOR',
+      matches:o=>o.id.startsWith('tractor-')},
+   {id:'loader-complete',label:'COMPLETE INDUSTRIAL LOADER',
+      matches:o=>o.id.startsWith('loader-')},
+   {id:'engine-complete',label:'EXPOSED ENGINE ASSEMBLY',
+      matches:o=>o.id.startsWith('exposed-engine-')},
+   {id:'coupling-complete',label:'CENTRAL COUPLING MACHINE',
+      matches:o=>o.id.startsWith('coupling-')},
+ ];
+ for(const feature of featured){
+   const group=new THREE.Group();
+   const parts=world.obstacles.filter(feature.matches);
+   for(const o of parts)createWreck(group,o,collisionMeshes);
+   catalog.push({id:'assembly-'+feature.id,category:'showcase',
+     label:feature.label,detail:parts.length+' LIVE PHYSICAL PIECES · ASSEMBLED',group});
+ }
  for(const o of world.obstacles){
    const group=new THREE.Group();
    group.name='GALLERY '+o.id;
@@ -461,7 +480,31 @@ export function buildBacklotPropCatalog(world){
  buildBacklotTerrainAndFacilities(source,world);
  spectatorYard(source,world);
  source.updateWorldMatrix(true,true);
- const scenicNames=new Set();
+ // Scenic assemblies from the original venue's own generation pass.
+ const scenicShows=[
+   {id:'announcer',label:'ANNOUNCER BOOTH & MARQUEE',
+     match:o=>/^(announcer-|booth-|derby-announcer-sign)/.test(o.name)},
+   {id:'bleachers',label:'WOODEN BLEACHERS & AWNING',
+     match:o=>/^(spectator-bleacher|bleacher-support|patched-awning|awning-post|scrapyard-spectator)$/.test(o.name)
+       && Math.abs(o.position.x-(world.minX+11))<8},
+   {id:'hoist',label:'SALVAGE CRANE & HOIST',
+     match:o=>/^(scrapyard-hoist-|hoist-cable|hoist-hook)$/.test(o.name)},
+   {id:'scoreboard',label:'MANUAL DERBY SCOREBOARD',
+     match:o=>/^(manual-scoreboard-leg|patched-steel-scoreboard|backlot-manual-scoreboard)$/.test(o.name)},
+ ];
+ for(const feature of scenicShows){
+   const group=new THREE.Group();
+   source.traverse(o=>{
+     if(!o.isMesh||!feature.match(o))return;
+     const clone=o.clone();
+     clone.matrix.copy(o.matrixWorld);
+     clone.matrix.decompose(clone.position,clone.quaternion,clone.scale);
+     group.add(clone);
+   });
+   if(group.children.length)catalog.push({id:'assembly-'+feature.id,category:'scenery',
+     label:feature.label,detail:group.children.length+' REAL VENUE COMPONENTS · ASSEMBLED',group});
+ }
+ const scenicNames=new Set(),scenicComponents=[];
  const exclude=/^(offsite-farm-earth|uneven-oval-dirt-berm|random-scraped-earth|continuous-churned-oval-rut|sunbleached-dirt-patches|churned-wheel-ruts|airborne-dust|impact-dirt-puff|real-cover-impact-scar|worn-objective-track|distant-earth-ridge)/;
  source.traverse(o=>{
    if(!o.isMesh||!o.name||exclude.test(o.name)||scenicNames.has(o.name)||
@@ -474,10 +517,13 @@ export function buildBacklotPropCatalog(world){
    copy.matrix.decompose(copy.position,copy.quaternion,copy.scale);
    copy.userData={...copy.userData,visualOnly:true};
    group.add(copy);
-   catalog.push({id:'scenery-'+o.name,category:'scenery',
+   scenicComponents.push({id:'scenery-'+o.name,category:'scenery',
      label:o.name.toUpperCase().replace(/-/g,' '),
      detail:'LIVE BACKLOT SCENERY COMPONENT',group});
  });
+ const prominence=e=>/barn|grain-silo|tree-crown|scoreboard|bleacher|awni|utility|shack|trailer|floodlight|sign|marquee|crane|pole|rail/.test(e.id)?0:1;
+ scenicComponents.sort((a,b)=>prominence(a)-prominence(b)||a.label.localeCompare(b.label));
+ catalog.push(...scenicComponents);
  for(const specimen of catalog){
    const g=specimen.group;
    g.updateMatrixWorld(true);
@@ -492,5 +538,6 @@ export function buildBacklotPropCatalog(world){
    specimen.height=Math.max(.25,b.max.y-b.min.y);
  }
  return {specimens:catalog,coverCount:world.obstacles.length,
+   showcaseCount:featured.length,sceneryAssemblyCount:scenicShows.length,
    sceneryArchetypes:scenicNames.size};
 }
