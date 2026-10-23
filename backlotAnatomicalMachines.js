@@ -225,63 +225,62 @@ export function buildAnatomicalPickup(root){
 }
 export function buildAnatomicalEngine(root){
  const g=new THREE.Group();g.name='EXPOSED ENGINE BANK & FLYWHEEL';root.add(g);
- ladder(g,'engine-mount-sled',2.12,-2.0,2.0,.31);
- metal(g,'cast-open-crankcase',1.60,.85,2.75,0,1.08,0,I);
- metal(g,'oil-sump-housing',1.21,.37,2.30,0,.51,0,C.clay);
+ ladder(g,'engine-mount-sled',2.30,-2.0,2.0,.31);
+ metal(g,'cast-open-crankcase',1.88,1.11,2.93,0,1.08,0,I);
+ metal(g,'oil-sump-housing',1.46,.45,2.42,0,.51,0,C.clay);
  for(const s of [-1,1]){
-  for(let i=0;i<4;i++){
-   const z=-1.02+i*.64;
+  for(let i=0;i<3;i++){
+   const z=-1.02+i*1.02;
    f(g,'engine-cylinder-bank-angled-mount',[s*.28,1.22,z],
-     [s*.65,1.92,z],.20,C.clay);
-   cylinder(g,'cast-cylinder-head',.25,.36,s*.71,1.98,z,S,'y',10);
-   ring(g,'engine-head-cover-ring',.19,.04,s*.71,2.18,z,C.cream,'y',10);
-   f(g,'individual-injector-line',[s*.71,2.24,z],[s*.90,2.15,z+.15],.041,Y);
+     [s*.74,2.08,z],.28,C.clay);
+   cylinder(g,'cast-cylinder-head',.37,.48,s*.78,2.10,z,S,'y',8);
+   ring(g,'engine-head-cover-ring',.27,.075,s*.78,2.36,z,C.cream,'y',8);
+   // Large cylinder housings and gaskets stand in for injector plumbing.
   }
   f(g,'exhaust-manifold-header',[s*.91,2.13,-1.40],
-    [s*.91,2.13,1.43],.09,D);
+    [s*1.03,2.20,1.43],.17,D);
  }
- cylinder(g,'giant-open-flywheel',.76,.24,0,1.23,1.63,S,'z',12);
- ring(g,'outer-flywheel-ring',.71,.12,0,1.23,1.79,C.clay,'z',12);
- for(let i=0;i<7;i++){
-  const a=i*Math.PI*2/7;
+ cylinder(g,'giant-open-flywheel',.91,.34,0,1.23,1.63,S,'z',12);
+ ring(g,'outer-flywheel-ring',.91,.20,0,1.23,1.79,C.clay,'z',12);
+ for(let i=0;i<4;i++){
+  const a=i*Math.PI/2;
   f(g,'flywheel-spoke',[0,1.23,1.82],
-    [Math.sin(a)*.68,1.23+Math.cos(a)*.68,1.82],.064,I);
+    [Math.sin(a)*.82,1.23+Math.cos(a)*.82,1.82],.14,I);
  }
- f(g,'exposed-drive-shaft',[0,.97,-2.30],[0,.97,-1.31],.16,S);
+ f(g,'exposed-drive-shaft',[0,.97,-2.30],[0,.97,-1.31],.24,S);
  for(const z of [-2.19,2.09])f(g,'engine-bed-mount-crossbar',
-   [-1.21,.37,z],[1.21,.37,z],.16,R);
- metal(g,'missing-valve-cover-on-ground',.92,.07,.30,.98,.14,-1.42,P)
+   [-1.21,.37,z],[1.21,.37,z],.23,R);
+ metal(g,'missing-valve-cover-on-ground',1.22,.15,.49,.98,.14,-1.42,P)
   .rotation.y=-.26;
  return g;
 }
 export function buildAnatomicalCoupling(root){
  const g=new THREE.Group();g.name='CENTRAL EXPOSED POWER COUPLING';root.add(g);
- ladder(g,'coupling-skid',2.18,-1.65,1.63,.33);
+ ladder(g,'coupling-skid',2.36,-1.65,1.63,.33);
  for(const s of [-1,1]){
-  metal(g,'gearbox-foot',.36,.39,.45,s*.83,.56,0,C.clay);
-  cylinder(g,'exposed-ratio-gear',.65,.20,s*.63,1.45,0,S,'x',12);
-  ring(g,'ring-gear-teeth',.59,.13,s*.78,1.45,0,I,'x',12);
-  f(g,'gearbox-transverse-shaft',[s*.25,1.45,0],[s*1.28,1.45,0],.15,S);
+  metal(g,'gearbox-foot',.52,.48,.62,s*.83,.56,0,C.clay);
+  cylinder(g,'exposed-ratio-gear',.76,.31,s*.63,1.45,0,S,'x',12);
+  ring(g,'ring-gear-teeth',.73,.19,s*.78,1.45,0,I,'x',12);
+  f(g,'gearbox-transverse-shaft',[s*.25,1.45,0],[s*1.28,1.45,0],.23,S);
  }
- metal(g,'gearcase-open-bottom',1.40,.59,1.50,0,.83,0,I);
- for(let i=0;i<4;i++)f(g,'drive-cage-post',
-   [i<2?-.83:.83,.45,i%2?-.91:.91],
-   [i<2?-.83:.83,2.17,i%2?-.91:.91],.10,R);
- f(g,'exposed-input-shaft',[0,1.46,-1.82],[0,1.46,-.25],.18,S);
- ring(g,'coupling-front-hub',.29,.07,0,1.46,-1.62,Y,'z',11);
- metal(g,'broken-gear-guard',.56,.11,.79,-.85,1.94,.76,P)
+ metal(g,'gearcase-open-bottom',1.61,.78,1.68,0,.83,0,I);
+ for(const x of [-.83,.83])f(g,'drive-cage-post',
+   [x,.45,-.88],[x,2.18,-.88],.18,R);
+ f(g,'exposed-input-shaft',[0,1.46,-1.82],[0,1.46,-.25],.25,S);
+ ring(g,'coupling-front-hub',.36,.13,0,1.46,-1.62,Y,'z',11);
+ metal(g,'broken-gear-guard',.87,.20,1.01,-.85,1.94,.76,P)
   .rotation.z=-.21;
  return g;
 }
 export const MACHINE_EXHIBITS=Object.freeze([
- {id:'loader',label:'TRACKED LOADER · ANATOMY V3',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
+ {id:'loader',label:'TRACKED LOADER · CHUNK V4',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
   match:o=>o.id.startsWith('loader-'),front:'-z',build:buildAnatomicalLoader},
- {id:'combine',label:'COMBINE HARVESTER · ANATOMY V3',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
+ {id:'combine',label:'COMBINE HARVESTER · CHUNK V4',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
   match:o=>o.artKit==='combine-harvester',front:'-z',build:buildAnatomicalCombine},
- {id:'pickup',label:'PICKUP WRECK · ANATOMY V3',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
+ {id:'pickup',label:'PICKUP WRECK · CHUNK V4',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
   match:o=>o.artKit==='pickup-wreck',build:buildAnatomicalPickup},
- {id:'engine',label:'ENGINE BANK · ANATOMY V3',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
+ {id:'engine',label:'ENGINE BANK · CHUNK V4',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
   match:o=>o.id.startsWith('exposed-engine-'),build:buildAnatomicalEngine},
- {id:'coupling',label:'GEAR COUPLING · ANATOMY V3',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
+ {id:'coupling',label:'GEAR COUPLING · CHUNK V4',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
   match:o=>o.id.startsWith('coupling-'),build:buildAnatomicalCoupling},
 ]);
