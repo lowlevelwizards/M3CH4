@@ -2881,7 +2881,7 @@ function resolveAiShotContact(actor,target,contact,damage) {
  */
 function presentPlayerDischarge(contact,shot) {
     arena.triggerPilotFiringEvent(weaponSpec.id,{
-        muzzle:contact?.muzzle,brace:rig.brace??0,
+        muzzle:contact?.muzzle,point:contact?.point,brace:rig.brace??0,
         condition:weaponIntegrityRatio(playerCondition),shotIndex:shot,
     });
     soundWeaponMechanism(weaponSpec.id,{shotIndex:shot,cockpit:true});
