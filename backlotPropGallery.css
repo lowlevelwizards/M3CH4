@@ -19,3 +19,14 @@ button,select,input{font:inherit}button,select{background:#1d2a25;color:var(--in
 #gallery-error{position:fixed;left:20%;right:20%;top:40%;padding:20px;background:#4e231f;color:white;border:2px solid #f1ae7a;z-index:5;white-space:pre-wrap}
 @media(max-height:500px){.gallery-info{top:calc(48px + var(--safe-t));width:min(390px,calc(100vw - 20px));padding:7px}.gallery-info p{margin:3px 0}#gallery-joystick{width:108px;height:108px}#gallery-knob{width:48px;height:48px}.gallery-heading strong{font-size:11px}.gallery-heading small{font-size:8px}.gallery-head{min-height:32px}.gallery-head a,.gallery-head button{padding:6px}#gallery-help{font-size:9px;bottom:3px}#gallery-help small{display:none}}
 @media(max-width:650px){.gallery-heading small{display:none}.gallery-head{gap:5px}.gallery-info{width:min(390px,calc(100vw - 20px))}#gallery-help{white-space:normal;max-width:55vw}}
+
+/* Compact by default so the model, not the UI, dominates phone screenshots. */
+#gallery-ui-toggle{flex:none;font-size:10px;padding:5px 6px;white-space:nowrap}
+.gallery-compact .gallery-info{width:min(315px,calc(100vw - 20px))}
+.gallery-compact .gallery-info p,.gallery-compact .controls-line{display:none}
+.gallery-compact .gallery-info .gallery-nav{margin-top:6px}
+.gallery-compact .gallery-nav button{padding:7px 6px}
+.gallery-compact .gallery-nav select{padding:7px 5px;font-size:10px}
+.gallery-compact .gallery-row b{font-size:11px}
+.gallery-compact .gallery-row span{font-size:9px}
+@media(max-height:500px){.gallery-compact .gallery-info{padding:6px}}
