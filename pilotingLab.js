@@ -126,6 +126,7 @@ function loop(now){
   arena.updatePilotingLabRig(state,gait,frameDt);
   arena.updateCombatEffects(frameDt);
   renderer.render(arena.scene,arena.camera);
+  window.__m3ch4PilotingLabReady=true;
   frameCount++;
   if(frameCount%10===0){
    $('fps').textContent=Math.round(fps)+' FPS';
