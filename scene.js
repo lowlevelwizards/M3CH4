@@ -96,7 +96,9 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
     const camera = new THREE.PerspectiveCamera(36, 96 / 72, .03, 40);
     const radius = Math.max(.35, sphere.radius);
-    camera.position.set(radius * 1.65, radius * .92, radius * 2.25);
+    // Weapon geometry points toward -Z; show muzzle/action, not the rear of the receiver.
+    camera.position.set(radius * 1.65, radius * .92,
+        definition.slot==='combat'?-radius*2.25:radius*2.25);
     camera.lookAt(0, 0, 0);
     partThumbnailRenderer.render(previewScene, camera);
     const url = partThumbnailRenderer.domElement.toDataURL('image/png');
@@ -384,13 +386,44 @@ export function createArenaScene(initial, targetAssembly) {
         for(const x of [-4.3,4.3])for(const z of [-2.35,2.35])
             vendorBox(.23,.72,.23,0x343d38,x,.34,z);
         vendorBox(10.1,.12,.19,0xb38742,0,.95,-2.71);
+        // Reclaimed-parts shop: pegboard storage, stacked salvage and a lamp
+        // above the counter. All props are cosmetic, with zero extra collision.
+        for(const x of [-5.45,5.45]){
+            vendorBox(1.65,2.05,.28,0x4b3c2c,x,2.23,3.18);
+            for(let row=0;row<4;row++){
+                vendorBox(1.38,.14,.55,0x8d7250,x,1.44+row*.42,2.87);
+                vendorBox(.47,.25,.38,row%2?0x4e675c:0x8d5d39,x-.35,1.61+row*.42,2.74);
+            }
+        }
+        for(const x of [-5.2,-4.45,4.45,5.2])
+            vendorBox(.62,.54,.68,0x5d4d38,x,.31,-3.25);
         (offers||[]).slice(0,6).forEach((offer,i)=>{
             const x=(i%3-1)*3.1,z=(Math.floor(i/3)-.5)*2.65;
             const tray=vendorBox(2.55,.06,2.24,offer.sold?0x333732:0x3e4a42,x,.97,z);
             tray.userData.vendorSerial=offer.serial;vendorPicks.push(tray);
             const light=vendorBox(2.46,.04,.12,offer.sold?0x5b4138:0xb99151,x,1.018,z-1.05);
             vendorPads.set(offer.serial,{light,sold:offer.sold});
-            if(offer.sold)return;
+            if(offer.sold){
+                // Physical sign sits on the empty tray after the purchased
+                // serialized part disappears; it is non-selectable.
+                const canvas=document.createElement('canvas');
+                canvas.width=256;canvas.height=96;
+                const ctx=canvas.getContext('2d');
+                if(ctx){
+                    ctx.fillStyle='#3c261d';ctx.fillRect(0,0,256,96);
+                    ctx.strokeStyle='#d7a478';ctx.lineWidth=5;ctx.strokeRect(5,5,246,86);
+                    ctx.textAlign='center';ctx.textBaseline='middle';
+                    ctx.font='bold 54px monospace';ctx.fillStyle='#f7c18e';
+                    ctx.fillText('SOLD OUT',128,47,239);
+                    const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
+                    const placard=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.70),
+                        new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));
+                    placard.position.set(x,1.37,z);
+                    placard.rotation.x=-.37;
+                    vendorRoot.add(placard);
+                }
+                return;
+            }
             const def=BY_ID.get(offer.definitionId);
             if(!def)return;
             const assembly={serial:'COUNTER',name:'VENDOR',owned:[{
@@ -1967,7 +2000,9 @@ export function createArenaScene(initial, targetAssembly) {
         rebuildEmptyMountPicks(assembly);
         exterior.root.position.copy(oldRoot.position);
         exterior.root.rotation.copy(oldRoot.rotation);
-        exterior.root.visible = inspecting;
+        // Purchases can rebuild the owned assembly while the seller is open.
+        // Never reveal the full mech through the vendor counter.
+        exterior.root.visible = inspecting && !vendorEnabled;
         scene.add(exterior.root);
         scene.remove(oldRoot);
         restoreSurfaceMarks([...knownSurfaceEvents.values()]);

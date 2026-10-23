@@ -1,0 +1,28 @@
+name: k5p1 Workshop Polish Smoke
+on:
+  pull_request:
+    paths:
+      - 'unifiedGarageUI.js'
+      - 'scene.js'
+      - 'sceneAssembly.js'
+      - 'bayCycle.js'
+      - 'polishPass.css'
+      - 'index.html'
+      - 'tests/k5p1BayNavigation.test.mjs'
+      - '.github/workflows/k5p1-workshop-polish.yml'
+  push:
+    branches: [polish/k5p1-interaction-and-workshop-fixes]
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check affected JavaScript
+        run: |
+          for f in unifiedGarageUI.js scene.js sceneAssembly.js bayCycle.js; do node --check "$f"; done
+      - name: Targeted navigation tests
+        run: node --test tests/k5p1BayNavigation.test.mjs
