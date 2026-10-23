@@ -540,8 +540,11 @@ let shotsFired = 0;
 let lastHit = 'NO SHOTS YET';
 let targetPanelRefresh = 0;
 let sortiePhase = 'garage';
+const SORTIE_BREATHER_SECONDS=3;
+const SORTIE_SHOWCASE_SECONDS=5;
 let sortieOutroRemaining = 0;
 let pendingDebrief = null;
+let pendingWinnerPresentation = null;
 const selectionButtons = new Map();
 let inventoryPreviewSerial = null;
 installPartGridStyles();
@@ -1471,6 +1474,7 @@ function toggleInspection(force) {
         sortiePhase = 'garage';
         document.body.classList.remove('sortie-outro-active', 'victory-showcase');
         winnerTableau.classList.add('hidden');
+        pendingWinnerPresentation=null;
         sortieOutro.classList.add('hidden');
         sortieOutro.setAttribute('aria-hidden', 'true');
         devPanel.classList.add('hidden');
@@ -1489,7 +1493,8 @@ function toggleInspection(force) {
         sortieOutro.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('sortie-outro-active', 'victory-showcase');
         winnerTableau.classList.add('hidden');
-        sortiePhase = 'combat'; sortieOutroRemaining = 0; pendingDebrief = null;
+        sortiePhase = 'combat'; sortieOutroRemaining = 0;
+        pendingDebrief = null; pendingWinnerPresentation=null;
         hitchFrames=0;worstFrameGapMs=0;
         reportFade = 0; shotReport.textContent = ''; shotReport.className = 'shot-report faded';
         hitConfirm.className = 'hit-confirm'; rangeCrosshair.classList.remove('confirmed-hit', 'breach-hit', 'disable-hit');
@@ -2013,6 +2018,30 @@ function frame(now) {
     });
     arena.updateCombatEffects(frameDt);
     if (sortiePhase === 'outro') {
+        sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
+        // Three unhurried seconds in the actual battlefield: the surviving
+        // pilot can still walk/look, while AI combat and weapon fire are frozen.
+        if(pendingWinnerPresentation && sortieOutroRemaining<=SORTIE_SHOWCASE_SECONDS){
+            const winners=pendingWinnerPresentation;
+            pendingWinnerPresentation=null;
+            controls.setEnabled(false);
+            document.body.classList.add('sortie-outro-active');
+            sortieOutro.classList.remove('breather');
+            try{
+                const started=arena.beginVictoryShowcase(winners);
+                sortieOutro.classList.toggle('physical-showcase',started);
+                document.body.classList.toggle('victory-showcase',started);
+                winnerTableau.classList.toggle('hidden',!started);
+                if(started)renderWinnerNameplates(winnerTableau,winners);
+                else winnerTableau.replaceChildren();
+            }catch(error){
+                winnerTableau.replaceChildren();
+                winnerTableau.classList.add('hidden');
+                document.body.classList.remove('victory-showcase');
+                sortieOutro.classList.remove('physical-showcase');
+                console.warn('PHYSICAL WINNER SHOWCASE UNAVAILABLE',error?.message||error);
+            }
+        }
         arena.updateVictoryShowcase(frameDt);
         const nameAnchors=arena.victoryNameplateAnchors();
         winnerTableau.classList.toggle('spatial',nameAnchors.length>0);
@@ -2023,9 +2052,9 @@ function frame(now) {
             label.style.top=anchor.y+'%';
             label.hidden=!anchor.visible;
         }
-        sortieOutroRemaining = Math.max(0, sortieOutroRemaining - frameDt);
         if (sortieOutroRemaining === 0 && pendingDebrief) {
             const next = pendingDebrief; pendingDebrief = null; sortiePhase = 'debrief';
+            pendingWinnerPresentation=null;
             arena.endVictoryShowcase();
             sortieOutro.classList.add('hidden'); sortieOutro.setAttribute('aria-hidden', 'true');
             sortieOutro.classList.remove('physical-showcase');
@@ -2298,17 +2327,20 @@ function renderTarget() {
 function renderDebrief(summary, reason) {
     debriefTitle.textContent = summary.victory ? 'CONTRACT CLEARED' : 'MISSION KILL';
     debriefLines.replaceChildren();
+    const money = value=>'₡'+Math.abs(Number(value)||0).toLocaleString();
+    const signedMoney = value=>(value>=0?'+':'−')+money(value);
     const rows = [
-        ['RESULT', summary.victory ? 'VICTORY' : reason, 'primary'],
-        ['CONTRACT / RECOVERY', `+₡${summary.grossPayout}`, ''],
-        [`AMMUNITION · ${summary.roundsFired} RDS`, `−₡${summary.ammoCost}`, ''],
-        ['WALLET CHANGE', `${summary.netPayout >= 0 ? '+' : '−'}₡${Math.abs(summary.netPayout)}`, 'primary'],
-        ['REPAIR ESTIMATE · NOT SPENT', `₡${summary.repairEstimate}`, 'repair'],
-        ['BALANCE', `₡${summary.creditsAfter}`, ''],
+        ['NET EARNED · CASH CHANGE', signedMoney(summary.netPayout), 'primary','net'],
+        ['CONTRACT PAYOUT', '+'+money(summary.grossPayout), '','payout'],
+        [`AMMUNITION SPENT · ${summary.roundsFired} RDS`, '−'+money(summary.ammoCost), '','ammo'],
+        ['WALLET BALANCE', money(summary.creditsAfter), '','balance'],
+        ['OPTIONAL REPAIR QUOTE · NOT SPENT', money(summary.repairEstimate), 'repair','estimate'],
+        ['BOUT RESULT', summary.victory ? 'VICTORY' : reason, '','result'],
     ];
-    for (const [label, value, kind] of rows) {
+    for (const [label, value, kind, finance] of rows) {
         const row = document.createElement('div');
         row.className = `debrief-row ${kind}`.trim();
+        row.dataset.finance=finance;
         const name = document.createElement('span');
         name.textContent = label;
         const amount = document.createElement('strong');
@@ -2331,9 +2363,9 @@ function finishSortie(victory, reason) {
     stopFireInput();
     stopFieldServiceInput();
     arena.clearRockets();
-    // A result tableau is not a playable screen; all pointer/keyboard commands
-    // must be released even if the pilot survived the bout.
-    controls.setEnabled(false);
+    // Keep controls for the brief *physical* aftermath only if this mech
+    // survived. The result is settled, so weapons/AI are already locked.
+    controls.setEnabled(playerCombatActive);
     leaveAlliedObservation();
     const winningTeam = victory ? FRIENDLY_TEAM : HOSTILE_TEAM;
     const survivors = { player: playerCombatActive };
@@ -2377,11 +2409,11 @@ function finishSortie(victory, reason) {
     renderSquadStatus();
     reportFade = 0;
     sortiePhase = 'outro';
-    document.body.classList.add('sortie-outro-active');
-    // A complete squad wipe resolves immediately; territory/score outcomes keep
-    // their short physical aftermath. This does not bypass rewards or BO3 scoring.
-    sortieOutroRemaining = 5; // Retain the aftermath even on a complete squad wipe.
+    document.body.classList.remove('sortie-outro-active','victory-showcase');
+    sortieOutro.classList.add('breather');
+    sortieOutroRemaining=SORTIE_BREATHER_SECONDS+SORTIE_SHOWCASE_SECONDS;
     pendingDebrief = { summary, reason };
+    pendingWinnerPresentation=null;
     const match = resolvedResult?.series;
     if (match) {
         sortieOutroTitle.textContent = resolvedResult.terminal
@@ -2406,18 +2438,17 @@ function finishSortie(victory, reason) {
             ...w,condition:w.id==='player'?playerCondition:
                 aiActors.find(actor=>actor.id===w.id)?.condition||null,
         }));
-        const started=arena.beginVictoryShowcase(presentation);
-        sortieOutro.classList.toggle('physical-showcase',started);
-        document.body.classList.toggle('victory-showcase',started);
-        winnerTableau.classList.toggle('hidden',!started);
-        if(started)renderWinnerNameplates(winnerTableau,presentation);
-        else winnerTableau.replaceChildren();
+        // No abrupt scene cut: queue the parade until the battlefield breath ends.
+        pendingWinnerPresentation=presentation;
+        winnerTableau.replaceChildren();
+        winnerTableau.classList.add('hidden');
     } catch(error) {
         winnerTableau.replaceChildren();
         winnerTableau.classList.add('hidden');
         document.body.classList.remove('victory-showcase');
         sortieOutro.classList.remove('physical-showcase');
         console.warn('PHYSICAL WINNER SHOWCASE UNAVAILABLE',error?.message||error);
+        pendingWinnerPresentation=[]; // Still end the breather and lock movement.
     }
     sortieOutro.classList.remove('hidden');
     sortieOutro.classList.toggle('failed', !victory);
