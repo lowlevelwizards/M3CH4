@@ -1831,8 +1831,8 @@ if (testYard) {
         },
         onCenter:()=>centerView.click(),
         onReset:()=>{
-            const wasDeployed=!inspecting;
-            if(wasDeployed)toggleInspection(true);
+            stopFireInput();
+            stopFieldServiceInput();
             resetInstalledDamage(assembly,damage);
             for(const slot of SLOTS) {
                 const fitted=installedPart(assembly,slot);
@@ -1843,9 +1843,24 @@ if (testYard) {
                 }
                 restoreTargetPart(playerCondition,assembly,slot);
             }
+            leaveAlliedObservation();
+            rig=createRigState(playerSpawn);
+            playerPower=createPowerSystem(assembly);
+            playerCombatActive=true;
+            playerMissionKillReason=null;
+            testEnded=false;testEndReason=null;
+            weaponState=weaponSpec?createWeaponState(weaponSpec):null;
+            fieldService=createFieldServiceState();
+            resetWeaponStabilizer(playerMount);
+            arena.clearRockets();
+            arena.resetCockpitTransientFeedback();
+            controls.recenterLook();
             refreshAssembly(false);
-            if(wasDeployed)toggleInspection(false);
-            showStatus('TEST RIG RESET · NO CAMPAIGN COST');
+            arena.updatePilotDamage(playerCondition);
+            renderPlayerDamageHUD();
+            renderAmmo();
+            controls.setEnabled(!inspecting);
+            showStatus('TEST RIG REBUILT · TARGET DAMAGE PRESERVED');
         },
         onResetLoadout:()=>{
             clearTestYardAssembly();
