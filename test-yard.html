@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#151816" />
+    <script>
+      // k.3w.1: this runs before module imports, so a failed game boot can
+      // explain itself even when the 3D canvas and the DEV button are inert.
+      (() => {
+        const issues = [];
+        let panel = null;
+        const shortened = value => String(value || "").slice(0, 900);
+        function showDiagnostic(message) {
+          const detail = shortened(message || issues[0] || "Main game did not finish its first frame.");
+          if (!panel) {
+            panel = document.createElement("section");
+            panel.id = "startup-diagnostic";
+            panel.setAttribute("role", "alert");
+            panel.style.cssText = "position:fixed;z-index:2147483647;left:50%;top:50%;transform:translate(-50%,-50%);width:min(88vw,560px);max-height:82dvh;overflow:auto;box-sizing:border-box;padding:15px 17px;background:#1c1714;color:#f0d4a4;border:2px solid #d69a53;box-shadow:0 0 0 100vmax #0008,0 8px 32px #000a;font:12px/1.5 ui-monospace,monospace;pointer-events:auto;touch-action:auto";
+            const heading = document.createElement("strong");
+            heading.textContent = "M3CH4 · STARTUP / RUNTIME ERROR";
+            heading.style.cssText = "display:block;font-size:14px;margin-bottom:6px";
+            const hint = document.createElement("p");
+            hint.textContent = "Screenshot this panel and send it here. Your machines and save have not been reset."; 
+            hint.style.margin = "4px 0 10px";
+            const output = document.createElement("pre");
+            output.id = "startup-diagnostic-detail";
+            output.style.cssText = "white-space:pre-wrap;overflow-wrap:anywhere;padding:9px;background:#090c0a;border:1px solid #65503a;color:#e7c1a0;font:11px/1.4 ui-monospace,monospace";
+            const actions = document.createElement("div");
+            actions.style.cssText = "display:flex;gap:8px;flex-wrap:wrap";
+            const retry = document.createElement("button");
+            retry.textContent = "RELOAD (KEEPS SAVE)";
+            retry.style.cssText = "padding:10px;background:#d7a24b;color:#101612;border:0;font:bold 11px monospace;touch-action:manipulation";
+            retry.addEventListener("click", () => location.reload());
+            const copy = document.createElement("button");
+            copy.textContent = "COPY ERROR";
+            copy.style.cssText = "padding:10px;background:#26392f;color:#e6d3ac;border:1px solid #8b9e8c;font:bold 11px monospace;touch-action:manipulation";
+            copy.addEventListener("click", () => {
+              const value = document.querySelector("#startup-diagnostic-detail")?.textContent || "";
+              navigator.clipboard?.writeText(value).catch(() => {});
+            });
+            actions.append(retry, copy);
+            panel.append(heading, hint, output, actions);
+            (document.body || document.documentElement).append(panel);
+          }
+          panel.querySelector("#startup-diagnostic-detail").textContent = document.title + "\n" + detail;
+        }
+        window.addEventListener("error", event => {
+          const resource = event.target !== window ? (event.target?.src || event.target?.href) : null;
+          const message = resource ? "RESOURCE LOAD FAILED: " + resource :
+            shortened(event.message || "Uncaught script error") + "\n" + shortened(event.filename) + ":" + (event.lineno || 0) + ":" + (event.colno || 0);
+          issues.push(message);
+          if (!resource) showDiagnostic(message);
+        }, true);
+        window.addEventListener("unhandledrejection", event => {
+          const reason = event.reason?.stack || event.reason?.message || event.reason || "Unknown rejected promise";
+          issues.push("UNHANDLED REJECTION: " + shortened(reason));
+          showDiagnostic(issues[issues.length - 1]);
+        });
+        document.addEventListener("DOMContentLoaded", () => {
+          setTimeout(() => {
+            if (!window.__m3ch4BootOK) showDiagnostic("FIRST FRAME NEVER COMPLETED\n" + (issues.join("\n") || "No browser error was reported. Possible WebGL failure or initialization hang."));
+          }, 7500);
+        }, { once: true });
+      })();
+    </script>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MECH ARENA" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./app-icon.png" />
+    <link rel="icon" type="image/png" href="./app-icon.png" />
+    <script type="importmap">{
+  "imports": {
+    "./uiLanguage.js": "./uiLanguage.js?v=k3w0",
+    "./uiMeters.js": "./uiMeters.js?v=k4s2",
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+    "./garageBay.js": "./garageBay.js?v=k3w2",
+    "./assemblyPhysics.js": "./assemblyPhysics.js?v=k5a0",
+    "./frameShielding.js": "./frameShielding.js?v=k3v3",
+    "./cockpitProfiles.js": "./cockpitProfiles.js?v=k3v5",
+    "./cockpitDisplays.js": "./cockpitDisplays.js?v=k3w0",
+    "./cockpitIdentityScene.js": "./cockpitIdentityScene.js?v=k3w0",
+    "./audio.js": "./audio.js?v=k5r1",
+    "./audioWarmup.js": "./audioWarmup.js?v=k4w4",
+    "./audioRoom.js": "./audioRoom.js?v=k3w11",
+    "./liveSystemsAudio.js": "./liveSystemsAudio.js?v=k4i",
+    "./liveSystemsEvents.js": "./liveSystemsEvents.js?v=k5a5",
+    "./articulationMotion.js": "./articulationMotion.js?v=k5a2",
+    "./footContactController.js": "./footContactController.js?v=k5b5",
+    "./liveWeaponAudio.js": "./liveWeaponAudio.js?v=k4w4",
+    "./audioBenchSynth.js": "./audioBenchSynth.js?v=k3w5",
+    "./audioBenchStumpMaterials.js": "./audioBenchStumpMaterials.js?v=k3w5",
+    "./audioBenchPresets.js": "./audioBenchPresets.js?v=k3w4",
+    "./audioPressureForgePresets.js": "./audioPressureForgePresets.js?v=k3w6",
+    "./audioPressureForgeSynth.js": "./audioPressureForgeSynth.js?v=k4w4",
+    "./audioSystemsSynth.js": "./audioSystemsSynth.js?v=k3w11",
+    "./audioSystemsPresets.js": "./audioSystemsPresets.js?v=k3w8",
+    "./combat.js": "./combat.js?v=k4w4",
+    "./components.js": "./components.js?v=k4w4",
+    "./chassisFitFixtures.js": "./chassisFitFixtures.js?v=k4w4",
+    "./partEconomy.js": "./partEconomy.js?v=k4w4",
+    "./contracts.js": "./contracts.js?v=k4w5",
+    "./progression.js": "./progression.js?v=k3l1",
+    "./economy.js": "./economy.js?v=k3q2",
+    "./acquisition.js": "./acquisition.js?v=k3l1",
+    "./persistence.js": "./persistence.js?v=k3l1",
+    "./stable.js": "./stable.js?v=k3q2",
+    "./series.js": "./series.js?v=k3q2",
+    "./fieldWork.js": "./fieldWork.js?v=k4z1",
+    "./assemblyGraph.js": "./assemblyGraph.js?v=k2",
+    "./controls.js": "./controls.js?v=k4y1",
+    "./functionalDamage.js": "./functionalDamage.js?v=k3l0",
+    "./powerDynamics.js": "./powerDynamics.js?v=k3v4",
+    "./scattergun.js": "./scattergun.js?v=k3v6",
+    "./fieldService.js": "./fieldService.js?v=k3j0",
+    "./aiFieldService.js": "./aiFieldService.js?v=k3p0",
+    "./squadCoordination.js": "./squadCoordination.js?v=k3p1",
+    "./faultSupport.js": "./faultSupport.js?v=k3p1",
+    "./hostileRig.js": "./hostileRig.js?v=k3u7",
+    "./locomotion.js": "./locomotion.js?v=k5a7",
+    "./groundSurfaceMaterials.js": "./groundSurfaceMaterials.js?v=k5a7",
+    "./walkingController.js": "./walkingController.js?v=k5a0",
+    "./scene.js": "./sceneAssembly.js?v=k5r6b",
+    "./enemyMotion.js": "./enemyMotion.js?v=k5p7",
+    "./tacticalAwareness.js": "./tacticalAwareness.js?v=k5p7",
+    "./squadBattle.js": "./squadBattle.js?v=k4w5",
+    "./campaignArsenal.js": "./campaignArsenal.js?v=k4w5",
+    "./wreckPhysics.js": "./wreckPhysics.js?v=k3k1",
+    "./combatPresentation.js": "./combatPresentation.js?v=k3l5",
+    "./cockpitView.js": "./cockpitView.js?v=k3l5",
+    "./coverTruth.js": "./coverTruth.js?v=k3k4",
+    "./damageFate.js": "./damageFate.js?v=k3l1",
+    "./boutScoring.js": "./boutScoring.js?v=k3l0",
+    "./salvageDraft.js": "./salvageDraft.js?v=k3l1",
+    "./boutSession.js": "./boutSession.js?v=k3r0",
+    "./garageBay.js": "./garageBay.js?v=k3w0",
+    "./usedPartsCounter.js": "./usedPartsCounter.js?v=k4w5",
+    "./unifiedGarageUI.js": "./unifiedGarageUI.js?v=k5p4",
+    "./ai/squadPositioning.js": "./ai/squadPositioning.js?v=k5a3",
+    "./ai/trafficCoordination.js": "./ai/trafficCoordination.js?v=k5a4",
+    "./ai/advantageTactics.js": "./ai/advantageTactics.js?v=k5a3",
+    "./ai/worldModel.js": "./ai/worldModel.js?v=k5p7",
+    "./ai/teamPlanner.js": "./ai/teamPlanner.js?v=k5a3",
+    "./ai/strategicState.js": "./ai/strategicState.js?v=k5a1",
+    "./ai/pilotBrain.js": "./ai/pilotBrain.js?v=k5p7",
+    "./ai/positioning.js": "./ai/positioning.js?v=k3u6",
+    "./ai/intentExecutor.js": "./ai/intentExecutor.js?v=k5a4",
+    "./ai/adaptiveTactics.js": "./ai/adaptiveTactics.js?v=k5p7",
+    "./ai/combatIntelligence.js": "./ai/combatIntelligence.js?v=k3u7",
+    "./ai/objectiveDiscipline.js": "./ai/objectiveDiscipline.js?v=k5a1",
+    "./ai/weaponTactics.js": "./ai/weaponTactics.js?v=k5a1",
+    "./roundClock.js": "./roundClock.js?v=k5a2",
+    "./ai/debug.js": "./ai/debug.js?v=k3u6"
+  }
+}</script>
+    <link rel="stylesheet" href="./styles.css?v=k4y1" />
+    <link rel="stylesheet" href="./winnerTableau.css?v=k4y1" />
+    <link rel="stylesheet" href="./mountStyles.css?v=k2" />
+    <link rel="stylesheet" href="./unifiedGarageStyles.css?v=k4r" />
+    <link rel="stylesheet" href="./paintBooth.css?v=k4d" />
+    <link rel="stylesheet" href="./uiRedesign.css?v=k4u" />
+    <link rel="stylesheet" href="./audioBench.css?v=k3w5" />
+    <link rel="stylesheet" href="./audioPressureForge.css?v=k3w6" />
+    <link rel="stylesheet" href="./audioSystems.css?v=k3w8" />
+    <link rel="stylesheet" href="./articulationPreview.css?v=k3w15" />
+    <link rel="stylesheet" href="./recoveryStyles.css?v=k3d0" />
+    <link rel="stylesheet" href="./interfaceClarity.css?v=k4q" />
+    <link rel="stylesheet" href="./k4sWorkshopShell.css?v=k4s1" />
+    <link rel="stylesheet" href="./k4s2GarageFlow.css?v=k4s2" />
+    <link rel="stylesheet" href="./k4s3Layout.css?v=k4s3" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./typography.css?v=k4t1" />
+    <link rel="stylesheet" href="./physicalPitWorkspace.css?v=k5p8" />
+    <link rel="stylesheet" href="./polishPass.css?v=k5a4" />
+    <title>M3CH4 — TEST YARD</title>
+    <link rel="stylesheet" href="./testYard.css?v=1" />
+  </head>
+  <body>
+    <div id="game" aria-label="3D combat arena"></div>
+
+    <div class="toolbar left-tools">
+      <button id="assembly-toggle" class="utility-button" type="button">DEPLOY</button>
+      <a href="./test-yard.html" class="utility-button" style="display:inline-flex;align-items:center;text-decoration:none;color:#f5d28b;border-color:#cfac66">▣ TEST YARD</a>
+      <button id="center-view" class="utility-button" type="button">CENTER VIEW</button>
+      <button id="inspect-reset" class="utility-button hidden" type="button">RESET ORBIT</button>
+      <button id="app-view" class="utility-button" type="button">APP VIEW</button>
+    </div>
+    <div class="toolbar right-tools">
+      <button id="target-toggle" class="utility-button" type="button" aria-pressed="false">HOSTILE</button>
+      <button id="resolution-toggle" class="utility-button" type="button">RES 55</button>
+      <button id="dev-toggle" class="utility-button" type="button">DEV</button>
+    </div>
+
+    <div id="look-heading" class="look-heading">LOOK FORWARD · 0°</div>
+    <div id="team-status" class="team-status" aria-live="polite">ALLY 3/3 · HOSTILE 3/3</div>
+    <div id="objective-status" class="objective-status" aria-live="polite">OBJ · BREAK HOSTILE TEAM</div>
+    <div id="player-damage-hud" class="player-damage-hud" aria-label="player component condition">
+      <span data-system="structure"><b>FRAME</b><i>100</i></span>
+      <span data-system="mobility"><b>DRIVE</b><i>100</i></span>
+      <span data-system="power"><b>POWER</b><i>100</i></span>
+      <span data-system="command"><b>CAB</b><i>100</i></span>
+      <span data-system="combat"><b>WEAPON</b><i>100</i></span>
+    </div>
+    <div id="center-crosshair" class="center-crosshair" aria-hidden="true">+</div>
+    <div id="hit-confirm" class="hit-confirm" aria-hidden="true"></div>
+    <div id="player-hit-flash" class="player-hit-flash" aria-hidden="true"></div>
+    <div id="shot-report" class="shot-report faded" aria-live="polite">COMBAT FEED</div>
+    <div id="fault-strip" class="fault-strip nominal" aria-live="polite">RIG NOMINAL</div>
+    <div id="weapon-hud" class="weapon-hud" aria-live="polite">
+      <span id="weapon-label">TRAINING CANNON</span><strong id="ammo-count">12 / 60</strong>
+    </div>
+    <div id="cockpit-ui" aria-label="cockpit instruments">
+      <div class="instrument cluster-left">
+        <div class="instrument-label">GROUND SPEED</div>
+        <div class="instrument-value"><span id="speed">0.0</span><span class="unit"> m/s</span><small id="motion-direction" class="motion-direction">IDLE</small></div>
+      </div>
+      <div class="instrument cluster-mid">
+        <div class="instrument-label">DRIVE LOAD</div>
+        <div class="bar"><i id="load-bar"></i></div>
+      </div>
+      <div class="instrument cluster-right">
+        <div class="instrument-label">TURN RATE</div>
+        <div class="instrument-value"><span id="yaw-rate">0</span><span class="unit"> °/s</span></div>
+      </div>
+      <div class="rig-tag">SCRAPYARD RIG // SR-01</div>
+    </div>
+
+    <div id="controls">
+      <div id="drive-zone" class="stick-zone" aria-label="floating movement joystick: up forward, down reverse, left and right step">
+        <div class="stick-ring"><div class="stick-axis up">↑</div><div class="stick-axis down">↓</div><div class="stick-axis left">←</div><div class="stick-axis right">→</div><div id="drive-knob" class="stick-knob"></div></div>
+        <div class="control-caption">DRIVE</div>
+      </div>
+      <div id="look-zone" class="look-zone" aria-label="drag to aim; the chassis follows when aim reaches the traverse edge">
+        <div class="look-reticle">⌁</div>
+        <div class="control-caption">LOOK WITHOUT FIRING</div>
+      </div>
+    </div>
+    <button id="brake" class="pedal" type="button" aria-label="Hold brake to stop, then plant feet to brace while firing" aria-pressed="false">BRAKE</button>
+    <button id="reload" class="range-button reload-button" type="button">RELOAD</button>
+    <button id="fire" class="range-button fire-button" type="button" aria-label="Hold to fire; drag to aim while firing">FIRE<span class="fire-hint" aria-hidden="true">DRAG TO AIM</span></button>
+    <section id="target-panel" class="target-panel hidden" aria-label="range target inspection">
+      <header>CONTRACT HOSTILE</header>
+      <p>Combat view withholds remote module telemetry. Open DEV for detailed target diagnostics.</p>
+      <div id="target-readout" class="target-readout"></div>
+      <button id="reset-target" type="button">REBUILD SQUAD</button>
+    </section>
+
+    <section id="inspection-panel" class="inspection-panel hidden" aria-label="garage and physical assembly builder">
+      <div class="garage-rail">
+        <div class="garage-brand"><strong>GARAGE</strong><small>SR-01</small></div>
+        <div id="field-status" class="field-status ready" aria-live="polite">READY</div>
+        <div id="part-list" class="part-list" aria-label="module categories"></div>
+      </div>
+      <div id="garage-context" class="garage-context">
+        <header><span>MODULE BAY</span><small>INSTALLED / AVAILABLE</small></header>
+        <div class="garage-summary">
+          <span>MASS <b id="assembly-mass">4,090 kg</b></span>
+          <span>POWER <b id="power-status">108 / 145 kW</b></span>
+          <span>CREDITS <b id="credit-balance">₡600</b></span>
+        </div>
+        <div class="inspection-info" id="part-info" aria-live="polite"></div>
+        <div class="garage-meta" aria-hidden="true">
+          <div id="field-checks" class="field-checks"></div>
+          <div id="adapter-status" class="adapter-status"></div>
+        </div>
+      </div>
+    </section>
+    <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
+
+    <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
+      <details class="dev-group" open>
+        <summary>00 / MAP &amp; PROP INSPECTION</summary>
+        <a id="backlot-prop-gallery-open" href="./backlot-prop-gallery.html?v=k5r6b"
+          class="utility-button" style="display:inline-block;text-decoration:none;border-color:#d7ae5e;color:#f4cf89;padding:11px">
+          ▦ BACKLOT PROP GALLERY · FREE CAM
+        </a>
+        <small style="display:block;margin:6px 0;color:#b1c5b7">Every authored Backlot cover instance + unique scenic part · labeled grid · touch fly controls · no save / no combat.</small>
+      </details>
+      <header>RIG DIAGNOSTICS <span id="dev-version"></span></header>
+      <pre id="dev-readout"></pre>
+      <details class="dev-group" open>
+        <summary>01 / MOTION & ARTICULATION</summary>
+        <div class="animation-dev-controls" aria-label="garage articulation inspection">
+        <button id="animation-preview-toggle" type="button" aria-pressed="false">▶ ANIMATION LAB</button>
+        <select id="animation-preview-mode" aria-label="animation action">
+          <option value="walk">WALK / STEPS</option>
+          <option value="strafe-left">STRAFE LEFT</option>
+          <option value="strafe-right">STRAFE RIGHT</option>
+          <option value="turn">TURN / AIM</option>
+          <option value="reload">WEAPON RELOAD</option>
+          <option value="disabled">DISABLED POSE</option>
+        </select>
+        <label class="animation-dev-speed">SPEED <input id="animation-preview-speed" type="range" min="0.5" max="6" step="0.5" value="3" aria-label="preview walking speed" /></label>
+        </div>
+      </details>
+      <details class="dev-group"><summary>02 / PILOTING & SOUND LABS</summary>
+      <a id="piloting-lab-open" href="./piloting-lab.html?v=k5b5" class="utility-button" style="display:inline-block;text-decoration:none;border-color:#d7ae5e;color:#f4cf89;padding:11px">▶ PILOTING LAB · NO COST / NO SAVE</a>
+      <button id="audio-bench-open" type="button">♪ AUDIO TEST BENCH</button>
+      <button id="pressure-forge-open" type="button">◉ PRESSURE FORGE</button>
+      <button id="systems-sound-open" type="button">⚙ SYSTEMS SOUND LAB</button>
+      </details>
+      <details class="dev-group"><summary>03 / DAMAGE & FAULT INJECTION</summary>
+      <div class="damage-actions" aria-label="inject internal faults for testing">
+        <button data-damage="left" type="button">HIT L DRIVE −25%</button>
+        <button data-damage="right" type="button">HIT R DRIVE −25%</button>
+        <button data-damage="power" type="button">HIT GENERATOR −25%</button>
+        <button data-damage="weapon" type="button">HIT WEAPON −25%</button>
+        <button data-damage="restore" type="button">DEV RESET FAULTS</button>
+      </div>
+      </details>
+      <details class="dev-group"><summary>04 / RESET & DIAGNOSTIC TOOLS</summary>
+        <div class="dev-actions"><button id="reset-rig" type="button">RESET RIG</button><button id="toggle-colliders" type="button">COLLIDERS: OFF</button><button id="wipe-save" type="button" aria-pressed="false">WIPE SAVE / START FRESH</button></div>
+      </details>
+    </section>
+
+    <div id="sortie-outro" class="sortie-outro hidden" aria-live="assertive" aria-hidden="true">
+      <strong id="sortie-outro-title">SORTIE COMPLETE</strong>
+      <span id="sortie-outro-reason">HOSTILE TEAM COMBAT INEFFECTIVE</span>
+    </div>
+    <div id="winner-tableau" class="winner-tableau hidden" aria-label="Winning squad machines"></div>
+
+    <div id="sortie-debrief" class="sheet hidden" role="dialog" aria-label="Sortie result" aria-modal="true" aria-hidden="true">
+      <div class="sheet-content debrief-content">
+        <button id="debrief-prev" class="debrief-edge debrief-edge-left" type="button" aria-label="Previous report page">‹</button>
+        <button id="debrief-next" class="debrief-edge debrief-edge-right" type="button" aria-label="Next report page">›</button>
+        <div id="debrief-pages" class="debrief-pages" aria-label="Post-bout report pages">
+          <section class="debrief-page debrief-page-result" data-debrief-page="0" aria-label="Result and accounting">
+            <div class="debrief-page-title">01 / RESULT</div>
+            <div class="debrief-result-summary">
+              <div class="sheet-label">SCRAPYARD CONTRACT / RECOVERY</div>
+              <h1 id="debrief-title">SORTIE COMPLETE</h1>
+              <div id="debrief-lines" class="debrief-lines" aria-live="polite"></div>
+              <p class="sheet-muted">Repair estimate is informational · garage service remains a separate choice.</p>
+            </div>
+          </section>
+          <section id="debrief-score-page" class="debrief-page" data-debrief-page="1" aria-label="Bout scorecard">
+            <div class="debrief-page-title">02 / SCORE</div>
+          </section>
+          <section id="debrief-salvage-page" class="debrief-page" data-debrief-page="2" aria-label="Salvage claim">
+            <div class="debrief-page-title">03 / SALVAGE</div>
+          </section>
+        </div>
+        <nav id="debrief-page-nav" class="debrief-page-nav" aria-label="Post-bout report pages">
+          <button class="active" type="button" data-debrief-target="0" aria-current="page">RESULT</button>
+          <button type="button" data-debrief-target="1">SCORE</button>
+          <button type="button" data-debrief-target="2">SALVAGE</button>
+        </nav>
+        <button id="debrief-garage" class="sheet-done" type="button">RETURN TO GARAGE</button>
+      </div>
+    </div>
+
+    <div id="app-sheet" class="sheet hidden" role="dialog" aria-label="Install for app view" aria-modal="true" aria-hidden="true">
+      <div class="sheet-content">
+        <button type="button" id="app-close" class="sheet-close">✕</button>
+        <div class="sheet-label">LANDSCAPE TEST BAY</div>
+        <h1>HIDE SAFARI’S TABS</h1>
+        <p id="app-message">Open the hosted game in Safari. Tap <b>Share</b> → <b>Add to Home Screen</b>, keep <b>Open as Web App</b> enabled, and tap <b>Add</b>. Then launch MECH ARENA from its Home Screen icon.</p>
+        <p class="sheet-muted">Ordinary Safari tabs cannot be hidden by a website on demand. A Home Screen launch opens the dedicated web-app view. Landscape works best; rotate your phone.</p>
+        <button id="app-done" class="sheet-done" type="button">BACK TO TEST BAY</button>
+      </div>
+    </div>
+
+    <div id="portrait-warning"><div>ROTATE TO LANDSCAPE</div><small>The test rig is built for two-thumb controls.</small></div>
+    <script type="module" src="./main.js?v=k5r6b-yard1"></script>
+
+
+
+
+  </body>
+</html>
