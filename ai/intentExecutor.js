@@ -4,6 +4,14 @@
  */
 import { planRoute, planApproachRoute, nextWaypoint } from './navigation.js';
 import { trafficAdvice } from './trafficCoordination.js';
+/** Score-circle arrivals wait at valid reserved points; free traffic passes.
+ * Uses assigned physical routes, not hidden enemy state.
+ */
+export function trafficPolicyForIntent(intent,policy='legacy'){
+    if(policy!=='adaptive')return policy;
+    return ['CAPTURE','CONTEST'].includes(intent?.goal)&&
+        !!intent?.arrivalPoint?'gated':'lanes';
+}
 const d=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createIntentExecutor(){return {route:null,key:null,
     lastPosition:null,stalledFor:0,lastFailure:null,failures:0,retryLeft:0,
@@ -130,7 +138,7 @@ export function executeIntent(state,intent,rig,world,collisionRadius,dt,traffic=
         // ally avoidance; dynamic body physics still resolves actual contact.
         if(intent?.goal!=='DEFEND'||d(rig,goal)>2.3){
             const advice=trafficAdvice(rig,waypoint,traffic,world,collisionRadius,{
-                policy:options.trafficPolicy??'legacy',
+                policy:trafficPolicyForIntent(intent,options.trafficPolicy??'legacy'),
                 actorId:options.actorId??null,waitedSeconds:state.trafficWaitTime});
             if(advice?.kind==='WAIT'){
                 state.trafficWaitTime+=dt;
