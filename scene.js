@@ -20,7 +20,7 @@ import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import {attachReloadHardware,poseReloadHardware} from './weaponVisualKit.js';
-import {reloadMechanism} from './reloadMechanism.js';
+import {reloadMechanism,reloadCockpitPresentation} from './reloadMechanism.js';
 import {WEAPONS} from './combat.js';
 import {advanceFootContacts,createFootContacts,footPresentation,registerFootImpact} from './footContactController.js?v=k5r5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
@@ -1962,13 +1962,20 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             'YXZ');
         const pilotServiceSag = pilotWeaponFault ? (pilotWeaponServicing ? .20 : .13) : 0;
         const pilotRecoveryLift = pilotWeaponRecoveryKick * .09;
-        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotHitResponse.mount*.62 + pilotServiceSag - pilotRecoveryLift + (pilotStabilityPose?.pitch??0), lookYaw * .85 + (pilotStabilityPose?.yaw??0), gunDamageKick * damageWave * .16 + pilotHitResponse.roll*.22, 'YXZ');
-        gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
-        gunPivot.position.z = -0.62 + pilotFiringPose.travel * .19;
-        // Actual reload timer drives the pilot-visible breech. A moving
-        // mechanism is shown even though the audio recipe stays unchanged.
+        // The Stump's service port used to sit behind the camera at the
+        // right-hand screen edge. Bring the genuine gun assembly into view
+        // while its breech is open, never a duplicate HUD loading animation.
+        // Everything is home before combat.js allows the next shot.
         const reload=reloadArticulation(serviceVisual?.reloadLeft??0,
             serviceVisual?.reloadSeconds??0,pilotWeaponPresentation.id);
+        const reloadView=reloadCockpitPresentation(reload,pilotWeaponPresentation.id);
+        gunPivot.rotation.set(lookPitch*.85 + pilotFiringPose.mount+
+            pilotHitResponse.mount*.62+pilotServiceSag-pilotRecoveryLift+
+            (pilotStabilityPose?.pitch??0)+reloadView.tilt,
+            lookYaw*.85+(pilotStabilityPose?.yaw??0)+reloadView.yaw,
+            gunDamageKick*damageWave*.16+pilotHitResponse.roll*.22, 'YXZ');
+        gunPivot.position.x=1.16+gunDamageKick*damageWave*.045+reloadView.x;
+        gunPivot.position.y=2.04+reloadView.y;
         cockpit.userData.gunBreech.position.z=-.19+reload.slide+pilotFiringPose.bolt*.105;
         cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
         cockpit.userData.scatterGreebles.position.y=-reload.cassette-pilotFiringPose.feeder*.052;
@@ -1980,7 +1987,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         // The heavy loading mechanism transfers a small, visible load into
         // the mounting without disturbing the ballistic barrel's sightline.
-        gunPivot.position.z = -.62+pilotFiringPose.travel*.19+reload.settle*.016;
+        gunPivot.position.z=-.62+pilotFiringPose.travel*.19+
+            reload.settle*.016+reloadView.z;
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
         cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab + pilotHitResponse.pitch*.82, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll + pilotHitResponse.roll*.75, 'YXZ');
@@ -3952,7 +3960,7 @@ function buildArenaWorld(scene,world,arenaMap,playerSpawn,hostileSpawn) {
     scene.add(buildVenueDressing(arenaMap));
     return solids;
 }
-function buildCockpit(scene) {
+export function buildCockpit(scene) {
     const cockpit = new THREE.Group();
     scene.add(cockpit);
     const metal = mat(C.metal, 0.62, 0.72);
@@ -4006,6 +4014,7 @@ function buildCockpit(scene) {
     cockpit.userData.utilityCab = utilityCab;
     // Pilot-view weapon is a moving physical silhouette, not a HUD sprite.
     const gunPivot = new THREE.Group();
+    gunPivot.name='cockpit-weapon-pivot';
     gunPivot.position.set(1.16, 2.04, -.62);
     const breech = box(.43, .34, .65, metal);
     breech.position.set(0, 0, -.19);
@@ -4027,6 +4036,7 @@ function buildCockpit(scene) {
     const weaponKits={};
     const kit=(id,fixed,moving)=>{
         const group=new THREE.Group(),carriage=new THREE.Group();
+        group.name='cockpit-reload-'+id;
         for(const [x,y,z,w,h,d,finish] of fixed){
             const piece=box(w,h,d,finish==='teal'?teal:finish==='dark'?dark:metal);
             piece.position.set(x,y,z);group.add(piece);

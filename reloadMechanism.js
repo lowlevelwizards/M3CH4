@@ -45,6 +45,60 @@ export function reloadPhase(left,total,id='gun-cannon'){
  return {active:true,progress:t,stage,index,slide,bolt,cassette,
     feed,feedVisible:t>=.24&&t<.84,lock,ram,settle,mass:p.mass};
 }
+/** Deliberately composed FIRST-PERSON service layouts. All groups attach
+ * to the same physical weapon visual used on exterior rigs. Local -Z faces
+ * the enemy, +Y is the visible top deck, -X is the pilot-facing inboard edge.
+ * Never alter ballistic muzzle, sighting offsets, ammunition or timers.
+ */
+const view=(feed,spent,latch,guide,camera,lidAngle,step)=>Object.freeze({
+ feed:Object.freeze(feed),spent:Object.freeze(spent),
+ latch:Object.freeze(latch),guide:Object.freeze(guide),
+ camera:Object.freeze(camera),lidAngle,step,
+});
+export const RELOAD_VISUAL_LAYOUTS=Object.freeze({
+ 'gun-cannon':view([-.06,.38,.22],[-.06,.37,.30],[0,.57,.18],[0,.28,.18],
+   [-.34,-.34,-.41,-.10,-.045],-.62,'top tray'),
+ 'gun-short':view([0,.55,.18],[0,.50,.24],[0,.73,.05],[0,.43,.02],
+   [-.50,-.045,-.62,-.14,.035],-.90,'massive top-opening shell ram'),
+ 'gun-light':view([-.07,.40,.21],[-.09,.39,.26],[-.05,.54,.14],[-.06,.29,.11],
+   [-.30,-.22,-.40,-.095,-.025],-.54,'precision clip'),
+ 'gun-scatter':view([-.19,.34,.15],[-.19,.34,.27],[-.19,.55,.11],[-.18,.24,.12],
+   [-.42,-.33,-.49,-.115,.055],-.80,'hinged six-shell cassette'),
+ 'gun-rivet':view([-.24,.33,.22],[-.21,.32,.30],[-.24,.55,.14],[-.22,.23,.18],
+   [-.35,-.25,-.52,-.09,-.035],-.68,'inboard rotary drum'),
+ 'gun-breaker':view([0,.60,.14],[0,.57,.25],[0,.83,.05],[0,.47,.05],
+   [-.51,-.05,-.65,-.145,.070],-1.04,'hydraulic penetrator ram'),
+ 'gun-rocket':view([-.06,.43,.19],[-.06,.43,.27],[-.06,.66,.12],[-.06,.32,.14],
+   [-.47,-.20,-.58,-.12,.050],-.75,'triple rocket loading rack'),
+ 'gun-arc':view([-.15,.41,.25],[-.15,.42,.32],[-.16,.63,.18],[-.14,.30,.20],
+   [-.34,-.28,-.45,-.11,-.030],-.65,'insulated power cell'),
+});
+export function reloadVisualLayout(id){
+ return RELOAD_VISUAL_LAYOUTS[id]??RELOAD_VISUAL_LAYOUTS['gun-cannon'];
+}
+
+/** Moves only the physical cockpit gun during a genuine reload. Nonzero
+ * presentation lives in the lower-right cockpit region; the crosshair and
+ * enemy view stay clear. The interpolation reaches EXACT rest with the
+ * canonical authoritative timer; aim and shooting are unchanged at ready.
+ */
+export function reloadCockpitPresentation(phase,id){
+ if(!phase?.active)return {x:0,y:0,z:0,yaw:0,tilt:0};
+ const layout=reloadVisualLayout(id);
+ const [shiftX,shiftY,shiftZ,yaw,tilt]=layout.camera;
+ const t=phase.progress;
+ const display=hold(.025,.17,.79,.985,t);
+ const action=hold(.055,.18,.72,.95,t);
+ const lockImpact=hold(.84,.88,.92,.985,t);
+ return {
+   x:shiftX*display,
+   y:shiftY*display +.013*lockImpact,
+   z:shiftZ*display,
+   yaw:yaw*display,
+   tilt:tilt*action-.018*lockImpact,
+ };
+}
+
 /** One-stage-at-a-time cue gate. Independent per gun / per AI actor.
  * A skipped render frame does not invent extra events; a new cycle resets.
  * Completion is emitted on actual reloadLeft=0, not by the animated lock.

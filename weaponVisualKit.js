@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
-import {reloadMechanism} from './reloadMechanism.js';
+import {reloadMechanism,reloadVisualLayout} from './reloadMechanism.js';
 
 // Builder tones retain their names; physical variants are explicitly chosen per mesh.
 export const WEAPON_MATERIALS=Object.freeze({
@@ -71,12 +71,23 @@ export function strut(parent,name,from,to,width,depth,tone='steel'){
  */
 export function attachReloadHardware(root,id){
  const profile=reloadMechanism(id),form=profile.feedStyle;
- const feed=group(root,'RELOAD / physical '+form+' carrier',[.28,-.25,.41]);
+ const layout=reloadVisualLayout(id);
+ const stump=id==='gun-short';
+ // All ammunition ports are mounted on a deliberate upper/inboard service
+ // edge so the pilot and opponents actually SEE the complete cycle.
+ const feed=group(root,'RELOAD / physical '+form+' carrier',layout.feed);
  if(form==='shell'||form==='penetrator'){
    tube(feed,'RELOAD / heavy chambered shell',[0,0,0],
      form==='penetrator'?.13:.16,form==='penetrator'?.52:.42,
      form==='penetrator'?'machined':'shells');
-   block(feed,'RELOAD / breech head',[0,0,.21],[.30,.22,.10],'steel');
+   block(feed,'RELOAD / breech head',[0,0,.21],
+     stump?[.42,.28,.13]:[.30,.22,.10],'steel');
+   if(stump){
+     block(feed,'RELOAD / oversized shell collar',[0,0,-.19],
+       [.36,.33,.09],'raw');
+     block(feed,'RELOAD / loading ram shoe',[0,-.22,.20],
+       [.46,.16,.20],'machined');
+   }
  }else if(form==='clip'||form==='tray'){
    block(feed,'RELOAD / rectangular ammunition shuttle',[0,0,0],
      form==='clip'?[.17,.21,.39]:[.35,.19,.34],'olive');
@@ -86,7 +97,8 @@ export function attachReloadHardware(root,id){
    for(const y of [-.10,.10])tube(feed,'RELOAD / large shell '+y,[0,y,-.24],.09,.10,'raw');
  }else if(form==='drum'){
    bearing(feed,'RELOAD / heavy feed drum',[0,0,0],.29,.24,'olive');
-   bearing(feed,'RELOAD / central locking hub',[.16,0,0],.09,.035,'machined');
+   // The visible machined hub faces the pilot's INBOARD side.
+   bearing(feed,'RELOAD / central locking hub',[-.17,0,0],.12,.045,'machined');
  }else if(form==='rack'){
    block(feed,'RELOAD / sliding triple rocket carrier',[0,0,0],[.52,.28,.50],'olive');
    for(const x of [-.16,0,.16])tube(feed,'RELOAD / visible rocket '+x,
@@ -98,7 +110,7 @@ export function attachReloadHardware(root,id){
  // Broad, readable latch, never a tiny decorative hinge.
  // Extract the empty shell, drum, rocket carrier or discharged cell
  // before loading the replacement. One recycled moving assembly per weapon.
- const spent=group(root,'RELOAD / withdrawn '+form,[0,.06,.37]);
+ const spent=group(root,'RELOAD / withdrawn '+form,layout.spent);
  if(form==='shell'||form==='penetrator')
    tube(spent,'RELOAD / spent steel case',[0,0,0],.115,.34,'heat');
  else if(form==='drum')
@@ -109,15 +121,24 @@ export function attachReloadHardware(root,id){
    block(spent,'RELOAD / discharged cell',[0,0,0],[.27,.31,.25],'dark');
  else
    block(spent,'RELOAD / old feed unit',[0,0,0],[.29,.22,.32],'heat');
- const latch=group(root,'RELOAD / battery locking jaw',[0,.34,.35]);
- block(latch,'RELOAD / massive catch',[0,0,0],[.35,.14,.23],'machined');
- const guide=group(root,'RELOAD / fixed ammunition feed track',[.24,-.20,.24]);
+ const latch=group(root,'RELOAD / battery locking jaw',layout.latch);
+ block(latch,'RELOAD / massive catch',[0,0,0],
+   stump?[.60,.20,.42]:id==='gun-breaker'?[.64,.24,.46]:
+     id==='gun-rocket'?[.54,.17,.48]:
+     id==='gun-rivet'?[.38,.20,.40]:[.37,.17,.34],
+   stump?'yellow':id==='gun-arc'?'teal':'machined');
+ // Dark opening beneath the raised, chunky locking cover.
+ const guide=group(root,'RELOAD / fixed ammunition feed track',layout.guide);
  for(const node of [feed,spent,latch,guide])node.userData.visualOnly=true;
- block(guide,'RELOAD / feeding rails',[0,0,0],[.13,.12,.46],'dark');
+ block(guide,'RELOAD / feeding rails',[0,0,0],
+   stump?[.48,.11,.65]:
+     id==='gun-breaker'?[.51,.14,.72]:
+     id==='gun-rocket'?[.47,.13,.65]:
+     id==='gun-rivet'?[.43,.14,.58]:[.32,.13,.51],'dark');
  root.traverse(node=>{if(node.isMesh&&(feed===node.parent||spent===node.parent||latch===node.parent||guide===node.parent))
    node.userData.visualOnly=true;});
  feed.visible=false;spent.visible=false;
- return {feed,spent,latch,rest:{feed:feed.position.clone(),
+ return {feed,spent,latch,stump,layout,rest:{feed:feed.position.clone(),
    spent:spent.position.clone(),latch:latch.position.clone()}};
 }
 export function poseReloadHardware(mechanism,phase){
@@ -128,8 +149,9 @@ export function poseReloadHardware(mechanism,phase){
  const t=phase?.progress??1;
  spent.visible=!!phase?.active&&t>=.13&&t<.40;
  const withdrawal=Math.max(0,Math.min(1,(t-.13)/.22));
- spent.position.set(rest.spent.x+.52*withdrawal,
-   rest.spent.y-.30*withdrawal,rest.spent.z+.19*withdrawal);
+ const oldLift=loader.layout?.step==='inboard rotary drum'?.17:.28;
+ spent.position.set(rest.spent.x-.38*withdrawal,
+   rest.spent.y+oldLift*withdrawal,rest.spent.z+.23*withdrawal);
  const shift=phase?.feed??0;
  const displacement=phase?.cassette??0;
  const style=mechanism.feedAxis??'z';
@@ -147,7 +169,10 @@ export function poseReloadHardware(mechanism,phase){
  }
  latch.position.copy(rest.latch);
  latch.position.y-=(phase?.slide??0)*.35;
- latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*-.42;
+ const lidAngle=loader.layout?.lidAngle??-.42;
+ latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*lidAngle;
+ latch.rotation.z=loader.layout?.step==='inboard rotary drum'?
+   (phase?.active?1-(phase.lock??0):0)*-.30:0;
 }
 
 /** The model's serviceable moving elements use their own authored rest pose.
