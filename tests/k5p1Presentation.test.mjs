@@ -23,17 +23,16 @@ test('shop purchase cannot recreate the player preview over the sales counter',(
     assert.match(scene,/SOLD OUT/);
     assert.match(scene,/definition\.slot==='combat'\?-radius\*2\.25/);
 });
-test('mobile entry references cache-fresh changed modules and last-pass polish CSS',()=>{
+test('mobile entry uses separately versioned script and workshop dependencies',()=>{
     const html=source('index.html'), bridge=source('sceneAssembly.js'), mount=source('garageMountUI.js');
-    const version=html.match(/MECH ARENA — 0\.0\.1k\.5p\.(\d+)/)?.[1];
-    assert.ok(version,'A numbered, cache-busted field build is required');
-    const stage='k5p'+version;
-    assert.ok(html.includes('main.js?v='+stage));
-    assert.ok(html.includes('garageMountUI.js?v='+stage));
-    assert.ok(html.includes('polishPass.css?v='+stage));
-    assert.ok(html.includes('sceneAssembly.js?v='+stage));
-    assert.ok(bridge.includes('scene.js?source='+stage));
-    assert.ok(mount.includes('unifiedGarageUI.js?v='+stage));
+    assert.match(html,/MECH ARENA — 0\.0\.1k\.5[a-z]\.[0-9]+/);
+    const script=html.match(/main\.js\?v=(k[0-9]+[a-z][0-9]+)/)?.[1];
+    const workshop=html.match(/garageMountUI\.js\?v=(k[0-9]+[a-z][0-9]+)/)?.[1];
+    const scene=html.match(/sceneAssembly\.js\?v=(k[0-9]+[a-z][0-9]+)/)?.[1];
+    assert.ok(script && workshop && scene);
+    assert.ok(html.includes('polishPass.css?v='+workshop));
+    assert.ok(bridge.includes('scene.js?source='+scene));
+    assert.ok(mount.includes('unifiedGarageUI.js?v='+workshop));
     assert.match(mount,/acquisitionUI\.js\?v=k5p1/);
 });
 test('garage selection and report statistics remain rooted in real serial and ledger state',()=>{
