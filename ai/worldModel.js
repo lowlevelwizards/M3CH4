@@ -2,7 +2,7 @@
  * Objectives are public arena information; enemies enter shared squad knowledge
  * through plausible line-of-sight observation and expire after lost contact.
  */
-import { tacticalLineOfSight } from '../tacticalAwareness.js';
+import { tacticalRigVisible } from '../tacticalAwareness.js';
 import { partHealth } from '../damageBehavior.js';
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -63,7 +63,7 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
                 // Wide optics still have a rear blind sector. Proximity does
                 // not grant exact coordinates through the chassis.
                 return fwd>Math.cos(112*Math.PI/180)&&
-                    tacticalLineOfSight(friend.position,enemy.position,world);
+                    tacticalRigVisible(friend.position,enemy.position,world);
             });
             if(spotted){
                 const report={id:enemy.id,team:enemy.team,
