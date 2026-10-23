@@ -116,85 +116,84 @@ export function buildAnatomicalDrums(root){
 export function buildAnatomicalFlatbed(root){
  const g=shell(root,'WRECKED FLATBED TRAILER · SALVAGE LOAD');
  for(const s of [-1,1]){
-  f(g,'open-trailer-frame-rail',[s*.95,.75,-3.05],[s*.95,.75,3.04],.16,I);
+  f(g,'open-trailer-frame-rail',[s*.95,.75,-3.05],[s*.95,.75,3.04],.24,I);
   for(const z of [-2.10,1.55])wheel(g,'trailer-road-wheel',
-    s*1.13,.62,z,{radius:.59,width:.27,hub:.13,treadCount:9,
+    s*1.13,.62,z,{radius:.68,width:.39,hub:.19,treadCount:7,
       rubber:C.rubber,rimColor:C.clay});
  }
- for(let z=-2.50;z<2.80;z+=.52)
-  b(g,'individual-flatbed-wood-plank',2.38,.105,.44,0,1.06,z,C.clay);
- for(const s of [-1,1])for(let z=-2.43;z<2.8;z+=1.08){
-  f(g,'stake-pocket-post',[s*1.15,1.09,z],[s*1.17,1.96,z],.075,R);
+ for(let z=-2.28;z<2.80;z+=1.15)
+  b(g,'individual-flatbed-wood-plank',2.52,.19,1.03,0,1.06,z,C.clay);
+ for(const s of [-1,1])for(const z of [-2.25,.13,2.48]){
+  f(g,'stake-pocket-post',[s*1.15,1.09,z],[s*1.17,1.96,z],.14,R);
  }
- f(g,'trailer-a-frame-drawbar',[-.90,.69,2.91],[0,.66,3.92],.15,S);
+ f(g,'trailer-a-frame-drawbar',[-.90,.69,2.91],[0,.66,3.92],.22,S);
  f(g,'trailer-a-frame-drawbar',[.90,.69,2.91],[0,.66,3.92],.15,S);
  // Scrap cargo is coherent dismantled machinery, not a welded cube.
  for(const zz of [-1.51,1.24]){
-  ring(g,'salvaged-gear-rim',.64,.14,0,1.87,zz,I,'z',11);
-  cylinder(g,'salvaged-wheel-hub',.23,.16,0,1.87,zz,S,'z',10);
+  ring(g,'salvaged-gear-rim',.81,.21,0,1.87,zz,I,'z',11);
+  cylinder(g,'salvaged-wheel-hub',.30,.23,0,1.87,zz,S,'z',10);
  }
- for(let i=0;i<5;i++){
-  const x=-.87+i*.39,z=(i%2?-.80:.55);
-  f(g,'scattered-girders',[x,1.29,z-1.06],[x+.12,1.87,z+.80],.11,i%2?R:S);
+ for(let i=0;i<2;i++){
+  const x=-.71+i*1.42,z=(i?-.80:.55);
+  f(g,'scattered-girders',[x,1.29,z-1.06],[x+.12,1.87,z+.80],.19,i%2?R:S);
  }
- b(g,'bent-industrial-sheet',1.56,.065,1.05,-.50,2.05,-.18,Y)
+ b(g,'bent-industrial-sheet',2.05,.17,1.42,-.50,2.05,-.18,Y)
   .rotation.z=-.15;
  return g;
 }
 export function buildAnatomicalScrapWall(root){
  const g=shell(root,'WELDED RURAL SCRAP BARRICADE');
  const plates=[
-  [-2.33,1.13,.89,R],[-1.34,1.70,1.07,I],
-  [-.18,1.45,.95,C.olive],[.86,1.86,.90,P],[1.91,1.33,1.08,C.clay]
+  [-1.94,1.52,1.25,R],[-.67,1.94,1.43,I],
+  [.79,1.73,1.47,C.olive],[2.05,1.35,1.29,P]
  ];
  for(const [x,h,w,color]of plates){
-  const p=b(g,'salvaged-vehicle-body-panel',w,h,.11,x,h*.5,0,color);
+  const p=b(g,'salvaged-vehicle-body-panel',w,h,.22,x,h*.5,0,color);
   p.rotation.z=Math.sin(x*3)*.09;
  }
  for(const s of [-1,1]){
   f(g,'welded-barrier-support-foot',[s*2.22,.17,-.65],
-   [s*2.22,.17,.78],.15,I);
-  f(g,'welded-barrier-upright',[s*2.22,.13,0],[s*2.22,1.64,0],.13,S);
+   [s*2.22,.17,.78],.23,I);
+  f(g,'welded-barrier-upright',[s*2.22,.13,0],[s*2.22,1.64,0],.20,S);
  }
  f(g,'continuous-lower-cross-brace',[-2.28,.41,-.15],
-   [2.22,.41,-.15],.10,D);
+   [2.22,.41,-.15],.17,D);
  f(g,'overlapping-steel-diagonal',[-1.98,.20,-.22],
-   [.94,1.75,-.22],.11,S);
- ring(g,'reused-wheel-sidewall',.62,.14,-.71,.76,-.25,C.rubber,'z',10);
- cylinder(g,'wheel-center-bearing',.19,.11,-.71,.76,-.35,S,'z',9);
- for(let i=0;i<10;i++)cylinder(g,'individual-weld-head',.047,.06,
-    -2.0+i*.43,.33+(i%3)*.27,-.22,C.cream,'z',6);
+   [.94,1.75,-.22],.18,S);
+ ring(g,'reused-wheel-sidewall',.72,.21,-.71,.76,-.25,C.rubber,'z',10);
+ cylinder(g,'wheel-center-bearing',.29,.17,-.71,.76,-.35,S,'z',9);
+ // Welds read through slab overlap and material contrast; no tiny beads.
  return g;
 }
 export function buildAnatomicalContainer(root){
  const g=shell(root,'CRUSHED ISO SHIPPING CONTAINER');
  // Actual corrugated shell: four open-sided panels close in a hollow tube.
  for(const s of [-1,1]){
-  b(g,'container-long-corrugated-sheet',.08,2.30,5.70,s*1.24,1.38,0,C.olive);
-  for(let i=0;i<15;i++){
-   const z=-2.63+i*.37;
-   b(g,'individual-corrugated-pressed-rib',.12,2.20,.09,
+  b(g,'container-long-corrugated-sheet',.16,2.37,5.70,s*1.24,1.38,0,C.olive);
+  for(let i=0;i<7;i++){
+   const z=-2.49+i*.83;
+   b(g,'individual-corrugated-pressed-rib',.20,2.27,.17,
     s*1.29,1.38,z,i%4===0?R:C.olive);
   }
   for(const z of [-2.9,2.9]){
-   b(g,'corner-stacking-post',.23,2.67,.23,s*1.27,1.36,z,I);
+   b(g,'corner-stacking-post',.34,2.69,.34,s*1.27,1.36,z,I);
   }
   f(g,'corner-upper-longitudinal-rail',[s*1.25,2.72,-2.93],
-    [s*1.25,2.72,2.93],.105,S);
+    [s*1.25,2.72,2.93],.18,S);
   f(g,'corner-lower-longitudinal-rail',[s*1.25,.15,-2.93],
-    [s*1.25,.15,2.93],.105,S);
+    [s*1.25,.15,2.93],.18,S);
  }
- for(let i=0;i<8;i++){
-  const z=-2.60+i*.74;
-  b(g,'seamed-roof-panel',2.44,.065,.65,0,2.71,z,C.clay);
-  b(g,'container-reinforced-floor',2.43,.07,.65,0,.13,z,I);
+ for(let i=0;i<3;i++){
+  const z=-1.94+i*1.95;
+  b(g,'seamed-roof-panel',2.45,.15,1.89,0,2.73,z,C.clay);
+  b(g,'container-reinforced-floor',2.45,.15,1.89,0,.13,z,I);
  }
  // Door end is visibly hinged; one leaf twisted outward.
- b(g,'intact-container-door',1.16,2.40,.075,-.61,1.37,2.96,P);
- const door=b(g,'buckled-open-container-door',1.16,2.40,.075,.64,1.37,2.96,R);
+ b(g,'intact-container-door',1.16,2.40,.18,-.61,1.37,2.96,P);
+ const door=b(g,'buckled-open-container-door',1.16,2.40,.18,.64,1.37,2.96,R);
  door.rotation.y=-.36;
  for(const x of [-.91,.88])f(g,'vertical-locking-bar',
-   [x,.30,3.02],[x,2.49,3.02],.067,S);
+   [x,.30,3.02],[x,2.49,3.02],.13,S);
  return g;
 }
 export function buildAnatomicalConcrete(root){
@@ -206,27 +205,27 @@ export function buildAnatomicalConcrete(root){
    [.20,1.28],[.29,.77],[.56,.40],[.42,.05]],1.60,x,
    j===1?C.cream:C.clay,.02);
   piece.rotation.z=tilt;
-  b(g,'cast-orange-warning-stripe',1.37,.09,.045,x,.97,-.39,Y);
-  b(g,'chipped-exposed-rebar',.09,.37,.065,x+.59,1.19,-.13,S)
+  b(g,'cast-orange-warning-stripe',1.37,.19,.075,x,.97,-.39,Y);
+  if(j===1)b(g,'chipped-exposed-rebar',.17,.34,.14,x+.59,1.19,-.13,S)
     .rotation.z=.10;
  }
  return g;
 }
 export const SALVAGE_EXHIBITS=Object.freeze([
- {id:'generator',label:'GENERATOR · ANATOMY V3',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
+ {id:'generator',label:'GENERATOR · CHUNK V4',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
   match:o=>o.artKit==='generator-unit',build:buildAnatomicalGenerator},
- {id:'turbine',label:'TURBINE HOUSING · ANATOMY V3',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
+ {id:'turbine',label:'TURBINE HOUSING · CHUNK V4',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
   match:o=>o.artKit==='turbine-housing',build:buildAnatomicalTurbine},
- {id:'tyres',label:'TYRE STACK · ANATOMY V3',details:'OPEN SIDEWALLS · BEADS · LUGS',
+ {id:'tyres',label:'TYRE STACK · CHUNK V4',details:'OPEN SIDEWALLS · BEADS · LUGS',
   match:o=>o.artKit==='tire-stack',build:buildAnatomicalTyreStack},
- {id:'barrels',label:'OIL DRUM PALLET · ANATOMY V3',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
+ {id:'barrels',label:'OIL DRUM PALLET · CHUNK V4',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
   match:o=>o.artKit==='barrel-cluster',build:buildAnatomicalDrums},
- {id:'flatbed',label:'FLATBED TRAILER · ANATOMY V3',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
+ {id:'flatbed',label:'FLATBED TRAILER · CHUNK V4',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
   match:o=>o.artKit==='flatbed-fragment',build:buildAnatomicalFlatbed},
- {id:'barricade',label:'WELDED SCRAP WALL · ANATOMY V3',details:'IRREGULAR WELDED PANELS · BRACING',
+ {id:'barricade',label:'WELDED SCRAP WALL · CHUNK V4',details:'IRREGULAR WELDED PANELS · BRACING',
   match:o=>o.artKit==='scrap-barricade',build:buildAnatomicalScrapWall},
- {id:'container',label:'SHIPPING CONTAINER · ANATOMY V3',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
+ {id:'container',label:'SHIPPING CONTAINER · CHUNK V4',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
   match:o=>o.artKit==='shipping-container',build:buildAnatomicalContainer},
- {id:'concrete',label:'CONCRETE BARRIER · ANATOMY V3',details:'TRUE CAST SLOPES · CHIPPED REBAR',
+ {id:'concrete',label:'CONCRETE BARRIER · CHUNK V4',details:'TRUE CAST SLOPES · CHIPPED REBAR',
   match:o=>o.artKit==='concrete-barrier',build:buildAnatomicalConcrete},
 ]);
