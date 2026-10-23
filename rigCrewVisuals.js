@@ -19,6 +19,9 @@ function paintedFace(node){
 export function addRigCrewPlate(structureGroup,assembly){
  const identity=rigCrewGraphic(assembly);
  if(!identity||!structureGroup||structureGroup.userData.crewMarked)return false;
+ // Headless geometry studies have no canvas/document. The crew marking is
+ // purely decorative, not a collider or shield, so skip it outside browsers.
+ if(typeof document==='undefined')return false;
  let best=null;
  structureGroup.traverse(node=>{
    const face=paintedFace(node);
