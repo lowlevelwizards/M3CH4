@@ -69,6 +69,23 @@ function ribbon(group,name,path,width,color,opacity=.18,y=.045){
   color,transparent:true,opacity,depthWrite:false,side:THREE.DoubleSide}));
  mesh.name=name;mesh.userData.visualOnly=true;group.add(mesh);return mesh;
 }
+function ribbonScuffs(group,paths,color){
+ // One geometry for dozens of isolated tire scuffs. Connecting those paths
+ // would draw false long lines across the combat field.
+ const verts=[];
+ for(const [a,b,width] of paths){
+  const dx=b.x-a.x,dz=b.z-a.z,k=width/(2*Math.max(.001,Math.hypot(dx,dz)));
+  const px=-dz*k,pz=dx*k,y=.053;
+  verts.push(a.x+px,y,a.z+pz,a.x-px,y,a.z-pz,b.x+px,y,b.z+pz,
+   a.x-px,y,a.z-pz,b.x-px,y,b.z-pz,b.x+px,y,b.z+pz);
+ }
+ const geo=new THREE.BufferGeometry();
+ geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+ geo.computeVertexNormals();
+ const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({
+  color,transparent:true,opacity:.13,depthWrite:false,side:THREE.DoubleSide}));
+ mesh.name='random-scraped-earth';mesh.userData.visualOnly=true;group.add(mesh);
+}
 function bermGeometry(group,rx,rz){
  const verts=[],normals=[],indices=[];
  const rings=[{r:.990,y:-.04},{r:1.032,y:.33},{r:1.095,y:.55},{r:1.16,y:-.11}];
@@ -157,19 +174,21 @@ function horizonFarm(root,w){
  }
  // Ranges of sparse low-poly trees: crisp horizon, no costly moving foliage.
  const r=rng(917);
+ const sharedCrown=new THREE.IcosahedronGeometry(1,0);
+ const sharedHill=new THREE.SphereGeometry(1,8,5);
  for(let i=0;i<28;i++){
   const x=-107+i*7.8+(r()-.5)*2.5;
   const z=i%2===0?-78-r()*7:81+r()*8;
   const h=5+r()*7;
   cuboid(g,'distant-trunk',.45,h*.64,.45,x,h*.32,z,timber);
-  const canopy=new THREE.Mesh(new THREE.IcosahedronGeometry(h*.35,0),leaf);
+  const canopy=new THREE.Mesh(sharedCrown,leaf);
   canopy.name='distant-tree-crown';canopy.position.set(x,h*.85,z);
-  canopy.scale.y=1.3;canopy.userData.visualOnly=true;g.add(canopy);
+  canopy.scale.set(h*.35,h*.35*1.3,h*.35);canopy.userData.visualOnly=true;g.add(canopy);
  }
  // Cheap irregular hills break the 'flat wall at the horizon' reading.
  for(let i=0;i<10;i++){
   const x=-109+i*24,z=i%2===0?-101:101;
-  const mound=new THREE.Mesh(new THREE.SphereGeometry(1,8,5),surface(0x615f49));
+  const mound=new THREE.Mesh(sharedHill,surface(0x615f49));
   mound.name='distant-earth-ridge';mound.position.set(x,-1,z);
   mound.scale.set(19+i%3*3,7+i%4,8);mound.userData.visualOnly=true;g.add(mound);
  }
@@ -241,19 +260,21 @@ export function buildBacklotTerrainAndFacilities(root,w){
   ribbon(root,'continuous-churned-oval-rut',coords,.22,0x372d28,.26,.052+wheel*.003);
  }
  const r=rng(930);
+ const scratches=[[],[]];
  for(let i=0;i<55;i++){
   const x=(r()-.5)*57,z=(r()-.5)*45;
-  ribbon(root,'random-scraped-earth',
-   [{x,z},{x:x+(r()-.5)*2,z:z+1+r()*4}],.16+r()*.24,
-   i%3===0?0xc9ab7c:0x43392e,.12,.053);
+  scratches[i%3===0?1:0].push([
+   {x,z},{x:x+(r()-.5)*2,z:z+1+r()*4},.16+r()*.24]);
  }
+ ribbonScuffs(root,scratches[0],0x43392e);
+ ribbonScuffs(root,scratches[1],0xc9ab7c);
  // Dedicated mutable group is excluded from static instance batching.
  const reactive=new THREE.Group();reactive.name='backlot-reaction-pool';
  root.add(reactive);
  const smokeMat=new THREE.MeshBasicMaterial({color:0xbda078,transparent:true,
   opacity:.12,depthWrite:false,side:THREE.DoubleSide});
  const dust=[];
- for(let i=0;i<16;i++){
+ for(let i=0;i<12;i++){
   const mote=new THREE.Mesh(new THREE.PlaneGeometry(1,1),smokeMat.clone());
   mote.name='airborne-dust';mote.position.set((r()-.5)*63,
    1+r()*4,(r()-.5)*53);mote.scale.setScalar(1.5+r()*2.9);
@@ -265,13 +286,13 @@ export function buildBacklotTerrainAndFacilities(root,w){
   color:0x42372d,transparent:true,opacity:.58,depthWrite:false,
   polygonOffset:true,polygonOffsetFactor:-1,side:THREE.DoubleSide,
  });
- for(let i=0;i<36;i++){
+ for(let i=0;i<24;i++){
   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.35,.35),impactMaterial);
   mesh.name='real-cover-impact-scar';mesh.visible=false;mesh.userData.visualOnly=true;
   reactive.add(mesh);impactPool.push(mesh);
  }
  const puffPool=[];
- for(let i=0;i<18;i++){
+ for(let i=0;i<12;i++){
   const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
    smokeMat.clone());mesh.name='impact-dirt-puff';
   mesh.visible=false;mesh.userData.visualOnly=true;
