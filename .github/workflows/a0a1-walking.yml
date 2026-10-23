@@ -1,0 +1,29 @@
+name: A.0 A.1 Piloting Lab and Walking
+on:
+  push:
+    branches: [feat/a0-a1-piloting-lab-walking-control]
+  pull_request:
+    paths:
+      - 'walkingController.js'
+      - 'locomotion.js'
+      - 'assemblyPhysics.js'
+      - 'pilotingLab.js'
+      - 'piloting-lab.html'
+      - 'scene.js'
+      - 'tests/a0a1Walking.test.mjs'
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          for file in walkingController.js locomotion.js assemblyPhysics.js pilotingLab.js scene.js sceneAssembly.js; do node --check "$file"; done
+      - name: Walking safety and baseline
+        run: |
+          node --test tests/a0a1Walking.test.mjs tests/k3v1Brace.test.mjs tests/k4v1PlantedPivot.test.mjs
+          node research/walkingBaselineStudy.mjs
