@@ -33,6 +33,7 @@ import { locallyBlockedMuzzle } from './barrelHudClearance.js';
 import { rocketFlightStep } from './projectileSimulation.js';
 import { blastDamage } from './explosionResolution.js';
 import { createFiringEventState, triggerFiringEvent, advanceFiringEvent, firingProfile } from './firingEvent.js';
+import { createHitResponse, injectHitResponse, advanceHitResponse, hitMaterialLanguage } from './hitResponse.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
@@ -702,6 +703,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
             baseParts: capturePartTransforms(actorExterior), articulation: captureArticulation(actorExterior),
             recoilKick: 0, recoilRecovery: 3.2,
+            hitResponse:createHitResponse(),fractureParts:[],
         weaponFault: false, weaponServicing: false, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
         };
         squadCombatants.set(id, record);
@@ -847,6 +849,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     // remains intentionally low-res while cockpit telemetry stays legible.
     combinerHud.traverse(object => object.layers.set(1));
     blackout.layers.set(1);
+    const pilotHitResponse=createHitResponse();
+    const pilotFractureParts=[];
     let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, hitShakeKick = 0, gunDamageKick = 0;
     let powerBlackout = 0, powerFlicker = 0, cockpitWarningLevel = 0;
     let persistentPowerHealth = 1, persistentCommandHealth = 1;
@@ -1083,6 +1087,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     function resetCockpitTransientFeedback() {
         hitPitchKick = hitRollKick = hitYawKick = hitShakeKick = gunDamageKick = 0;
+        Object.assign(pilotHitResponse,createHitResponse());
         powerBlackout = powerFlicker = 0;
         powerArcCooldown = 1.8;
         combinerHud.position.set(0, 0, 0);
@@ -1312,6 +1317,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         record.wrecked = false;
         record.cleared = false;
         record.recoilKick = 0;
+        record.hitResponse=createHitResponse();
+        clearFractures(record.fractureParts);
         if (record.articulation) {
             record.articulation.phase = 0;
             record.articulation.weight = 0;
@@ -1755,7 +1762,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             'YXZ');
         const pilotServiceSag = pilotWeaponFault ? (pilotWeaponServicing ? .20 : .13) : 0;
         const pilotRecoveryLift = pilotWeaponRecoveryKick * .09;
-        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16, 'YXZ');
+        gunPivot.rotation.set(lookPitch * .85 + pilotFiringPose.mount + pilotHitResponse.mount*.62 + pilotServiceSag - pilotRecoveryLift, lookYaw * .85, gunDamageKick * damageWave * .16 + pilotHitResponse.roll*.22, 'YXZ');
         gunPivot.position.x = 1.16 + gunDamageKick * damageWave * .045;
         gunPivot.position.z = -0.62 + pilotFiringPose.travel * .19;
         // Actual reload timer drives the pilot-visible breech. A moving
@@ -1772,7 +1779,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         flashMesh.visible = muzzleFlash > 0;
         cockpit.position.set(visualX + impactJitter * .35 + cockpitLagX, (state.groundHeightM??0)+impactJitter * .18 + mobilityStumble, visualZ + impactJitter * .12 + cockpitLagZ);
-        cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll, 'YXZ');
+        cockpit.rotation.set(cockpitPitch + hitPitchKick + pilotFiringPose.cab + pilotHitResponse.pitch*.82, renderYaw + hitYawKick, cockpitRoll + hitRollKick + sustainedDriveRoll + pilotHitResponse.roll*.75, 'YXZ');
         exterior.root.position.set(visualX, 0, visualZ);
         exterior.root.rotation.y = renderYaw;
         if (inspecting) {
@@ -1830,7 +1837,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         else {
             camera.position.set(visualX + impactJitter * .62, 2.42 + (state.groundHeightM??0)+cockpitHeave - Math.abs(hitPitchKick) * .2 + impactJitter * .28, visualZ + impactJitter * .18);
-            camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72, 'YXZ');
+            camera.rotation.set(lookPitch + cockpitPitch * 0.35 + hitPitchKick * 1.35 + pilotHitResponse.pitch*.28, renderYaw + lookYaw + hitYawKick * 1.1, cockpitRoll * 0.25 + hitRollKick * 1.25 + sustainedDriveRoll * .72 + pilotHitResponse.roll*.24, 'YXZ');
         }
         updateSquadMarkers();
     }
@@ -1937,7 +1944,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     THREE.MathUtils.clamp((record.footContacts?.weightShift??0)*.033,-.036,.036);
                 // Shot shock travels through the structure, not through camera aim.
                 frame.rotation.x=frameBase.rotation.x+
-                    (record.firingState?.pose.cab??0)*.42;
+                    (record.firingState?.pose.cab??0)*.42+
+                    (record.hitResponse?.pitch??0)*.45;
                 frame.position.x=frameBase.position.x+
                     (record.footContacts?.weightShift??0)*.018;
                 frame.position.y=frameBase.position.y-
@@ -1957,7 +1965,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     installedPart(record.assembly,'combat')?.definition.id);
                 combat.rotation.y=combatBase.rotation.y+aim.gun;
                 combat.rotation.x=combatBase.rotation.x+aim.elevation+
-                    (fault?.20:0)-(recovery*.12)+(discharge?.mount??0);
+                    (fault?.20:0)-(recovery*.12)+(discharge?.mount??0)+
+                    (record.hitResponse?.mount??0)*.56;
                 combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
                 combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
@@ -2011,8 +2020,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 active:record.active&&!record.wrecked,
             });
             root.position.y-=failed.rootDrop;
-            root.rotation.x+=failed.rootPitch+contact.pitch;
-            root.rotation.z+=failed.rootRoll+contact.roll;
+            root.rotation.x+=failed.rootPitch+contact.pitch+(record.hitResponse?.pitch??0);
+            root.rotation.z+=failed.rootRoll+contact.roll+(record.hitResponse?.roll??0);
+            root.position.y-=Math.abs(record.hitResponse?.translation??0)*.26;
         }
         root.updateWorldMatrix(true,true);
     }
@@ -3046,8 +3056,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         surfaceMarks.update();
         victoryStage?.scars.update();
         pilotFiringPose=advanceFiringEvent(pilotFiringState,dt);
-        for(const record of squadCombatants.values())
+        advanceHitResponse(pilotHitResponse,dt);
+        for(const record of squadCombatants.values()){
             if(record.firingState)advanceFiringEvent(record.firingState,dt);
+            if(record.hitResponse)advanceHitResponse(record.hitResponse,dt);
+        }
         muzzleFlash = Math.max(0, muzzleFlash - dt);
         for (const record of squadCombatants.values()) record.recoilKick = Math.max(0, (record.recoilKick ?? 0) - dt * (record.recoilRecovery ?? 3.2));
         const hitDecay = Math.exp(-8.5 * dt);
