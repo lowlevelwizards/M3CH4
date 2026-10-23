@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { deriveRigConfig } from './assemblyPhysics.js';
-import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundWeaponMechanism, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent, setBacklotAmbienceActive } from './audio.js';
+import { soundBrace, soundDriveStrain, soundEmpty, soundWeaponShot, soundWeaponMechanism, soundWeaponReloadPhase, soundFootScrape, soundReload, soundCombatImpact, soundSystemEvent, setBacklotAmbienceActive } from './audio.js';
 import { soundFamilyFor, createMotionSoundState, advanceContactMotionSound } from './liveSystemsEvents.js';
 import {advanceFootContacts} from './footContactController.js?v=k5r5';
 import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
 import { shotContacts } from './scattergun.js';
 import { weaponActionSpreadRadians, advanceChargedTrigger, advanceProjectileTrigger } from './weaponController.js';
+import {createReloadCueState,advanceReloadCue} from './reloadMechanism.js';
 import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityShot,resetWeaponStabilizer } from './weaponStability.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
@@ -491,6 +492,23 @@ arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState(playerSpawn);
 const playerMount=createWeaponStabilizer();
 let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
+// The authoritative weapon reload timer is the sole cue clock. Use one
+// independent state per weapon object; switching bays cannot revive old cues.
+const reloadCueStates=new WeakMap();
+function soundActualReloadPhases(state,spec,local=false,sourceRig=null){
+    if(!state||!spec)return;
+    let cue=reloadCueStates.get(state);
+    if(!cue){cue=createReloadCueState();reloadCueStates.set(state,cue);}
+    const stage=advanceReloadCue(cue,state.reloadLeft,spec.reloadSeconds,spec.id);
+    if(!stage)return;
+    const distance=local?0:Math.hypot((sourceRig?.x??0)-rig.x,
+        (sourceRig?.z??0)-rig.z);
+    if(!local&&distance>21)return;
+    soundWeaponReloadPhase(spec.id,stage,{
+        cockpit:local,distance,
+        pan:local?0:soundBearing(sourceRig,rig,rig.yaw),
+    });
+}
 // Sound cadence is isolated from the physics integrator. Do not mutate drive,
 // foot contacts or any persistent machine state to produce these events.
 const movementSoundStates=new WeakMap();
@@ -2109,6 +2127,7 @@ function frame(now) {
                     advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
                         startReload(actor.weaponState, actor.weaponSpec);
+                    soundActualReloadPhases(actor.weaponState,actor.weaponSpec,false,actor.rig);
                     const ready=actor.powerSystem.weaponReady && actor.weaponState.cooldown<=0 &&
                         actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
                         !!target&&actor.fireLane?.clear===true&&
@@ -2156,6 +2175,7 @@ function frame(now) {
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
+                soundActualReloadPhases(weaponState,weaponSpec,true,rig);
                 const authorized=weaponSpec.fireMode==='charged'
                     ? advanceChargedTrigger(weaponState,weaponSpec,
                         fireHeld&&playerCombatActive&&output.weaponOperational&&playerPower.weaponReady,FIXED_DT)
@@ -2958,8 +2978,7 @@ function attemptFire() {
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
         if (weaponState.loaded <= 0 && weaponState.reloadLeft === 0) {
-            if (startReload(weaponState, weaponSpec))
-                soundReload();
+            startReload(weaponState, weaponSpec);
             else {
                 soundEmpty();
                 fireHeld = false;
@@ -3197,8 +3216,7 @@ window.addEventListener('keydown', event => {
                 reportFade = 5;
             }
         }
-        else if (startReload(weaponState, weaponSpec))
-            soundReload();
+        else startReload(weaponState, weaponSpec);
     }
 });
 window.addEventListener('keyup', event => {
@@ -3233,8 +3251,7 @@ reloadButton.addEventListener('pointerdown', event => {
         renderAmmo();
         return;
     }
-    if (weaponState && weaponSpec && startReload(weaponState, weaponSpec))
-        soundReload();
+    if (weaponState && weaponSpec) startReload(weaponState, weaponSpec);
     renderAmmo();
 });
 const endServicePointer = event => {
@@ -3250,8 +3267,7 @@ reloadButton.addEventListener('pointercancel', endServicePointer);
 reloadButton.addEventListener('lostpointercapture', endServicePointer);
 reloadButton.addEventListener('click', event => {
     if (event.detail === 0 && !canFieldService(playerCondition, fieldService)) {
-        if (weaponState && weaponSpec && startReload(weaponState, weaponSpec))
-            soundReload();
+        if (weaponState && weaponSpec) startReload(weaponState, weaponSpec);
         renderAmmo();
     }
 });
