@@ -20,6 +20,8 @@ test('all three venues support every real squad start and all domination objecti
   assert.ok(audit.objectiveApproaches.every(o=>o.clearBearings>=3),
    map.id+' lacks alternate approaches '+JSON.stringify(audit.objectiveApproaches));
   assert.ok(audit.routeBias<.55,map.id+' lopsided squad route lengths '+audit.routeBias);
+  if(map.id==='grainhouse')assert.ok(audit.routeBias<.23,
+   'Grainhouse north silo route bottleneck returned: '+audit.routeBias);
  }
 });
 test('culvert west, central, east crossings are physical gaps for heavy machines',()=>{
@@ -50,4 +52,11 @@ test('center-captain enemy spawn pairs are visually screened, not a shooting gal
   assert.equal(exposure.pairs.find(p=>p.friendly===0&&p.hostile===0).clear,
     false,map.id+' has direct spawn lane');
  }
+});
+
+test('north silo service lane reaches neutral yard without a forced mill-wide detour',()=>{
+ const map=mapById('grainhouse'),middle=map.sites.domination.find(x=>x.id==='B');
+ const route=planRoute(map.world,map.spawns.hostile[2],middle,1.55);
+ assert.equal(route.ok,true,'North service approach must accept Hauler');
+ assert.ok(route.cost<55,'North silo passage forces an unfair '+route.cost+'m detour');
 });
