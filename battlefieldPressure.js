@@ -22,6 +22,10 @@ export function nearMissEvidence(listener,muzzle,impact,{range=4.6,hitPlayer=fal
 export function coverMaterial(contact){
  if(!contact?.blockedBy||contact.actorId)return null;
  const id=String(contact.blockedBy).toLowerCase();
+ const art=String(contact.coverArt??'').toLowerCase();
+ if(/concrete|stone|masonry/.test(art))return 'concrete';
+ if(/tyre|tire|rubber/.test(art))return 'rubber';
+ if(/wood|pallet/.test(art))return 'wood';
  if(/floor|ground|soil|dirt|arena/.test(id))return 'earth';
  if(/concrete|pillar|stone|foundation|wall|barrier/.test(id))return 'concrete';
  if(/wheel|tyre|tire|axle|rubber/.test(id))return 'rubber';
