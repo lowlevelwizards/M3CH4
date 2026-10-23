@@ -109,7 +109,7 @@ export function createTestYardPanel({assembly,onInstall,onDeploy,onGarage,onTarg
     changeButton.textContent=inspecting?'DEPLOY':'GARAGE';
     benchButton.hidden=!inspecting;
     panel.hidden=!inspecting;
-    resetButton.hidden=inspecting;
+    resetButton.hidden=false;
     targetsButton.hidden=inspecting;
     modeButton.hidden=inspecting;
     centerButton.hidden=inspecting;
