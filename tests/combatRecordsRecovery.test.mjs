@@ -34,12 +34,11 @@ test('a lost tab session retires a live round as DNF and unlocks the next assign
 test('intermission restored to pit with a pending assignment and preserved score',()=>{
     const local=new Storage(),session=new Storage();deployed(local,session);
     recordSeriesRound(local,{victory:true});
-    const result=reconcileMatchOnBoot(local,newSession(session));
+    const result=reconcileMatchOnBoot(local,session);
     assert.equal(result.action,'pit-restored');
     assert.equal(loadSeries(local).playerWins,1);
     assert.equal(loadSortieAssignment(session).phase,'pending');
 });
-function newSession(session){return session;}
 test('manual retirement is idempotent, preserves unrelated saved data and never counts loss',()=>{
     const local=new Storage(),session=new Storage();deployed(local,session);local.setItem('wallet','600');
     assert.equal(retireUnfinishedMatch(local,session).action,'retired');
@@ -73,4 +72,23 @@ test('recent match history stores win loss and interrupted separately',()=>{
     assert.equal(data.rigs['rig-01'].wins,1);
     assert.equal(data.rigs['rig-01'].losses,1);
     assert.equal(data.totals.dnf,1);
+});
+
+test('retiring orphaned series never erases a separate newly staged contract',()=>{
+    const local=new Storage(),session=new Storage();deployed(local,session);
+    storeSortieAssignment(session,createSortieAssignment('mule',2000,'fresh-pending'));
+    const result=reconcileMatchOnBoot(local,session);
+    assert.equal(result.action,'retired');
+    assert.equal(loadSortieAssignment(session).contractId,'mule');
+    assert.equal(loadSortieAssignment(session).phase,'pending');
+    assert.equal(loadSeries(local),null);
+});
+test('reloading after a settled BO3 releases only lifecycle lock',()=>{
+    const local=new Storage(),session=new Storage();deployed(local,session);
+    recordSeriesRound(local,{victory:true});beginSeriesRound(local,'rig-01','MABEL','assignment-2');
+    recordSeriesRound(local,{victory:true});
+    const result=reconcileMatchOnBoot(local,session);
+    assert.equal(result.action,'completed-cleanup');
+    assert.equal(loadSeries(local),null);
+    assert.equal(loadCombatRecords(local).totals.dnf,0);
 });
