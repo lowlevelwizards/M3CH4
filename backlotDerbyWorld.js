@@ -11,6 +11,7 @@ import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
 import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
 import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
 import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
+import {auditBacklotAssembly} from './backlotAssemblyAudit.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -478,13 +479,14 @@ export function buildBacklotPropCatalog(world){
    shell.userData.colliderOverlay=true;collisionOverlay.add(shell);
  }
  collisionOverlay.visible=false;
+ const tractorAudit=auditBacklotAssembly(newPart,'tractor');
  const comparison=new THREE.Group();comparison.name='experimental-versus-production-tractor';
  comparison.add(newPart,oldPart,collisionOverlay);
  catalog.push({id:'experiment-tractor-anatomy',category:'experiment',
-   label:'TRACTOR ANATOMY · CHUNK V4',
-   detail:'CHUNKY OPEN FRAME vs CURRENT LIVE MODEL · NOT YET IN MATCHES',
+   label:'TRACTOR ANATOMY · SOLID V5',
+   detail:'STRUCTURAL CORE vs CURRENT LIVE MODEL · NOT YET IN MATCHES',
    group:comparison,
-   experiment:{newPart,oldPart,collisionOverlay}});
+   experiment:{newPart,oldPart,collisionOverlay,audit:tractorAudit}});
 
  // Every family receives the very same A/B controls used by the tractor.
  // We deliberately use production constructors for the OLD half, and
@@ -501,6 +503,7 @@ export function buildBacklotPropCatalog(world){
   oldRoot.position.set(-center.x,-bounds.min.y,-center.z);
   const oldPart=new THREE.Group();oldPart.add(oldRoot);oldPart.visible=false;
   const newPart=new THREE.Group();exhibit.build(newPart);
+  const assemblyAudit=auditBacklotAssembly(newPart,exhibit.id);
   const collisionOverlay=new THREE.Group();
   collisionOverlay.name='EXISTING LIVE COLLIDERS ONLY '+exhibit.id;
   for(const o of parts){
@@ -522,7 +525,7 @@ export function buildBacklotPropCatalog(world){
   group.add(newPart,oldPart,collisionOverlay);
   catalog.push({id:'experiment-'+exhibit.id+'-anatomy',category:'experiment',
    label:exhibit.label,detail:exhibit.details+' · NOT YET IN MATCHES',
-   group,experiment:{newPart,oldPart,collisionOverlay,front:exhibit.front||'+z'}});
+   group,experiment:{newPart,oldPart,collisionOverlay,audit:assemblyAudit,front:exhibit.front||'+z'}});
  }
  const describe=o=>o.artKit||o.art||(
    o.kind==='pillar'?'floodlight mast':'salvage cover');
