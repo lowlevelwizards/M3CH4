@@ -36,7 +36,8 @@ test('contact knowledge is observable, timestamped, forgotten and never leaks hi
     s=build([a,enemy],null,3,memory);
     assert.equal(s.knowledge.friendly.contacts[0].visible,false);
     assert.deepEqual(s.knowledge.friendly.contacts[0].position,{x:0,z:15});
-    s=build([a,enemy],null,8,memory);
+    // Contacts persist for thirteen seconds after the last genuine sighting.
+    s=build([a,enemy],null,15,memory);
     assert.equal(s.knowledge.friendly.contacts.length,0);
 });
 test('team planner assigns different useful zones rather than stationary actor ID lanes',()=>{
