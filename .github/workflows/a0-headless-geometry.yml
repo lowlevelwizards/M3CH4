@@ -1,0 +1,21 @@
+name: Headless Mech Geometry Audit
+on:
+  push:
+    branches: [fix/a0-headless-crew-art-audit]
+  pull_request:
+    paths:
+      - 'factoryIdentityVisuals.js'
+      - 'rigCrewVisuals.js'
+      - 'research/frameShieldingAudit.mjs'
+jobs:
+  node-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Three.js for Node geometry
+        run: npm install --no-save --no-package-lock three@0.186.0
+      - run: node research/frameShieldingAudit.mjs --assert
