@@ -69,5 +69,5 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(html,/sceneAssembly\.js\?v=k5a5/);
  assert.match(html,/main\.js\?v=k5a7/);
  assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5a5/);
- assert.match(html,/0\.0\.1k\.5a\.7 — Physical Footing and Terrain Lab/);
+ assert.match(html,/0\.0\.1k\.5a\.8 — Interactive Scrapyard Piloting Lab/);
 });
