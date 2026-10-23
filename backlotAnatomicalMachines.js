@@ -122,105 +122,105 @@ export function buildAnatomicalCombine(root){
  ladder(g,'combine-ladder-frame',2.4,-2.8,2.72,.93);
  for(const s of [-1,1]){
   wheel(g,'large-driven-front-tire-'+s,s*1.80,1.04,-.73,
-   {radius:.88,width:.48,hub:.19,treadCount:12,rubber:C.rubber,rimColor:C.cream});
+   {radius:1.02,width:.62,hub:.25,treadCount:8,rubber:C.rubber,rimColor:C.cream});
   wheel(g,'small-rear-steering-tire-'+s,s*1.36,.52,2.25,
-   {radius:.46,width:.28,hub:.12,treadCount:9,rubber:C.rubber,rimColor:S});
+   {radius:.54,width:.36,hub:.16,treadCount:7,rubber:C.rubber,rimColor:S});
  }
  axlePair(g,'combine-front-axle',-1.84,1.84,1.02,-.74,I);
  axlePair(g,'combine-rear-axle',-1.4,1.4,.58,2.26,I);
  // Large angular threshing chamber; a distinct top grain tank.
  profile(g,'elevated-threshing-chamber',
-   [[-1.45,1.36],[-1.49,2.75],[.16,2.93],[2.48,2.53],[2.47,1.35]],2.52,0,C.olive);
+   [[-1.50,1.27],[-1.54,2.87],[.16,3.13],[2.51,2.62],[2.51,1.27]],3.06,0,C.olive);
  profile(g,'grain-hopper-tapered-bin',
-   [[-.88,2.77],[-.54,3.37],[1.55,3.37],[1.94,2.64]],2.94,0,Y);
- metal(g,'hopper-rim',3.11,.12,2.47,0,3.38,.48,R);
+   [[-.91,2.91],[-.54,3.68],[1.55,3.68],[2.02,2.77]],3.36,0,Y);
+ metal(g,'hopper-rim',3.45,.25,2.58,0,3.67,.48,R);
  for(const s of [-1,1]){
-  metal(g,'side-service-panel',.065,.78,1.3,s*1.37,1.91,.65,P);
-  for(let i=0;i<5;i++)metal(g,'thresher-vent-row',
-    .075,.065,.19,s*1.42,1.70+i*.11,.10,D);
+  metal(g,'side-service-panel',.13,.92,1.52,s*1.56,1.98,.65,P);
+  for(let i=0;i<3;i++)metal(g,'thresher-vent-row',
+    .13,.12,.33,s*1.62,1.73+i*.25,.10,D);
  }
  // Elevated glass-free cab exposes the actual operator station.
- metal(g,'operator-platform',2.04,.13,1.39,0,2.07,-1.95,I);
+ metal(g,'operator-platform',2.32,.25,1.55,0,2.07,-1.95,I);
  for(const s of [-1,1]){
   for(const z of [-2.55,-1.43])
-   f(g,'harvester-cab-upright',[s*1.02,2.05,z],[s*1.07,3.33,z],.078,C.paint);
-  f(g,'cab-window-sill',[s*1.02,2.52,-2.55],[s*1.03,2.52,-1.43],.06,S);
+   f(g,'harvester-cab-upright',[s*1.02,2.05,z],[s*1.07,3.33,z],.15,C.paint);
+  f(g,'cab-window-sill',[s*1.02,2.52,-2.55],[s*1.03,2.52,-1.43],.11,S);
  }
- metal(g,'harvester-cab-roof',2.35,.13,1.38,0,3.38,-2.0,C.paint);
- metal(g,'cab-seat',.71,.14,.62,0,2.34,-1.70,C.rubber);
- ring(g,'harvester-steering-wheel',.26,.048,0,2.72,-2.3,D,'z',10);
+ metal(g,'harvester-cab-roof',2.68,.26,1.58,0,3.38,-2.0,C.paint);
+ metal(g,'cab-seat',.93,.22,.76,0,2.34,-1.70,C.rubber);
+ ring(g,'harvester-steering-wheel',.31,.072,0,2.72,-2.3,D,'z',10);
  // Open feeder throat connects the header to the threshing chamber.
  for(const s of [-1,1])f(g,'feeder-throat-side-rail',
-  [s*.66,1.34,-1.7],[s*.88,1.03,-3.11],.15,S);
+  [s*.66,1.34,-1.7],[s*.88,1.03,-3.11],.22,S);
  // Distinct wide cutting header and rotating reel drum.
  const headerZ=-3.24;
- metal(g,'header-cutter-bar',5.42,.17,.28,0,.57,headerZ-.38,I);
- cylinder(g,'open-header-reel-shaft',.13,5.08,0,1.21,headerZ,S,'x',9);
+ metal(g,'header-cutter-bar',5.90,.32,.38,0,.57,headerZ-.38,I);
+ cylinder(g,'open-header-reel-shaft',.20,5.24,0,1.21,headerZ,S,'x',9);
  for(const s of [-1,1]){
-  ring(g,'header-reel-spoked-end',.42,.053,s*2.41,1.21,headerZ,R,'x',10);
-  for(let t=0;t<8;t++){
-   const a=t*Math.PI/4;
-   f(g,'header-reel-spoke',[s*2.41,1.21,headerZ],
-     [s*2.41,1.21+Math.cos(a)*.42,headerZ+Math.sin(a)*.42],.045,I);
+  ring(g,'header-reel-spoked-end',.51,.10,s*2.49,1.21,headerZ,R,'x',10);
+  for(let t=0;t<4;t++){
+   const a=t*Math.PI/2;
+   f(g,'header-reel-spoke',[s*2.49,1.21,headerZ],
+     [s*2.49,1.21+Math.cos(a)*.50,headerZ+Math.sin(a)*.50],.10,I);
   }
  }
- for(let i=0;i<11;i++){
-  const x=-2.50+i*.50;
+ for(let i=0;i<6;i++){
+  const x=-2.50+i*1.0;
   profile(g,'individual-harvester-cutter-finger',
-   [[headerZ-.38,.53],[headerZ-.72,.44],[headerZ-.37,.65]],.18,x,S);
+   [[headerZ-.38,.51],[headerZ-.86,.38],[headerZ-.32,.72]],.35,x,S);
  }
  f(g,'unloading-auger-swing-arm',[1.05,2.92,.70],
-   [2.50,3.26,.84],.16,I);
+   [2.50,3.26,.84],.22,I);
  f(g,'unloading-auger-long-tube',[2.50,3.26,.84],
-   [4.05,3.24,.35],.22,Y);
- f(g,'auger-downspout',[4.05,3.24,.35],[4.14,2.65,.35],.11,I);
- metal(g,'dented-grain-tank-side',.68,.22,.095,-1.15,2.92,.97,R)
+   [4.05,3.24,.35],.30,Y);
+ f(g,'auger-downspout',[4.05,3.24,.35],[4.14,2.65,.35],.17,I);
+ metal(g,'dented-grain-tank-side',1.06,.35,.13,-1.15,2.92,.97,R)
   .rotation.z=.13;
  return g;
 }
 export function buildAnatomicalPickup(root){
  const g=new THREE.Group();g.name='ANATOMICAL ABANDONED PICKUP';root.add(g);
- ladder(g,'truck-ladder-frame',1.57,-2.35,2.40,.63);
+ ladder(g,'truck-ladder-frame',1.72,-2.35,2.40,.63);
  for(const s of [-1,1])for(const z of [-1.42,1.55])
   wheel(g,'truck-pneumatic-tyre',s*1.06,.59,z,
-   {radius:.57,width:.29,hub:.15,treadCount:10,rubber:C.rubber,rimColor:C.cream});
+   {radius:.66,width:.39,hub:.20,treadCount:8,rubber:C.rubber,rimColor:C.cream});
  for(const z of [-1.42,1.55])axlePair(g,'truck-live-axle',-1.05,1.05,.63,z,I);
  // Rear is -Z, bonnet/front points +Z.
- metal(g,'truck-bed-floor',2.0,.13,2.02,0,1.04,-1.36,C.clay);
+ metal(g,'truck-bed-floor',2.18,.22,2.19,0,1.04,-1.36,C.clay);
  for(const s of [-1,1]){
-  metal(g,'pickup-bed-side-wall',.11,.54,2.20,s*.96,1.32,-1.34,R);
-  metal(g,'pickup-inner-wheel-arch',.28,.28,.83,s*.83,1.17,-1.53,I);
+  metal(g,'pickup-bed-side-wall',.20,.64,2.27,s*1.02,1.40,-1.34,R);
+  metal(g,'pickup-inner-wheel-arch',.35,.35,.98,s*.83,1.17,-1.53,I);
  }
- metal(g,'pickup-tailgate-dented',1.96,.55,.095,0,1.37,-2.40,P)
+ metal(g,'pickup-tailgate-dented',2.20,.65,.17,0,1.37,-2.40,P)
   .rotation.y=.06;
  // Cab is framed as a greenhouse, rather than an opaque upright box.
- metal(g,'cab-firewall',1.92,.92,.12,0,1.43,.04,R);
- metal(g,'pickup-cab-floor',1.92,.16,1.35,0,.97,-.13,I);
+ metal(g,'cab-firewall',2.05,1.06,.17,0,1.43,.04,R);
+ metal(g,'pickup-cab-floor',2.06,.22,1.45,0,.97,-.13,I);
  for(const s of [-1,1]){
-  f(g,'pickup-a-pillar',[s*.95,1.31,.66],[s*.89,2.19,.44],.088,R);
-  f(g,'pickup-b-pillar',[s*.93,1.24,-.73],[s*.97,2.19,-.72],.10,R);
-  f(g,'truck-window-sill',[s*.96,1.44,-.72],[s*.93,1.44,.62],.055,S);
-  metal(g,'sagging-side-door',.10,.48,1.18,s*.99,1.18,-.12,P);
+  f(g,'pickup-a-pillar',[s*.95,1.31,.66],[s*.89,2.32,.44],.15,R);
+  f(g,'pickup-b-pillar',[s*.93,1.24,-.73],[s*.97,2.32,-.72],.17,R);
+  f(g,'truck-window-sill',[s*.96,1.44,-.72],[s*.93,1.49,.62],.105,S);
+  metal(g,'sagging-side-door',.17,.64,1.30,s*.99,1.18,-.12,P);
  }
- metal(g,'creased-cab-roof',2.12,.13,1.52,0,2.25,-.14,C.clay)
+ metal(g,'creased-cab-roof',2.36,.26,1.70,0,2.35,-.14,C.clay)
   .rotation.z=.055;
- metal(g,'torn-bench-seat',1.52,.16,.55,0,1.23,-.32,C.rubber);
- ring(g,'truck-steering-wheel',.26,.046,-.44,1.62,.38,D,'z',10);
+ metal(g,'torn-bench-seat',1.60,.23,.70,0,1.23,-.32,C.rubber);
+ ring(g,'truck-steering-wheel',.30,.073,-.44,1.62,.38,D,'z',10);
  // Raised tapered bonnet is hollow over a believable engine.
  profile(g,'pickup-tapered-bonnet-shell',
-  [[.72,1.53],[1.09,1.69],[2.24,1.54],[2.35,1.25],[.78,1.27]],1.88,0,P);
- metal(g,'truck-engine-block',1.22,.49,1.15,0,.94,1.55,I);
- for(let i=0;i<4;i++)cylinder(g,'inline-four-engine-head',
-  .14,.23,-.29,.99,1.09+i*.28,C.clay,'y',8);
- for(let i=0;i<6;i++)metal(g,'truck-open-radiator-slat',
-  1.45,.06,.05,0,.86+i*.09,2.42,D);
+  [[.72,1.58],[1.09,1.88],[2.26,1.67],[2.40,1.29],[.78,1.29]],2.10,0,P);
+ metal(g,'truck-engine-block',1.48,.64,1.34,0,.94,1.55,I);
+ for(let i=0;i<2;i++)cylinder(g,'inline-four-engine-head',
+  .24,.29,-.29,1.03,1.26+i*.48,C.clay,'y',8);
+ for(let i=0;i<3;i++)metal(g,'truck-open-radiator-slat',
+  1.62,.13,.085,0,.86+i*.19,2.42,D);
  for(const s of [-1,1]){
-  metal(g,'front-fender-arch-skin',.32,.17,.77,s*.88,1.10,1.64,R);
-  metal(g,'side-headlamp',.24,.23,.12,s*.67,1.30,2.40,C.cream);
+  metal(g,'front-fender-arch-skin',.42,.25,.92,s*.88,1.10,1.64,R);
+  metal(g,'side-headlamp',.30,.29,.15,s*.67,1.30,2.40,C.cream);
  }
- metal(g,'twisted-front-bumper',2.22,.12,.18,0,.65,2.62,S)
+ metal(g,'twisted-front-bumper',2.43,.23,.29,0,.65,2.62,S)
   .rotation.y=.09;
- f(g,'side-exhaust-tailpipe',[-.75,.55,-1.28],[-.76,.52,-2.31],.08,D);
+ f(g,'side-exhaust-tailpipe',[-.75,.55,-1.28],[-.76,.52,-2.31],.13,D);
  return g;
 }
 export function buildAnatomicalEngine(root){
