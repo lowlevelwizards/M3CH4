@@ -39,7 +39,8 @@ function barn(root,x,z,w,h,d,i){
  }
  f(g,'barn-upper-track',[-w*.28,h*.63,d*.56],
    [w*.28,h*.63,d*.56],.10,S);
- ring(g,'circular-barn-hay-vent',.43,.09,0,h*.87,d*.50,D,'z',10);
+ // Tiny distant roof vent omitted: three unique torus draws with negligible
+ // contribution at actual first-person combat distance.
  // Keep broad gabled geometry and the sliding door, but omit tiny
  // roof seam rails: on iPhone they cost one draw batch per distant barn.
  return g;
