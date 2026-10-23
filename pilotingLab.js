@@ -72,7 +72,8 @@ for(const p of looseProps){
  const material=new THREE.MeshStandardMaterial({color:barrel?0x4f7571:0x8d703e,
    roughness:.86,metalness:barrel?.48:.20,flatShading:true});
  const mesh=new THREE.Mesh(geometry,material);
- mesh.position.set(p.x,.44,p.z);
+ mesh.position.set(p.x,barrel?p.radius*.85:.44,p.z);
+ if(barrel){mesh.rotation.order='ZYX';mesh.rotation.z=Math.PI/2;}
  mesh.castShadow=true;mesh.receiveShadow=true;
  loosePropRoot.add(mesh);
  loosePropMeshes.set(p.id,mesh);
