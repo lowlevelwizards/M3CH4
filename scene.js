@@ -7,6 +7,7 @@ import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4z1';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {physicalContactWeight} from './physicalContactWeight.js';
+import {moduleFailureSignature,failureSurfaceFactor} from './moduleFailureSignatures.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {addFactoryIdentityPlate} from './factoryIdentityVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
@@ -2558,6 +2559,40 @@ export function createArenaScene(initial, targetAssembly) {
         noteSurfaceImpact(contact,outcome);
         showShieldStrike(contact);
     }
+    /** Apply the physical state after the normal injury tint. Do not spawn
+     * lights, effects, materials, colliders or fabricated failures. Optical
+     * shutdown, dead radiators, jammed barrels and hydraulic joints are only
+     * darkened where their real authored metal/optical surfaces exist.
+     */
+    function signalPhysicalModuleFailures(exterior,parts){
+        if(!parts)return;
+        for(const [slot,meshes] of exterior.partMeshes){
+            const signal=moduleFailureSignature(slot,parts[slot]);
+            if(!signal)continue;
+            const group=exterior.partGroups.get(slot);
+            if(group)group.userData.functionalSignal={
+                status:signal.disabled?'DISABLED':signal.stressed?'DEGRADED':'OPERATING',
+                effect:signal.effect,
+            };
+            if(!signal.disabled&&!signal.stressed)continue;
+            for(const mesh of meshes){
+                const material=mesh.material;
+                if(!material?.isMeshStandardMaterial)continue;
+                const surface=mesh.userData?.surface||{};
+                const factor=failureSurfaceFactor(signal,{
+                    ...surface,name:mesh.name||'',
+                });
+                if(factor===1)continue;
+                material.color.multiplyScalar(factor);
+                if(signal.disabled&&
+                  (slot==='power'||slot==='command'||slot==='combat')){
+                    // Physically dead hardware must not glow as if powered.
+                    material.emissive.setHex(0);
+                    material.emissiveIntensity=0;
+                }
+            }
+        }
+    }
     function updateCombatantDamage(id, condition) {
         const record = squadCombatants.get(id);
         if (!record || !condition?.parts) return;
@@ -2583,6 +2618,7 @@ export function createArenaScene(initial, targetAssembly) {
                 }
             }
         }
+        signalPhysicalModuleFailures(record.exterior,condition.parts);
     }
     function updateTargetDamage(condition) {
         updateCombatantDamage('enemy-0', condition);
@@ -2645,6 +2681,7 @@ export function createArenaScene(initial, targetAssembly) {
                 }
             }
         }
+        signalPhysicalModuleFailures(exterior,condition.parts);
     }
     function resetTargetDamage(condition) {
         clearPooledParticles();
