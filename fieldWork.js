@@ -37,11 +37,11 @@ function normalizeAction(value) {
         const repairs=Array.isArray(value.repairs)?value.repairs.slice(0,5)
             .filter(r=>cleanSlot(r?.slot)&&cleanId(r.serial)&&finite(r.before))
             .map(r=>({slot:r.slot,serial:cleanId(r.serial),before:r.before,
-                restoredCondition:TRIAGE_CONDITION,cost:r.cost===2?2:1})):[];
+                restoredCondition:r.restoredCondition===.30?.30:TRIAGE_CONDITION,cost:r.cost===2?2:1})):[];
         if(!repairs.length)return null;
         return {type:'triage',afterRound,rigId,serial,slot,
             rigName:typeof value.rigName==='string'?value.rigName.trim().slice(0,32):null,
-            restoredCondition:TRIAGE_CONDITION,repairs,
+            restoredCondition:value.restoredCondition===.30?.30:TRIAGE_CONDITION,repairs,
             at:finite(value.at)?value.at:Date.now()};
     }
     return {
@@ -61,7 +61,8 @@ function normalizePatch(value, serialKey = null) {
     if (!serial || !rigId || !slot) return null;
     return {
         serial, rigId, slot,
-        restoredCondition: value.restoredCondition===TRIAGE_CONDITION?TRIAGE_CONDITION:FIELD_PATCH_CONDITION,
+        restoredCondition: [TRIAGE_CONDITION,.30,FIELD_PATCH_CONDITION].includes(value.restoredCondition)
+            ? value.restoredCondition : FIELD_PATCH_CONDITION,
         patchedAt: finite(value.patchedAt) ? value.patchedAt : Date.now(),
     };
 }
@@ -335,8 +336,9 @@ export function applyEmergencyFieldPatch(storage, { seriesId, rigId, slot, now =
     return { ok: true, action: clone(action), rig: clone(patched.rig) };
 }
 
-/** k.4l: a single pre-round pit-crew operation may distribute four work units
- * among intact disabled and critical systems. Destroyed equipment still
+/** Four work units may reinforce low-integrity modules or stripped armor.
+ * Historical .30 triage records remain readable after this balance update.
+ * Destroyed equipment still
  * requires a shop rebuild and cannot be made deployable by field work. */
 export function triageOptions(stable,rigId){
     const rig=rigById(stable,rigId);
