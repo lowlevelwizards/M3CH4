@@ -47,3 +47,14 @@ test('real scene wires decorative-only grouped world and never adds it to physic
   assert.match(dressing,/lightSourcesAdded:0/);
   assert.doesNotMatch(dressing,/arenaObstacleId|solids\.push|worldSolids\.push|new THREE\.PointLight|new THREE\.SpotLight/);
 });
+
+test('repeat scrapyard fixtures batch into identical physical instance geometry',()=>{
+ const visuals=src('backlotDressing.js');
+ assert.match(visuals,/export function batchBacklotFixtures\(root\)/);
+ assert.match(visuals,/new THREE\.InstancedMesh\(items\[0\]\.geometry,items\[0\]\.material,items\.length\)/);
+ assert.match(visuals,/mesh\.setMatrixAt\(i,original\.matrix\)/);
+ assert.match(visuals,/root\.remove\(original\)/);
+ assert.match(visuals,/fixtureBatch=batchBacklotFixtures\(group\)/);
+ assert.match(visuals,/callsSaved:instances-batchedMeshes/);
+ assert.doesNotMatch(visuals,/solids\.push|worldSolids\.push/);
+});
