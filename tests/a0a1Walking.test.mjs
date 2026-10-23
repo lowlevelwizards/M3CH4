@@ -72,7 +72,7 @@ test('real isolated lab is a dedicated page with no persistence, combat or econo
  assert.match(html,/id="drive-zone"/);
  assert.match(html,/id="view"/);
  assert.match(js,/createArenaScene\(machine,makeRangeTarget\(\)\)/);
- assert.match(js,/walkingAssistEnabled:\$('handling'\)\.value==='assisted'/);
+ assert.ok(js.includes("walkingAssistEnabled:$('handling').value==='assisted'"));
  assert.match(js,/arena\.updatePilotingLabRig\(state,gait,frameDt\)/);
  assert.match(src('scene.js'),/function setPilotingLab\(enabled\)/);
  assert.doesNotMatch(js,/localStorage|storeMachine|persistMachine|settleSortie|startSeries/);
