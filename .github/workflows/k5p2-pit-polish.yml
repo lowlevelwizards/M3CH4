@@ -1,0 +1,29 @@
+name: k5p2 Pit and Systems Polish Smoke
+on:
+  pull_request:
+    paths:
+      - 'scene.js'
+      - 'unifiedGarageUI.js'
+      - 'index.html'
+      - 'sceneAssembly.js'
+      - 'garageMountUI.js'
+      - 'polishPass.css'
+      - 'tests/k5p1Presentation.test.mjs'
+      - 'tests/k5p2PitClarity.test.mjs'
+      - '.github/workflows/k5p2-pit-polish.yml'
+  push:
+    branches: [polish/k5p2-pit-and-systems-clarity]
+jobs:
+  pit-polish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax check
+        run: |
+          for f in scene.js unifiedGarageUI.js sceneAssembly.js garageMountUI.js; do node --check "$f"; done
+      - name: Behavior and regression checks
+        run: node --test tests/k5p1*.test.mjs tests/k5p2PitClarity.test.mjs
