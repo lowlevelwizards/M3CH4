@@ -103,8 +103,8 @@ const economy = loadedMachine.economy;
 const targetAssembly = makeRangeTarget();
 // Contract defines the whole opponent squad's signature livery; lead uses DEFAULT.
 applyEnemyCrewPaint(targetAssembly,targetAssembly.contractId,0);
-const activeContract = contractById(targetAssembly.contractId);
-const selectedMap=testYard?TEST_YARD:mapForContract(activeContract);
+const activeContract = testYard ? {...contractById(targetAssembly.contractId),trainingGround:true} : contractById(targetAssembly.contractId);
+const selectedMap=mapForContract(activeContract);
 const selectedWorld=selectedMap.world;
 const mappedContract=contractAtMap(activeContract,selectedMap);
 const friendlySpawns=orderedTeamSpawns(selectedMap,'friendly');
