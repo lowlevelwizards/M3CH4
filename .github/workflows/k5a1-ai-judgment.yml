@@ -1,0 +1,25 @@
+name: k5a1 AI Field Judgment Regression
+on:
+  pull_request:
+    paths:
+      - 'ai/**'
+      - 'enemyMotion.js'
+      - 'main.js'
+      - 'tests/k5a1CombatJudgment.test.mjs'
+      - '.github/workflows/k5a1-ai-judgment.yml'
+jobs:
+  ai-judgment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JS syntax
+        run: |
+          node --check main.js
+          node --check enemyMotion.js
+          for f in ai/*.js; do node --check "$f"; done
+      - name: Real movement, weapon and team-planner regressions
+        run: node --test tests/k5a1CombatJudgment.test.mjs tests/k3u7CombatCompetency.test.mjs tests/k4w5CampaignArsenal.test.mjs tests/k4v1AiOlympics.test.mjs
