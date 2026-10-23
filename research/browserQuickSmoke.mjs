@@ -41,14 +41,16 @@ try{
       if(mesh.userData?.arenaObstacleId)physicalCover++;
     });
     return {stats:group?.userData?.backlotStats,activeDrawObjects,
-      physicalCover,openSky:scene?.background?.isTexture===true,
+      physicalCover,garageBackground:scene?.background?.isColor===true,
       oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
-  if(!backlot.stats||!backlot.openSky||backlot.oldWarehouse||
+  if(!backlot.stats||!backlot.garageBackground||backlot.oldWarehouse||
      backlot.stats.enclosingWarehouseWalls!==0||
+     backlot.stats.sky!=='open'||
+     backlot.stats.fixtureBatch?.callsSaved<80||
      backlot.physicalCover!==backlot.stats.obstacleCount||
      backlot.activeDrawObjects<backlot.physicalCover||
-     backlot.activeDrawObjects>550)
+     backlot.activeDrawObjects>320)
     throw Error('Mobile open-air Backlot world validation failed: '+JSON.stringify(backlot));
   await page.screenshot({path:'browser-smoke-artifacts/quick-garage.png'});
   await page.locator('#unified-garage .workshop-deploy').click();
