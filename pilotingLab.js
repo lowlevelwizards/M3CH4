@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {makeTestAssembly,equip} from './components.js';
 import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
-import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js';
+import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
 import {createArenaScene} from './sceneAssembly.js?v=a5';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
