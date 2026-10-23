@@ -7,10 +7,10 @@ test('the actual cockpit render audit bypasses the game scene import-map wrapper
  const audit=source('research/browserStartupSmoke.mjs');
  const realScene=source('scene.js');
  const wrapper=source('sceneAssembly.js');
- assert.match(html,/"\.\/scene\.js": "\.\/sceneAssembly\.js\?v=k5r6b"/);
- assert.match(wrapper,/scene\.js\?source=k5r6b/);
+ assert.match(html,/"\.\/scene\.js": "\.\/sceneAssembly\.js\?v=k5r7"/);
+ assert.match(wrapper,/scene\.js\?source=k5r7/);
  assert.match(realScene,/export function buildCockpit\(scene\)/);
- assert.match(audit,/import\('\.\/scene\.js\?source=k5r6b'\)/);
+ assert.match(audit,/import\('\.\/scene\.js\?source=k5r7'\)/);
  assert.match(audit,/RELOAD COCKPIT: PASS/);
- assert.match(audit,/k5r6b-all-eight-cockpit-reloads\.png/);
+ assert.match(audit,/k5r7-all-eight-cockpit-reloads\.png/);
 });

@@ -34,7 +34,7 @@ try {
     const THREE=await import('three');
     // Bypass the import map's ./scene.js -> sceneAssembly.js wrapper;
     // the actual authored cockpit constructor lives in the base renderer.
-    const {buildCockpit}=await import('./scene.js?source=k5r6b');
+    const {buildCockpit}=await import('./scene.js?source=k5r7');
     const {WEAPONS}=await import('./combat.js');
     const {reloadPhase,reloadCockpitPresentation}=await import('./reloadMechanism.js');
     const {poseReloadHardware}=await import('./weaponVisualKit.js');
@@ -89,7 +89,7 @@ try {
     renderer.dispose();
     return {samples,image:sheet.toDataURL('image/png')};
   });
-  writeFileSync(output+'/k5r6b-all-eight-cockpit-reloads.png',
+  writeFileSync(output+'/k5r7-all-eight-cockpit-reloads.png',
     Buffer.from(reloadAudit.image.split(',')[1],'base64'));
   for(let i=0;i<reloadAudit.samples.length;i+=2){
     const extract=reloadAudit.samples[i],chamber=reloadAudit.samples[i+1];
