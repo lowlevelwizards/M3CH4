@@ -169,7 +169,7 @@ function loop(now){
     if($('props-mode').value==='on'){
       const hits=stepLabProps(looseProps,state,{massKg:config.massKg,radiusM:config.collisionRadiusM},DT);
       propImpacts+=hits.length;
-      if(soundOn)for(const hit of hits)soundSystemEvent('part',{
+      if(soundOn)for(const hit of hits)soundSystemEvent('glance',{
         cockpit:$('view').value==='cockpit',strength:hit.strength*.5,
       });
     }
@@ -191,8 +191,8 @@ function loop(now){
   for(const p of looseProps){
     const mesh=loosePropMeshes.get(p.id);
     mesh.position.x=p.x;mesh.position.z=p.z;
-    if(p.kind==='barrel')mesh.rotation.x=p.spin*.32;
-    else mesh.rotation.y=p.spin*.04;
+    if(p.kind==='barrel')mesh.rotation.x=p.spin;
+    else mesh.rotation.z=p.lastImpact*.04;
   }
   renderer.render(arena.scene,arena.camera);
   window.__m3ch4PilotingLabReady=true;
