@@ -1,0 +1,23 @@
+name: B.3 Physical Footprint Evidence and Handling Trials
+on:
+  push:
+    branches: [feat/b3-footprint-evidence-and-piloting-challenges]
+  pull_request:
+    paths:
+      - 'groundFootprintEvidence.js'
+      - 'pilotChallenges.js'
+      - 'pilotingLab.js'
+      - 'scene.js'
+      - 'tests/b3HandlingChallenges.test.mjs'
+jobs:
+  trials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in scene.js main.js pilotingLab.js pilotChallenges.js groundFootprintEvidence.js; do node --check "$f"; done
+          node --test tests/b3HandlingChallenges.test.mjs tests/b2GaitRecovery.test.mjs tests/b1SupportLoad.test.mjs
