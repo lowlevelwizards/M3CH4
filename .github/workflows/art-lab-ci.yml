@@ -8,6 +8,8 @@ on:
       - 'artStyleSeed.js'
       - 'artStyleProcedural.js'
       - 'scene.js'
+      - 'maps/**'
+      - 'research/circuitMapsBrowserSmoke.mjs'
       - 'research/artLabBrowserSmoke.mjs'
       - '.github/workflows/art-lab-ci.yml'
   workflow_dispatch:
@@ -30,6 +32,8 @@ jobs:
           sleep 2
       - name: Render phone-first A/B comparison
         run: node research/artLabBrowserSmoke.mjs
+      - name: Validate three real circuit arenas at phone resolution
+        run: node research/circuitMapsBrowserSmoke.mjs
       - name: Upload actual rendered views
         if: always()
         uses: actions/upload-artifact@v4
