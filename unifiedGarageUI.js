@@ -5,6 +5,7 @@
 import { BY_ID } from './components.js';
 import { stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
 import { createModuleIcon } from './moduleIcons.js';
+import { cycleBayId } from './bayCycle.js';
 import { createStationFace, createConditionMeter } from './uiMeters.js';
 import { loadCounter, counterCanStock } from './usedPartsCounter.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js?v=k3w0';
@@ -51,6 +52,20 @@ const oldDeploy = document.querySelector('#assembly-toggle');
 let storage = null, session = null;
 try { storage = window.localStorage; } catch { /* old storage warnings still apply */ }
 try { session = window.sessionStorage; } catch { /* display a blocking action message */ }
+const inspectedKey='m3ch4-inspected-module-serials-v1';
+let inspectedSerials=new Set();
+try {
+    const saved=storage?.getItem(inspectedKey);
+    // Existing players do not inherit an entire stockroom of fake NEW alerts.
+    const baseline=saved===null?loadStable(storage).stable.inventory.map(p=>p.serial):JSON.parse(saved);
+    if(Array.isArray(baseline))inspectedSerials=new Set(baseline.filter(x=>typeof x==='string'));
+    if(saved===null)storage?.setItem(inspectedKey,JSON.stringify([...inspectedSerials]));
+} catch { /* untracked if private storage is inaccessible */ }
+function markModuleInspected(serial){
+    if(!serial||inspectedSerials.has(serial))return;
+    inspectedSerials.add(serial);
+    try{storage?.setItem(inspectedKey,JSON.stringify([...inspectedSerials]));}catch{}
+}
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
@@ -60,7 +75,9 @@ let triageSelected=new Set();let triageRigId=null;
 let rackView = 'ready'; // available/current-bay rack, other-bay rack on demand
 let selectedLotSerial=null,vendorTableSignature='',vendorShowing=false;
 let inventoryFilter='all',inventorySort='station',inventorySerial=null;
+const INVENTORY_SORTS=[['station','TYPE'],['condition','CONDITION'],['name','NAME'],['mass','WEIGHT'],['value','VALUE'],['owner','LOCATION']];
 let renderScheduled = false, previewSignature = '', noticeTimer = null;
+const namingPromptedBays=new Set();
 try { viewedId = session?.getItem(key) || viewedId; } catch { /* optional */ }
 if (!BAY_IDS.includes(viewedId)) viewedId = 'rig-01';
 // A pending q.1 assignment is the authority for restoring sortie setup on reload.
@@ -174,7 +191,8 @@ function selectBay(id) {
     render();
 }
 function stepBay(direction) {
-    selectBay(BAY_IDS[Math.max(0,Math.min(BAY_IDS.length-1,BAY_IDS.indexOf(viewedId)+direction))]);
+    // Continuous three-bay carousel; nothing becomes unreachable at the edges.
+    selectBay(cycleBayId(BAY_IDS,viewedId,direction));
 }
 function preview(stable, series) {
     if (!document.body.classList.contains('inspecting')) return;
@@ -218,7 +236,7 @@ function navRender(stable, currentMode) {
     navigator.classList.toggle('hidden', !['garage','setup','pit'].includes(currentMode) || paintExpanded);
     if (!['garage','setup','pit'].includes(currentMode) || paintExpanded) return;
     const view = bayStatus(stable, viewedId);
-    navigator.append(button('‹', () => stepBay(-1), 'bay-arrow', viewedId === BAY_IDS[0]));
+    navigator.append(button('‹', () => stepBay(-1), 'bay-arrow'));
     const label = el('div','bay-index');
     label.append(el('strong','',view.name.toUpperCase()), el('span','',
         'BAY ' + String(view.rig.bay).padStart(2,'0') + ' / 03 · ' + view.state));
@@ -229,7 +247,7 @@ function navRender(stable, currentMode) {
         dot.setAttribute('aria-pressed',String(id===viewedId)); dots.append(dot);
     });
     label.append(dots);
-    navigator.append(label,button('›', () => stepBay(1), 'bay-arrow', viewedId === BAY_IDS[2]));
+    navigator.append(label,button('›', () => stepBay(1), 'bay-arrow'));
 }
 function renderTop(currentMode,series,machine) {
     top.replaceChildren();
@@ -276,10 +294,40 @@ function renderWorkshopChrome(stable,view) {
     const reset=button('↺',()=>document.querySelector('#inspect-reset')?.click(),'workshop-reset');
     reset.setAttribute('aria-label','Reset garage camera orbit');
     reset.title='Reset camera';statusBar.append(reset);
-    statusBar.append(button('◷ HISTORY',()=>{
-        identityExpanded=!identityExpanded;selectedSlot=null;
-        swapExpanded=false;drawerExpanded=false;render();
-    },'workshop-status-action'));
+    // Core constraints stay visible without opening a second History screen.
+    const inspect=view.readiness.inspection;
+    if(inspect){
+        const limits=el('div','workshop-live-limits');
+        const mass=el('span','',Math.round(inspect.massKg).toLocaleString()+' KG');
+        const power=el('span','',inspect.powerUsedKw+' / '+inspect.powerAvailableKw+' KW');
+        if(inspect.powerUsedKw>inspect.powerAvailableKw)power.classList.add('over-limit');
+        limits.append(mass,power);
+        limits.title='Installed weight and generator capacity';
+        statusBar.append(limits);
+    }
+    const history=el('small','workshop-compact-history',
+        view.rig.career.deployments+' DEPLOYMENTS · '+view.rig.career.roundWins+' WINS');
+    statusBar.append(history);
+    const repairable=view.health.map(item=>({item,quote:bayModuleQuote(stable,viewedId,item.slot)}))
+        .filter(row=>row.quote?.amount>0);
+    if(repairable.length>=2){
+        const total=repairable.reduce((n,row)=>n+row.quote.amount,0);
+        const all=button('⚒ REPAIR ALL · ₡'+total,()=>{
+            const fresh=data();
+            const quotes=repairable.map(row=>bayModuleQuote(fresh.stable,viewedId,row.item.slot));
+            if(quotes.reduce((n,q)=>n+(q?.amount||0),0)>fresh.machine.economy.credits){
+                message('INSUFFICIENT CREDITS TO REPAIR ALL',true);return;
+            }
+            let done=0,reason=null;
+            for(const row of repairable){
+                const result=emitEdit('m3ch4:bay-service',{rigId:viewedId,slot:row.item.slot});
+                if(!result.ok){reason=result.reason;break;} done++;
+            }
+            message(reason?'REPAIRED '+done+' · '+reason:'REPAIRED '+done+' MODULES',!!reason);
+            if(done){soundWorkshop('service');previewSignature='';render();}
+        },'workshop-repair-all',total>loadMachine(storage).economy.credits);
+        statusBar.append(all);
+    }
     const pending=loadSortieAssignment(session);
     const series=loadSeries(storage);
     // A completed match is history, not an active deployment. Its old BO3
@@ -288,16 +336,22 @@ function renderWorkshopChrome(stable,view) {
         (!series || series.phase==='complete') ? pending.contractId : null;
     const bottom=el('div','workshop-action-lane');
     const info=el('div','workshop-readiness '+(view.canDeploy?'ready':'blocked'));
-    info.append(el('strong','',view.canDeploy?'● READY':'● '+view.state));
+    info.append(el('strong','',view.canDeploy?'● READY':
+        !view.rig.commissioned&&view.readiness.fieldable?'● NAME TO COMMISSION':'● '+view.state));
     if(job) {
         const contract=contractById(job);
         info.append(button('JOB · '+(contract?.name.toUpperCase()||job)+' ✎',()=>{
             selectedJobId=job;mode='contracts';render();
         },'workshop-job-change'));
     } else if(!view.canDeploy){
-        info.append(el('small','',view.reason||'CHECK PARTS'));
+        info.append(el('small','',!view.rig.commissioned&&view.readiness.fieldable?
+            'ASSEMBLY COMPLETE · NAME THIS MACHINE':view.reason||'CHECK PARTS'));
     }
-    const primary=button(job?'DEPLOY':'SELECT JOB',()=>{
+    const needsName=!view.rig.commissioned&&view.readiness.fieldable;
+    const primary=button(needsName?'NAME RIG':job?'DEPLOY':'SELECT JOB',()=>{
+        if(needsName){identityExpanded=true;selectedSlot=null;render();
+            dock.querySelector('.unified-identity-form input')?.focus();return;}
+
         if(!job) {openWorkspace('contracts');return;}
         selectedJobId=job;mode='setup';render();
     },'workshop-deploy');
@@ -323,9 +377,23 @@ function summary(view) {
     }
     return status;
 }
+let switchFlashTimer=null;
+function animateInspectorSwitch(){
+    shell.classList.remove('part-switch');
+    void shell.offsetWidth; // Retrigger even when changing parts quickly.
+    shell.classList.add('part-switch');
+    if(switchFlashTimer!==null)window.clearTimeout(switchFlashTimer);
+    switchFlashTimer=window.setTimeout(()=>{shell.classList.remove('part-switch');switchFlashTimer=null;},210);
+}
 function moduleStation(view) {
     const station = el('section','unified-stations');
+    const stable=loadStable(storage).stable;
+    const fitted=new Set(stable.rigs.flatMap(r=>Object.values(r.installed)));
     for (const item of view.health) {
+        const candidates=stable.inventory.filter(part=>BY_ID.get(part.definitionId)?.slot===item.slot);
+        const canFit=candidates.some(part=>!fitted.has(part.serial));
+        const hasNew=candidates.some(part=>!inspectedSerials.has(part.serial));
+        const repairable=!!item.serial&&(item.destroyed||Math.min(item.condition,item.armorRatio)<.995);
         const weakest = Math.min(item.condition, item.armorRatio);
         const state = !item.serial ? 'empty' : item.destroyed ? 'destroyed'
             : item.condition <= .001 ? 'disabled' : weakest < .38 ? 'critical'
@@ -335,14 +403,22 @@ function moduleStation(view) {
                 selectedHardwareSerial = null;swapExpanded=!item.serial;drawerExpanded=false;
                 detailsExpanded=false;rackView='ready';
             }
+            const switched=selectedSlot!==item.slot;
+            if(item.serial)markModuleInspected(item.serial);
             selectedSlot = item.slot; // Repeated taps always open details.
-            identityExpanded=false; // Inspect and machine history never stack.
+            if(switched)animateInspectorSwitch();
+            identityExpanded=false;
             dock.scrollTop = 0;
             render();
             if (!paintExpanded) activePlayerArena()?.arena.revealPart?.(item.slot);
         }, 'unified-station state-' + state + (selectedSlot === item.slot ? ' selected' : ''));
         node.append(createStationFace(item.slot,item));
+        if(hasNew)node.append(el('span','station-signal station-new','●'));
+        if(repairable)node.append(el('span','station-signal station-repair','⚒'));
+        else if(canFit)node.append(el('span','station-signal station-add','+'));
         node.title=item.serial ? formatCondition(conditionFromPart(item)) : 'EMPTY STATION';
+        if(hasNew)node.title+=' · NEW PART AVAILABLE';
+        if(repairable)node.title+=' · NEEDS SERVICE';
         node.setAttribute('aria-label',stationLabel(item.slot)+' · '+node.title);
         node.setAttribute('aria-pressed',String(selectedSlot===item.slot));
         station.append(node);
@@ -516,7 +592,8 @@ function moduleDetails(stable, view, machine) {
             entry, thumbnailUrl: thumbnailFor(part, entry), value,
             selected: selectedHardwareSerial === part.serial,
             source: here ? 'FITTED HERE' : elsewhere ? 'BAY '+String(owner.bay).padStart(2,'0')+' · FITTED' : 'IN STORAGE',
-            onSelect: () => { selectedHardwareSerial = part.serial; render(); },
+            onSelect: () => { selectedHardwareSerial = selectedHardwareSerial===part.serial?null:part.serial;
+                markModuleInspected(part.serial); render(); },
         });
         card.classList.add('unified-part-card');
         const actual=ownerCondition(part);
@@ -703,17 +780,25 @@ function renderInventory(stable) {
         b.setAttribute('aria-pressed',String(inventoryFilter===id));
         controls.append(b);
     }
-    controls.append(button(inventorySort==='station'?'SORT · TYPE':'SORT · CONDITION',()=>{
-        inventorySort=inventorySort==='station'?'condition':'station';render();
+    const sortLabel=INVENTORY_SORTS.find(pair=>pair[0]===inventorySort)?.[1]||'TYPE';
+    controls.append(button('SORT · '+sortLabel+' ↻',()=>{
+        const index=INVENTORY_SORTS.findIndex(pair=>pair[0]===inventorySort);
+        inventorySort=INVENTORY_SORTS[(index+1)%INVENTORY_SORTS.length][0];render();
     },'inventory-sort'));
     wrap.append(controls);
     const filtered=entries.filter(item=>inventoryFilter==='all'||
         (inventoryFilter==='equipped'&&item.owner)||
         (inventoryFilter==='stored'&&!item.owner));
-    filtered.sort((a,b)=>inventorySort==='station'
-        ?BAY_SLOTS.indexOf(a.def.slot)-BAY_SLOTS.indexOf(b.def.slot)||
-            a.def.name.localeCompare(b.def.name)||a.part.serial.localeCompare(b.part.serial)
-        :a.condition-b.condition||a.part.serial.localeCompare(b.part.serial));
+    filtered.sort((a,b)=>{
+        const value=item=>partCreditValue(item.def,item.condition,{wear:item.part.wear,destroyed:item.part.destroyed});
+        const delta=inventorySort==='condition'?a.condition-b.condition:
+            inventorySort==='mass'?b.def.massKg-a.def.massKg:
+            inventorySort==='value'?value(b)-value(a):
+            inventorySort==='owner'?(a.owner?.bay??99)-(b.owner?.bay??99):
+            inventorySort==='name'?a.def.name.localeCompare(b.def.name):
+            BAY_SLOTS.indexOf(a.def.slot)-BAY_SLOTS.indexOf(b.def.slot);
+        return delta||a.def.name.localeCompare(b.def.name)||a.part.serial.localeCompare(b.part.serial);
+    });
     const gallery=el('div','inventory-grid part-grid');
     for(const item of filtered){
         const p=item.part;
@@ -724,9 +809,14 @@ function renderInventory(stable) {
             value:partCreditValue(item.def,item.condition,{wear:p.wear,destroyed:p.destroyed}),
             selected:inventorySerial===p.serial,
             source:item.owner?'BAY '+String(item.owner.bay).padStart(2,'0'):'STORED',
-            onSelect:()=>{inventorySerial=p.serial;render();},
+            onSelect:()=>{inventorySerial=inventorySerial===p.serial?null:p.serial;
+                markModuleInspected(p.serial);render();},
         });
-        card.classList.add('inventory-card');gallery.append(card);
+        card.classList.add('inventory-card',item.owner?'inventory-fitted':'inventory-stored');
+        card.dataset.location=item.owner?'equipped':'stored';
+        const badge=el('span','inventory-location-badge',item.owner?
+            '⚙ FITTED · BAY '+String(item.owner.bay).padStart(2,'0'):'▣ STORAGE');
+        card.append(badge);gallery.append(card);
     }
     wrap.append(gallery);
     const selected=entries.find(item=>item.part.serial===inventorySerial);
@@ -920,11 +1010,29 @@ function renderStationReadout(view) {
 function renderSetup(stable, view) {
     if (!selectedJobId) {mode='contracts';render();return;}
     const c=contractById(selectedJobId);
-    dock.append(el('div','unified-job-compact',c.name.toUpperCase()+' · RISK '+
-        c.risk.toUpperCase()+' · ₡'+c.payout),bayHeader(view),summary(view),moduleStation(view));
-    const readout=renderStationReadout(view);
-    if (readout) dock.append(readout);
-    // Bay navigation is always visible; the inspection is contextual.
+    dock.append(el('div','unified-job-compact',c.name.toUpperCase()+' · '+
+        c.objective.label.toUpperCase()+' · ₡'+c.payout));
+    dock.append(el('strong','sortie-pick-heading','CHOOSE YOUR RIG'));
+    const cards=el('div','sortie-pick-grid');
+    for(const id of BAY_IDS){
+        const candidate=bayStatus(stable,id);
+        const health=candidate.health.filter(item=>item.serial)
+            .reduce((n,item)=>Math.min(n,item.condition,item.armorRatio),1);
+        const card=button('',()=>selectBay(id),'sortie-pick-card'+
+            (id===viewedId?' selected':'')+(candidate.canDeploy?'':' blocked'));
+        card.append(el('strong','',candidate.name.toUpperCase()));
+        card.append(el('small','', 'BAY '+String(candidate.rig.bay).padStart(2,'0')+
+            ' · '+(candidate.canDeploy?(health<.995?'DAMAGED · FIELDABLE':'READY'):'NOT ELIGIBLE')));
+        if(candidate.canDeploy){
+            const inspect=candidate.readiness.inspection;
+            card.append(el('span','',Math.round(health*100)+'% MIN HEALTH · '+
+                Math.round(inspect?.massKg??0)+' KG · '+(inspect?.powerUsedKw??0)+' / '+
+                (inspect?.powerAvailableKw??0)+' KW'));
+        }else card.append(el('span','',candidate.reason||'FINISH ASSEMBLY / NAME RIG'));
+        card.disabled=!candidate.canDeploy&&id!==viewedId;
+        cards.append(card);
+    }
+    dock.append(cards);
     if (!view.canDeploy) dock.append(el('p','unified-warning',view.reason || 'MACHINE NOT COMMISSIONED'));
     // Repairs are made in the real garage, not by a shadow setup editor.
     // Keep the pending contract when returning to work on the rig.
@@ -1056,6 +1164,13 @@ function launch(stable,jobId) {
     const series=loadSeries(storage);
     const current=bayStatus(stable,viewedId);
     if(!current.canDeploy){message(current.reason||'MACHINE IS NOT FIELDABLE',true);return;}
+    if(actualMode(loadSeries(storage))==='setup' && current.health.some(item=>
+        item.serial&&(item.condition<.995||item.armorRatio<.995||item.destroyed))) {
+        const lowest=Math.round(100*current.health.filter(item=>item.serial)
+            .reduce((n,item)=>Math.min(n,item.condition,item.armorRatio),1));
+        if(!window.confirm('DEPLOY DAMAGED RIG?\n'+current.name.toUpperCase()+
+            ' · LOWEST CONDITION / ARMOR '+lowest+'%.\nRepairs cost credits. Deploy anyway?'))return;
+    }
     const committed=fieldWorkCommitment(storage);
     if(committed && committed.rigId!==viewedId){message('PATCH COMMITTED '+committed.rigName,true);return;}
     const result=assignment(stable,jobId,viewedId);
@@ -1092,6 +1207,11 @@ function render() {
         previewSignature='';
     }
     if(state==='garage') {
+        if(!paintExpanded&&view.readiness.fieldable&&!view.rig.commissioned&&
+            !selectedSlot&&!identityExpanded&&!namingPromptedBays.has(viewedId)){
+            identityExpanded=true;
+            namingPromptedBays.add(viewedId);
+        }
         if(!paintExpanded)renderWorkshopChrome(stable,view);
         renderGarage(stable,machine,view);
     }
@@ -1128,7 +1248,7 @@ document.addEventListener('m3ch4:assembly-mutated',()=>{previewSignature='';queu
 document.addEventListener('m3ch4:inventory-changed',()=>{previewSignature='';queueRender();});
 document.addEventListener('m3ch4:counter-picked',event=>{
     if(actualMode(loadSeries(storage))!=='vendor') return;
-    selectedLotSerial=event.detail?.serial??selectedLotSerial;render();
+    selectedLotSerial=event.detail?.serial??null;render();
 });
 document.addEventListener('m3ch4:stable-status-cleared',queueRender);
 document.addEventListener('m3ch4:bay-picked',event=>{
@@ -1156,6 +1276,7 @@ document.addEventListener('m3ch4:bay-picked',event=>{
         selectedHardwareSerial = null;swapExpanded=!bayStatus(loadStable(storage).stable,viewedId).health.find(item=>item.slot===slot)?.serial;
         drawerExpanded=false;detailsExpanded=false;rackView='ready';
     }
+    if(selectedSlot!==slot)animateInspectorSwitch();
     selectedSlot = slot;
     identityExpanded=false; // A physical tap replaces the previous toolbox.
     dock.scrollTop = 0;

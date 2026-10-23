@@ -39,6 +39,7 @@ let claimableOnly = false;
 let selectedEntryId = null;
 let currentPageIndex = 0;
 let lastRenderedResult = null;
+let scoreInspectedId='player';
 let pageScrollFrame = null;
 // The player confirms the recovered serial and leaves when ready; no auto-exit timer.
 
@@ -140,8 +141,11 @@ function renderScore(result) {
     rowHead.append(make('span','','PILOT'),make('span','','K / A / DIS'),make('span','','PTS'));
     table.append(rowHead);
     standings.forEach((row,index)=>{
-        const line=make('div','k4o-standing'+(row.id==='player'?' player':'')+
-            (row.id===result.score?.mvp?.id?' mvp':''));
+        const line=make('button','k4o-standing'+(row.id==='player'?' player':'')+
+            (row.id===result.score?.mvp?.id?' mvp':'')+
+            (row.id===scoreInspectedId?' inspected':''));
+        line.type='button';
+        line.setAttribute('aria-pressed',String(row.id===scoreInspectedId));
         const name=make('span','k4o-pilot',(index+1)+'. '+row.label);
         const stats=make('span','k4o-stats',
             row.missionKills+' / '+row.assists+' / '+row.disables);
@@ -150,9 +154,34 @@ function renderScore(result) {
             (row.lowParticipation?' · LOW PARTICIPATION':'');
         line.setAttribute('aria-label',line.title+' · '+stats.textContent+
             ' kills assists disables · '+points.textContent+' points');
-        line.append(name,stats,points);table.append(line);
+        line.append(name,stats,points);
+        line.addEventListener('click',()=>{scoreInspectedId=row.id;renderScore(result);});
+        table.append(line);
     });
     root.append(table);
+    const picked=standings.find(row=>row.id===scoreInspectedId)??player??standings[0];
+    if(picked){
+        const inspector=make('section','k5p-score-inspector');
+        inspector.append(make('strong','k5p-score-inspector-name',picked.label.toUpperCase()+
+            (picked.id==='player'?' · YOUR RIG':' · PILOT')));
+        const breakdown=make('div','k5p-score-breakdown');
+        for(const [label,value] of [
+            ['ARMOR DAMAGE',Math.round(picked.armorPercent)+'%'],
+            ['INTERNAL DAMAGE',Math.round(picked.internalPercent)+'%'],
+            ['BREACHES',picked.breaches],
+            ['DISABLED',picked.disables],
+            ['DESTROYED',picked.destroyed],
+            ['KILLS',picked.missionKills],
+            ['ASSISTS',picked.assists],
+            ['COMBAT PTS',Math.round(picked.combatScore)]
+        ]){
+            const metric=make('span','');
+            metric.append(make('small','',label),make('b','',value));
+            breakdown.append(metric);
+        }
+        inspector.append(breakdown);
+        root.append(inspector);
+    }
     if(result.terminal!==false && result.victory){
         const n=(result.score?.draftOrder??[]).indexOf('player');
         root.append(make('div','k4o-foot',n>=0?'SALVAGE PICK #'+(n+1):'TEAM SALVAGE'));
