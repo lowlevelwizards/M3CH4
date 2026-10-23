@@ -32,7 +32,9 @@ try {
   // One renderer, no extra live-world raycasts or assets.
   const reloadAudit=await page.evaluate(async()=>{
     const THREE=await import('three');
-    const {buildCockpit}=await import('./scene.js');
+    // Bypass the import map's ./scene.js -> sceneAssembly.js wrapper;
+    // the actual authored cockpit constructor lives in the base renderer.
+    const {buildCockpit}=await import('./scene.js?source=k5r6b');
     const {WEAPONS}=await import('./combat.js');
     const {reloadPhase,reloadCockpitPresentation}=await import('./reloadMechanism.js');
     const {poseReloadHardware}=await import('./weaponVisualKit.js');
