@@ -6,6 +6,7 @@ export const GRAINHOUSE=Object.freeze({
  {id:'grain-separator',minX:-23,maxX:-15,minZ:-12,maxZ:-6,height:4.1,kind:'building'},
  {id:'feed-conveyor',minX:-20,maxX:-12,minZ:0,maxZ:3.3,height:2.65,kind:'container'},
  {id:'packing-press',minX:-9,maxX:-3.5,minZ:-6.4,maxZ:-2,height:3.6,kind:'building'},
+ {id:'central-meal-hopper',minX:-2.1,maxX:2.1,minZ:-11.1,maxZ:-7.0,height:3.7,kind:'building'},
  // The east silo yard has two large hard-cover banks with broad gaps.
  {id:'silo-north',minX:13,maxX:22,minZ:-14.5,maxZ:-6,height:7,kind:'building'},
  {id:'silo-south',minX:14,maxX:23,minZ:3.8,maxZ:12,height:7,kind:'building'},
