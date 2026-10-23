@@ -65,7 +65,7 @@ test('in-place yaw alone produces recovery/pivot steps without an invented trans
    assert.ok(s.feet.some(f=>f.mode==='stance'),family+' support remains');
   }
   assert.ok(stepped&&landed,family+' has pivoting contact steps');
- });
+ }
 });
 test('teleport resets foot contacts without long stretched limbs',()=>{
  const s=createFootContacts(rig(),'legs-yard');
