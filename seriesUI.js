@@ -494,7 +494,10 @@ pitObserver.observe(inspectionPanel, { childList: true, subtree: true });
 // to bind an assignment. This is what releases orphaned matches without a wipe.
 const bootRecovery=reconcileMatchOnBoot(localStorageRef,sessionStorageRef);
 if(bootRecovery.action==='retired')announce('INTERRUPTED ROUND RECORDED AS DNF · GARAGE RECOVERED');
-else if(bootRecovery.action==='pit-restored')announce('PIT SESSION RESTORED · CHOOSE THE NEXT RIG');
+else if(bootRecovery.action==='pit-restored'){
+    document.dispatchEvent(new Event('m3ch4:sortie-assignment-updated'));
+    announce('PIT SESSION RESTORED · CHOOSE THE NEXT RIG');
+}
 const binding = bindCommittedAssignment();
 applyPitState();
 renderCombatSeries();
