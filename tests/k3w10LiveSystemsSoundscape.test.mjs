@@ -120,5 +120,5 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.match(html,/liveSystemsEvents\.js\?v=k5a5/);
   assert.match(html,/main\.js\?v=k5a5/);
   assert.match(html,/audio\.js\?v=k4i/);
-  assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
+  assert.match(html,/0\.0\.1k\.5a\.5 — Contact-Driven Locomotion Audio/);
 });
