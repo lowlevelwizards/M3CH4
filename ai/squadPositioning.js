@@ -125,7 +125,7 @@ export function coordinateSquadArrivals(orders,actors,zones,{
       if(!valid(stage,world,pad)||!clear(actor.position,stage,world,pad))continue;
       if(claimed.some(c=>c.point!==position&&d(c.point,stage)<collisionRadius*2))
         continue;
-      output[id].viaPoint=rounded(stage);
+      if(!output[id].viaPoint)output[id].viaPoint=rounded(stage);
       output[id].approachRole='SEPARATED LANE';
     }
   }
