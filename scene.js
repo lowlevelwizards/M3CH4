@@ -22,7 +22,7 @@ import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulatio
 import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js?v=k5b5';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { physicsYawToViewYaw } from './locomotion.js';
-import {BACKLOT} from './maps/backlot.js';
+import {BACKLOT} from './maps/backlot.js?v=k5q1';
 import {venueFloorTexture,buildVenueDressing} from './maps/venueVisuals.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
 import { impactProfile, integrityRatio, persistentFailureProfile } from './damageVisuals.js';
@@ -2034,9 +2034,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         // Garage/service darkness is restored only while that space is visible.
         scene.background=enabled?serviceBackground:combatBackground;
         scene.fog.color.setHex(enabled?0x0d1210:
-            arenaMap.id==='backlot-dustbowl'?0xb6a07f:0x171915);
+            arenaMap.id==='backlot-dustbowl'?0xc5ad8d:0x171915);
         scene.fog.density=enabled?.0075:
-            arenaMap.id==='backlot-dustbowl'?.0065:.0125;
+            arenaMap.id==='backlot-dustbowl'?.0048:.0125;
         if (!enabled) setAnimationPreview('off');
         if (enabled) {
             pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;
