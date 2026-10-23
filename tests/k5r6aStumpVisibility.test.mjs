@@ -36,6 +36,9 @@ test('loading view smoothly returns home before firing can resume',()=>{
    advanceWeapon(s,w,.01);
  }
  assert.ok(maximum>.40);
+ // Floating step subtraction can retain a tiny timer remainder. As in
+ // the live fixed-step simulation, another tick completes the real reload.
+ advanceWeapon(s,w,.01);
  const end=reloadCockpitPresentation(reloadPhase(s.reloadLeft,w.reloadSeconds,w.id),w.id);
  assert.ok(near(end.x,0));assert.ok(near(end.z,0));
  assert.ok(s.loaded>0);assert.equal(s.reloadLeft,0);
