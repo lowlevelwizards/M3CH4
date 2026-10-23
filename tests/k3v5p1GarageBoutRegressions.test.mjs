@@ -110,11 +110,11 @@ test('the elimination resolver ends Domination when all enemy combat rigs have b
 test('DEV version comes from the actual page build label, not a stale hardcoded string',()=>{
     const html=source('index.html'),main=source('main.js');
     assert.match(html,/<span id="dev-version"><\/span>/);
-    assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
+    assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
     assert.match(main,/devVersion\.textContent = document\.title\.split/);
     // Cache-busting build tokens advance independently of the DEV title.
     assert.match(html,/main\.js\?v=[a-zA-Z0-9_-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k5p4/);
+    assert.match(html,/garageMountUI\.js\?v=k5p6/);
     assert.match(source('garageMountUI.js'),/unifiedGarageUI\.js\?v=k5p4/);
 });
