@@ -6,6 +6,8 @@ on:
       - 'index.html'
       - 'scene.js'
       - 'backlotDressing.js'
+      - 'backlotEnvironmentPass.js'
+      - 'tests/backlotEnvironmentPass.test.mjs'
       - 'backlotVisualPlan.js'
       - 'sceneAssembly.js'
       - 'unifiedGarageUI.js'
