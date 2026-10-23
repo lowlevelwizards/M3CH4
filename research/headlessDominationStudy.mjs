@@ -44,6 +44,7 @@ import { createHostileController, hostileOutput, advanceHostileController,
 import { createEnemyMotion, advanceEnemyMotion, withinFiringArc } from '../enemyMotion.js';
 import { tacticalLineOfSight, noteIncomingFire, noteBlockedFire } from '../tacticalAwareness.js';
 import { createWorldModel, observeBattlefield } from '../ai/worldModel.js';
+import {mapById,contractAtMap} from '../maps/mapRegistry.js';
 import { planTeam } from '../ai/teamPlanner.js';
 import { createStrategicState,evaluateStrategy } from '../ai/strategicState.js';
 import { createPilotBrain, decidePilot } from '../ai/pilotBrain.js';
@@ -65,7 +66,7 @@ function random(seed){
     return (value>>>0)/4294967296;};
 }
 const pick=(rng,items)=>items[Math.floor(rng()*items.length)];
-function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
+function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty(),spawnSet=null){
     // Balance research can use a full five-station fitted assembly.
     // Respect actual hardware validity; never invent functional rigs.
     const custom=family&&typeof family==='object';
@@ -95,9 +96,11 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
     }
     mirrorTargetCondition(assembly,condition);
     const weaponSpec=weaponFor(assembly);
-    const side=team==='friendly'?1:-1, x=[-9,0,9][n]+(rng()-.5)*4.2,
-        z=side*(21+(rng()-.5)*3.4);
-    const rig=createRigState({x,z,yaw:team==='friendly'?0:Math.PI});
+    const side=team==='friendly'?1:-1;
+    const authored=spawnSet?.[n];
+    const x=authored?authored.x:[-9,0,9][n]+(rng()-.5)*4.2;
+    const z=authored?authored.z:side*(21+(rng()-.5)*3.4);
+    const rig=createRigState({x,z,yaw:authored?.yaw??(team==='friendly'?0:Math.PI)});
     const original=custom&&family.behavior?family.behavior:contractById(FAMILIES[pilot]).behavior;
     const behavior={...original,spreadScale:original.spreadScale*difficulty.spreadScale};
     const id=team==='friendly'?'ally-'+(n+1):'enemy-'+n;
@@ -186,16 +189,18 @@ export function sampleProxyProjectileHits(spec,shotIndex,distanceM,hitChance,rng
  * Physics stays in stepRig; a bot never teleports around another body.
  * Sampling is sequential as in the browser and side-swapped in tournaments.
  */
-function combatWorldFor(me,actors){
+function combatWorldFor(me,actors,baseWorld=DEFAULT_WORLD){
   const others=actors.filter(a=>a!==me&&a.active).map(a=>{
     const radius=a.baseConfig?.collisionRadiusM??1;
     return {id:'rig-'+a.id,dynamic:true,
       minX:a.rig.x-radius,maxX:a.rig.x+radius,
       minZ:a.rig.z-radius,maxZ:a.rig.z+radius};
   });
-  return {...DEFAULT_WORLD,obstacles:[...DEFAULT_WORLD.obstacles,...others]};
+  return {...baseWorld,obstacles:[...baseWorld.obstacles,...others]};
 }
 export function runBout(seed,settings){
+    const arenaMap=settings.mapId?mapById(settings.mapId):null;
+    const selectedWorld=arenaMap?.world??DEFAULT_WORLD;
     const traffic={friendly:settings.trafficFriendly??'legacy',
         hostile:settings.trafficHostile??'legacy'};
     const corridorPolicy={friendly:settings.corridorFriendly??'legacy',
@@ -211,7 +216,9 @@ export function runBout(seed,settings){
     if(!TRAFFIC_POLICIES.includes(traffic.friendly)||
         !TRAFFIC_POLICIES.includes(traffic.hostile))
       throw new RangeError('Invalid squad traffic research policy');
-    const rng=random(seed),state=createSortieObjective(contractById(settings.contractId??'domination'));
+    const rng=random(seed);
+    const contract=contractById(settings.contractId??'domination');
+    const state=createSortieObjective(arenaMap?contractAtMap(contract,arenaMap):contract);
     const zonePoints=state.domination?.points??[];
     const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
         hostile:getAiResearchProfile(settings.policyHostile??'baseline')};
@@ -230,7 +237,7 @@ export function runBout(seed,settings){
         throw new RangeError('Invalid three-rig roster for '+team);
       const actors=recipe.map((family,i)=>makeRig(team,i,family,rng,
           team===settings.wornTeam?settings.wear:settings.backgroundWear??0,
-          difficulties[team]));
+          difficulties[team],arenaMap?.spawns?.[team]));
       teams[team]=actors;
     }
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
@@ -265,7 +272,7 @@ export function runBout(seed,settings){
         for(const victim of actors){
           if(!victim.active||victim===p.shooter)continue;
           const range=dist(victim.rig,p.point);
-          if(range>p.radius||!tacticalLineOfSight(p.point,victim.rig,DEFAULT_WORLD))continue;
+          if(range>p.radius||!tacticalLineOfSight(p.point,victim.rig,selectedWorld))continue;
           const hitDamage=blastDamage(range,p.radius,p.damage);
           if(hitDamage>0){
             damage(p.shooter,victim,p.slot,metrics,t,rng,hitDamage);
@@ -278,7 +285,7 @@ export function runBout(seed,settings){
         planLeft[team]-=DT;perceptionLeft[team]-=DT;
       }
       if(!snapshot||perceptionLeft.friendly<=0||perceptionLeft.hostile<=0){
-        const latest=observeBattlefield(memory,actors,state,DEFAULT_WORLD,t);
+        const latest=observeBattlefield(memory,actors,state,selectedWorld,t);
         // Public objectives update together; each team receives new contacts
         // on its own perception cadence, never the opponent's faster cadence.
         const knowledge={};
@@ -296,7 +303,7 @@ export function runBout(seed,settings){
         plans[team]=planTeam(snapshot,team,{
           strategy:evaluateStrategy(strategies,snapshot,team),
           policy:policies[team],previousOrders:plans[team]?.orders,
-          arrivalPolicy:arrivals[team],world:DEFAULT_WORLD,
+          arrivalPolicy:arrivals[team],world:selectedWorld,
           corridorPolicy:corridorPolicy[team],corridorMemory:corridorMemory[team],
           assaultMemory:assaults[team]});
         planLeft[team]=difficulties[team].planningSeconds;
@@ -307,7 +314,7 @@ export function runBout(seed,settings){
         let job=plans[a.team].orders[a.id]??null;
         const target=nearestVisible(a,actors,snapshot,job);
         const support=counterFlankOrder(view.allies.find(p=>p.id===a.id),
-          job,view.allies,view.contacts,DEFAULT_WORLD,t);
+          job,view.allies,view.contacts,selectedWorld,t);
         if(support)job=support;
         const recovery=aiWeaponRecoveryDirective(a,target);
         const capability=view.allies.find(p=>p.id===a.id)?.capability;
@@ -324,7 +331,7 @@ export function runBout(seed,settings){
           a.stats.minBusRatio=Math.min(a.stats.minBusRatio,a.power.busRatio);
         }
         const config=configFor(a,!!settings.physicalEquipment);
-        const physicalWorld=combatWorldFor(a,actors);
+        const physicalWorld=combatWorldFor(a,actors,selectedWorld);
         const allies=actors.filter(p=>p.team===a.team&&p!==a&&p.active);
         const nearbyTraffic=allies.filter(p=>dist(p.rig,a.rig)<7)
           .map(p=>({id:p.id,position:p.rig,radius:p.baseConfig?.collisionRadiusM??1,
@@ -332,7 +339,7 @@ export function runBout(seed,settings){
             velocity:{x:p.rig.vx??0,z:p.rig.vz??0}}));
         const before=a.brain.history.length;
         const decision=decidePilot(a.brain,{id:a.id,position:{x:a.rig.x,z:a.rig.z}},
-          job,{capability,weaponRecovery:recovery,world:DEFAULT_WORLD,
+          job,{capability,weaponRecovery:recovery,world:selectedWorld,
             policy:policies[a.team],personality:a.behavior.id,
             preferredRangeM:a.behavior.preferredRangeM,
             collisionRadius:config.collisionRadiusM+.3,
@@ -388,7 +395,7 @@ export function runBout(seed,settings){
           a.weaponState.loaded>0&&a.weaponState.reloadLeft<=0&&
           withinFiringArc(a.rig,target.rig)&&
           (a.weaponSpec.fireMode!=='continuous'||dist(a.rig,target.rig)<=a.weaponSpec.rangeMeters)&&
-          tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)&&
+          tacticalLineOfSight(a.rig,target.rig,selectedWorld)&&
           shouldAttemptTacticalShot(a,target);
         // Trigger authority is the real fitted weapon cycle, regardless of policy.
         if(settings.physicalEquipment&&!a.power.weaponReady&&target&&a.weaponState.loaded>0)
@@ -405,7 +412,7 @@ export function runBout(seed,settings){
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
-        if(!tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)){
+        if(!tacticalLineOfSight(a.rig,target.rig,selectedWorld)){
             noteBlockedFire(a.motion,'STATIC COVER');continue;
         }
         const distance=dist(a.rig,target.rig);
