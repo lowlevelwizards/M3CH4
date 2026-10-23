@@ -71,12 +71,23 @@ export function strut(parent,name,from,to,width,depth,tone='steel'){
  */
 export function attachReloadHardware(root,id){
  const profile=reloadMechanism(id),form=profile.feedStyle;
- const feed=group(root,'RELOAD / physical '+form+' carrier',[.28,-.25,.41]);
+ const stump=id==='gun-short';
+ // Stump: an unmistakable exposed top-loading steel cradle, not an
+ // underslung ammunition carrier hidden behind its giant breech casing.
+ const feed=group(root,'RELOAD / physical '+form+' carrier',
+   stump?[0,.55,.18]:[.28,-.25,.41]);
  if(form==='shell'||form==='penetrator'){
    tube(feed,'RELOAD / heavy chambered shell',[0,0,0],
      form==='penetrator'?.13:.16,form==='penetrator'?.52:.42,
      form==='penetrator'?'machined':'shells');
-   block(feed,'RELOAD / breech head',[0,0,.21],[.30,.22,.10],'steel');
+   block(feed,'RELOAD / breech head',[0,0,.21],
+     stump?[.42,.28,.13]:[.30,.22,.10],'steel');
+   if(stump){
+     block(feed,'RELOAD / oversized shell collar',[0,0,-.19],
+       [.36,.33,.09],'raw');
+     block(feed,'RELOAD / loading ram shoe',[0,-.22,.20],
+       [.46,.16,.20],'machined');
+   }
  }else if(form==='clip'||form==='tray'){
    block(feed,'RELOAD / rectangular ammunition shuttle',[0,0,0],
      form==='clip'?[.17,.21,.39]:[.35,.19,.34],'olive');
@@ -98,7 +109,8 @@ export function attachReloadHardware(root,id){
  // Broad, readable latch, never a tiny decorative hinge.
  // Extract the empty shell, drum, rocket carrier or discharged cell
  // before loading the replacement. One recycled moving assembly per weapon.
- const spent=group(root,'RELOAD / withdrawn '+form,[0,.06,.37]);
+ const spent=group(root,'RELOAD / withdrawn '+form,
+   stump?[0,.50,.24]:[0,.06,.37]);
  if(form==='shell'||form==='penetrator')
    tube(spent,'RELOAD / spent steel case',[0,0,0],.115,.34,'heat');
  else if(form==='drum')
@@ -109,15 +121,20 @@ export function attachReloadHardware(root,id){
    block(spent,'RELOAD / discharged cell',[0,0,0],[.27,.31,.25],'dark');
  else
    block(spent,'RELOAD / old feed unit',[0,0,0],[.29,.22,.32],'heat');
- const latch=group(root,'RELOAD / battery locking jaw',[0,.34,.35]);
- block(latch,'RELOAD / massive catch',[0,0,0],[.35,.14,.23],'machined');
- const guide=group(root,'RELOAD / fixed ammunition feed track',[.24,-.20,.24]);
+ const latch=group(root,'RELOAD / battery locking jaw',
+   stump?[0,.73,.05]:[0,.34,.35]);
+ block(latch,'RELOAD / massive catch',[0,0,0],
+   stump?[.60,.20,.42]:[.35,.14,.23],stump?'yellow':'machined');
+ // Dark opening beneath the raised, chunky locking cover.
+ const guide=group(root,'RELOAD / fixed ammunition feed track',
+   stump?[0,.43,.02]:[.24,-.20,.24]);
  for(const node of [feed,spent,latch,guide])node.userData.visualOnly=true;
- block(guide,'RELOAD / feeding rails',[0,0,0],[.13,.12,.46],'dark');
+ block(guide,'RELOAD / feeding rails',[0,0,0],
+   stump?[.48,.11,.65]:[.13,.12,.46],'dark');
  root.traverse(node=>{if(node.isMesh&&(feed===node.parent||spent===node.parent||latch===node.parent||guide===node.parent))
    node.userData.visualOnly=true;});
  feed.visible=false;spent.visible=false;
- return {feed,spent,latch,rest:{feed:feed.position.clone(),
+ return {feed,spent,latch,stump,rest:{feed:feed.position.clone(),
    spent:spent.position.clone(),latch:latch.position.clone()}};
 }
 export function poseReloadHardware(mechanism,phase){
@@ -147,7 +164,8 @@ export function poseReloadHardware(mechanism,phase){
  }
  latch.position.copy(rest.latch);
  latch.position.y-=(phase?.slide??0)*.35;
- latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*-.42;
+ latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*
+   (loader.stump?-.90:-.42);
 }
 
 /** The model's serviceable moving elements use their own authored rest pose.
