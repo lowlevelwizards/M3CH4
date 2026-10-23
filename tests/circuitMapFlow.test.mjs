@@ -14,6 +14,7 @@ test('all three venues support every real squad start and all domination objecti
    meanPathMeters:{friendly:audit.fromSouth?.average,hostile:audit.fromNorth?.average}
   }));
   assert.equal(audit.exposure.total,9,map.id);
+  assert.equal(audit.exposure.exposed,0,map.id+' cross-spawn shooting lane '+JSON.stringify(audit.exposure.pairs.filter(p=>p.clear)));
   assert.equal(audit.routes.length,18,map.id);
   assert.ok(audit.routes.every(r=>r.ok),map.id+' '+JSON.stringify(audit.routes.filter(r=>!r.ok)));
   assert.ok(audit.objectiveApproaches.every(o=>o.clearBearings>=3),
