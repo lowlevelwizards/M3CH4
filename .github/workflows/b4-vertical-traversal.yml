@@ -1,0 +1,23 @@
+name: B.4 Loading Dock Vertical Traversal
+on:
+  push:
+    branches: [feat/b4-loading-dock-traversal-trial]
+  pull_request:
+    paths:
+      - 'loadingDockTraversal.js'
+      - 'footContactController.js'
+      - 'scene.js'
+      - 'pilotingLab.js'
+      - 'tests/b4VerticalTraversal.test.mjs'
+jobs:
+  vertical-trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in loadingDockTraversal.js footContactController.js scene.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/b4VerticalTraversal.test.mjs tests/b3HandlingChallenges.test.mjs tests/b2GaitRecovery.test.mjs tests/a2a4GroundedGait.test.mjs

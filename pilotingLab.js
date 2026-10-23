@@ -8,13 +8,14 @@ import {makeRangeTarget} from './combat.js';
 import {deriveRigConfig} from './assemblyPhysics.js';
 import {createRigState,stepRig,DEFAULT_WORLD} from './locomotion.js?v=a7';
 import {Controls,bodyFollowSteer} from './controls.js';
-import {createArenaScene} from './sceneAssembly.js?v=b3';
+import {createArenaScene} from './sceneAssembly.js?v=b4';
 import {GROUND_MATERIALS,PILOTING_GROUND_PATCHES,groundMaterialAt,groundGripScale} from './groundSurfaceMaterials.js?v=a7';
 import {createLabProps,resetLabProps,stepLabProps} from './labPropPhysics.js?v=a8';
 import {soundFamilyFor,createMotionSoundState,advanceContactMotionSound} from './liveSystemsEvents.js?v=a5';
-import {advanceFootContacts} from './footContactController.js?v=k5b2';
-import {groundFootprint} from './groundFootprintEvidence.js?v=k5b3';
-import {createPilotChallenge,advancePilotChallenge,PILOT_CHALLENGES,challengePrompt} from './pilotChallenges.js?v=k5b3';
+import {advanceFootContacts} from './footContactController.js?v=k5b4';
+import {groundFootprint} from './groundFootprintEvidence.js?v=k5b4';
+import {LOADING_DOCK,loadingDockHeight,advanceLabElevation} from './loadingDockTraversal.js?v=k5b4';
+import {createPilotChallenge,advancePilotChallenge,PILOT_CHALLENGES,challengePrompt} from './pilotChallenges.js?v=k5b4';
 import {soundSystemEvent} from './audio.js';
 const $=id=>document.getElementById(id);
 const machine=makeTestAssembly();
@@ -63,7 +64,7 @@ function syncChallengeMarkers(){
  const gate=PILOT_CHALLENGES[$('challenge').value]?.checkpoints?.[challengeState.progress];
  if(!gate||challengeState.complete)return;
  const circle=new THREE.Mesh(new THREE.RingGeometry(gate.radius*.87,gate.radius,32),gateMaterial);
- circle.rotation.x=-Math.PI/2;circle.position.set(gate.x,.066,gate.z);
+ circle.rotation.x=-Math.PI/2;circle.position.set(gate.x,.066+(challengeState.id==='climb'?LOADING_DOCK.heightM:0),gate.z);
  challengeMarkers.add(circle);
 }
 // Paint visible patches over the real existing arena floor. The meshes have
@@ -82,6 +83,29 @@ for(const patch of PILOTING_GROUND_PATCHES){
  mesh.receiveShadow=true;
  terrainVisuals.add(mesh);
 }
+const dockRoot=new THREE.Group();arena.scene.add(dockRoot);
+dockRoot.name='loading-dock-trial';
+const dockSurface=[19,14,10,7];
+const dockHeights=[0,LOADING_DOCK.heightM,LOADING_DOCK.heightM,0];
+const dockPositions=[];
+for(let i=0;i<dockSurface.length-1;i++){
+ for(const [x,z,y] of [
+   [-LOADING_DOCK.halfWidth,dockSurface[i],dockHeights[i]],
+   [LOADING_DOCK.halfWidth,dockSurface[i],dockHeights[i]],
+   [-LOADING_DOCK.halfWidth,dockSurface[i+1],dockHeights[i+1]],
+   [LOADING_DOCK.halfWidth,dockSurface[i],dockHeights[i]],
+   [LOADING_DOCK.halfWidth,dockSurface[i+1],dockHeights[i+1]],
+   [-LOADING_DOCK.halfWidth,dockSurface[i+1],dockHeights[i+1]],
+ ])dockPositions.push(x,y+.016,z);
+}
+const dockGeometry=new THREE.BufferGeometry();
+dockGeometry.setAttribute('position',new THREE.Float32BufferAttribute(dockPositions,3));
+dockGeometry.computeVertexNormals();
+const dockMesh=new THREE.Mesh(dockGeometry,new THREE.MeshStandardMaterial({
+ color:0x697270,metalness:.42,roughness:.72,side:THREE.DoubleSide,
+}));
+dockMesh.receiveShadow=true;dockRoot.add(dockMesh);
+dockRoot.visible=false;
 const markerMat=new THREE.MeshStandardMaterial({color:0xb68b37,metalness:.18,roughness:.89});
 const metalMat=new THREE.MeshStandardMaterial({color:0x3b7770,metalness:.27,roughness:.8});
 // At most four lightweight reactive objects. These are not authoritative
@@ -128,6 +152,8 @@ function setCamera(){
 function reset(){
  state=createRigState();
  gait=createMotionSoundState();
+ state.terrainHeightAt=$('challenge').value==='climb'?loadingDockHeight:null;
+ state.groundHeightM=0;
  challengeState=createPilotChallenge($('challenge').value);
  syncChallengeMarkers();
  quickstep={side:0,remaining:0};
@@ -150,6 +176,7 @@ $('family').addEventListener('change',fit);
 $('challenge').addEventListener('change',()=>{
  // No props in precision/slalom, but hauling needs the existing tool chest.
  $('props-mode').value=$('challenge').value==='haul'?'on':'off';
+ dockRoot.visible=$('challenge').value==='climb';
  loosePropRoot.visible=$('props-mode').value==='on';
  reset();
 });
@@ -209,6 +236,8 @@ function loop(now){
         cockpit:$('view').value==='cockpit',strength:hit.strength*.5,
       });
     }
+    advanceLabElevation(state,config,DT,$('challenge').value==='climb');
+    state.footingLoad=Math.max(state.footingLoad??0,(state.verticalDemand??0)*.28);
     travel+=Math.hypot(state.x-beforeX,state.z-beforeZ);
     gait.contactFeet=advanceFootContacts(gait.contactFeet,state,$('family').value,DT);
     const mark=groundFootprint(gait.contactFeet,state,$('family').value,ground.id);
@@ -262,6 +291,7 @@ function loop(now){
     'WEIGHT   '+((feet?.loadShift??0)*100).toFixed(0)+'% R · EFFORT '+((feet?.effort??0)*100).toFixed(0)+'%',
     'GAIT     '+(feet?.gaitMode??'IDLE')+' · '+(feet?.maneuver??'STANDING'),
     'BALANCE  '+((feet?.recovery??0)*100).toFixed(0)+'% RECOVERY',
+    'HEIGHT   '+(state.groundHeightM??0).toFixed(2)+' m · CLIMB '+((state.verticalDemand??0)*100).toFixed(0)+'%',
     'PREP     '+(feet?.preparing?(feet.preparing<0?'LEFT':'RIGHT'):'—')+' · COMP '+((feet?.compression??0)*100).toFixed(1)+' cm',
     'PIVOT    '+(feet?.pivot?'STEPPING':'—')+' · '+(feet?.landings??0)+' landings',
     'DIST     '+travel.toFixed(1)+' m',

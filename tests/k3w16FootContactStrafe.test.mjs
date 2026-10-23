@@ -66,8 +66,8 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(html,/<option value="strafe-left">STRAFE LEFT<\/option>/);
  assert.match(html,/<option value="strafe-right">STRAFE RIGHT<\/option>/);
  assert.match(html,/articulationMotion\.js\?v=k5a2/);
- assert.match(html,/sceneAssembly\.js\?v=k5b3/);
- assert.match(html,/main\.js\?v=k5b3/);
- assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5b3/);
- assert.match(html,/0\.0\.1k\.5b\.3 — Footprints and Piloting Challenges/);
+ assert.match(html,/sceneAssembly\.js\?v=k5b4/);
+ assert.match(html,/main\.js\?v=k5b4/);
+ assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5b4/);
+ assert.match(html,/0\.0\.1k\.5b\.4 — Loading Dock Footwork Trial/);
 });

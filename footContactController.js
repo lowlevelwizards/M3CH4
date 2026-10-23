@@ -14,10 +14,12 @@ export const footContactProfile=id=>profiles[id]??profiles['legs-yard'];
 const offsets=(state,side,p)=>{
   const yaw=state.yaw??0,c=Math.cos(yaw),s=Math.sin(yaw);
   const x=side*p.halfWidth,z=p.neutralZ;
-  return {x:(state.x??0)+c*x-s*z,z:(state.z??0)+s*x+c*z};
+  const wx=(state.x??0)+c*x-s*z,wz=(state.z??0)+s*x+c*z;
+  return {x:wx,z:wz,y:typeof state.terrainHeightAt==='function'?state.terrainHeightAt(wx,wz):0};
 };
 const foot=(side,world)=>({side,mode:'stance',x:world.x,z:world.z,
   startX:world.x,startZ:world.z,targetX:world.x,targetZ:world.z,
+  y:world.y??0,startY:world.y??0,targetY:world.y??0,
   swing:0,impact:0,landingCount:0,lift:0,load:.5,compression:0,preparing:false});
 export function createFootContacts(state={x:0,z:0,yaw:0},family='legs-yard'){
   const p=footContactProfile(family);
@@ -26,7 +28,7 @@ export function createFootContacts(state={x:0,z:0,yaw:0},family='legs-yard'){
     lastX:state.x??0,lastZ:state.z??0,lastYaw:state.yaw??0,
     lastSpeed:0,pivot:false,stanceCount:2,slipM:0,
     preparingSide:0,prepareLeft:0,weightShift:0,actuatorEffort:0,bodyCompression:0,
-    gaitMode:'IDLE',recovery:0,maneuver:'STANDING'};
+    gaitMode:'IDLE',recovery:0,maneuver:'STANDING',bodyGroundHeight:state.groundHeightM??0};
 }
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 /** Update once per rendered state. Output feet[*].localX/localZ are deltas
@@ -76,9 +78,10 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       const t=f.swing*f.swing*(3-2*f.swing);
       f.x=f.startX+(f.targetX-f.startX)*t;
       f.z=f.startZ+(f.targetZ-f.startZ)*t;
+      f.y=f.startY+(f.targetY-f.startY)*t;
       f.lift=Math.sin(Math.PI*t)*p.lift*(state.gaitMode==='HUSTLE'?1.12:1);
       if(f.swing>=1){
-        f.mode='stance';f.x=f.targetX;f.z=f.targetZ;f.lift=0;f.swing=0;
+        f.mode='stance';f.x=f.targetX;f.z=f.targetZ;f.y=f.targetY;f.lift=0;f.swing=0;
         f.landingCount++;state.landings++;
         state.lastLandingSide=f.side;
         state.lastLandingStrength=clamp(.3+speed*.12+turning*.15,0,1);
@@ -127,6 +130,7 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       }else if(state.prepareLeft<=0){
         candidate.mode='swing';candidate.swing=0;
         candidate.startX=candidate.x;candidate.startZ=candidate.z;
+        candidate.startY=candidate.y;candidate.targetY=nominal.y;
         candidate.targetX=nominal.x+leadX;
         candidate.targetZ=nominal.z+leadZ;
         state.nextSide=-candidate.side;
@@ -157,12 +161,13 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
     f.compression=f.mode==='stance'?p.compression*f.load*(.4+.6*state.actuatorEffort+state.recovery*.12):0;
     state.bodyCompression+=f.compression;
   }
+  state.bodyGroundHeight=rig.groundHeightM??0;
   state.lastX=x;state.lastZ=z;state.lastYaw=yaw;state.lastSpeed=speed;
   return state;
 }
 export function footPresentation(state,side){
   const f=state?.feet.find(f=>f.side===side);
-  return f?{x:f.localX,y:f.lift,z:f.localZ,
+  return f?{x:f.localX,y:f.lift+(f.y??0)-(state?.bodyGroundHeight??0),z:f.localZ,
     planted:f.mode==='stance',swing:f.swing,load:f.load,
     preparing:f.preparing,compression:f.compression}:null;
 }

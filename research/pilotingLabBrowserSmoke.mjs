@@ -28,6 +28,10 @@ try{
  await page.waitForFunction(()=>document.querySelector('#telemetry')?.textContent.includes('ASSISTED WALK'),undefined,{timeout:12000});
  await page.locator('#family').selectOption('legs-hauler');
  await page.waitForFunction(()=>document.querySelector('#telemetry')?.textContent.includes('HAULER H2'),undefined,{timeout:12000});
+ await page.locator('#challenge').selectOption('climb');
+ await page.waitForFunction(()=>document.querySelector('#telemetry')?.textContent.includes('LOADING DOCK'),undefined,{timeout:12000});
+ await page.locator('#challenge').selectOption('precision');
+ await page.waitForFunction(()=>document.querySelector('#telemetry')?.textContent.includes('PRECISION STOP'),undefined,{timeout:12000});
  await page.locator('#view').selectOption('cockpit');
  await page.waitForTimeout(280);
  await page.screenshot({path:output+'/piloting-lab-hauler-cockpit.png'});
