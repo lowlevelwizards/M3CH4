@@ -3,7 +3,7 @@ import { canvasFont, whenGameFontsReady } from './typography.js';
 import {partMaterial,materialRoleOf} from './partMaterialPalette.js';
 import { applyPartFinish } from './partFinish.js';
 import {applyIndustrialFinish} from './industrialMaterialSystem.js';
-import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4y2';
+import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4z1';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
@@ -1831,6 +1831,7 @@ export function createArenaScene(initial, targetAssembly) {
         const oldRoot = exterior.root;
         // Detach shared scar geometry before the old rig disposal traversal.
         surfaceMarks.clear();
+        pendingSurfaceMarks.length=0;
         exterior = buildExteriorRig(assembly);
         inspectionBaseParts=capturePartTransforms(exterior);
         inspectionJoints=captureArticulation(exterior).joints;
@@ -2188,12 +2189,30 @@ export function createArenaScene(initial, targetAssembly) {
             };
         });
     }
+    // Serial history is captured synchronously, while triangle clipping is
+    // budgeted to two marks per rendered frame to avoid disable/blast hitches.
+    const pendingSurfaceMarks=[];
     function restoreSurfaceMarks(events) {
         for(const event of events||[]) {
             if(!event?.eventId||!event?.serial)continue;
             knownSurfaceEvents.set(event.eventId,event);
+            pendingSurfaceMarks.push(event);
+        }
+    }
+    function flushSurfaceMarks(maxPerFrame=2){
+        for(let i=0;i<maxPerFrame&&pendingSurfaceMarks.length;i++){
+            const event=pendingSurfaceMarks.shift();
+            if(event.actorId==='player'){
+                surfaceMarks.apply(exterior,event);
+                continue;
+            }
+            if(event.actorId){
+                const record=squadCombatants.get(event.actorId);
+                if(record)surfaceMarks.apply(record.exterior,event);
+                continue;
+            }
             if(surfaceMarks.apply(exterior,event))continue;
-            for(const record of squadCombatants.values()) {
+            for(const record of squadCombatants.values()){
                 if(surfaceMarks.apply(record.exterior,event))break;
             }
         }
@@ -2213,7 +2232,9 @@ export function createArenaScene(initial, targetAssembly) {
             timestamp:Date.now(),
         };
         surfaceImpactEvents.push(event);
-        restoreSurfaceMarks([event]);
+        // Direct live hits to their struck rig; other actors need not be searched.
+        knownSurfaceEvents.set(event.eventId,event);
+        pendingSurfaceMarks.push({...event,actorId:contact.actorId});
     }
     function drainSurfaceEvents() {return surfaceImpactEvents.splice(0);}
     /** Return only successive distinct physical modules on a single muzzle ray.
@@ -2618,8 +2639,9 @@ export function createArenaScene(initial, targetAssembly) {
         updateTargetDamage(condition);
     }
     function updateCombatEffects(dt) {
-        // Cool new perforations to ordinary exposed steel in under a second.
-        // Stored scars and painted repairs remain unlit by artificial emission.
+        // No frame may synchronously clip an unbounded impact queue. Persistent
+        // damage is recorded on hit; its cosmetic mesh catches up incrementally.
+        flushSurfaceMarks(2);
         surfaceMarks.update();
         victoryStage?.scars.update();
         muzzleKick = Math.max(0, muzzleKick - dt * (pilotWeaponPresentation.visualRecovery ?? 3.6));
@@ -2847,7 +2869,9 @@ function buildServiceDressing() {
     }
     const post=box(.11,1.48,.12,steel);post.position.set(2.08,.91,-1.02);root.add(post);
     const monitor=box(.91,.68,.18,deep);monitor.position.set(1.80,1.48,-1.04);
-    monitor.rotation.y=-.38;root.add(monitor);
+    // The garage camera approaches from negative Z; face the CRT glass toward
+    // the mechanic rather than showing its rear shell and mirrored text.
+    monitor.rotation.y=Math.PI+.22;root.add(monitor);
     const canvas=document.createElement('canvas');canvas.width=128;canvas.height=64;
     const readout=new THREE.CanvasTexture(canvas);
     readout.colorSpace=THREE.SRGBColorSpace;
