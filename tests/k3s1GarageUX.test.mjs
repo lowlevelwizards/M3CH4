@@ -59,7 +59,7 @@ test('machine naming stays secondary, stations are read-only but inspectable in 
     assert.match(ui, /appendIdentityForm\(view,stable\)/);
     assert.match(ui, /if \(!identityExpanded\) return;/);
     assert.match(ui, /function renderStationReadout/);
-    assert.match(ui, /if \(readout\) dock\.append\(readout\)/);
+    assert.match(ui, /if\(inspector\)dock\.append\(inspector\)/);
 });
 test('unfinished machinery uses non-combat supports instead of levitating disconnected parts',()=>{
     assert.match(scene, /garage-work-fixtures/);
