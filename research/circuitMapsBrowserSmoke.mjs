@@ -52,6 +52,15 @@ try {
       ?arena.scene.getObjectByName('backlot-outdoor-derby-world')
       :arena.scene.getObjectByName('venue-dressing-'+id);
     const data=renderer.domElement.toDataURL('image/png');
+    // Also certify a mech-height point of view: the overhead map view alone
+    // could never reveal whether the sky still looked like a warehouse.
+    let eyeLevel=null;
+    if(id==='backlot-dustbowl'){
+      arena.camera.position.set(0,3.7,19);
+      arena.camera.lookAt(0,3.0,-22);
+      renderer.render(arena.scene,arena.camera);
+      eyeLevel=renderer.domElement.toDataURL('image/png');
+    }
     renderer.dispose();
     return {id,actualMap:actual?.userData?.mapId,
        obstacleCount:map.world.obstacles.length,
@@ -64,14 +73,17 @@ try {
          !arena.scene.getObjectByName('wall-west') &&
          !arena.scene.getObjectByName('wall-south') &&
          !arena.scene.getObjectByName('wall-east')):true,
-       data};
+       eyeLevel,data};
   },mapId);
   if(outcome.actualMap!==mapId||!outcome.themed||!outcome.backlotOpen||!outcome.allMapCover||
       outcome.drawnColliders<outcome.obstacleCount)
     throw Error('Venue cover/visual parity '+JSON.stringify({...outcome,data:'omitted'}));
   const buffer=Buffer.from(outcome.data.split(',')[1],'base64');
   writeFileSync('art-lab-artifacts/map-'+mapId+'.png',buffer);
-  pictures.push({...outcome,data:undefined,
+  if(outcome.eyeLevel)
+    writeFileSync('art-lab-artifacts/map-backlot-mech-eye.png',
+      Buffer.from(outcome.eyeLevel.split(',')[1],'base64'));
+  pictures.push({...outcome,eyeLevel:undefined,data:undefined,
     hash:createHash('sha256').update(buffer).digest('hex')});
  }
  if(new Set(pictures.map(p=>p.hash)).size!==3)
