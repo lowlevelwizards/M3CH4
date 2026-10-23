@@ -10,6 +10,7 @@ on:
       - 'research/headlessDominationStudy.mjs'
       - 'research/circuitMapBalanceStudy.mjs'
       - 'research/circuitMapCandidateStudy.mjs'
+      - 'research/circuitMapContractStudy.mjs'
       - 'tests/circuitMapRegistry.test.mjs'
       - 'tests/circuitMapFlow.test.mjs'
       - '.github/workflows/circuit-maps-ci.yml'
@@ -29,6 +30,8 @@ jobs:
         run: node research/circuitMapBalanceStudy.mjs 8
       - name: Compare live and proposed objective layouts (8 matched side-swapped seeds)
         run: node research/circuitMapCandidateStudy.mjs 8
+      - name: Run each actual campaign contract mode on its selected map
+        run: node research/circuitMapContractStudy.mjs 4
       - name: Retain map-specific first-contact and route metrics
         if: always()
         uses: actions/upload-artifact@v4
@@ -37,4 +40,5 @@ jobs:
           path: |
             study-results/circuit-map-baseline.json
             study-results/map-candidate-study.json
+            study-results/circuit-contract-cohort.json
           if-no-files-found: warn
