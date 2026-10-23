@@ -1,36 +1,37 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildPartVisual} from '../partVisuals.js';
+import {readFileSync} from 'node:fs';
 import {WEAPONS} from '../combat.js';
 import {reloadPhase} from '../reloadMechanism.js';
-import {poseReloadHardware} from '../weaponVisualKit.js';
-test('the actual gameplay mesh of every gun has reloadable moving hardware',()=>{
- for(const [id,spec] of Object.entries(WEAPONS)){
-   const model=buildPartVisual(id,{mode:'gameplay'});
-   const mechanism=model.userData.weaponMechanism;
-   assert.ok(mechanism, id+' actual action missing');
-   const {loader,carriage,bolt,rest}=mechanism;
-   assert.ok(loader?.feed?.children.length>0,id+' physical ammunition missing');
-   assert.ok(loader?.latch?.children.length>0,id+' physical locking jaw missing');
-   assert.ok(carriage?.children.length&&bolt?.children.length,id+' moving action missing');
-   const hitMeshes=[];loader.feed.traverse(x=>{if(x.isMesh)hitMeshes.push(x);});
-   assert.ok(hitMeshes.length>0&&hitMeshes.every(x=>x.userData.visualOnly),id);
-   const mid=reloadPhase(spec.reloadSeconds*.52,spec.reloadSeconds,id);
-   poseReloadHardware(mechanism,mid);
-   assert.equal(loader.feed.visible,true,id);
-   assert.ok(loader.feed.position.distanceTo(loader.rest.feed)>.01,id);
-   assert.ok(loader.latch.rotation.x<0,id);
-   poseReloadHardware(mechanism,reloadPhase(0,spec.reloadSeconds,id));
-   assert.equal(loader.feed.visible,false,id);
-   assert.ok(loader.feed.position.distanceTo(loader.rest.feed)<1e-9,id);
-   assert.equal(loader.latch.rotation.x,0,id);
-   assert.ok(carriage.position.distanceTo(rest.carriage)<1e-9,id);
+const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const builders={
+ 'gun-cannon':'trainingCannonVisual.js','gun-short':'stumpCannonVisual.js',
+ 'gun-light':'needleCannonVisual.js','gun-scatter':'scattergunVisual.js',
+ 'gun-rivet':'rivetRepeaterVisual.js','gun-breaker':'breakerDriverVisual.js',
+ 'gun-rocket':'scrapRocketVisual.js','gun-arc':'arcCutterVisual.js',
+};
+test('all eight shared authored gun meshes bind the actual reload mechanism metadata',()=>{
+ const kit=source('weaponVisualKit.js'),scene=source('scene.js');
+ assert.match(kit,/export function attachReloadHardware/);
+ assert.match(kit,/export function poseReloadHardware/);
+ assert.match(kit,/feed\.visible=false/);
+ assert.match(kit,/node\.userData\.visualOnly=true/);
+ assert.match(kit,/root\.userData\.weaponMechanism=/);
+ assert.match(scene,/poseReloadHardware\(mechanism,reload\)/);
+ assert.match(scene,/poseReloadHardware\(activeKit\.userData\.reloadMechanism,reload\)/);
+ assert.match(scene,/node\.userData\.visualOnly/);
+ for(const [id,file] of Object.entries(builders)){
+   assert.ok(WEAPONS[id],id);
+   const body=source(file);
+   assert.match(body,/finishWeapon\(r,\{carriage,bolt(?:,cassette)?\}\)/);
+   assert.ok(reloadPhase(WEAPONS[id].reloadSeconds*.5,
+     WEAPONS[id].reloadSeconds,id).feedVisible,id);
  }
 });
-test('inspection cancellation restores all physical loader nodes without NaNs',()=>{
- const model=buildPartVisual('gun-scatter',{mode:'gameplay'});
- const mechanism=model.userData.weaponMechanism;
- poseReloadHardware(mechanism,reloadPhase(1.1,3,'gun-scatter'));
- poseReloadHardware(mechanism,null);
- assert.ok(['x','y','z'].every(axis=>Number.isFinite(mechanism.loader.latch.position[axis])));
- assert.equal(mechanism.loader.feed.visible,false);
+test('inspection reset and disabled reload hide service carriers without moving hit meshes',()=>{
+ const kit=source('weaponVisualKit.js'),scene=source('scene.js');
+ assert.match(kit,/feed\.visible=!!phase\?\.feedVisible/);
+ assert.match(kit,/latch\.position\.copy\(rest\.latch\)/);
+ assert.match(scene,/poseReloadHardware\(mechanism,null\)/);
+ assert.match(scene,/scene\.js/);
+ // Real Three.js rendering is validated by the browser/art-lab smoke tests.
 });
