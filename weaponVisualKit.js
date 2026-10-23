@@ -65,124 +65,115 @@ export function strut(parent,name,from,to,width,depth,tone='steel'){
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
   return mesh;
 }
-/** Cockpit-first physical service hardware (the same authored kit also
- * appears on opponents). The per-weapon upper/inboard loading port comes from
- * reloadVisualLayout so every mechanism is readable at mobile FOV.
- * These visual-only meshes never become collision, shielding, or hit surfaces;
- * they cannot change the authoritative reload timer or aiming.
+/** k5r.7 — Subtractive reload modeling.
+ * ONE existing receiver socket, ONE removable carrier. The actual authored
+ * carriage/bolt is the opening and locking action. No ghost spent unit, second
+ * drum, floating lid, detached rail, miniature loading machine or extra
+ * collider. The carrier stays mechanically engaged in its existing port.
  */
 export function attachReloadHardware(root,id){
- const profile=reloadMechanism(id),form=profile.feedStyle;
  const layout=reloadVisualLayout(id);
- const stump=id==='gun-short';
- // All ammunition ports are mounted on a deliberate upper/inboard service
- // edge so the pilot and opponents actually SEE the complete cycle.
- const feed=group(root,'RELOAD / physical '+form+' carrier',layout.feed);
- if(form==='shell'||form==='penetrator'){
-   tube(feed,'RELOAD / heavy chambered shell',[0,0,0],
-     form==='penetrator'?.13:.16,form==='penetrator'?.52:.42,
-     form==='penetrator'?'machined':'shells');
-   block(feed,'RELOAD / breech head',[0,0,.21],
-     stump?[.42,.28,.13]:[.30,.22,.10],'steel');
-   if(stump){
-     block(feed,'RELOAD / oversized shell collar',[0,0,-.19],
-       [.36,.33,.09],'raw');
-     block(feed,'RELOAD / loading ram shoe',[0,-.22,.20],
-       [.46,.16,.20],'machined');
-   }
- }else if(form==='clip'||form==='tray'){
-   block(feed,'RELOAD / rectangular ammunition shuttle',[0,0,0],
-     form==='clip'?[.17,.21,.39]:[.35,.19,.34],'olive');
-   block(feed,'RELOAD / forward brass nose',[0,0,-.20],[.15,.12,.10],'raw');
- }else if(form==='cassette'){
-   block(feed,'RELOAD / industrial six-shot cassette',[0,0,0],[.39,.37,.42],'shells');
-   for(const y of [-.10,.10])tube(feed,'RELOAD / large shell '+y,[0,y,-.24],.09,.10,'raw');
- }else if(form==='drum'){
-   bearing(feed,'RELOAD / heavy feed drum',[0,0,0],.29,.24,'olive');
-   // The visible machined hub faces the pilot's INBOARD side.
-   bearing(feed,'RELOAD / central locking hub',[-.17,0,0],.12,.045,'machined');
- }else if(form==='rack'){
-   block(feed,'RELOAD / sliding triple rocket carrier',[0,0,0],[.52,.28,.50],'olive');
-   for(const x of [-.16,0,.16])tube(feed,'RELOAD / visible rocket '+x,
-        [x,.06,-.13],.065,.38,'raw');
+ const style=reloadMechanism(id).feedStyle;
+ const carrier=group(root,'RELOAD / single integrated '+style,layout.feed);
+ const shell=style==='shell'||style==='penetrator';
+ const width=id==='gun-short'?.38:id==='gun-breaker'?.40:
+   style==='rack'?.45:style==='drum'?.36:.28;
+ // The sole dark inset is FLUSH with the existing receiver and remains
+ // partly under the cartridge/drum. It is the same slot for all four beats.
+ const socket=group(root,'RELOAD / receiver socket',
+   [layout.feed[0],layout.feed[1]-.10,layout.feed[2]]);
+ block(socket,'RELOAD / inset receiver well',[0,0,0],
+   [width+.05,.10,style==='rack'?.48:.39],'dark');
+ if(shell){
+   tube(carrier,'RELOAD / single heavy shell or penetrator',[0,0,0],
+     id==='gun-short'?.17:id==='gun-breaker'?.14:.105,
+     id==='gun-breaker'?.38:id==='gun-short'?.35:.29,
+     id==='gun-breaker'?'machined':'shells');
+   if(id==='gun-short')
+     block(carrier,'RELOAD / integral shell rim',[0,0,.145],
+       [.35,.23,.065],'raw');
+ }else if(style==='drum'){
+   bearing(carrier,'RELOAD / one drum on its receiver axle',[0,0,0],
+     .235,.23,'olive');
+   bearing(carrier,'RELOAD / inboard drum hub',[-.13,0,0],
+     .09,.035,'machined');
+ }else if(style==='rack'){
+   block(carrier,'RELOAD / one triple rocket carrier',[0,0,0],
+     [.43,.24,.46],'olive');
+   // Three bold ordnance faces, no second rack or exposed wire forest.
+   for(const x of [-.14,0,.14])
+     tube(carrier,'RELOAD / rocket head '+x,[x,.035,-.23],
+       .059,.085,'raw');
+ }else if(style==='cell'){
+   block(carrier,'RELOAD / single plug-in cell',[0,0,0],
+     [.30,.28,.28],'teal');
+   block(carrier,'RELOAD / single connector band',[0,0,-.145],
+     [.25,.21,.065],'machined');
+ }else if(style==='cassette'){
+   block(carrier,'RELOAD / one shell cassette',[0,0,0],
+     [.33,.31,.34],'shells');
  }else{
-   block(feed,'RELOAD / power cell',[0,0,0],[.33,.37,.29],'teal');
-   block(feed,'RELOAD / copper contacts',[0,.22,0],[.26,.09,.22],'raw');
+   block(carrier,'RELOAD / simple feed tray or clip',[0,0,0],
+     style==='clip'?[.16,.18,.29]:[.28,.16,.31],'raw');
  }
- // Broad, readable latch, never a tiny decorative hinge.
- // Extract the empty shell, drum, rocket carrier or discharged cell
- // before loading the replacement. One recycled moving assembly per weapon.
- const spent=group(root,'RELOAD / withdrawn '+form,layout.spent);
- if(form==='shell'||form==='penetrator')
-   tube(spent,'RELOAD / spent steel case',[0,0,0],.115,.34,'heat');
- else if(form==='drum')
-   bearing(spent,'RELOAD / empty rivet drum',[0,0,0],.25,.20,'steel');
- else if(form==='rack')
-   block(spent,'RELOAD / empty rocket carrier',[0,0,0],[.47,.23,.39],'heat');
- else if(form==='cell')
-   block(spent,'RELOAD / discharged cell',[0,0,0],[.27,.31,.25],'dark');
- else
-   block(spent,'RELOAD / old feed unit',[0,0,0],[.29,.22,.32],'heat');
- const latch=group(root,'RELOAD / battery locking jaw',layout.latch);
- block(latch,'RELOAD / massive catch',[0,0,0],
-   stump?[.60,.20,.42]:id==='gun-breaker'?[.64,.24,.46]:
-     id==='gun-rocket'?[.54,.17,.48]:
-     id==='gun-rivet'?[.38,.20,.40]:[.37,.17,.34],
-   stump?'yellow':id==='gun-arc'?'teal':'machined');
- // Dark opening beneath the raised, chunky locking cover.
- const guide=group(root,'RELOAD / fixed ammunition feed track',layout.guide);
- for(const node of [feed,spent,latch,guide])node.userData.visualOnly=true;
- block(guide,'RELOAD / feeding rails',[0,0,0],
-   stump?[.48,.11,.65]:
-     id==='gun-breaker'?[.51,.14,.72]:
-     id==='gun-rocket'?[.47,.13,.65]:
-     id==='gun-rivet'?[.43,.14,.58]:[.32,.13,.51],'dark');
- root.traverse(node=>{if(node.isMesh&&(feed===node.parent||spent===node.parent||latch===node.parent||guide===node.parent))
-   node.userData.visualOnly=true;});
- feed.visible=false;spent.visible=false;
- return {feed,spent,latch,stump,layout,rest:{feed:feed.position.clone(),
-   spent:spent.position.clone(),latch:latch.position.clone()}};
+ for(const subtree of [socket,carrier]){
+   subtree.userData.visualOnly=true;
+   subtree.traverse(node=>{
+     if(node.isMesh)node.userData.visualOnly=true;
+   });
+ }
+ // Large visible magazines must remain part of the complete weapon body
+ // before and after reload. Hidden chambers reveal their ONE shell only
+ // while the ORIGINAL sliding breech is open.
+ carrier.visible=!!layout.exposed;
+ return {feed:carrier,socket,layout,rest:{
+   feed:carrier.position.clone(),socket:socket.position.clone(),
+ }};
 }
 export function poseReloadHardware(mechanism,phase){
  const loader=mechanism?.loader;
  if(!loader)return;
- const {feed,spent,latch,rest}=loader;
- feed.visible=!!phase?.feedVisible;
+ const {feed,socket,layout,rest}=loader;
  const t=phase?.progress??1;
- spent.visible=!!phase?.active&&t>=.13&&t<.40;
- const withdrawal=Math.max(0,Math.min(1,(t-.13)/.22));
- const oldLift=loader.layout?.step==='inboard rotary drum'?.17:.28;
- spent.position.set(rest.spent.x-.38*withdrawal,
-   rest.spent.y+oldLift*withdrawal,rest.spent.z+.23*withdrawal);
- const shift=phase?.feed??0;
- const displacement=phase?.cassette??0;
- const style=mechanism.feedAxis??'z';
- // Both the disengaged carrier and incoming rounds move on large,
- // physically readable mechanical guides, never across open air.
- if(style==='x'){
-   feed.position.set(rest.feed.x+displacement*.90-shift*.38,
-     rest.feed.y+.11*shift,rest.feed.z-.31*shift);
- }else if(style==='y'){
-   feed.position.set(rest.feed.x-.14*shift,
-     rest.feed.y-displacement+.29*shift,rest.feed.z-.27*shift);
+ const active=!!phase?.active;
+ feed.visible=layout.exposed||(active&&t>=.21&&t<.83);
+ const extension=active?(phase?.feed??0)*layout.travel:0;
+ // The cartridge NEVER leaves the port: displacement is smaller than its
+ // depth (or drum diameter), and the dark receiver well never moves.
+ feed.position.copy(rest.feed);
+ if(layout.step==='integral side cassette'||layout.step==='integral rotary drum'){
+   feed.position.x-=extension;
+   feed.position.y-=extension*.18;
+ }else if(layout.step==='plug-in power cell'){
+   feed.position.y+=extension*.60;
  }else{
-   feed.position.set(rest.feed.x-.18*shift,
-     rest.feed.y+.12*shift,rest.feed.z+displacement*.35-.42*shift);
+   feed.position.z+=extension;
+   feed.position.y+=extension*.12;
  }
- latch.position.copy(rest.latch);
- latch.position.y-=(phase?.slide??0)*.35;
- const lidAngle=loader.layout?.lidAngle??-.42;
- latch.rotation.x=(phase?.active?1-(phase.lock??0):0)*lidAngle;
- latch.rotation.z=loader.layout?.step==='inboard rotary drum'?
-   (phase?.active?1-(phase.lock??0):0)*-.30:0;
+ socket.position.copy(rest.socket);
 }
 
+/** An exterior Scattergun and Rivet already contain ORIGINAL side-mounted
+ * magazines. Shift those existing hardware groups along their real side
+ * receiver, instead of duplicating a floating magazine above the weapon.
+ */
+export function poseExistingReloadMagazine(mechanism,phase,id){
+ const magazine=mechanism?.cassette,rest=mechanism?.rest?.cassette;
+ if(!magazine||!rest)return;
+ const travel=(phase?.active?phase.feed:0)*
+   reloadVisualLayout(id).travel;
+ magazine.position.copy(rest);
+ magazine.position.x+=travel;
+ magazine.position.y-=travel*.18;
+}
 /** The model's serviceable moving elements use their own authored rest pose.
  * All values are presentation-only; reload/firing rules stay in combat.js.
  */
 export function finishWeapon(root,{carriage,bolt,cassette=null}){
   if(!carriage||!bolt)throw new Error('Weapon missing physical moving action');
-  const loader=attachReloadHardware(root,root.userData.fitFixtureId);
+  // Scattergun and Rivet already have properly mounted functional
+  // magazines. Do not create a second cartridge on those exterior guns.
+  const loader=cassette?null:attachReloadHardware(root,root.userData.fitFixtureId);
   root.userData.weaponMechanism={
     carriage,bolt,cassette,loader,
     feedAxis:reloadMechanism(root.userData.fitFixtureId).feedAxis,
