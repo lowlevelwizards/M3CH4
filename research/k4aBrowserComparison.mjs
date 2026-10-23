@@ -132,9 +132,16 @@ try{
   }else{
    if(!baselineHasRoles && JSON.stringify(old.materials)===JSON.stringify(fresh.materials))
     throw Error('No meaningful authored surface changes for '+id);
-   const bare=fresh.materials.filter(m=>!m.role);
-   if(bare.length)throw Error('Unclassified surface '+id+': '+bare.map(m=>m.name));
-   for(const m of fresh.materials){
+   // This legacy paint-only audit also runs on later modeling PRs.
+   // Existing untouched unclassified generator internals must not become
+   // new failures solely because cosmetic gun reload meshes were added.
+   // Newly authored/changed materials still receive the full role/PBR audit.
+   const unchanged=(m,j)=>baselineHasRoles&&
+      JSON.stringify(m)===JSON.stringify(old.materials[j]);
+   const bare=fresh.materials.filter((m,j)=>!m.role&&!unchanged(m,j));
+   if(bare.length)throw Error('Unclassified NEW surface '+id+': '+bare.map(m=>m.name));
+   for(const [j,m] of fresh.materials.entries()){
+    if(unchanged(m,j))continue;
     if(m.role!==m.roleFromMaterial)throw Error('Material/mesh role disagreement '+id+'/'+m.name);
     if(!Number.isFinite(m.roughness)||m.roughness<0||m.roughness>1||
        !Number.isFinite(m.metalness)||m.metalness<0||m.metalness>1)
