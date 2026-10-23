@@ -36,7 +36,8 @@ export function advanceWeaponStabilizer(mount,id,rig={},contacts=null,health={},
  const rate=clamp(rig.yawRate??0,-2,2);
  const shift=clamp(legs?.weightShift??0,-1.4,1.4);
  // One planted foot (or a damaged pair of supports) transmits more load.
- const support=1+.24*(2-stance)+.38*(1-mobility);
+ const massScale=clamp(Math.sqrt(2600/clamp(health.massKg??2600,900,12000)),.76,1.30);
+ const support=(1+.24*(2-stance)+.38*(1-mobility))*massScale;
  const planted=1-.66*brace;
  const motionX=(accelX*.0028+rate*.0052+shift*.0033)*support*planted;
  const motionY=(-accelZ*.0025+load*.0041+land*.0026)*support*planted;
@@ -62,12 +63,13 @@ export function advanceWeaponStabilizer(mount,id,rig={},contacts=null,health={},
 /** Trigger only AFTER a real consumed shot, so the fired shot is not moved
  * by its own impulse. Subsequent shots must follow the recovery trajectory.
  */
-export function registerWeaponStabilityShot(mount,id,{brace=0,condition=1}={}){
+export function registerWeaponStabilityShot(mount,id,{brace=0,condition=1,massKg=2600}={}){
  if(!mount)return;
  const profile=weaponMountProfile(id);
  const wear=1+.45*(1-clamp(condition,0,1));
  const firm=1-.42*clamp(brace,0,1);
- const kick=profile.kick*wear*firm;
+ const massScale=clamp(Math.sqrt(2600/clamp(massKg,900,12000)),.76,1.30);
+ const kick=profile.kick*wear*firm*massScale;
  mount.vPitch=clamp(mount.vPitch+kick*profile.response*1.8,-.85,.85);
  // Right-hand mounting applies a repeatable lateral disturbance; no RNG.
  mount.vYaw=clamp(mount.vYaw-kick*profile.response*.32,-.5,.5);
