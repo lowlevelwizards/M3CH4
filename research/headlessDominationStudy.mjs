@@ -352,7 +352,7 @@ export function runBout(seed,settings){
             preserveMajority:zonePoints.filter(p=>
               p.owner===a.team&&!p.contested).length>=2,
             underFireSeconds:a.motion.awareness?.underFireSeconds??0,
-            retreatPoint:{x:a.rig.x,z:a.team==='friendly'?22:-22}},t);
+            retreatPoint:{x:a.rig.x,z:a.spawn.z}},t);
         if(a.brain.history.length>before)a.stats.goalChanges++;
         const instruction=executeIntent(a.executor,decision,a.rig,physicalWorld,
           config.collisionRadiusM,DT,nearbyTraffic,
