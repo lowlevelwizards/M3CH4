@@ -234,6 +234,30 @@ function arenaFacilities(root,w){
  const hook=new THREE.Mesh(new THREE.TorusGeometry(.52,.11,5,7,Math.PI*1.55),metal);
  hook.rotation.y=Math.PI/2;hook.position.set(craneX+12.4,7.85,craneZ);
  hook.name='hoist-hook';g.add(hook);
+ // A marquee that faces the actual friendly spawn (looking north).
+ // Earlier venue signage sat dozens of meters BEHIND the player or hidden
+ // behind the far boundary. This unmistakable grandstand landmark is high
+ // above the sightline and outside the north playable line.
+ const portalZ=w.minZ-3.55;
+ for(const xx of [-10.3,10.3]){
+   cuboid(g,'hog-pen-entrance-pylon',.68,8.4,.73,
+     xx,4.2,portalZ-1.1,red);
+   cuboid(g,'hog-pen-warning-cap',1.5,.4,1.5,
+     xx,8.48,portalZ-1.1,amber);
+ }
+ cuboid(g,'hog-pen-scorebridge-girder',21.5,.53,.83,
+   0,8.5,portalZ-1.1,metal);
+ planeLabel(g,'north-facing-hog-pen-marquee','HOG PEN','BACKLOT DERBY  •  KEEP MOVING',
+   0,10.2,portalZ,16.2);
+ // Asymmetric signal flags form readable silhouettes above the ring without
+ // adding extra collision, navigation blockers, dynamic lights or shadows.
+ for(const [xx,paint] of [[-24,red],[26,pale]]){
+   cuboid(g,'derby-marshals-flagstaff',.14,9.4,.14,
+      xx,4.7,w.minZ-1.9,metal);
+   const flag=cuboid(g,'derby-marshals-flag',3,1.35,.11,
+      xx+1.55,8.6,w.minZ-1.9,paint);
+   flag.rotation.z=-.12;
+ }
  // The derby's route markers don't obstruct routes or pretend to be cover.
  for(const [x,z,t] of [[-20,-4,'A'],[0,-11,'B'],[20,0,'C']]){
   const disc=new THREE.Mesh(new THREE.RingGeometry(2.3,2.43,24),

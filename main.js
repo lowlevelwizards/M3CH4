@@ -14,7 +14,7 @@ import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
 import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
-import {mapForContract,contractAtMap,orderedTeamSpawns} from './maps/mapRegistry.js';
+import {mapForContract,contractAtMap,orderedTeamSpawns} from './maps/mapRegistry.js?v=k5q1';
 import { createArenaScene } from './scene.js';
 import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {createPhysicalEvidenceCard} from './physicalEvidenceInspector.js';
@@ -376,7 +376,9 @@ const devPanel = required('#dev-panel');
 const devReadout = required('#dev-readout');
 // One title-derived build label: the DEV drawer must never retain an old milestone.
 const devVersion = document.querySelector('#dev-version');
-if (devVersion) devVersion.textContent = document.title.split(' — ')[1] ?? 'BUILD UNKNOWN';
+if (devVersion) devVersion.textContent =
+    (document.title.split(' — ')[1] ?? 'BUILD UNKNOWN') +
+    ' · VENUE ' + selectedMap.name + ' / v' + selectedMap.version;
 const resetRig = required('#reset-rig');
 const wipeSave = required('#wipe-save');
 const toggleColliders = required('#toggle-colliders');
