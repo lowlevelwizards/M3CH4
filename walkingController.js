@@ -5,9 +5,9 @@
  */
 export const WALK_ASSIST=Object.freeze({
   intentDeadzone:.12,
-  settleGainPerSecond:2.0,
-  brakeShare:.58,
-  driveShare:1.0,
+  settleGainPerSecond:2.8,
+  brakeShare:.72,
+  driveShare:1.40,
   settleVelocityMps:.015,
 });
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -24,6 +24,8 @@ export function walkingLongitudinalIntent(state,{throttle=0,brake=0}={},config={
     return {forceN:0,mode:'PLANTED'};
   // Both directions require working actuators. Avoid granting phantom braking
   // to a destroyed drive, low-power bus or one-sided immobilized mechanism.
+  // Paired planted-foot correction can recruit both sides rather than only
+  // the nominal reverse-drive request. Combined contact still caps it.
   const available=Math.min(braking*WALK_ASSIST.brakeShare,
     Math.max(0,Math.min(powered,backwards))*WALK_ASSIST.driveShare);
   if(available<=0)return {forceN:0,mode:'COAST'};
