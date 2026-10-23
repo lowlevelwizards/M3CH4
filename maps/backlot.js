@@ -4,6 +4,7 @@ export const BACKLOT=Object.freeze({
  world:{minX:-34,maxX:34,minZ:-28,maxZ:28,obstacles:[
  {id:'tractor-hull',minX:-7.0,maxX:-1.1,minZ:-5.7,maxZ:2.1,height:3.6,kind:'building'},
  {id:'loader-bucket',minX:1.4,maxX:8.8,minZ:-3.2,maxZ:1.9,height:2.8,kind:'container'},
+ {id:'coupling-spine',minX:-1.25,maxX:1.65,minZ:-3.1,maxZ:1.5,height:3.4,kind:'barrier'},
  {id:'exposed-engine',minX:-1.7,maxX:3.2,minZ:4.2,maxZ:7.1,height:1.7,kind:'barrier-low'},
  {id:'west-tractor',minX:-27.5,maxX:-22.9,minZ:-12.5,maxZ:-6.0,height:2.8,kind:'container'},
  {id:'west-axles',minX:-27.0,maxX:-22.5,minZ:9,maxZ:13.8,height:2.3,kind:'barrier'},
