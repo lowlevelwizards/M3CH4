@@ -1811,6 +1811,53 @@ window.addEventListener('orientationchange', () => {
     window.setTimeout(resize, 180);
 });
 resize();
+if (testYard) {
+    yardUI=createTestYardPanel({
+        assembly,
+        onInstall:(slot,id)=>{
+            equip(assembly,slot,id);
+            refreshAssembly(false);
+            storeTestYardAssembly(assembly);
+        },
+        onDeploy:()=>{if(inspecting)toggleInspection(false);},
+        onGarage:()=>{if(!inspecting)toggleInspection(true);},
+        onTargets:()=>resetTarget.click(),
+        onMode:()=>{
+            yardMode=yardMode==='static'?'live':'static';
+            yardUI.setMode(yardMode);
+            resetSquadBattle();
+            renderTarget();
+            showStatus(yardMode==='static'?'TARGET AI PARKED':'LIVE TRAINING AI ENABLED');
+        },
+        onCenter:()=>centerView.click(),
+        onReset:()=>{
+            const wasDeployed=!inspecting;
+            if(wasDeployed)toggleInspection(true);
+            resetInstalledDamage(assembly,damage);
+            for(const slot of SLOTS) {
+                const fitted=installedPart(assembly,slot);
+                if(fitted) {
+                    fitted.instance.condition=1;
+                    fitted.instance.destroyed=false;
+                    fitted.instance.wear=0;
+                }
+                restoreTargetPart(playerCondition,assembly,slot);
+            }
+            refreshAssembly(false);
+            if(wasDeployed)toggleInspection(false);
+            showStatus('TEST RIG RESET · NO CAMPAIGN COST');
+        },
+        onResetLoadout:()=>{
+            clearTestYardAssembly();
+            Object.assign(assembly,readTestYardAssembly());
+            resetInstalledDamage(assembly,damage);
+            Object.assign(playerCondition,createTargetCondition(assembly,true));
+            refreshAssembly(false);
+            yardUI.render();
+            showStatus('FULL-CATALOGUE DEFAULT RESTORED');
+        },
+    });
+}
 toggleInspection(true); // Always reopen in the garage, never in an active hostile firefight.
 if (loadedMachine.status === 'restored')
     showStatus('OWNED RIG RESTORED · LOCAL SAVE');
