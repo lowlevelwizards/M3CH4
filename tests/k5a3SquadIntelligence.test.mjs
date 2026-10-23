@@ -6,6 +6,7 @@ import {assessTacticalAdvantage,localAttackWindow,searchSectorPoint,flankApproac
 import {planTeam} from '../ai/teamPlanner.js';
 import {createPilotBrain,decidePilot} from '../ai/pilotBrain.js';
 import {createIntentExecutor,executeIntent,trafficPolicyForIntent} from '../ai/intentExecutor.js';
+import {createEnemyMotion,advanceEnemyMotion} from '../enemyMotion.js';
 import {coordinateSquadArrivals} from '../ai/squadPositioning.js';
 import {coordinateCorridors} from '../ai/corridorCoordinator.js';
 const pos=(x,z)=>({x,z});
@@ -150,4 +151,15 @@ test('new circuit arena is the actual tactical world and adaptive traffic preser
  assert.equal(trafficPolicyForIntent({goal:'CAPTURE',arrivalPoint:pos(1,2)},'legacy'),'legacy');
  assert.match(html,/ai\/intentExecutor\.js\?v=k5a4/);
  assert.match(html,/ai\/trafficCoordination\.js\?v=k5a4/);
+});
+
+test('a capturer keeps physically moving until the waypoint is inside the scoring core',()=>{
+ const rig={x:0,z:0,yaw:0,vx:0,vz:0,yawRate:0,forwardSpeed:0,lateralSpeed:0};
+ const order={mode:'ORDER',goal:'CAPTURE',point:pos(0,-1.3),missionPoint:pos(0,-3.5)};
+ const travel=advanceEnemyMotion(createEnemyMotion(),rig,null,1/60,true,
+   geometry,1.1,null,order);
+ assert.ok(travel.throttle>0,'1.3m should still advance instead of stopping short');
+ const other=advanceEnemyMotion(createEnemyMotion(),rig,null,1/60,true,
+   geometry,1.1,null,{...order,goal:'SEARCH'});
+ assert.ok(other.brake>0,'generic searching must keep previous safe arrival tolerance');
 });
