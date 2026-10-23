@@ -1,4 +1,4 @@
-import {BACKLOT} from './backlot.js?v=k5q1';
+import {BACKLOT} from './backlot.js?v=k5q2';
 import {CULVERT_NINE} from './culvertNine.js';
 import {GRAINHOUSE} from './grainhouse.js';
 
