@@ -25,7 +25,8 @@ export function createFootContacts(state={x:0,z:0,yaw:0},family='legs-yard'){
     nextSide:-1,landings:0,lastLandingSide:0,lastLandingStrength:0,
     lastX:state.x??0,lastZ:state.z??0,lastYaw:state.yaw??0,
     lastSpeed:0,pivot:false,stanceCount:2,slipM:0,
-    preparingSide:0,prepareLeft:0,weightShift:0,actuatorEffort:0,bodyCompression:0};
+    preparingSide:0,prepareLeft:0,weightShift:0,actuatorEffort:0,bodyCompression:0,
+    gaitMode:'IDLE',recovery:0,maneuver:'STANDING'};
 }
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 /** Update once per rendered state. Output feet[*].localX/localZ are deltas
@@ -45,6 +46,17 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   // stretching feet across the entire arena.
   if(travel>2.5||Math.abs(yawDelta)>1.3)return createFootContacts(rig,family);
   const inMotion=!disabled&&(speed>.16||turning>.14||travel>.015);
+  // Gait vocabulary follows *achieved* velocity rather than assigning new
+  // speed or motor authority. Hysteresis avoids rapid family state flicker.
+  const nextMode=!inMotion?'IDLE':speed<.65?'CREEP':speed<2.55?'WALK':'HUSTLE';
+  state.gaitMode=nextMode;
+  const recoveryTarget=clamp((rig.footSlipMps??0)*.38+
+    Math.max(0,(rig.tractionUse??0)-.91)*1.8+
+    Math.max(0,rig.impact??0)*.50,0,1);
+  state.recovery+=(recoveryTarget-state.recovery)*(1-Math.exp(-safeDt*8));
+  state.maneuver=state.pivot?'PIVOT':nextMode==='IDLE'?'SETTLE':
+    (Math.abs(rig.lateralSpeed??0)>Math.abs(rig.forwardSpeed??0)*1.4
+       ?'SIDESTEP':nextMode);
   if(!inMotion||disabled){state.preparingSide=0;state.prepareLeft=0;}
   if(state.preparingSide){state.prepareLeft=Math.max(0,state.prepareLeft-safeDt);}
   state.pivot=inMotion&&speed<.55&&turning>.20;
@@ -53,14 +65,18 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   for(const f of state.feet){
     const nominal=offsets(rig,f.side,p);
     if(f.mode==='swing'){
-      f.swing=clamp(f.swing+safeDt/p.stepSeconds,0,1);
+      // Fast locomotion is a quicker higher-energy transfer; precision
+      // creep takes shorter, deliberate time with reliable ground support.
+      const gaitTime=state.gaitMode==='HUSTLE'?.82:
+        state.gaitMode==='CREEP'?1.24:1;
+      f.swing=clamp(f.swing+safeDt/(p.stepSeconds*gaitTime),0,1);
       // A swing aims toward where the body will be when the foot lands.
       // Target remains committed after step initiation, so it cannot chase
       // the machine and appear to hover/skate.
       const t=f.swing*f.swing*(3-2*f.swing);
       f.x=f.startX+(f.targetX-f.startX)*t;
       f.z=f.startZ+(f.targetZ-f.startZ)*t;
-      f.lift=Math.sin(Math.PI*t)*p.lift;
+      f.lift=Math.sin(Math.PI*t)*p.lift*(state.gaitMode==='HUSTLE'?1.12:1);
       if(f.swing>=1){
         f.mode='stance';f.x=f.targetX;f.z=f.targetZ;f.lift=0;f.swing=0;
         f.landingCount++;state.landings++;
@@ -99,7 +115,7 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       const nominal=offsets(rig,candidate.side,p);
       // Look ahead only a modest distance in the measured motion direction.
       // Limit relative placement by the family-specific available reach.
-      const leadTime=clamp(p.stepSeconds*.33,.06,.18);
+      const leadTime=clamp(p.stepSeconds*(state.gaitMode==='HUSTLE'?.45:.33),.06,.18);
       const leadX=clamp((rig.vx??0)*leadTime,-p.reach*.48,p.reach*.48);
       const leadZ=clamp((rig.vz??0)*leadTime,-p.reach*.48,p.reach*.48);
       // Transfer load to the future support leg before committing the step.
@@ -138,7 +154,7 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   state.bodyCompression=0;
   for(const f of state.feet){
     f.load/=Math.max(.001,total);
-    f.compression=f.mode==='stance'?p.compression*f.load*(.4+.6*state.actuatorEffort):0;
+    f.compression=f.mode==='stance'?p.compression*f.load*(.4+.6*state.actuatorEffort+state.recovery*.12):0;
     state.bodyCompression+=f.compression;
   }
   state.lastX=x;state.lastZ=z;state.lastYaw=yaw;state.lastSpeed=speed;
