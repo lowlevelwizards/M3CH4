@@ -90,7 +90,7 @@ export function buildAnatomicalTyreStack(root){
   }
  }
  for(const s of [-1,1])f(g,'old-rack-upright',
-   [s*2.24,.12,-.84],[s*2.24,1.86,-.84],.16,R);
+   [s*2.24,.12,-.84],[s*2.24,1.13,-.84],.18,R);
  f(g,'old-rack-beam',[-2.21,.16,-.84],[2.21,.16,-.84],.20,S);
  return g;
 }
