@@ -1,0 +1,32 @@
+/* Isolated test yard — mobile-first and intentionally separate from live garage chrome. */
+body.test-yard .toolbar,
+body.test-yard #inspection-panel,
+body.test-yard #team-status,
+body.test-yard #objective-status,
+body.test-yard #round-clock-hud,
+body.test-yard #dev-panel,
+body.test-yard #sortie-debrief,
+body.test-yard #target-panel,
+body.test-yard #garage-context,
+body.test-yard #unified-garage,
+body.test-yard #sortie-outro { display:none !important; }
+body.test-yard .yard-shell{position:fixed;inset:0;pointer-events:none;z-index:70;color:#e6d6b4;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+body.test-yard .yard-toolbar{position:absolute;left:50%;top:max(6px,env(safe-area-inset-top));transform:translateX(-50%);display:flex;align-items:center;gap:5px;max-width:calc(100vw - 18px);background:rgba(22,28,25,.92);border:1px solid #91805e;border-radius:5px;padding:5px;pointer-events:auto;white-space:nowrap;box-shadow:0 4px 12px #0008}
+body.test-yard .yard-toolbar button,body.test-yard .yard-toolbar a,body.test-yard .yard-secondary{border:1px solid #89764b;color:#f1d6a0;background:#293631;box-sizing:border-box;border-radius:3px;padding:7px 9px;min-height:34px;font:700 10px/1 ui-monospace,monospace;letter-spacing:.02em;text-decoration:none;white-space:nowrap}
+body.test-yard .yard-toolbar button:active,body.test-yard .yard-secondary:active{background:#566855}
+body.test-yard .yard-toolbar button:disabled{opacity:.45}
+body.test-yard .yard-toolbar .yard-tag{font-size:11px;color:#f0b95e;margin:0 9px}
+body.test-yard .yard-bench{position:absolute;top:58px;right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));width:min(340px,42vw);box-sizing:border-box;background:rgba(19,27,26,.95);border:1px solid #87724b;border-radius:5px;overflow-y:auto;overscroll-behavior:contain;pointer-events:auto;padding:12px;box-shadow:0 5px 20px #000a}
+body.test-yard .yard-bench[hidden],body.test-yard .yard-bench.collapsed{display:none}
+body.test-yard .yard-bench-title{font-size:15px;font-weight:900;letter-spacing:.08em;color:#f0bc67}
+body.test-yard .yard-help{font-size:11px;line-height:1.4;margin:6px 0 10px;color:#b8c4b8}
+body.test-yard .yard-parts{display:grid;gap:9px}
+body.test-yard .yard-part{display:grid;gap:3px;border-top:1px solid #56645c;padding:8px 0 0}
+body.test-yard .yard-part-label{font-weight:800;font-size:10px;letter-spacing:.07em;color:#e3b768}
+body.test-yard .yard-select{appearance:auto;width:100%;font-size:13px;min-height:35px;background:#323c36;color:#f3e6c8;border:1px solid #6d806f;padding:5px}
+body.test-yard .yard-part-note{display:block;font-size:10px;line-height:1.35;color:#b3bfb5;max-height:3em;overflow:auto}
+body.test-yard .yard-stats{font-size:11px;font-weight:700;line-height:1.4;margin:12px 0 8px;padding:8px;border:1px solid #597c66;color:#a8d4af;background:#1d2f28}
+body.test-yard .yard-stats.not-ready{border-color:#b78c55;color:#f6c078;background:#382920}
+body.test-yard .yard-feedback{font-size:11px;color:#f4c66e;min-height:1.25em;margin:6px 0}
+body.test-yard #orbit-help{bottom:8px}
+@media(max-width:730px){body.test-yard .yard-toolbar{gap:3px;padding:4px}body.test-yard .yard-toolbar button,body.test-yard .yard-toolbar a{padding:6px 5px;min-height:30px;font-size:9px}body.test-yard .yard-toolbar .yard-tag{font-size:10px;margin:0 3px}body.test-yard .yard-bench{top:47px;width:min(310px,46vw);padding:9px}body.test-yard .yard-help{font-size:10px}}

@@ -199,7 +199,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     scene.background = new THREE.Color(fogColor);
     scene.fog = new THREE.FogExp2(fogColor,
         arenaMap.theme==='mill'?.013:arenaMap.theme==='concrete'?.0098:.0105);
-    if(arenaMap.id==='backlot-dustbowl')setBacklotOpenSky(scene);
+    if(arenaMap.id==='backlot-dustbowl'||arenaMap.id==='test-yard')setBacklotOpenSky(scene);
     const combatBackground=scene.background;
     const serviceBackground=new THREE.Color(0x0d1210);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.06, 125);
@@ -2312,9 +2312,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         // Garage/service darkness is restored only while that space is visible.
         scene.background=enabled?serviceBackground:combatBackground;
         scene.fog.color.setHex(enabled?0x0d1210:
-            arenaMap.id==='backlot-dustbowl'?0xc5ad8d:0x171915);
+            (arenaMap.id==='backlot-dustbowl'||arenaMap.id==='test-yard')?0xc5ad8d:0x171915);
         scene.fog.density=enabled?.0075:
-            arenaMap.id==='backlot-dustbowl'?.0048:.0125;
+            (arenaMap.id==='backlot-dustbowl'||arenaMap.id==='test-yard')?.0048:.0125;
         if (!enabled) setAnimationPreview('off');
         if (enabled) {
             pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;

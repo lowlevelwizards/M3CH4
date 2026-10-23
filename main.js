@@ -11,7 +11,7 @@ import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityS
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
-import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, generatorMount, setGeneratorMount, } from './components.js';
+import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -67,6 +67,10 @@ import { loadStable, serialOwner } from './stable.js';
 import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount } from './garageBay.js';
 import { buyCounterLot } from './usedPartsCounter.js';
 import { loadCampaign } from './campaign.js';
+import {TEST_YARD,readTestYardAssembly,storeTestYardAssembly,clearTestYardAssembly,createTestYardPanel} from './testYard.js';
+const testYard=/(?:^|\/)test-yard\.html$/.test(window.location.pathname);
+if(testYard)document.body.classList.add('test-yard');
+let yardMode='static';
 const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.12;
 const labels = {
@@ -77,10 +81,14 @@ const labels = {
 // An invalid or inaccessible save never prevents a fresh rig from opening.
 let saveStorage = null;
 try {
-    saveStorage = window.localStorage;
+    saveStorage = testYard ? null : window.localStorage;
 }
 catch { /* Safari storage may be unavailable. */ }
-const loadedMachine = loadMachine(saveStorage);
+const yardAssembly=testYard?readTestYardAssembly():null;
+const loadedMachine=testYard?{
+    ...loadMachine(null),assembly:yardAssembly,
+    playerCondition:createTargetCondition(yardAssembly,true),status:'yard',
+}:loadMachine(saveStorage);
 const assembly = loadedMachine.assembly;
 /** Transient material projection of the existing per-serial service ledger.
  * The rollback-safe v8 machine save remains untouched: no new inventory keys,
@@ -95,7 +103,7 @@ const economy = loadedMachine.economy;
 const targetAssembly = makeRangeTarget();
 // Contract defines the whole opponent squad's signature livery; lead uses DEFAULT.
 applyEnemyCrewPaint(targetAssembly,targetAssembly.contractId,0);
-const activeContract = contractById(targetAssembly.contractId);
+const activeContract = testYard ? {...contractById(targetAssembly.contractId),trainingGround:true} : contractById(targetAssembly.contractId);
 const selectedMap=mapForContract(activeContract);
 const selectedWorld=selectedMap.world;
 const mappedContract=contractAtMap(activeContract,selectedMap);
@@ -544,6 +552,7 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
 }
 const controls = new Controls(required('#drive-zone'), required('#drive-knob'), required('#look-zone'), required('#brake'));
 let inspecting = false;
+let yardUI = null;
 // DEV-only external animation preview. Uses the real current garage assembly,
 // never drives live physics, expenses, weapon state, or persistent ownership.
 const animationPreviewButton=required('#animation-preview-toggle');
@@ -859,8 +868,9 @@ function checkSquadOutcome() {
     // The squad resolver already requires every hostile actor to be disabled;
     // no capture/score mutation is needed and the existing bout outcome stays
     // authoritative for salvage, BO3, and persistent machine damage.
-    if (outcome && !testEnded)
-        finishSortie(outcome.victory, outcome.reason);
+    if (outcome && !testEnded) {
+        if (!testYard) finishSortie(outcome.victory, outcome.reason);
+    }
 }
 function missionKillAiActor(actor, reason, attackerId = null) {
     if (!actor?.active) return;
@@ -1001,6 +1011,11 @@ function resetSquadBattle() {
     resetFaultSupportState(faultSupportState);
     lastPlayerScreenId = null;
     for (const actor of aiActors) resetAiActor(actor);
+    // Side-friendly squad does not enter the calibration lanes.
+    if(testYard)for(const actor of friendlySupportActors) {
+        actor.active=false;
+        arena.setCombatantActive(actor.id,false);
+    }
     mirrorTargetCondition(targetAssembly, targetCondition);
     arena.resetTargetDamage(targetCondition);
     arena.updateHostileNavigation(null);
@@ -1040,7 +1055,7 @@ function showStatus(message) {
 let saveErrorShown = false;
 let persistenceSuppressed = false;
 function persistMachine() {
-    if (persistenceSuppressed) return;
+    if (persistenceSuppressed || testYard) return;
     const saved = storeMachine(saveStorage, { assembly, damage, playerCondition, economy });
     if (!saved && !saveErrorShown) {
         saveErrorShown = true;
@@ -1617,6 +1632,7 @@ function toggleInspection(force) {
     }
     controls.setEnabled(!inspecting && !testEnded && playerCombatActive && appSheet.classList.contains('hidden'));
     accumulator = 0;
+    yardUI?.setInspecting(inspecting);
 }
 assemblyToggle.addEventListener('click', () => toggleInspection());
 centerView.addEventListener('click', () => controls.recenterLook());
@@ -1796,6 +1812,68 @@ window.addEventListener('orientationchange', () => {
     window.setTimeout(resize, 180);
 });
 resize();
+if (testYard) {
+    yardUI=createTestYardPanel({
+        assembly,
+        onInstall:(slot,id)=>{
+            equip(assembly,slot,id);
+            refreshAssembly(false);
+            storeTestYardAssembly(assembly);
+        },
+        onDeploy:()=>{if(inspecting)toggleInspection(false);},
+        onGarage:()=>{if(!inspecting)toggleInspection(true);},
+        onTargets:()=>resetTarget.click(),
+        onMode:()=>{
+            yardMode=yardMode==='static'?'live':'static';
+            yardUI.setMode(yardMode);
+            resetSquadBattle();
+            renderTarget();
+            showStatus(yardMode==='static'?'TARGET AI PARKED':'LIVE TRAINING AI ENABLED');
+        },
+        onCenter:()=>centerView.click(),
+        onReset:()=>{
+            stopFireInput();
+            stopFieldServiceInput();
+            resetInstalledDamage(assembly,damage);
+            for(const slot of SLOTS) {
+                const fitted=installedPart(assembly,slot);
+                if(fitted) {
+                    fitted.instance.condition=1;
+                    fitted.instance.destroyed=false;
+                    fitted.instance.wear=0;
+                }
+                restoreTargetPart(playerCondition,assembly,slot);
+            }
+            leaveAlliedObservation();
+            rig=createRigState(playerSpawn);
+            playerPower=createPowerSystem(assembly);
+            playerCombatActive=true;
+            playerMissionKillReason=null;
+            testEnded=false;testEndReason=null;
+            weaponState=weaponSpec?createWeaponState(weaponSpec):null;
+            fieldService=createFieldServiceState();
+            resetWeaponStabilizer(playerMount);
+            arena.clearRockets();
+            arena.resetCockpitTransientFeedback();
+            controls.recenterLook();
+            refreshAssembly(false);
+            arena.updatePilotDamage(playerCondition);
+            renderPlayerDamageHUD();
+            renderAmmo();
+            controls.setEnabled(!inspecting);
+            showStatus('TEST RIG REBUILT · TARGET DAMAGE PRESERVED');
+        },
+        onResetLoadout:()=>{
+            clearTestYardAssembly();
+            Object.assign(assembly,readTestYardAssembly());
+            resetInstalledDamage(assembly,damage);
+            Object.assign(playerCondition,createTargetCondition(assembly,true));
+            refreshAssembly(false);
+            yardUI.render();
+            showStatus('FULL-CATALOGUE DEFAULT RESTORED');
+        },
+    });
+}
 toggleInspection(true); // Always reopen in the garage, never in an active hostile firefight.
 if (loadedMachine.status === 'restored')
     showStatus('OWNED RIG RESTORED · LOCAL SAVE');
@@ -1942,6 +2020,7 @@ function frame(now) {
                     }
                 }
                 for (const actor of aiActors) {
+                if (testYard && (yardMode !== 'live' || actor.team === FRIENDLY_TEAM)) continue;
                 if (!actor.active) {
                     actor.wreckAge += FIXED_DT;
                     continue;
@@ -2163,7 +2242,7 @@ function frame(now) {
                 }
             }
             }
-            if (!aftermathDriving && !testEnded) {
+            if (!aftermathDriving && !testEnded && !testYard) {
                 const objectiveOutcome = advanceSortieObjective(sortieObjective, battleParticipants(), FIXED_DT);
                 renderObjectiveStatus();
                 if (objectiveOutcome) finishSortie(objectiveOutcome.victory, objectiveOutcome.reason);
@@ -2524,7 +2603,7 @@ function renderTarget() {
         recovery.textContent = 'WEAPON RECOVERY: EMERGENCY BYPASS SPENT · DEGRADED';
         targetReadout.appendChild(recovery);
     }
-    if (devPanel.classList.contains('hidden')) {
+    if (devPanel.classList.contains('hidden') && !testYard) {
         const withheld = document.createElement('div');
         withheld.className = 'target-row';
         withheld.textContent = 'ENEMY PART CONDITION UNKNOWN · OBSERVE HIT REACTIONS';
@@ -2583,7 +2662,7 @@ function renderDebrief(summary, reason) {
     document.dispatchEvent(new CustomEvent('m3ch4:debrief-opened', { detail: { summary, reason } }));
 }
 function finishSortie(victory, reason) {
-    if (testEnded)
+    if (testYard || testEnded)
         return;
     testEnded = true;
     testEndReason = victory ? null : reason;

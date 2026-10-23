@@ -59,6 +59,18 @@ export function buildVenueDressing(map){
  root.name='venue-dressing-'+map.id;root.userData.visualOnly=true;
  const w=map.world;
  if(map.id==='backlot-dustbowl')return root;
+  if(map.id==='test-yard') {
+    // Painted range ticks and labels are deliberately non-colliding.
+    for (const [distance,z] of [[18,8],[31,-5],[51,-25]]) {
+      for(const x of [-26,-17,0,17,26])
+        cube(root,'range-tick-'+distance+'-'+x,2.0,.022,.16,x,.032,z+3,cream);
+      label(root,distance+' M',-23,2.8,z,3.4);
+    }
+    for(const x of [-25,25])
+      cube(root,'range-lane-edge-'+x,.15,.02,65,x,.035,-8,rust);
+    label(root,'M3CH4 TEST YARD',0,4.3,-43.5,11);
+    return root;
+  }
  if(map.id==='culvert-nine'){
   // Paint a drainage gutter down the entire channel; the crossings are
   // actually flush, flat reinforced grates (no physical depression).
