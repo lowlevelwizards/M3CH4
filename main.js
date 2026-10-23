@@ -1471,6 +1471,7 @@ function toggleInspection(force) {
         document.body.classList.remove('sortie-outro-active', 'victory-showcase');
         winnerTableau.classList.add('hidden');
         sortiePhase = 'combat'; sortieOutroRemaining = 0; pendingDebrief = null;
+        hitchFrames=0;worstFrameGapMs=0;
         reportFade = 0; shotReport.textContent = ''; shotReport.className = 'shot-report faded';
         hitConfirm.className = 'hit-confirm'; rangeCrosshair.classList.remove('confirmed-hit', 'breach-hit', 'disable-hit');
         arena.resetCockpitTransientFeedback();
@@ -1643,6 +1644,8 @@ let renderScale = renderScales[renderScaleIndex];
 let previousTime = performance.now();
 let accumulator = 0;
 let fps = 60;
+// DEV-only on-device hitch evidence: uncapped frame gaps, not capped physics dt.
+let hitchFrames=0, worstFrameGapMs=0;
 let showColliders = false;
 function syncInspectorLayout() {
     // The actual canvas bounds (not stale window dimensions) are the camera viewport.
@@ -1709,8 +1712,13 @@ window.addEventListener('pagehide', () => {
     persistMachine();
 });
 function frame(now) {
-    const frameDt = Math.min((now - previousTime) / 1000, MAX_FRAME_DT);
+    const rawFrameMs=Math.max(0,now-previousTime);
+    const frameDt = Math.min(rawFrameMs / 1000, MAX_FRAME_DT);
     previousTime = now;
+    if(!inspecting&&!testEnded&&document.visibilityState==='visible'&&rawFrameMs<1000){
+        worstFrameGapMs=Math.max(worstFrameGapMs,rawFrameMs);
+        if(rawFrameMs>40)hitchFrames++;
+    }
     fps += ((1 / Math.max(frameDt, .0001)) - fps) * .06;
     let input = controls.sample();
     let steps = 0;
@@ -2046,6 +2054,7 @@ function frame(now) {
     if (!devPanel.classList.contains('hidden')) {
         devReadout.textContent = [
             `FPS       ${fps.toFixed(0)}`,
+            `HITCHES   ${hitchFrames} >40ms · MAX ${worstFrameGapMs.toFixed(0)}ms`,
             `FIXED DT  ${(FIXED_DT * 1000).toFixed(2)} ms`,
             `STEPS     ${steps}${inspecting ? ' (PAUSED)' : ''}`,
             `POS X/Z   ${rig.x.toFixed(2)} / ${rig.z.toFixed(2)} m`,

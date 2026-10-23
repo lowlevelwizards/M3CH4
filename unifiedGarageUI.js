@@ -998,8 +998,9 @@ function pitPhysicalInspector(stable,view,series,action,options) {
         },'physical-pit-queue'+(selected?' active':''));
         chosen.setAttribute('aria-pressed',String(selected));
         box.append(chosen);
-        box.append(el('small','physical-pit-note',pct(candidate.condition)+
-            ' → 30% INTERNAL · 18% ARMOR FLOOR'));
+        box.append(el('small','physical-pit-note',
+            'INTERNAL '+pct(candidate.condition)+' → AT LEAST 48% · ARMOR '+
+            pct(candidate.armorRatio)+' → AT LEAST 35%'));
     }else{
         box.append(el('div','physical-pit-readonly',!state.serial?
             'NO INSTALLED PART · FIELD CREW CANNOT FIT HARDWARE':
@@ -1037,7 +1038,7 @@ function renderPit(stable,view,series) {
     budget.append(el('strong','',action?'FIELD SERVICE COMPLETE':
         'WORK UNITS · '+plan.cost+' / '+TRIAGE_BUDGET));
     budget.append(el('small','',action?'COMMITTED · NO FURTHER PATCHES':
-        'ONE CREW OPERATION · SELECT MODULES TO ADJUST'));
+        'ONE CREW OPERATION · REPAIR CORE OR STRIPPED ARMOR'));
     footer.append(budget);
     if(!action&&options.length){
         footer.append(button('COMMIT TRIAGE',()=>commitPitTriage(stable,series),

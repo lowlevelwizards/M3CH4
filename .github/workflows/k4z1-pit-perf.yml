@@ -1,0 +1,28 @@
+name: k4z.1 Pit Survival and Impact Budget
+on:
+  push:
+    branches: [fix/k4z1-crt-decals-pit-and-hitches]
+  pull_request:
+    paths:
+      - 'scene.js'
+      - 'surfaceDamageRenderer.js'
+      - 'fieldWork.js'
+      - 'unifiedGarageUI.js'
+      - 'garageMountUI.js'
+      - 'tests/k4z1PitPerf.test.mjs'
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Touched-file syntax
+        run: |
+          for path in fieldWork.js surfaceDamageRenderer.js scene.js sceneAssembly.js unifiedGarageUI.js garageMountUI.js; do
+            node --check "$path"
+          done
+      - name: Pit, paint and combat regression
+        run: node --test tests/k4z1PitPerf.test.mjs tests/k4hToLQualityOfLife.test.mjs tests/physicalRepairDecals.test.mjs tests/k3r0FieldWork.test.mjs tests/damageLanguageArt.test.mjs

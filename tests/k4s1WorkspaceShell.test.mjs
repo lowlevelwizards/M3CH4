@@ -5,11 +5,11 @@ const source=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 
 test('k4s.1 ships fresh stylesheet and script identities',()=>{
     const html=source('index.html'),adapter=source('garageMountUI.js');
-    assert.match(html,/0\.0\.1k\.4s\.3 — Deploy and Layout/);
+    assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance)/);
     assert.match(html,/k4sWorkshopShell\.css\?v=k4s1/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/garageMountUI\.js\?v=k4w5/);
-    assert.match(adapter,/unifiedGarageUI\.js\?v=k4w5/);
+    assert.match(html,/garageMountUI\.js\?v=k4z1/);
+    assert.match(adapter,/unifiedGarageUI\.js\?v=k4z1/);
     assert.ok(html.indexOf('k4sWorkshopShell.css')>html.indexOf('interfaceClarity.css'),
         'new shell styles must override older garage panel rules');
 });

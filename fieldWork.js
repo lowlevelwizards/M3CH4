@@ -12,8 +12,8 @@ import { loadStable, rigById, rigFieldability, storeStable } from './stable.js';
 export const FIELD_WORK_STORAGE_KEY = 'm3ch4-field-work-v1';
 export const FIELD_WORK_VERSION = 1;
 export const FIELD_PATCH_CONDITION = .22;
-export const TRIAGE_CONDITION = .30;
-export const TRIAGE_ARMOR_FLOOR = .18;
+export const TRIAGE_CONDITION = .48;
+export const TRIAGE_ARMOR_FLOOR = .35;
 export const TRIAGE_BUDGET = 4;
 const EPSILON = .0015;
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
@@ -37,11 +37,11 @@ function normalizeAction(value) {
         const repairs=Array.isArray(value.repairs)?value.repairs.slice(0,5)
             .filter(r=>cleanSlot(r?.slot)&&cleanId(r.serial)&&finite(r.before))
             .map(r=>({slot:r.slot,serial:cleanId(r.serial),before:r.before,
-                restoredCondition:TRIAGE_CONDITION,cost:r.cost===2?2:1})):[];
+                restoredCondition:r.restoredCondition===.30?.30:TRIAGE_CONDITION,cost:r.cost===2?2:1})):[];
         if(!repairs.length)return null;
         return {type:'triage',afterRound,rigId,serial,slot,
             rigName:typeof value.rigName==='string'?value.rigName.trim().slice(0,32):null,
-            restoredCondition:TRIAGE_CONDITION,repairs,
+            restoredCondition:value.restoredCondition===.30?.30:TRIAGE_CONDITION,repairs,
             at:finite(value.at)?value.at:Date.now()};
     }
     return {
@@ -61,7 +61,8 @@ function normalizePatch(value, serialKey = null) {
     if (!serial || !rigId || !slot) return null;
     return {
         serial, rigId, slot,
-        restoredCondition: value.restoredCondition===TRIAGE_CONDITION?TRIAGE_CONDITION:FIELD_PATCH_CONDITION,
+        restoredCondition: [TRIAGE_CONDITION,.30,FIELD_PATCH_CONDITION].includes(value.restoredCondition)
+            ? value.restoredCondition : FIELD_PATCH_CONDITION,
         patchedAt: finite(value.patchedAt) ? value.patchedAt : Date.now(),
     };
 }
@@ -335,8 +336,9 @@ export function applyEmergencyFieldPatch(storage, { seriesId, rigId, slot, now =
     return { ok: true, action: clone(action), rig: clone(patched.rig) };
 }
 
-/** k.4l: a single pre-round pit-crew operation may distribute four work units
- * among intact disabled and critical systems. Destroyed equipment still
+/** Four work units may reinforce low-integrity modules or stripped armor.
+ * Historical .30 triage records remain readable after this balance update.
+ * Destroyed equipment still
  * requires a shop rebuild and cannot be made deployable by field work. */
 export function triageOptions(stable,rigId){
     const rig=rigById(stable,rigId);
@@ -347,8 +349,12 @@ export function triageOptions(stable,rigId){
         if(!part||isDestroyed(part,snapshot))return [];
         const integrity=snapshot?.maxIntegrity>0 ? snapshot.integrity/snapshot.maxIntegrity : part.condition;
         const current=Math.min(Number(part.condition)||0,Number(integrity)||0);
-        if(current>=TRIAGE_CONDITION-EPSILON)return [];
-        return [{slot,serial:part.serial,condition:current,cost:current<=.001?2:1,
+        const armorRatio=snapshot?.maxArmor>0
+            ? Math.max(0,Number(snapshot.armor)||0)/snapshot.maxArmor : 1;
+        // A fieldable chassis with stripped plating is still a legitimate pit
+        // job. Never require another disable before the crew can patch armor.
+        if(current>=TRIAGE_CONDITION-EPSILON&&armorRatio>=TRIAGE_ARMOR_FLOOR-EPSILON)return [];
+        return [{slot,serial:part.serial,condition:current,armorRatio,cost:current<=.001?2:1,
             to:TRIAGE_CONDITION,armorFloor:TRIAGE_ARMOR_FLOOR}];
     });
 }
@@ -364,9 +370,9 @@ export function triagePreview(stable,rigId,slots=[]){
     for(const item of repairs){
         const part=installedPartRecord(simulated,rig,item.slot);
         const snapshot=snapshotFor(rig,item.slot,item.serial);
-        part.condition=TRIAGE_CONDITION;
+        part.condition=Math.max(Number(part.condition)||0,TRIAGE_CONDITION);
         if(snapshot?.maxIntegrity>0){
-            snapshot.integrity=snapshot.maxIntegrity*TRIAGE_CONDITION;
+            snapshot.integrity=Math.max(snapshot.integrity,snapshot.maxIntegrity*TRIAGE_CONDITION);
             snapshot.armor=Math.max(snapshot.armor,snapshot.maxArmor*TRIAGE_ARMOR_FLOOR);
         }
         if(item.slot==='mobility'){
@@ -400,16 +406,17 @@ export function applyIntermissionTriage(storage,{seriesId,rigId,slots=[],now=Dat
         const saved=machine.assembly.owned.find(p=>p.serial===item.serial);
         if(!part||!saved)return {ok:false,reason:'TRIAGE SERIAL MISMATCH'};
         const snapshot=snapshotFor(rig,item.slot,item.serial);
-        part.condition=saved.condition=TRIAGE_CONDITION;
+        const improved=Math.max(Number(part.condition)||0,Number(saved.condition)||0,TRIAGE_CONDITION);
+        part.condition=saved.condition=improved;
         part.destroyed=saved.destroyed=false;
         if(snapshot?.maxIntegrity>0){
-            snapshot.integrity=snapshot.maxIntegrity*TRIAGE_CONDITION;
+            snapshot.integrity=Math.max(snapshot.integrity,snapshot.maxIntegrity*TRIAGE_CONDITION);
             snapshot.armor=Math.max(snapshot.armor,snapshot.maxArmor*TRIAGE_ARMOR_FLOOR);
         }
         if(stable.activeRigId===rigId){
             const live=machine.playerCondition.parts[item.slot];
             if(!live||live.serial!==item.serial)return {ok:false,reason:'LIVE TRIAGE SNAPSHOT MISMATCH'};
-            live.integrity=live.maxIntegrity*TRIAGE_CONDITION;
+            live.integrity=Math.max(live.integrity,live.maxIntegrity*TRIAGE_CONDITION);
             live.armor=Math.max(live.armor,live.maxArmor*TRIAGE_ARMOR_FLOOR);
         }
         if(item.slot==='mobility'){
