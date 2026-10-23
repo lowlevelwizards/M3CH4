@@ -5,6 +5,7 @@
  * the same world.obstacles data.
  */
 import * as THREE from 'three';
+import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -68,14 +69,14 @@ export function setBacklotOpenSky(scene){
  if(!skyTexture){
   const c=document.createElement('canvas');c.width=16;c.height=256;
   const g=c.getContext('2d'),grad=g.createLinearGradient(0,0,0,256);
-  grad.addColorStop(0,'#668b92');grad.addColorStop(.44,'#9fb2a2');
-  grad.addColorStop(.73,'#dec09a');grad.addColorStop(1,'#b69a70');
+  grad.addColorStop(0,'#8daaad');grad.addColorStop(.48,'#bed0bd');
+  grad.addColorStop(.77,'#dfbd91');grad.addColorStop(1,'#c6a575');
   g.fillStyle=grad;g.fillRect(0,0,16,256);
   skyTexture=new THREE.CanvasTexture(c);skyTexture.colorSpace=THREE.SRGBColorSpace;
   skyTexture.magFilter=THREE.LinearFilter;
  }
  scene.background=skyTexture;
- scene.fog=new THREE.FogExp2(0xb6a07f,.0065);
+ scene.fog=new THREE.FogExp2(0xc5ad8d,.0048);
 }
 /** Visible metal/wood mass intentionally fills each gameplay obstacle prism:
  * none of the ornament changes cover, routes, or hit tests.
@@ -88,9 +89,60 @@ function createWreck(parent,o,solids){
        engine=/engine|flywheel/.test(id),tyres=/tyres|axles/.test(id);
  let baseColor=pillar?P.iron:tractor?P.rust:loader?P.yellow:
    engine?P.motor:tyres?P.tyre:id.includes('plate')?P.rust2:P.wood;
+ // The full certified prism remains exactly where navigation and ballistics
+ // expect it; detailed hull geometry replaces the former giant opaque cube.
+ // Its invisible raycast proxy is NOT a second collider or fake cover.
  const mass=block(parent,'physical-wreck-'+id,w,h,d,x,h/2,z,baseColor,.34);
  mass.userData.arenaObstacleId=id;
  solids.push(mass);
+ if(tractor||loader||engine||tyres){
+   mass.material=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});
+   mass.userData.certifiedProxy=true;
+ }
+ if(tractor||loader){
+   // Wheel arch, raised bonnet, asymmetric cab and blunt armored radiator
+   // form a recognizable drivable machinery profile at first-person height.
+   const bodyH=Math.min(h*.56,1.75);
+   const chassis=block(parent,'wreck-mass-chassis',w*.96,bodyH,d*.86,
+     x,bodyH*.50,z,tractor?P.rust:P.yellow,.27);
+   chassis.castShadow=true;
+   block(parent,'crushed-cab-body',w*.68,h*.44,d*.44,
+     x,h*.75,z+d*.22,P.iron,.32).castShadow=true;
+   block(parent,'grille-slat-bed',w*.76,h*.34,.16,
+     x,h*.35,z-d*.423,P.steel,.43);
+   for(let k=-2;k<=2;k++){
+     block(parent,'vertical-radiator-slat',w*.084,h*.28,.052,
+       x+k*w*.125,h*.36,z-d*.435,P.rust2,.35);
+   }
+   for(const side of [-1,1]){
+     block(parent,'broken-side-skirting',.12,bodyH*.74,d*.78,
+       x+side*w*.47,bodyH*.43,z,P.steel,.44);
+     block(parent,'cab-opaque-armored-window',.08,h*.25,d*.25,
+       x+side*w*.34,h*.79,z+d*.235,P.glass,.20);
+     drum(parent,'agricultural-axle-joint',.24,.15,
+       x+side*w*.43,.49,z-d*.14,P.iron,'x',8);
+   }
+   block(parent,'dented-overhung-cab-roof',w*.76,.17,d*.57,
+     x,h-.08,z+d*.18,tractor?P.rust2:P.iron,.34).rotation.z=.035;
+   if(tractor)for(const side of [-1,1]){
+     drum(parent,'tractor-hydraulic-riser',.10,h*.22,
+       x+side*w*.23,h*.87,z,P.steel,'y',7);
+   }
+ }else if(engine||id==='coupling-spine'){
+   block(parent,'heavy-cast-engine-core',w*.9,h*.80,d*.82,
+     x,h*.4,z,P.motor,.44).castShadow=true;
+   for(let k=-2;k<=2;k++)
+     block(parent,'external-cylinder-bank',w*.10,h*.64,d*.53,
+       x+k*w*.17,h*.56,z,P.rust,.40);
+ }else if(tyres){
+   block(parent,'axle-rack-chassis',w*.91,h*.43,d*.81,
+     x,h*.31,z,P.iron,.39).castShadow=true;
+   for(const dz of [-d*.30,d*.30]){
+     drum(parent,'scrap-rack-rolling-tyre',Math.min(.72,h*.26),.48,
+       x,h*.72,z+dz,P.tyre,'z',9);
+   }
+ }
+
 
  if(pillar){
    block(parent,'welded-lamp-mast',w*.48,h*.95,d*.48,x,h*.51,z,P.iron,.54);
@@ -159,25 +211,8 @@ function createWreck(parent,o,solids){
  // Always preserve the certified width, height, and depth of the original cover.
 }
 function perimeter(root,w){
- const cx=(w.minX+w.maxX)/2,cz=(w.minZ+w.maxZ)/2,
-       W=w.maxX-w.minX,D=w.maxZ-w.minZ;
- // A stockyard's low ramshackle fence, not a roofless 8m warehouse.
- for(const z of [w.minZ-.74,w.maxZ+.74]){
-   for(const y of [.72,1.49,2.12])
-     block(root,'derby-ring-rail',W+1,.11,.18,cx,y,z,y===.72?P.wood:P.rust,.36);
-   for(let x=w.minX-.2;x<=w.maxX+.2;x+=3.4)
-     block(root,'timber-fence-post',.22,2.33,.22,x,1.16,z,P.wood);
- }
- for(const x of [w.minX-.74,w.maxX+.74]){
-   for(const y of [.72,1.49,2.12])
-     block(root,'derby-ring-side-rail',.18,.11,D+.6,x,y,cz,y===.72?P.wood:P.rust,.36);
-   for(let z=w.minZ+.45;z<=w.maxZ-.4;z+=3.4)
-     block(root,'timber-side-post',.22,2.33,.22,x,1.16,z,P.wood);
- }
- // Reused farm tyres at the fence line (outside the playable bounds).
- for(let x=w.minX+2;x<w.maxX-1;x+=4.3)
-   for(const z of [w.minZ-1.10,w.maxZ+1.10])
-     drum(root,'derby-fence-tyre',.51,.39,x,.51,z,P.tyre,'z',9);
+ // A rounded earth berm and timber ring OUTSIDE world bounds; no square walls.
+ return buildBacklotTerrainAndFacilities(root,w);
 }
 function spectatorYard(root,w){
  const r=seeded();
@@ -217,7 +252,7 @@ function spectatorYard(root,w){
    }
  }
  // Bent gate arch and numbered race banner at the entrance.
- const z=w.maxZ+1.16;
+ const z=w.maxZ+5.5;
  for(const dx of [-4.6,4.6])
    block(root,'entry-gate-column',.23,5.6,.23,dx,2.8,z,P.iron,.46);
  block(root,'entry-gate-crossbar',9.4,.30,.20,0,5.48,z,P.rust2,.43);
@@ -293,6 +328,7 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
    fixtureBatch,
+   environment:root.userData.backlotReactivity? 'reactive-dustbowl':'static',
    obstacleCount:world.obstacles.length,collisionSolids:world.obstacles.length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
    perimeter:'two-metre-stockyard-rails',sky:'open',
