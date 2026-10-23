@@ -18,6 +18,7 @@ import {buildBacklotDressing} from './backlotDressing.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
+import {advanceFootContacts,createFootContacts,footPresentation} from './footContactController.js';
 import { framingOffsetWorld, orbitAzimuthAfterDrag, panInRigSpace } from './inspectionCamera.js';
 import { DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw } from './locomotion.js';
 import { BY_ID, installedPart, SLOT_CENTERS, SLOTS } from './components.js';
@@ -1501,6 +1502,15 @@ export function createArenaScene(initial, targetAssembly) {
             dt,gait,posture:{animationHealth:1},weaponFault:false,
         });
     }
+    function pilotingLabFootReadout(){
+        const contacts=labRecord?.footContacts;
+        return contacts?{
+            feet:contacts.feet.map(f=>({side:f.side,mode:f.mode,
+                x:f.localX??0,z:f.localZ??0})),
+            pivot:contacts.pivot,landings:contacts.landings,
+            planted:contacts.stanceCount,
+        }:null;
+    }
     function setAnimationPreview(mode='off',speed=3){
         const safe=['off','walk','strafe-left','strafe-right','turn','reload','disabled'].includes(mode)?mode:'off';
         if(animationPreviewMode!==safe){
@@ -1556,6 +1566,9 @@ export function createArenaScene(initial, targetAssembly) {
         exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
         exterior.root.rotation.y=GARAGE_RIG_YAW;
     }
+    // Presenting foot plants through a damped cab gives actual walking load
+    // cues, without the old unrelated wall-clock sine bob.
+    let pilotFeet=null,pilotLandingKick=0;
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         const wasServicing = pilotWeaponServicing;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
@@ -1575,7 +1588,13 @@ export function createArenaScene(initial, targetAssembly) {
         const targetRoll = THREE.MathUtils.clamp(
             -state.yawRate * Math.abs(state.forwardSpeed) * .008 -
             (state.lateralAcceleration ?? 0) * .004, -.055, .055);
-        const footfall = Math.sin(performance.now() * 0.009 + state.forwardSpeed) * Math.min(Math.abs(state.forwardSpeed) / 7.4, 1) * 0.012;
+        if(!inspecting){
+            const kind=installedPart(previewAssembly,'mobility')?.definition.id??'legs-yard';
+            pilotFeet=advanceFootContacts(pilotFeet,state,kind,dt);
+            pilotLandingKick=Math.max(pilotLandingKick*Math.exp(-dt*11),
+                pilotFeet.landings?pilotFeet.lastLandingStrength*.023:0);
+        }else{pilotFeet=null;pilotLandingKick=0;}
+        const footfall=-pilotLandingKick;
         const impactKick = state.impact * 0.045;
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
@@ -1702,6 +1721,11 @@ export function createArenaScene(initial, targetAssembly) {
                     const target=speed>.65?1:0;
                     motion.weight=(motion.weight??0)+(target-(motion.weight??0))*(1-Math.exp(-dt*7));
                 }
+                // A stance foot now owns a persistent ground point. Distinct
+                // actors use independent contact state; no gameplay force changes.
+                record.footContacts=advanceFootContacts(record.footContacts,state,mobilityId,dt,{
+                    disabled:record.disabledSlots.has('mobility')||record.destroyedSlots.has('mobility'),
+                });
                 const moving=(motion.weight??0);
                 const backward=(state.forwardSpeed??0)<-.3;
                 const strafe=(state.lateralSpeed??0)/2.4;
@@ -1722,6 +1746,7 @@ export function createArenaScene(initial, targetAssembly) {
                         phase:motion.phase,side,weight:moving,family:mobilityId,
                         backward,strafe,forward,brace:state.brace??0,health,disabled:blocked,
                         upperX:leg.upperX,lowerX:leg.lowerX,
+                        contact:footPresentation(record.footContacts,side),
                     });
                     leg.hip.rotation.x=pose.hip;
                     leg.hip.rotation.z=pose.hipRoll+(1-health)*side*.03;
@@ -2912,7 +2937,7 @@ export function createArenaScene(initial, targetAssembly) {
     return {
         scene, camera, cockpit, debugColliders,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
-        setPilotingLab, updatePilotingLabRig,
+        setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
