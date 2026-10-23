@@ -160,14 +160,16 @@ compareBtn.addEventListener('click',()=>{
    // Both models must be readable from one camera angle, not a near-field
    // giant old box with the rebuilt tractor tiny behind it.
    const wide=Math.max(entry.width*2.5,entry.depth*2.0,14);
+   const facing=entry.experiment?.front==='-z'?-1:1;
    setPose(new THREE.Vector3(entry.x,clamp(entry.height*1.4,4.5,9.5),
-      entry.z+clamp(wide,14,30)),
+      entry.z+facing*clamp(wide,14,30)),
      new THREE.Vector3(entry.x,entry.height*.5,entry.z));
  }else{
    // Restore the same authored three-quarter angle for fair OLD/NEW swaps.
    const distance=clamp(Math.max(entry.depth*1.4,entry.width*.85,5.4),5.4,21);
    const height=clamp(entry.height*.74+1.1,1.7,8);
-   setPose(new THREE.Vector3(entry.x+distance*.36,height,entry.z+distance),
+   const facing=entry.experiment?.front==='-z'?-1:1;
+   setPose(new THREE.Vector3(entry.x+distance*.36,height,entry.z+facing*distance),
      new THREE.Vector3(entry.x,entry.height*.5,entry.z));
  }
 });
@@ -206,7 +208,8 @@ function focus(index){
  updateExperimentControls(e);
  const distance=clamp(Math.max(e.depth*1.4,e.width*.85,5.4),5.4,21);
  const y=clamp(e.height*.74+1.1,1.7,8);
- setPose(new THREE.Vector3(e.x+distance*.36,y,e.z+distance),
+ const facing=e.experiment?.front==='-z'?-1:1;
+ setPose(new THREE.Vector3(e.x+distance*.36,y,e.z+facing*distance),
    new THREE.Vector3(e.x,e.height*.5,e.z));
 }
 function overview(){
