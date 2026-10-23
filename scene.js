@@ -1978,7 +1978,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         gunPivot.position.y=2.04+reloadView.y;
         cockpit.userData.gunBreech.position.z=-.19+reload.slide+pilotFiringPose.bolt*.105;
         cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
-        cockpit.userData.scatterGreebles.position.y=-reload.cassette-pilotFiringPose.feeder*.052;
+        cockpit.userData.scatterGreebles.position.y=0;
         const activeKit=cockpit.userData.weaponKits[pilotWeaponPresentation.id];
         if(activeKit?.visible){
             activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13+reload.slide*.68;
@@ -4070,12 +4070,9 @@ export function buildCockpit(scene) {
     chokeRing.rotation.x=Math.PI/2;
     chokeRing.position.set(0,-.04,-1.15);
     scatterGreebles.add(chokeRing);
-    const cassette=box(.50,.26,.34,metal);
-    cassette.position.set(-.06,-.34,.08);
-    scatterGreebles.add(cassette);
-    const rib=box(.52,.09,.66,teal);
-    rib.position.set(0,.19,-.55);
-    scatterGreebles.add(rib);
+    // No extra floating cockpit cassette or decorative cover: the single
+    // real loading cassette now lives in this gun's weaponVisualKit receiver.
+    // Retain only its chunky muzzle choke as part of the fixed silhouette.
     scatterGreebles.visible=false;
     gunPivot.add(scatterGreebles);
     cockpit.userData.gunBarrel = barrel;
