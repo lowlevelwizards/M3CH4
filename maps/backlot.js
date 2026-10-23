@@ -15,7 +15,7 @@ export const BACKLOT=Object.freeze({
  {id:'tractor-wheel-rr',minX:-2.08,maxX:-1.16,minZ:-.43,maxZ:1.30,height:1.43,kind:'barrier-low',art:'tractor-wheel'},
  {id:'loader-scoop',minX:1.60,maxX:7.89,minZ:-3.15,maxZ:-1.82,height:1.48,kind:'barrier-low',art:'loader-scoop'},
  {id:'loader-engine',minX:3.62,maxX:8.36,minZ:-1.79,maxZ:1.74,height:1.88,kind:'container',art:'loader-engine'},
- {id:'loader-cab',minX:5.31,maxX:8.35,minZ:-1.57,maxZ:.27,height:2.77,kind:'building',art:'loader-cab'},
+ {id:'loader-cab',minX:5.31,maxX:8.72,minZ:-1.57,maxZ:.27,height:2.77,kind:'building',art:'loader-cab'},
  {id:'loader-track-left',minX:2.25,maxX:3.69,minZ:-1.73,maxZ:1.65,height:1.04,kind:'barrier-low',art:'loader-track'},
  {id:'loader-track-right',minX:7.29,maxX:8.67,minZ:-1.73,maxZ:1.65,height:1.04,kind:'barrier-low',art:'loader-track'},
  {id:'coupling-gearcase',minX:-.79,maxX:1.10,minZ:-2.78,maxZ:.77,height:2.38,kind:'barrier',art:'engine-case'},
