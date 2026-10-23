@@ -57,15 +57,16 @@ function buildGrid(){
  const catalog=buildBacklotPropCatalog(BACKLOT.world);
  const specimens=catalog.specimens;
  const coverCount=catalog.coverCount;
+ const coverBlock=coverCount+catalog.showcaseCount;
  // Cover occupies the first rows; environmental components follow, with a
  // full empty separator row so no scenic artifact mixes into playable cover.
- const sceneryBase=Math.ceil(coverCount/COLS)+1;
- const totalRows=sceneryBase+Math.ceil((specimens.length-coverCount)/COLS);
+ const sceneryBase=Math.ceil(coverBlock/COLS)+1;
+ const totalRows=sceneryBase+Math.ceil((specimens.length-coverBlock)/COLS);
  for(let i=0;i<specimens.length;i++){
    const entry=specimens[i];
-   const row=i<coverCount?Math.floor(i/COLS):
-      sceneryBase+Math.floor((i-coverCount)/COLS);
-   const col=i<coverCount?i%COLS:(i-coverCount)%COLS;
+   const row=i<coverBlock?Math.floor(i/COLS):
+      sceneryBase+Math.floor((i-coverBlock)/COLS);
+   const col=i<coverBlock?i%COLS:(i-coverBlock)%COLS;
    const x=(col-(COLS-1)*.5)*COL_SPACE,z=-row*ROW_SPACE;
    // Keep all parts in one named root so tap-to-inspect can identify them.
    const carrier=new THREE.Group();carrier.name='specimen-'+entry.id;
@@ -93,19 +94,25 @@ function buildGrid(){
  $('gallery-description').textContent=coverCount+' individual live cover pieces · '+
    catalog.sceneryArchetypes+' distinct live scenery/detail types. '+
    'Tap objects or select by name; send screenshots with their IDs.';
- const optgroup1=document.createElement('optgroup');optgroup1.label='PLAYABLE COVER · '+coverCount;
+ const optgroup1=document.createElement('optgroup');optgroup1.label='ASSEMBLIES + INDIVIDUAL COVER · '+coverBlock;
  const optgroup2=document.createElement('optgroup');optgroup2.label='SCENERY / DETAILS · '+catalog.sceneryArchetypes;
  entries.forEach((entry,i)=>{
    const option=document.createElement('option');option.value=i;
    option.textContent=String(i+1).padStart(2,'0')+' · '+entry.label;
-   (entry.category==='cover'?optgroup1:optgroup2).append(option);
+   (entry.category==='cover'||entry.category==='showcase'?optgroup1:optgroup2).append(option);
  });
  selectEl.append(optgroup1,optgroup2);
- return {coverCount,sceneryArchetypes:catalog.sceneryArchetypes,total:entries.length};
+ return {coverCount,showcaseCount:catalog.showcaseCount,
+  sceneryArchetypes:catalog.sceneryArchetypes,total:entries.length};
 }
 let yaw=0,pitch=0,active=0,drag=null,joystickPointer=null;
 const axes={x:0,y:0,up:0,down:0};
 const keys=new Set();
+document.body.classList.add('gallery-compact');
+$('gallery-ui-toggle').addEventListener('click',()=>{
+ const compact=document.body.classList.toggle('gallery-compact');
+ $('gallery-ui-toggle').textContent=compact?'DETAILS +':'DETAILS −';
+});
 function setPose(position,target){
  camera.position.copy(position);
  const delta=target.clone().sub(position);
