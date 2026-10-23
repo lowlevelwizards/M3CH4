@@ -219,6 +219,15 @@ export function runBout(seed,settings){
     const rng=random(seed);
     const contract=contractById(settings.contractId??'domination');
     const state=createSortieObjective(arenaMap?contractAtMap(contract,arenaMap):contract);
+    // Research-only capture-site proposal. The physical world is unchanged,
+    // so no speculative collision, score rule or AI movement advantage exists.
+    if(settings.objectivePoints){
+      if(!state.domination||settings.objectivePoints.length!==3)
+        throw new RangeError('Three domination sites required for map research');
+      state.domination.points=settings.objectivePoints.map(p=>({
+        id:p.id,x:p.x,z:p.z,influence:0,owner:null,contested:false,friendly:0,hostile:0,
+      }));
+    }
     const zonePoints=state.domination?.points??[];
     const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
         hostile:getAiResearchProfile(settings.policyHostile??'baseline')};
