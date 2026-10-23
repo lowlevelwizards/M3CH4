@@ -7,6 +7,7 @@ import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4z1';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
+import {addFactoryIdentityPlate} from './factoryIdentityVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import {buildBacklotDressing} from './backlotDressing.js';
@@ -3423,6 +3424,9 @@ export function buildExteriorRig(assembly) {
             // Honest stamped service tally. Precise welded patches come later
             // from recorded repair events, never from fabricated impact points.
             addPhysicalServiceStamp(group,fitted.instance);
+            // One understated factory maker/model stamp per physical module.
+            // This follows the same moving surface without becoming a hitbox.
+            addFactoryIdentityPlate(group,fitted.definition.id);
         }
     }
     // Mount subassemblies to the real hull group. Shared mobility visuals carry
