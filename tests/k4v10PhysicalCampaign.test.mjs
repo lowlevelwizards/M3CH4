@@ -18,7 +18,7 @@ test('actual six projectile angles consume only one shell and yield 0–6 indepe
 test('power/pellet research opt-in maintains deterministic legacy and reports voltage',()=>{
   const s={name:'fidelity',maxSeconds:2,accuracy:.7,physicalEquipment:true};
   const a=runBout(909,s);assert.deepEqual(a,runBout(909,s));
-  assert.match(a.simulation,/v3-pellets-power/);
+  assert.match(a.simulation,/v4-actions-flight-heat/);
   assert.equal(a.actors.length,6);
   assert.ok(a.actors.every(x=>x.minBusRatio>=0&&x.minBusRatio<=1));
   assert.equal(runBout(909,{...s,physicalEquipment:false}).simulation,'research-approximate-v2');

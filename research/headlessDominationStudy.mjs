@@ -30,7 +30,10 @@ import { makeRangeTarget, createTargetCondition, weaponFor, createWeaponState,
     advanceWeapon, startReload, fireWeapon, applyTargetHit, mirrorTargetCondition,
     applyRecoil } from '../combat.js';
 import { pelletOffsets } from '../scattergun.js';
-import { createPowerSystem,advancePowerSystem,powerConstrainedOutput,registerPowerShot } from '../powerDynamics.js';
+import { createPowerSystem,advancePowerSystem,powerConstrainedOutput,registerPowerShot,setActiveWeaponLoad } from '../powerDynamics.js';
+import { advanceChargedTrigger,advanceProjectileTrigger,weaponActionSpreadRadians } from '../weaponController.js';
+import { createThermalCombat,coolThermalCombat,cutContact,moduleHeatKey } from '../thermalCombat.js';
+import { blastDamage } from '../explosionResolution.js';
 import { createRigState, stepRig, DEFAULT_WORLD } from '../locomotion.js';
 import { deriveRigConfig } from '../assemblyPhysics.js';
 import { installedPart,makeTestAssembly,equip,inspectAssembly,SLOTS } from '../components.js';
@@ -95,7 +98,7 @@ function makeRig(team,n,family,rng,wear=0,difficulty=getAiResearchDifficulty()){
     const side=team==='friendly'?1:-1, x=[-9,0,9][n]+(rng()-.5)*4.2,
         z=side*(21+(rng()-.5)*3.4);
     const rig=createRigState({x,z,yaw:team==='friendly'?0:Math.PI});
-    const original=contractById(FAMILIES[pilot]).behavior;
+    const original=custom&&family.behavior?family.behavior:contractById(FAMILIES[pilot]).behavior;
     const behavior={...original,spreadScale:original.spreadScale*difficulty.spreadScale};
     const id=team==='friendly'?'ally-'+(n+1):'enemy-'+n;
     return {id,team,family:identity,behavior,assembly,condition,rig,
@@ -138,9 +141,9 @@ function nearestVisible(a,roster,snapshot,order=null){
     a.targetId=selected?.id??null;
     return selected??null;
 }
-function damage(attacker,target,slot,metrics,t,rng){
+function damage(attacker,target,slot,metrics,t,rng,nominal=attacker.weaponSpec.damage){
     const pre=target.condition.parts[slot].integrity;
-    const hit=applyTargetHit(target.condition,slot,attacker.weaponSpec.damage);
+    const hit=applyTargetHit(target.condition,slot,nominal);
     const service=target.fieldService;
     const fault=slot==='combat'&&arrestFirstWeaponFailure(target.condition,service,pre);
     mirrorTargetCondition(target.assembly,target.condition);
@@ -208,19 +211,20 @@ export function runBout(seed,settings){
     if(!TRAFFIC_POLICIES.includes(traffic.friendly)||
         !TRAFFIC_POLICIES.includes(traffic.hostile))
       throw new RangeError('Invalid squad traffic research policy');
-    const rng=random(seed),state=createSortieObjective(contractById('domination'));
+    const rng=random(seed),state=createSortieObjective(contractById(settings.contractId??'domination'));
+    const zonePoints=state.domination?.points??[];
     const policies={friendly:getAiResearchProfile(settings.policyFriendly??'baseline'),
         hostile:getAiResearchProfile(settings.policyHostile??'baseline')};
     const difficulties={friendly:getAiResearchDifficulty(settings.difficultyFriendly??'pro'),
         hostile:getAiResearchDifficulty(settings.difficultyHostile??'pro')};
     const maxSeconds=Math.min(600,Math.max(2,settings.maxSeconds??MAX_SECONDS));
-    state.domination.capturePolicy=settings.policy??'strict';
+    if(state.domination)state.domination.capturePolicy=settings.policy??'strict';
     const strategies=createStrategicState();
     const teams={friendly:[],hostile:[]};
     for(const team of ['friendly','hostile']){
       let recipe=settings.rosters?.[team]??(team===settings.variantTeam?
         settings.variant:['yard','kestrel','hauler']);
-      if(!Array.isArray(recipe)||recipe.length!==3||
+      if(!Array.isArray(recipe)||recipe.length<1||recipe.length>3||
           recipe.some(family=>!(typeof family==='object'&&family!==null)||!family.recipe ?
             !Object.hasOwn(FAMILIES,family):!Object.hasOwn(FAMILIES,family.pilot??'yard')))
         throw new RangeError('Invalid three-rig roster for '+team);
@@ -230,11 +234,13 @@ export function runBout(seed,settings){
       teams[team]=actors;
     }
     const actors=[...teams.friendly,...teams.hostile],memory=createWorldModel();
+    const activeHeat=createThermalCombat(),rocketFlights=[];
     const metrics={seed,scenario:settings.name??'research',accuracy:settings.accuracy,
         policies:{friendly:policies.friendly.id,hostile:policies.hostile.id},
         traffic,arrivals,corridorPolicy,
         difficulties:{friendly:difficulties.friendly.id,hostile:difficulties.hostile.id},
-        simulation:settings.physicalEquipment?'research-approximate-v3-pellets-power':'research-approximate-v2',
+        simulation:settings.physicalEquipment?'research-approximate-v4-actions-flight-heat':'research-approximate-v2',
+        objectiveType:state.type,contractId:settings.contractId??'domination',
         variants:{friendly:teams.friendly.map(a=>a.family),hostile:teams.hostile.map(a=>a.family)},
         win:null,winReason:null,time:maxSeconds,points:{friendly:0,hostile:0},
         kills:0,killReasons:{},firstKillAt:null,firstContactAt:null,
@@ -251,6 +257,23 @@ export function runBout(seed,settings){
     // Each trial is independent; no user-managed player is present.
     for(let tick=0;tick<maxSeconds/DT;tick++){
       const t=tick*DT;
+      coolThermalCombat(activeHeat,DT);
+      for(let ri=rocketFlights.length-1;ri>=0;ri--){
+        const p=rocketFlights[ri];p.left-=DT;
+        if(p.left>0)continue;
+        rocketFlights.splice(ri,1);
+        for(const victim of actors){
+          if(!victim.active||victim===p.shooter)continue;
+          const range=dist(victim.rig,p.point);
+          if(range>p.radius||!tacticalLineOfSight(p.point,victim.rig,DEFAULT_WORLD))continue;
+          const hitDamage=blastDamage(range,p.radius,p.damage);
+          if(hitDamage>0){
+            damage(p.shooter,victim,p.slot,metrics,t,rng,hitDamage);
+            metrics.damagingShots++;
+            p.shooter.stats.projectilesHit++;
+          }
+        }
+      }
       for(const team of ['friendly','hostile']){
         planLeft[team]-=DT;perceptionLeft[team]-=DT;
       }
@@ -291,6 +314,11 @@ export function runBout(seed,settings){
         if(settings.physicalEquipment){
           const part=a.condition.parts.power;
           const health=clamp(part.integrity/part.maxIntegrity,0,1);
+          const arcActive=a.weaponSpec.fireMode==='continuous'&&
+            a.weaponState.loaded>0&&a.weaponState.reloadLeft<=0&&
+            a.weaponState.action?.ventLeft<=0&&!!target&&
+            dist(a.rig,target.rig)<=a.weaponSpec.rangeMeters;
+          setActiveWeaponLoad(a.power,arcActive?(a.weaponSpec.activeKw??0):0);
           advancePowerSystem(a.power,a.assembly,a.rig,DT,health);
           a.stats.brownoutFrames+=Number(a.power.brownout);
           a.stats.minBusRatio=Math.min(a.stats.minBusRatio,a.power.busRatio);
@@ -312,7 +340,7 @@ export function runBout(seed,settings){
             uncertain:!view.contacts.some(c=>c.visible),
             nearbyAllies:allies.map(p=>({position:p.rig})),
             threatPosition:target?.rig??null,
-            preserveMajority:state.domination.points.filter(p=>
+            preserveMajority:zonePoints.filter(p=>
               p.owner===a.team&&!p.contested).length>=2,
             underFireSeconds:a.motion.awareness?.underFireSeconds??0,
             retreatPoint:{x:a.rig.x,z:a.team==='friendly'?22:-22}},t);
@@ -359,13 +387,21 @@ export function runBout(seed,settings){
           (!settings.physicalEquipment||a.power.weaponReady)&&
           a.weaponState.loaded>0&&a.weaponState.reloadLeft<=0&&
           withinFiringArc(a.rig,target.rig)&&
+          (a.weaponSpec.fireMode!=='continuous'||dist(a.rig,target.rig)<=a.weaponSpec.rangeMeters)&&
           tacticalLineOfSight(a.rig,target.rig,DEFAULT_WORLD)&&
           shouldAttemptTacticalShot(a,target);
         // Trigger authority is the real fitted weapon cycle, regardless of policy.
         if(settings.physicalEquipment&&!a.power.weaponReady&&target&&a.weaponState.loaded>0)
           a.stats.powerBlockedFrames++;
         const fired=advanceHostileController(a.controller,a.condition,DT,!target,fireReady);
-        if(fired===null||!target)continue;
+        const released=(a._releaseFrames??0)>0;
+        if(released)a._releaseFrames--;
+        const authorized=a.weaponSpec.fireMode==='charged'
+          ? advanceChargedTrigger(a.weaponState,a.weaponSpec,!!fired&&!released,DT)
+          : a.weaponSpec.fireMode==='projectile'
+            ? advanceProjectileTrigger(a.weaponState,a.weaponSpec,!!fired&&!released)
+            : !!fired;
+        if(!authorized||!target)continue;
         a.stats.shotTriggers++;
         if(a.stats.firstContact===null)a.stats.firstContact=t;
         if(!withinFiringArc(a.rig,target.rig))continue;
@@ -374,12 +410,14 @@ export function runBout(seed,settings){
         }
         const distance=dist(a.rig,target.rig);
         const errors=hostileOutput(a.condition,a.behavior);
-        const spread=hostileSpread(fired,errors.spreadRadians);
+        const spread=hostileSpread(fired,errors.spreadRadians+
+          (a.weaponSpec.fireMode==='automatic'?weaponActionSpreadRadians(a.weaponSpec,a.weaponState,a.rig.brace??0):0));
         // Three.js raycast is unavailable: approximate the exposed target hit.
         const chance=clamp((settings.accuracy??.7)-
           (Math.max(0,distance-8)*.006)-
           Math.min(.15,Math.hypot(...spread)*1.2),.12,.98);
         if(fireWeapon(a.weaponState,a.weaponSpec)===null)continue;
+        if(['charged','projectile'].includes(a.weaponSpec.fireMode))a._releaseFrames=1;
         a.stats.actualShots++;
         if(settings.physicalEquipment){
           a.stats.shotRangeSum+=distance;
@@ -400,6 +438,16 @@ export function runBout(seed,settings){
           const evidence=shotThreatEvidence(observer.rig,a.rig,target.rig);
           if(evidence)recordShotEvidence(observer.motion,observer.rig,evidence);
         }
+        if(settings.physicalEquipment&&a.weaponSpec.fireMode==='projectile'){
+          const hit=rng()<chance;
+          const angle=rng()*Math.PI*2,miss=hit?0:4+6*rng();
+          rocketFlights.push({shooter:a,point:{x:target.rig.x+Math.cos(angle)*miss,
+            z:target.rig.z+Math.sin(angle)*miss},
+            left:distance/Math.max(1,a.weaponSpec.projectileSpeed),
+            radius:a.weaponSpec.blastRadius,damage:a.weaponSpec.damage,
+            slot:hostileAimSlot(fired,a.behavior.aimPriority)});
+          continue;
+        }
         const projectileHits=settings.physicalEquipment?
           sampleProxyProjectileHits(a.weaponSpec,a.weaponState.firingCount,distance,
             settings.accuracy===0?0:chance,rng):
@@ -408,18 +456,23 @@ export function runBout(seed,settings){
         a.stats.hits+=projectileHits;
         if(settings.physicalEquipment)a.stats.projectilesHit+=projectileHits;
         metrics.damagingShots+=projectileHits;
-        const contested=!!job?.objectiveId&&state.domination.points.some(p=>
+        const contested=!!job?.objectiveId&&zonePoints.some(p=>
           p.id===job.objectiveId&&p.contested&&dist(target.rig,p)<state.radius);
         const slot=tacticalAimSlot(hostileAimSlot(fired,a.behavior.aimPriority),{
           targetSpeed:Math.hypot(target.rig.vx??0,target.rig.vz??0),
           contesting:contested,visibleService:!!target.fieldService?.held});
-        for(let pellet=0;pellet<projectileHits&&target.active;pellet++)
-          damage(a,target,slot,metrics,t,rng);
+        for(let pellet=0;pellet<projectileHits&&target.active;pellet++){
+          const amount=a.weaponSpec.fireMode==='continuous'?
+            cutContact(activeHeat,moduleHeatKey(target.id,slot,target.condition),
+              1/a.weaponSpec.roundsPerSecond,a.weaponSpec.damage).damage:
+            a.weaponSpec.damage;
+          damage(a,target,slot,metrics,t,rng,amount);
+        }
       }
       const prevScore={friendly:state.friendlyProgress,hostile:state.hostileProgress};
       const outcome=advanceSortieObjective(state,actors,DT);
-      const ours=state.domination.points.filter(p=>p.owner==='friendly'&&!p.contested).length;
-      const theirs=state.domination.points.filter(p=>p.owner==='hostile'&&!p.contested).length;
+      const ours=zonePoints.filter(p=>p.owner==='friendly'&&!p.contested).length;
+      const theirs=zonePoints.filter(p=>p.owner==='hostile'&&!p.contested).length;
       // Real awarded score, not merely ownership count: experimental local
       // majority pressure can award reduced progress while contested.
       const scoring=state.friendlyProgress>prevScore.friendly+1e-9 ||
@@ -428,8 +481,8 @@ export function runBout(seed,settings){
           metrics.totalScoringSeconds+=DT;
           if(metrics.firstMajorityAt===null)metrics.firstMajorityAt=t;
       }else metrics.noMajoritySeconds+=DT;
-      if(state.domination.points.some(p=>p.contested))metrics.contestedSeconds+=DT;
-      state.domination.points.forEach((p,i)=>{
+      if(zonePoints.some(p=>p.contested))metrics.contestedSeconds+=DT;
+      zonePoints.forEach((p,i)=>{
         if(p.contested&&!oldContest[i])metrics.contestedEvents++;
         oldContest[i]=p.contested;
         if(p.owner!==oldOwners[i]){

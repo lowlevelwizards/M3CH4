@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {createCampaignState,availableCampaignNodes,recordCampaignSortie} from '../campaign.js';
 import {contractById} from '../contracts.js';
+import {hostileSupportRecipes} from '../squadBattle.js';
+import {encounterWingArms,fitEncounterWeapon} from '../campaignArsenal.js';
 import {runRosterBalanceAudit} from './rosterBalanceAudit.mjs';
 import {makeStarterAssembly,recoverSalvage} from '../acquisition.js';
 import {makeRangeTarget,createTargetCondition,mirrorTargetCondition} from '../combat.js';
@@ -98,8 +100,11 @@ function preferredContract(campaign){
 }
 function candidateClaims(playerAssembly,contract,rng){
   const manifests=[];
-  for(let i=0;i<3;i++){
-    const assembly=makeRangeTarget(contract.id);
+  const families=[contract.id,...hostileSupportRecipes(contract.id)];
+  const weapons=[contract.loadout.combat,...encounterWingArms(contract.id)];
+  for(let i=0;i<families.length;i++){
+    const assembly=makeRangeTarget(families[i]);
+    fitEncounterWeapon(assembly,weapons[i]);
     const target=createTargetCondition(assembly);
     for(const p of Object.values(target.parts)){
       // Defeated enemy remaining condition is an EXPLICIT hypothetical cohort.
@@ -193,8 +198,8 @@ function buyForFleet(inventory,cycle,credits,reserve,rng,validRecipes,campaign){
 /** A contract is one best-of-three series. Winning rounds may produce a single
  * player salvage claim; only a terminal series settles credits.
  * Round wins, battle damage, and player claim eligibility are assumptions.
- * Opponents use the authored LEAD recipe repeated for salvage opportunity,
- * so supporting rigs and per-round draft ranking are outside this proxy.
+ * Opponent salvage definitions now follow the authored lead + physical wing arms;
+ * opponent damage/condition/serial repeats remain hypothetical, not a bout replay.
  */
 export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-scrap-often'],purchase=true}={}){
   if(!Number.isInteger(contracts)||contracts<1||contracts>100)throw Error('contracts 1-100');
@@ -232,7 +237,7 @@ export function simulateCampaign({seed=1,contracts=30,assumptions=CASES['middle-
         }
         continue;
       }
-      const win=choose(rng,assumptions.winProbability);
+      const win=choose(rng,assumptions.winProbabilityByContract?.[contract.id]??assumptions.winProbability);
       win?won++:lost++;
       if(win)roundWins++;
       shots+=Math.round(12+rng()*13);
