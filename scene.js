@@ -9,6 +9,7 @@ import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
+import {lightingProfile} from './visualLightingLanguage.js';
 import {buildBacklotDressing} from './backlotDressing.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
@@ -149,20 +150,21 @@ export function createArenaScene(initial, targetAssembly) {
     camera.rotation.order = 'YXZ';
     scene.add(camera);
     // Lower broad ambient wash and let shaped warm/cool sources describe the forms.
-    const arenaHemisphere = new THREE.HemisphereLight(0xa3b6a8, 0x29251f, .64);
+    const arenaLight=lightingProfile('arena');
+    const arenaHemisphere = new THREE.HemisphereLight(arenaLight.ambientSky,arenaLight.ambientGround,arenaLight.ambient);
     scene.add(arenaHemisphere);
-    const sun = new THREE.DirectionalLight(0xffd09c, 2.92);
+    const sun = new THREE.DirectionalLight(0xffd09c,arenaLight.key);
     sun.position.set(-10, 17, 11);
     sun.castShadow = true;
     // Keep the shadow silhouette coherent at source; the deliberately low-res world
     // framebuffer does the final pixelation instead of destroying the shadow shape first.
-    sun.shadow.mapSize.set(512, 512);
+    sun.shadow.mapSize.set(arenaLight.shadowSize,arenaLight.shadowSize);
     sun.shadow.camera.left = -38; sun.shadow.camera.right = 38;
     sun.shadow.camera.top = 34; sun.shadow.camera.bottom = -34;
     sun.shadow.camera.near = 2; sun.shadow.camera.far = 65;
     sun.shadow.bias = -.0007; sun.shadow.normalBias = .035;
     scene.add(sun);
-    const coolRim = new THREE.DirectionalLight(0x79a9a8, 1.00);
+    const coolRim = new THREE.DirectionalLight(0x79a9a8,arenaLight.rim);
     coolRim.position.set(12, 6, -16);
     scene.add(coolRim);
     const arenaRoot = new THREE.Group();
@@ -3034,31 +3036,33 @@ function buildGarageBay() {
         drum.position.set(x, .45, z); drum.castShadow = true; drum.receiveShadow = true; root.add(drum);
     }
 
-    // Lower fixture glare while raising broad fill: the bay should be dim, not black.
-    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffdfad, emissive: 0xffb454, emissiveIntensity: 2.25, roughness: .45 });
+    // Make painted structure readable at phone resolution without flattening
+    // machinery into uniform studio lighting or adding extra sources.
+    const shopLight=lightingProfile('workshop');
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffdfad, emissive: 0xffb454, emissiveIntensity:shopLight.fixtureEmission, roughness: .45 });
     for (const x of [-2.7, 0, 2.7]) {
         const fixture = box(1.55, .10, .25, lampMat);
         fixture.position.set(x, 5.45, -.3);
         root.add(fixture);
-        const lamp = new THREE.PointLight(0xffc178, 11.5, 10, 2.0);
+        const lamp = new THREE.PointLight(0xffc178,shopLight.fixtureIntensity,10,2.0);
         lamp.position.set(x, 5.15, -.3);
         root.add(lamp);
     }
-    const hemi = new THREE.HemisphereLight(0xa9c0b4, 0x2b241b, .86);
+    const hemi = new THREE.HemisphereLight(shopLight.ambientSky,shopLight.ambientGround,shopLight.ambient);
     root.add(hemi);
-    const key = new THREE.DirectionalLight(0xffd19b, 1.95);
+    const key = new THREE.DirectionalLight(0xffd19b,shopLight.key);
     key.position.set(-5, 8, 5);
     key.castShadow = true;
-    key.shadow.mapSize.set(256, 256);
+    key.shadow.mapSize.set(shopLight.shadowSize,shopLight.shadowSize);
     key.shadow.camera.left = -9; key.shadow.camera.right = 9;
     key.shadow.camera.top = 8; key.shadow.camera.bottom = -4;
     key.shadow.camera.near = 1; key.shadow.camera.far = 24;
     key.shadow.bias = -.0006; key.shadow.normalBias = .045;
     root.add(key);
-    const rim = new THREE.DirectionalLight(0x70a9a4, 1.15);
+    const rim = new THREE.DirectionalLight(0x70a9a4,shopLight.rim);
     rim.position.set(6, 4, -5);
     root.add(rim);
-    const fill = new THREE.DirectionalLight(0x8fa99f, .72);
+    const fill = new THREE.DirectionalLight(0x8fa99f,shopLight.fill);
     fill.position.set(5, 5, 6);
     root.add(fill);
 
@@ -3155,13 +3159,14 @@ function buildWarehouse(scene) {
         }
     }
 
-    const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffd39a, emissive: 0xffa43a, emissiveIntensity: 3.2, roughness: .5 });
+    const arenaLight=lightingProfile('arena');
+    const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffd39a, emissive: 0xffa43a, emissiveIntensity:arenaLight.fixtureEmission,roughness:.54 });
     for (const z of [-14, 14]) {
         for (const x of [-22, 0, 22]) {
             const fixture = box(3.6, 0.12, 0.28, lightMaterial);
             fixture.position.set(x, 7.2, z);
             scene.add(fixture);
-            const light = new THREE.PointLight(0xffb565, 26, 14, 2.15);
+            const light = new THREE.PointLight(0xffb565,arenaLight.fixtureIntensity,14,2.15);
             light.position.set(x, 6.65, z);
             scene.add(light);
         }
