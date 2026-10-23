@@ -118,7 +118,7 @@ test('every production event has real PCM and retains previous weapon, reload an
   assert.doesNotMatch(main,/audioSystemsPresets|systems-sound-lab-v1/);
   assert.match(html,/liveSystemsAudio\.js\?v=k4i/);
   assert.match(html,/liveSystemsEvents\.js\?v=k5a5/);
-  assert.match(html,/main\.js\?v=k5b5/);
+  assert.match(html,/main\.js\?v=k5p4/);
   assert.match(html,/audio\.js\?v=k4i/);
-  assert.match(html,/0\.0\.1k\.5b\.5 — Catch Steps and Mechanical Flow/);
+  assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
 });

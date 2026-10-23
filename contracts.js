@@ -48,7 +48,7 @@ const yardLoadout = Object.freeze({
 
 export const CONTRACTS = Object.freeze([
     Object.freeze({
-        id: 'yard-dog', name: 'YARD DOG', opponentSerial: 'YD-01', serialPrefix: 'YD01',
+        id: 'yard-dog', mapId:'backlot-dustbowl', name: 'YARD DOG', opponentSerial: 'YD-01', serialPrefix: 'YD01',
         role: 'BALANCED SCRAPPER', payout: 850, risk: 'LIGHT', kind: 'OPENING BOUT',
         loadout: yardLoadout, behavior: YARD_DOG_BEHAVIOR,
         objective: Object.freeze({ type: 'elimination', label: 'BREAK HOSTILE TEAM', description: 'Win the opening bout by making the opposing squad combat ineffective.' }),
@@ -58,7 +58,7 @@ export const CONTRACTS = Object.freeze([
         briefing: 'Conventional yard rig. Predictable pressure, measured sidesteps and a heavy short cannon.',
     }),
     Object.freeze({
-        id: 'recovery-run', name: 'RECOVERY RUN', opponentSerial: 'REC-01', serialPrefix: 'REC01',
+        id: 'recovery-run', mapId:'backlot-dustbowl', name: 'RECOVERY RUN', opponentSerial: 'REC-01', serialPrefix: 'REC01',
         role: 'LOW-RISK YARD WORK', payout: 450, risk: 'LOW', kind: 'OPTIONAL RECOVERY',
         loadout: Object.freeze({...yardLoadout, combat:'gun-cannon'}), behavior: RECOVERY_BEHAVIOR,
         objective: Object.freeze({ type: 'recovery', label: 'SECURE RECOVERY SITE', description: 'Hold the marked east-yard recovery pad uncontested.', point: Object.freeze({ x: 16, z: 1.5 }), radius: 4.8, holdSeconds: 8.5 }),
@@ -68,7 +68,7 @@ export const CONTRACTS = Object.freeze([
         briefing: 'A smaller cleanup crew working a quiet corner of the yard. Lower pay, lighter opposition and useful common hardware.',
     }),
     Object.freeze({
-        id: 'cutter', name: 'CUTTER', opponentSerial: 'CUT-01', serialPrefix: 'CUT01',
+        id: 'cutter', mapId:'culvert-nine', name: 'CUTTER', opponentSerial: 'CUT-01', serialPrefix: 'CUT01',
         role: 'FAST / LIGHT', payout: 950, risk: 'MODERATE', kind: 'CIRCUIT BOUT',
         loadout: Object.freeze({
             structure: 'frame-utility', mobility: 'legs-compact', power: 'power-air',
@@ -82,7 +82,7 @@ export const CONTRACTS = Object.freeze([
         briefing: 'Light skirmisher. Keeps distance, changes lateral direction often and hunts exposed systems.',
     }),
     Object.freeze({
-        id: 'domination', name: 'THREE POINT LOCK', opponentSerial: 'DOM-01', serialPrefix: 'DOM01',
+        id: 'domination', mapId:'culvert-nine', name: 'THREE POINT LOCK', opponentSerial: 'DOM-01', serialPrefix: 'DOM01',
         role: 'TERRITORY CREW', payout: 1100, risk: 'MODERATE', kind: 'DOMINATION CONTRACT',
         loadout: Object.freeze({...yardLoadout, power:'power-dynamo', combat:'gun-rivet'}), behavior: YARD_DOG_BEHAVIOR,
         objective: Object.freeze({
@@ -101,7 +101,7 @@ export const CONTRACTS = Object.freeze([
         briefing:'The RR-4 lead lays down suppressing rivets while a fast Needle flanker changes lanes and a Hauler guard punishes close pushes with a scattergun. Take two points, not every firefight.',
     }),
     Object.freeze({
-        id: 'mule', name: 'MULE', opponentSerial: 'MULE-01', serialPrefix: 'MULE01',
+        id: 'mule', mapId:'grainhouse', name: 'MULE', opponentSerial: 'MULE-01', serialPrefix: 'MULE01',
         role: 'HEAVY / TOUGH', payout: 1050, risk: 'HEAVY', kind: 'CIRCUIT BOUT',
         loadout: Object.freeze({
             structure: 'frame-wedge', mobility: 'legs-hauler', power: 'power-dynamo',
@@ -115,7 +115,7 @@ export const CONTRACTS = Object.freeze([
         briefing: 'The Hauler charges a hydraulic Breaker shot before striking layered armor. Its welding escort rushes close with an Arc Cutter while a Kestrel flanker strips mobility.',
     }),
     Object.freeze({
-        id: 'circuit-final', name: 'CIRCUIT FINAL', opponentSerial: 'FIN-01', serialPrefix: 'FIN01',
+        id: 'circuit-final', mapId:'grainhouse', name: 'CIRCUIT FINAL', opponentSerial: 'FIN-01', serialPrefix: 'FIN01',
         role: 'MIXED SCRAPYARD CREW', payout: 1450, risk: 'SEVERE', kind: 'FINAL CONTRACT',
         loadout: Object.freeze({...yardLoadout,combat:'gun-rocket'}), behavior: YARD_DOG_BEHAVIOR,
         objective: Object.freeze({ type: 'elimination', label: 'BREAK THE CIRCUIT CREW', description: 'The final is a straight mixed-role squad fight. Make the opposing team combat ineffective.' }),

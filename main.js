@@ -13,7 +13,8 @@ import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, gene
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
-import { createRigState, DEFAULT_WORLD, HOSTILE_SPAWN, PLAYER_SPAWN, physicsYawToViewYaw, stepRig, } from './locomotion.js';
+import { createRigState, physicsYawToViewYaw, stepRig, } from './locomotion.js';
+import {mapForContract,contractAtMap,orderedTeamSpawns} from './maps/mapRegistry.js';
 import { createArenaScene } from './scene.js';
 import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {createPhysicalEvidenceCard} from './physicalEvidenceInspector.js';
@@ -89,8 +90,14 @@ const targetAssembly = makeRangeTarget();
 // Contract defines the whole opponent squad's signature livery; lead uses DEFAULT.
 applyEnemyCrewPaint(targetAssembly,targetAssembly.contractId,0);
 const activeContract = contractById(targetAssembly.contractId);
+const selectedMap=mapForContract(activeContract);
+const selectedWorld=selectedMap.world;
+const mappedContract=contractAtMap(activeContract,selectedMap);
+const friendlySpawns=orderedTeamSpawns(selectedMap,'friendly');
+const hostileSpawns=orderedTeamSpawns(selectedMap,'hostile');
+const playerSpawn=friendlySpawns[0],hostileSpawn=hostileSpawns[0];
 let targetCondition = createTargetCondition(targetAssembly);
-let sortieObjective = createSortieObjective(activeContract);
+let sortieObjective = createSortieObjective(mappedContract);
 // Incoming fire uses the same localized armor/integrity representation, seeded from the owned player's current condition.
 const playerCondition = loadedMachine.playerCondition;
 let weaponSpec = weaponFor(assembly);
@@ -100,7 +107,7 @@ let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec
 const leadBehavior = weaponDoctrine(activeContract.behavior,hostileWeaponSpec.id);
 let hostileController = createHostileController(.45,leadBehavior);
 let hostileMotion = createEnemyMotion(leadBehavior);
-let hostileRig = createRigState(HOSTILE_SPAWN);
+let hostileRig = createRigState(hostileSpawn);
 const hostileBaseConfig = deriveRigConfig(targetAssembly);
 if (!hostileBaseConfig)
     throw new Error('Hostile training assembly is not fieldable.');
@@ -114,7 +121,7 @@ const primaryEnemyActor = {
     baseConfig: hostileBaseConfig, driveDamage: hostileDriveDamage,
     powerSystem: createPowerSystem(targetAssembly),
     behavior: leadBehavior,
-    spawn: HOSTILE_SPAWN, active: true, targetId: 'player', killReason: null,
+    spawn: hostileSpawn, active: true, targetId: 'player', killReason: null,
     fieldService: createFieldServiceState(),
     teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
     combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
@@ -150,12 +157,14 @@ function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex
         wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
     };
 }
-const friendlySupportActors = FRIENDLY_SUPPORTS.map(spawn =>
-    makeSupportActor(spawn.id, FRIENDLY_TEAM, spawn.contractId, spawn, spawn.label, FRIENDLY_SUPPORTS.indexOf(spawn)+1));
+const friendlySupportActors = FRIENDLY_SUPPORTS.map((recipe,index) =>
+    makeSupportActor(recipe.id,FRIENDLY_TEAM,recipe.contractId,
+        friendlySpawns[index+1],recipe.label,index+1));
 const hostileSupportActors = hostileSupportRecipes(targetAssembly.contractId).map((contractId, index) => {
-    const spawn = HOSTILE_SUPPORT_SPAWNS[index];
+    const spawn = hostileSpawns[index+1];
     const arm = encounterWingArms(targetAssembly.contractId)[index];
-    return makeSupportActor(spawn.id, HOSTILE_TEAM, contractId, spawn, null, index+1, arm);
+    return makeSupportActor(HOSTILE_SUPPORT_SPAWNS[index].id, HOSTILE_TEAM,
+        contractId, spawn, null, index+1, arm);
 });
 const supportActors = [...friendlySupportActors, ...hostileSupportActors];
 const aiActors = [primaryEnemyActor, ...supportActors];
@@ -195,7 +204,7 @@ const movingObstacleAt = (id, spawn, radius = 1) => ({
     id, dynamic: true, minX: spawn.x - radius, maxX: spawn.x + radius,
     minZ: spawn.z - radius, maxZ: spawn.z + radius,
 });
-const pilotObstacle = movingObstacleAt('player', PLAYER_SPAWN);
+const pilotObstacle = movingObstacleAt('player', playerSpawn);
 const actorObstacles = new Map(aiActors.map(actor => [actor.id, movingObstacleAt(actor.id, actor.spawn)]));
 function placeMovingObstacle(box, x, z, radius) {
     box.minX = x - radius; box.maxX = x + radius;
@@ -213,7 +222,7 @@ function combatWorldFor(actorId) {
     const dynamic = [];
     if (actorId !== 'player') dynamic.push(pilotObstacle);
     for (const [id, obstacle] of actorObstacles) if (id !== actorId) dynamic.push(obstacle);
-    return { ...DEFAULT_WORLD, obstacles: [...DEFAULT_WORLD.obstacles, ...dynamic] };
+    return { ...selectedWorld, obstacles: [...selectedWorld.obstacles, ...dynamic] };
 }
 function shoveDisabledWrecks(moverState, moverConfig) {
     const moverRadius = moverConfig?.collisionRadiusM ?? 1;
@@ -222,8 +231,8 @@ function shoveDisabledWrecks(moverState, moverConfig) {
         const wreckRadius = wreckCollisionRadius(actor.baseConfig?.collisionRadiusM ?? 1, actor.wreckAge, actor.wreckCleared);
         const shove = shoveWreck(moverState, actor.rig, moverRadius, wreckRadius, FIXED_DT);
         if (!shove) continue;
-        actor.rig.x = THREE.MathUtils.clamp(actor.rig.x + shove.dx, DEFAULT_WORLD.minX + wreckRadius, DEFAULT_WORLD.maxX - wreckRadius);
-        actor.rig.z = THREE.MathUtils.clamp(actor.rig.z + shove.dz, DEFAULT_WORLD.minZ + wreckRadius, DEFAULT_WORLD.maxZ - wreckRadius);
+        actor.rig.x = THREE.MathUtils.clamp(actor.rig.x + shove.dx, selectedWorld.minX + wreckRadius, selectedWorld.maxX - wreckRadius);
+        actor.rig.z = THREE.MathUtils.clamp(actor.rig.z + shove.dz, selectedWorld.minZ + wreckRadius, selectedWorld.maxZ - wreckRadius);
         arena.updateCombatantRig(actor.id, actor.rig);
     }
 }
@@ -436,7 +445,7 @@ hudRenderer.domElement.className = 'hud-canvas';
 hudRenderer.domElement.setAttribute('aria-hidden', 'true');
 hudRenderer.domElement.style.pointerEvents = 'none';
 mount.appendChild(hudRenderer.domElement);
-const arena = createArenaScene(assembly, targetAssembly);
+const arena = createArenaScene(assembly, targetAssembly,selectedMap);
 // Load scar positions for only the mounted serialized parts; older saves remain
 // valid without a history database. No artwork is stored in the machine save.
 Promise.all([...new Set(Object.values(assembly.installed||{}))].map(readSurfaceEvents))
@@ -457,7 +466,7 @@ arena.updateTargetDamage(targetCondition);
 for (const actor of supportActors)
     arena.updateCombatantDamage(actor.id, actor.condition);
 arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
-let rig = createRigState();
+let rig = createRigState(playerSpawn);
 let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
 // Sound cadence is isolated from the physics integrator. Do not mutate drive,
 // foot contacts or any persistent machine state to produce these events.
@@ -1513,11 +1522,11 @@ function toggleInspection(force) {
         hitConfirm.className = 'hit-confirm'; rangeCrosshair.classList.remove('confirmed-hit', 'breach-hit', 'disable-hit');
         arena.resetCockpitTransientFeedback();
         assemblyToggle.disabled = false;
-        rig = createRigState();
+        rig = createRigState(playerSpawn);
         playerPower = createPowerSystem(assembly);
         playerCombatActive = true;
         resetSquadBattle();
-        sortieObjective = createSortieObjective(activeContract);
+        sortieObjective = createSortieObjective(mappedContract);
         renderObjectiveStatus();
         boutLedger = createBoutLedger(boutRoster());
         clearBoutResult();
@@ -1824,7 +1833,7 @@ function frame(now) {
                 aiClock+=FIXED_DT;
                 aiPlanCooldown-=FIXED_DT;aiPerceptionCooldown-=FIXED_DT;
                 if(aiPerceptionCooldown<=0||!aiSnapshot){
-                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,DEFAULT_WORLD,aiClock);
+                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,selectedWorld,aiClock);
                     aiPerceptionCooldown=.15; // fast, bounded LOS; team orders remain slow
                 }
                 if(aiPlanCooldown<=0){
@@ -1889,7 +1898,7 @@ function frame(now) {
                     c.confidence>.32 && aiClock-c.lastSeen<=6.0)
                     .sort((a,b)=>b.lastSeen-a.lastSeen)[0]??null;
                 const support=counterFlankOrder(me,order,alliedView?.allies,
-                    alliedView?.contacts,DEFAULT_WORLD,aiClock);
+                    alliedView?.contacts,selectedWorld,aiClock);
                 if(support&&!screenTarget?.active)order=support;
                 if(screenTarget?.active&&screenTarget.rig)order={
                     goal:'SCREEN',point:{x:screenTarget.rig.x,z:screenTarget.rig.z},
@@ -1900,7 +1909,7 @@ function frame(now) {
                 if(recovery.active&&recovery.mode==='WITHDRAW'&&target&&
                     (aiClock-(actor.lastServiceCoverCheck??-Infinity)>1.4)){
                     actor.lastServiceCoverCheck=aiClock;
-                    actor.serviceCover=chooseCoverPoint(actor.rig,target.rig,DEFAULT_WORLD,
+                    actor.serviceCover=chooseCoverPoint(actor.rig,target.rig,selectedWorld,
                         actorConfig.collisionRadiusM,actor.behavior)?.point??null;
                 }
                 const systemAtRisk=threatenedSubsystem(actor.combatMemory,actor.condition,aiClock);
@@ -1918,7 +1927,7 @@ function frame(now) {
                         systemAtRisk,survivalPoint:systemAtRisk?actor.survivalCover:null,
                         enemySeen:!!alliedView?.contacts?.some(c=>c.visible),
                         uncertain:!alliedView?.contacts?.some(c=>c.visible),
-                        world:DEFAULT_WORLD,
+                        world:selectedWorld,
                         preferredRangeM:actor.weaponSpec?.fireMode==='continuous'?4.3:actor.behavior?.preferredRangeM,
                         collisionRadius:actorConfig.collisionRadiusM+.3,
                         threatPosition:target?.rig??null,
@@ -2218,7 +2227,7 @@ devToggle.addEventListener('click', () => {
     document.body.classList.toggle('dev-open', opening);
     renderTarget();
 });
-resetRig.addEventListener('click', () => { rig = createRigState(); controls.recenterLook(); });
+resetRig.addEventListener('click', () => { rig = createRigState(playerSpawn); controls.recenterLook(); });
 let wipeArmed = false;
 let wipeTimer = null;
 wipeSave.addEventListener('click', () => {

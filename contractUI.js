@@ -6,6 +6,7 @@
  * economy authority in their existing modules.
  */
 import { CONTRACTS, contractById, selectContract, selectedContract } from './contracts.js';
+import {mapForContract} from './maps/mapRegistry.js';
 import {
     CAMPAIGN_NODES, availableCampaignNodes, campaignNode, campaignSummary,
     loadCampaign, recordCampaignSalvage, recordCampaignSortie, resetCampaign, storeCampaign,
@@ -50,7 +51,7 @@ function updateHostileCopy(contract) {
     const header = targetPanel.querySelector('header');
     const copy = targetPanel.querySelector('p');
     if (header) header.textContent = `CONTRACT HOSTILE · ${contract.name} · ${contract.opponentSerial}`;
-    if (copy) copy.textContent = `${contract.kind} · ${contract.role} · RISK ${contract.risk}. Objective: ${contract.objective?.label ?? 'BREAK HOSTILE TEAM'}. ${contract.briefing} Known equipment: ${contract.knownEquipment.join(' · ')}.`;
+    if (copy) copy.textContent = `${mapForContract(contract).name} · ${contract.kind} · ${contract.role} · RISK ${contract.risk}. Objective: ${contract.objective?.label ?? 'BREAK HOSTILE TEAM'}. ${contract.briefing} Known equipment: ${contract.knownEquipment.join(' · ')}.`;
     targetToggle.textContent = `HOSTILE · ${contract.name}`;
     targetToggle.title = `${contract.name} · ${contract.kind} · ₡${contract.payout}`;
 }
@@ -101,7 +102,7 @@ function makeNode(campaign, node, active) {
 
     const stage = document.createElement('span'); stage.className = 'node-stage'; stage.textContent = node.stage;
     const name = document.createElement('strong'); name.textContent = contract.name;
-    const role = document.createElement('span'); role.className = 'node-role'; role.textContent = `${contract.kind} · ${contract.objective?.label ?? 'ELIMINATION'} · RISK ${contract.risk}`;
+    const role = document.createElement('span'); role.className = 'node-role'; role.textContent = `${mapForContract(contract).name} · ${contract.objective?.label ?? 'ELIMINATION'} · RISK ${contract.risk}`;
     const reward = document.createElement('small'); reward.textContent = `${contract.salvageHint} · ${contract.knownEquipment.join(' · ')}`;
     const line = document.createElement('b'); line.textContent = status.line;
     button.append(stage, name, role, reward, line);

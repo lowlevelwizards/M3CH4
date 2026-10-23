@@ -5,12 +5,12 @@ const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('k4s.2 uses cache-fresh mobile modules and last-loaded flow stylesheet',()=>{
   const html=read('index.html'),mount=read('garageMountUI.js'),bridge=read('sceneAssembly.js');
-  assert.match(html,/0\.0\.1k\.4(?:s\.3 — Deploy and Layout|z\.1 — Pit Survival & Impact Performance|z\.2 — AI Impact Crash Fix)/);
+  assert.match(html,/0\.0\.1k\.5p\.4 — Three-Venue Early Circuit/);
   assert.match(html,/k4s2GarageFlow\.css\?v=k4s2/);
   assert.ok(html.indexOf('k4s2GarageFlow.css')>html.indexOf('k4sWorkshopShell.css'));
     assert.match(html,/main\.js\?v=[\w.-]+/);
-  assert.match(html,/garageMountUI\.js\?v=k4z1/);
-  assert.match(mount,/unifiedGarageUI\.js\?v=k4z1/);
+  assert.match(html,/garageMountUI\.js\?v=k5p4/);
+  assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
   // The cache token advances independently of the original garage-flow release.
   assert.match(bridge,/scene\.js\?source=[a-zA-Z0-9_.-]+/);
 });
@@ -36,7 +36,7 @@ test('serialized inventory filters and sorts without reassigning hardware',()=>{
   assert.match(ui,/stable\.inventory\.map\(part=>/);
   assert.match(ui,/Object\.values\(r\.installed\)\.includes\(part\.serial\)/);
   assert.match(ui,/inventoryFilter==='equipped'/);
-  assert.match(ui,/inventorySort==='station'/);
+  assert.match(ui,/BAY_SLOTS\.indexOf\(a\.def\.slot\)-BAY_SLOTS\.indexOf\(b\.def\.slot\)/);
   assert.match(ui,/inventory-view-bay/);
   assert.doesNotMatch(ui,/function renderInventory\(stable\)[\s\S]*?function renderCounter\(machine\)[\s\S]*?\bmigrat/i);
 });
@@ -71,5 +71,5 @@ test('station shapes are distinct and camera never jumps on selection or deselec
   assert.match(scene,/savedWorkshopOrbit/);
   assert.match(scene,/desiredTarget\.copy\(savedWorkshopOrbit\.target\)/);
   assert.match(scene,/function focusPart\(slot\) \{\s*\/\//);
-  assert.match(main,/const reserve=inspecting && !!bayDock && workspace==='paint'/);
+  assert.match(main,/if\(inspecting && bayDock && workspace==='paint'\)/);
 });

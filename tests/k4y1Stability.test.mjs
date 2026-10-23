@@ -90,7 +90,9 @@ test('captured drive and look release even when their original element misses po
 
 test('round tableau is genuinely noninteractive, reload uses authoritative timing', () => {
   const main = source('main.js'), css = source('winnerTableau.css');
-  assert.match(main, /controls\.setEnabled\(false\);\s*leaveAlliedObservation\(\)/);
+  assert.match(main, /controls\.setEnabled\(false\)/);
+  assert.match(main, /leaveAlliedObservation\(\)/);
+  assert.match(main, /pendingWinnerPresentation && sortieOutroRemaining<=SORTIE_SHOWCASE_SECONDS/);
   assert.match(main, /classList\.add\('sortie-outro-active'\)/);
   assert.match(main, /classList\.remove\('victory-showcase', 'sortie-outro-active'\)/);
   for (const selector of ['#controls', '#fire', '#reload', '#brake', '#allied-observation'])

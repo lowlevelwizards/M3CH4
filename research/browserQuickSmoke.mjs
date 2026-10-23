@@ -12,7 +12,17 @@ page.on('pageerror',e=>errors.push(String(e.stack||e.message)));
 page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
 try{
   await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  try {
+    await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:25000});
+  }catch(error){
+    const diagnostic=await page.evaluate(()=>({
+      title:document.title,
+      startupPanel:document.querySelector('#startup-diagnostic-detail')?.textContent||null,
+      text:document.body?.textContent?.slice(0,700)||null,
+    }));
+    throw new Error('MAP BOOT FAILED '+JSON.stringify({diagnostic,errors,
+      original:String(error)}));
+  }
   const initial=await page.evaluate(()=>({
     workspace:document.querySelector('#unified-garage')?.dataset.workspace,
     stations:document.querySelectorAll('#unified-garage .workshop-rail .unified-station').length,

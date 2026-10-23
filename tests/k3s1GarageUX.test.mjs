@@ -54,11 +54,12 @@ test('reload restores only pending valid job setups, not completed deployments',
     assert.match(ui, /selectedJobId = restoredAssignment\.contractId/);
 });
 test('machine naming stays secondary, stations are read-only but inspectable in setup and pit',()=>{
-    assert.match(ui, /workshop-status-action/);
+    assert.match(ui, /workshop-status/);
+    assert.match(ui, /workshop-compact-history/);
     assert.match(ui, /appendIdentityForm\(view,stable\)/);
     assert.match(ui, /if \(!identityExpanded\) return;/);
     assert.match(ui, /function renderStationReadout/);
-    assert.match(ui, /if \(readout\) dock\.append\(readout\)/);
+    assert.match(ui, /if\(inspector\)dock\.append\(inspector\)/);
 });
 test('unfinished machinery uses non-combat supports instead of levitating disconnected parts',()=>{
     assert.match(scene, /garage-work-fixtures/);
