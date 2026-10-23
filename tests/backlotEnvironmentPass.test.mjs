@@ -49,7 +49,7 @@ test('arena spectators, distant farm, hanging panels and scars are bounded visua
  assert.match(scene,/advanceBacklotTerrain\(backlotEnvironment,dt\)/);
  assert.match(scene,/recordBacklotCoverStrike\(backlotEnvironment,contact\)/);
  assert.match(render,/root\.traverse\(node=>\{if\(node\.isGroup\)groups\.push\(node\);\}\)/);
- assert.match(render,/if\(!node\.isMesh\|\|node\.userData\?\.arenaObstacleId/);
+ assert.match(render,/if\(!node\.isMesh\|\|node\.isInstancedMesh\|\|node\.userData\?\.arenaObstacleId/);
  assert.match(decor,/root\.userData\.backlotReactivity=/);
  assert.doesNotMatch(decor,/setInterval|requestAnimationFrame/);
 });
