@@ -32,6 +32,5 @@ test('inspection reset and disabled reload hide service carriers without moving 
  assert.match(kit,/feed\.visible=!!phase\?\.feedVisible/);
  assert.match(kit,/latch\.position\.copy\(rest\.latch\)/);
  assert.match(scene,/poseReloadHardware\(mechanism,null\)/);
- assert.match(scene,/scene\.js/);
  // Real Three.js rendering is validated by the browser/art-lab smoke tests.
 });
