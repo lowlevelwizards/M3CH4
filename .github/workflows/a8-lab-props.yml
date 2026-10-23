@@ -1,0 +1,21 @@
+name: A.8 Bounded Physical Scrap Trials
+on:
+  push:
+    branches: [feat/a8-physical-yard-interactions]
+  pull_request:
+    paths:
+      - 'labPropPhysics.js'
+      - 'pilotingLab.js'
+      - 'tests/a8LabProps.test.mjs'
+jobs:
+  impulses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in labPropPhysics.js pilotingLab.js; do node --check "$f"; done
+          node --test tests/a8LabProps.test.mjs tests/a7GroundSurface.test.mjs tests/a5ContactAudio.test.mjs
