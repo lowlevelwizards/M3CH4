@@ -152,7 +152,7 @@ function applyExperimentPresentation(e){
  greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
-  new:'Experimental anatomy only · not in combat yet',
+  new:'CHUNK V4 · experimental anatomy only · not yet in combat',
   old:'Unmodified current Backlot production prop · same camera',
   both:'New at LEFT · original at RIGHT',
  }[expState.view]+' · collider wireframes = CURRENT LIVE MAP AABBs';
@@ -160,6 +160,7 @@ function applyExperimentPresentation(e){
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
  if(!e.experiment)return;
+ $('gallery-experiment-title').textContent=e.label.replace(/ · (CHUNK V4|EXPERIMENT)/g,'')+' · DEV PROTOTYPE ONLY';
  applyExperimentPresentation(e);
 }
 compareBtn.addEventListener('click',()=>{
