@@ -261,7 +261,12 @@ export function advanceEnemyMotion(motion, enemy, player, dt, canMove = true, wo
     if (navigationOrderActive && teamIntent.point) {
         const point=teamIntent.point;
         const d=distance(from,point);
-        if(d>1.6){
+        // CAPTURE/CONTEST routes must actually penetrate the scoring
+        // footprint. A 1.6m generic waypoint tolerance can brake a rig
+        // outside the safe inner circle (especially after a side detour).
+        // This only changes approach precision, not capture radius/physics.
+        const closeEnough=['CAPTURE','CONTEST'].includes(teamIntent.goal)?.85:1.6;
+        if(d>closeEnough){
             base=driveToward(enemy,point,d);
             base.steer=steerFor(point);
             base.throttle*=teamIntent.throttleScale??1;
