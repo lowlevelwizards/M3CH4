@@ -34,6 +34,8 @@ import { rocketFlightStep } from './projectileSimulation.js';
 import { blastDamage } from './explosionResolution.js';
 import { createFiringEventState, triggerFiringEvent, advanceFiringEvent, firingProfile } from './firingEvent.js';
 import { createHitResponse, injectHitResponse, advanceHitResponse, hitMaterialLanguage } from './hitResponse.js';
+import {nearMissEvidence,coverStrikeLanguage,soundBearing,coverProximity} from './battlefieldPressure.js';
+import {soundBattlefieldEvent} from './audio.js';
 import { shieldedModuleOnRay } from './frameShielding.js';
 const C = {
     concrete: 0x777267, concreteDark: 0x4d4b45,
@@ -904,6 +906,82 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         markBreachedArmor(contact,outcome);
     }
     let sparkCursor = 0, chipCursor = 0, smokeCursor = 0;
+    // Twelve recycled impact streaks; no speculative secondary ballistic rays.
+    const ricochetLines=Array.from({length:12},()=>{
+        const geometry=new THREE.BufferGeometry();
+        geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+        const material=new THREE.LineBasicMaterial({color:0xffd695,transparent:true,
+            opacity:.88,depthWrite:false});
+        const line=new THREE.Line(geometry,material);
+        line.visible=false;line.frustumCulled=false;particleRoot.add(line);
+        return {line,life:0,duration:.15};
+    });
+    let ricochetCursor=0,lastNearMissAt=-Infinity,lastCoverSoundAt=-Infinity;
+    function presentBattlefieldShot(contact,shooterId='player',weaponId='gun-cannon'){
+        if(!contact?.point||!contact?.muzzle)return;
+        // Evidence comes from the actual muzzle-to-FIRST-impact segment.
+        const listener={x:visualX,y:2.42,z:visualZ};
+        const now=performance.now();
+        const heavy=weaponId==='gun-short'||weaponId==='gun-scatter'||
+            weaponId==='gun-breaker'||weaponId==='gun-rocket';
+        if(shooterId!=='player'&&contact.actorId!=='player'&&
+            !inspecting&&!spectatorRig&&now-lastNearMissAt>175){
+            const evidence=nearMissEvidence(listener,contact.muzzle,contact.point);
+            if(evidence){
+                lastNearMissAt=now;
+                soundBattlefieldEvent(heavy?'heavy-flyby':'flyby',{
+                    distance:evidence.separation,
+                    pan:soundBearing(evidence,listener,visualYaw),
+                    strength:evidence.strength*(heavy?1.13:1),
+                });
+            }
+        }
+        // Direct rig hits already have armor/core VFX and sound. Only
+        // certified world-cover impacts may use this material language.
+        if(!contact.blockedBy||contact.actorId)return;
+        const obstacle=world.obstacles?.find(o=>o.id===contact.blockedBy);
+        const surface=coverStrikeLanguage({...contact,
+            coverArt:obstacle?.artKit??obstacle?.art??null});
+        if(!surface)return;
+        const point=contact.point,normal=contact.normal??new THREE.Vector3(0,1,0);
+        const mat=surface.material;
+        const palette=mat==='metal'?0xffbb70:mat==='concrete'?0xc5c0ad:
+            mat==='earth'?0xa68d61:mat==='rubber'?0x53534e:0x98734d;
+        for(let i=0;i<surface.sparks;i++)
+            activateParticle(sparkPool,'spark',point,
+                randomBurstDirection(normal,.95).multiplyScalar(1.6+Math.random()*3.1),
+                .38+Math.random()*.55,.15+Math.random()*.18,-3,0,palette);
+        for(let i=0;i<surface.chips;i++)
+            activateParticle(chipPool,'chip',point,
+                randomBurstDirection(normal,1.4).multiplyScalar(.8+Math.random()*2.4),
+                .50+Math.random()*.75,.38+Math.random()*.35,-7.2,0,palette);
+        for(let i=0;i<surface.smoke;i++)
+            activateParticle(smokePool,'smoke',point,
+                new THREE.Vector3((Math.random()-.5)*.5,.28+Math.random()*.5,
+                  (Math.random()-.5)*.5),.52+Math.random()*.45,
+                .55+Math.random()*.45,0,.9,mat==='earth'?0x514637:0x353632,true);
+        if(surface.ricochet){
+            const streak=ricochetLines[ricochetCursor++%ricochetLines.length];
+            const incoming=point.clone().sub(contact.muzzle).normalize();
+            const bounce=incoming.addScaledVector(normal,-2*incoming.dot(normal)).normalize();
+            const end=point.clone().addScaledVector(bounce,1.25);
+            const attr=streak.line.geometry.attributes.position;
+            attr.setXYZ(0,point.x,point.y,point.z);
+            attr.setXYZ(1,end.x,end.y,end.z);attr.needsUpdate=true;
+            streak.line.visible=true;streak.life=streak.duration=.15;
+        }
+        const proximity=coverProximity(point,listener,12);
+        if(!inspecting&&!spectatorRig&&proximity>.01&&now-lastCoverSoundAt>105){
+            lastCoverSoundAt=now;
+            soundBattlefieldEvent(surface.ricochet?'ricochet':'cover-'+mat,{
+                distance:Math.hypot(point.x-listener.x,point.y-listener.y,point.z-listener.z),
+                pan:soundBearing(point,listener,visualYaw),
+                strength:(.4+proximity*.85)*(heavy?1.12:1),
+            });
+            // Nearby cover shudders; never fabricate hit damage or stun.
+            if(proximity>.62)hitShakeKick=Math.max(hitShakeKick,.0025*(proximity-.4));
+        }
+    }
     const fallingParts = new Map();
     const impactLights = Array.from({ length: 5 }, () => {
         const light = new THREE.PointLight(0xffbf6c, 0, 5.5, 2);
@@ -1438,6 +1516,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
     }
     function clearPooledParticles() {
+        for(const streak of ricochetLines){streak.life=0;streak.line.visible=false;}
+        lastNearMissAt=lastCoverSoundAt=-Infinity;
         for (const state of particleStates) {
             state.life = 0;
             state.mesh.visible = false;
@@ -2914,6 +2994,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         // Only actual world-cover hits add marks or rattle welded scraps.
         // This never changes penetration, damage, AI LOS or navigation.
         if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
+        presentBattlefieldShot(contact,'player',pilotWeaponPresentation?.id);
         const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xf4c77e : 0xc7a76f, transparent: true, opacity: .92 });
@@ -2956,6 +3037,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         // Only actual world-cover hits add marks or rattle welded scraps.
         // This never changes penetration, damage, AI LOS or navigation.
         if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
+        presentBattlefieldShot(contact,'enemy-0','gun-cannon');
         const hit = outcome !== null;
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({ color: hit ? 0xff9e62 : 0xb97955, transparent: true, opacity: .88 });
@@ -3041,6 +3123,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if(backlotEnvironment)recordBacklotCoverStrike(backlotEnvironment,contact);
         const shooter = squadCombatants.get(shooterId);
         const friendly = shooter?.team === 'friendly';
+        presentBattlefieldShot(contact,shooterId,
+            installedPart(shooter?.assembly,'combat')?.definition.id??'gun-cannon');
         const track = new THREE.BufferGeometry().setFromPoints([contact.muzzle, contact.point]);
         const trackMat = new THREE.LineBasicMaterial({
             color: friendly ? 0x8be1b0 : 0xff9e62, transparent: true, opacity: .86,
@@ -3185,6 +3269,12 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             if(record.hitResponse)advanceHitResponse(record.hitResponse,dt);
         }
         muzzleFlash = Math.max(0, muzzleFlash - dt);
+        for(const streak of ricochetLines){
+            if(streak.life<=0)continue;
+            streak.life=Math.max(0,streak.life-dt);
+            streak.line.material.opacity=streak.life/streak.duration*.88;
+            if(streak.life<=0)streak.line.visible=false;
+        }
         for (const record of squadCombatants.values()) record.recoilKick = Math.max(0, (record.recoilKick ?? 0) - dt * (record.recoilRecovery ?? 3.2));
         const hitDecay = Math.exp(-8.5 * dt);
         hitPitchKick *= hitDecay; hitRollKick *= hitDecay; hitYawKick *= hitDecay; hitShakeKick *= Math.exp(-10.5 * dt); gunDamageKick *= Math.exp(-5.2 * dt);
