@@ -211,15 +211,23 @@ export function createArenaScene(initial, targetAssembly) {
     scene.add(arenaPresentationRoot);
     const worldSolids = buildWarehouse(arenaRoot);
     const garageRoot = buildGarageBay();
-    // Non-colliding shop hardware appears only when real mounted systems are
-    // disabled, making the workshop/pit feel like a service space.
+    // A circuit-side service lane is a different *physical place* from home.
+    // Reuse the same authored jacks and diagnostics, not the entire garage.
+    const pitRoot=buildPitLane();
+    pitRoot.visible=false;scene.add(pitRoot);
     const serviceDressing=buildServiceDressing();
     garageRoot.add(serviceDressing);
     serviceDressing.visible=false;
     let pitPresentation=false,serviceSelectedSlot=null,lastServiceSignature='';
     function setPitPresentation(pit=false,slot=null){
-        pitPresentation=!!pit;
+        const next=!!pit;
+        if(pitPresentation!==next){
+            pitPresentation=next;
+            (pitPresentation?pitRoot:garageRoot).add(serviceDressing);
+        }
         serviceSelectedSlot=SLOTS.includes(slot)?slot:null;
+        garageRoot.visible=inspecting&&!vendorEnabled&&!pitPresentation;
+        pitRoot.visible=inspecting&&!vendorEnabled&&pitPresentation;
         lastServiceSignature='';
         refreshPhysicalServiceBay();
     }
@@ -456,7 +464,9 @@ export function createArenaScene(initial, targetAssembly) {
         vendorEnabled=enabled;
         vendorRoot.visible=inspecting&&vendorEnabled;
         exterior.root.visible=inspecting&&!vendorEnabled;
-        stagingFixtures.visible=inspecting&&!vendorEnabled;
+        garageRoot.visible=inspecting&&!vendorEnabled&&!pitPresentation;
+        pitRoot.visible=inspecting&&!vendorEnabled&&pitPresentation;
+        stagingFixtures.visible=inspecting&&!vendorEnabled&&!pitPresentation;
         if(vendorEnabled) {
             // A separate tabletop viewing station: don't overwrite the player's
             // garage orbit, so returning to the rig is spatially continuous.
@@ -1988,10 +1998,11 @@ export function createArenaScene(initial, targetAssembly) {
         blackout.visible = !enabled;
         arenaRoot.visible = !enabled;
         arenaPresentationRoot.visible = !enabled;
-        garageRoot.visible = enabled;
+        garageRoot.visible = enabled&&!vendorEnabled&&!pitPresentation;
+        pitRoot.visible = enabled&&!vendorEnabled&&pitPresentation;
         if(!enabled)serviceDressing.visible=false;
         else refreshPhysicalServiceBay();
-        stagingFixtures.visible = enabled && !vendorEnabled;
+        stagingFixtures.visible = enabled && !vendorEnabled && !pitPresentation;
         arenaHemisphere.visible = !enabled;
         sun.visible = !enabled;
         coolRim.visible = !enabled;
@@ -2865,7 +2876,71 @@ export function createArenaScene(initial, targetAssembly) {
         }
         updateTargetDamage(condition);
     }
+    // Repair is a blue welding signature; fitting/removing hardware uses warm,
+    // shorter bursts. This is one bounded pooled effect, not a new particle stack.
+    function playWorkshopAction(slot='structure',kind='repair'){
+        if(!inspecting||vendorEnabled)return false;
+        exterior.root.updateWorldMatrix(true,true);
+        const group=exterior.partGroups.get(slot);
+        const point=new THREE.Vector3();
+        if(group)group.getWorldPosition(point);
+        else exterior.root.getWorldPosition(point).y+=1.15;
+        const service=kind==='repair';
+        const palette=service?[0x77dfff,0xd9f9ff,0x559bff]:
+            kind==='install'?[0xf3bd70,0xe8d7a7,0xa3ada6]:
+            [0xbbaf9d,0xf1bc79,0x757d79];
+        if(service)flashDamageLight(point,0x78dfff,2.4,.085,2.4);
+        const count=service?20:kind==='install'?12:7;
+        for(let i=0;i<count;i++){
+            const origin=point.clone().add(new THREE.Vector3(
+                (Math.random()-.5)*.58,(Math.random()-.5)*.43,
+                (Math.random()-.5)*.52));
+            const velocity=new THREE.Vector3(
+                (Math.random()-.5)*3.6, .8+Math.random()*2.3,
+                (Math.random()-.5)*2.8);
+            activateParticle(sparkPool,'spark',origin,velocity,
+                .52+Math.random()*.42,.24+Math.random()*.28,-3.0,0,
+                palette[i%palette.length]);
+        }
+        return true;
+    }
+    const garageFailureBudget=makeEmitterBudget();
+    const garageFailureVisual={exterior};
+    function updateGarageFailureEffects(dt){
+        if(!inspecting||vendorEnabled||!latestPilotParts)return;
+        exterior.root.updateWorldMatrix(true,true);
+        for(const slot of SLOTS){
+            const part=latestPilotParts[slot];
+            if(!part)continue;
+            const profile=persistentFailureProfile(slot,integrityRatio(part));
+            if(profile.severity<.34&&!part.destroyed)continue;
+            const budget=garageFailureBudget.get(slot);
+            budget.spark+=(profile.sparkRate+(part.destroyed?1.1:0))*dt*.75;
+            budget.smoke+=(profile.smokeRate+(part.destroyed ? .6 : 0))*dt*.85;
+            budget.arc+=(profile.arcRate+(slot==='power' && part.destroyed ? .7 : 0))*dt*.6;
+            while(budget.spark>=1){
+                budget.spark-=1;
+                const position=partWorldPoint(garageFailureVisual,slot);
+                activateParticle(sparkPool,'spark',position,
+                    new THREE.Vector3((Math.random()-.5)*1.6,.65+Math.random()*1.35,
+                    (Math.random()-.5)*1.6),.55+Math.random()*.4,
+                    .19+Math.random()*.24,-3.2,0,slot==='power'?0x9fdcff:0xffb96f);
+            }
+            while(budget.smoke>=1){
+                budget.smoke-=1;
+                activateParticle(smokePool,'smoke',partWorldPoint(garageFailureVisual,slot),
+                    new THREE.Vector3((Math.random()-.5)*.17,.24+Math.random()*.20,
+                    (Math.random()-.5)*.17),.9+profile.severity*.55,
+                    1.2+Math.random()*.85,0,1.1,0x222922,true);
+            }
+            while(budget.arc>=1){
+                budget.arc-=1;
+                spawnWorldPowerArc(partWorldPoint(garageFailureVisual,slot),.45+profile.severity*.5);
+            }
+        }
+    }
     function updateCombatEffects(dt) {
+        updateGarageFailureEffects(dt);
         // No frame may synchronously clip an unbounded impact queue. Persistent
         // damage is recorded on hit; its cosmetic mesh catches up incrementally.
         flushSurfaceMarks(2);
@@ -3060,6 +3135,7 @@ export function createArenaScene(initial, targetAssembly) {
         orbitBy, panBy, setInspectorLayout, zoomBy, resetOrbit, pickPart, pickSurfaceEvidence, revealPart,
         drainSurfaceEvents,restoreSurfaceMarks,refreshInspectionBase,
         beginVictoryShowcase,updateVictoryShowcase,endVictoryShowcase,victoryNameplateAnchors,setPitPresentation,
+        playWorkshopAction,
         traceShot, showShot, traceHostileShot, showHostileShot, launchRocket, advanceRockets, blastContacts, clearRockets, showCuttingArc, updateTargetDamage, updatePilotDamage, resetTargetDamage, updateCombatEffects, setPilotWeapon,
         addCombatant, repaintCombatant, setCombatantActive, setCombatantCleared, updateCombatantRig, updateCombatantDamage, traceCombatantShot, showCombatantShot, updateShotAudit, updateObjectivePresentation,
         updateCockpitInstruments, updateCockpitMotion, triggerCockpitHit, resetCockpitTransientFeedback, combatantVisualAudit, partThumbnailDataUrl, rigThumbnailDataUrl,
@@ -3130,6 +3206,67 @@ function buildServiceDressing() {
     const hose=box(.035,.29,.035,deep);hose.position.set(2.34,.94,-1.07);
     hose.rotation.z=-.32;root.add(hose);
     root.userData.stage={supports,warning:warningLED,lamp,readout};
+    return root;
+}
+/** Temporary circuit-side recovery lane: dusty concrete, folded awning,
+ * borrowed electrical service, low fence and portable job signage. No combat
+ * hitboxes or persistent save objects are created here. */
+function buildPitLane() {
+    const root=new THREE.Group();root.name='circuit-pit-lane';
+    const floor=mat(0x4e4938,.99,.03),steel=mat(0x59605a,.80,.28);
+    const scaffold=mat(0x3a4e48,.82,.38),rust=mat(0x755036,.87,.16);
+    const canvas=mat(0x8b7850,.96,.03),signal=mat(0xc9a456,.92,.08);
+    const base=box(15,.17,12,floor);base.position.set(0,-.13,0);root.add(base);
+    // Roll-up grit and painted service lanes distinguish the outdoor paddock.
+    for(const side of [-1,1]){
+        const stripe=box(.11,.016,6.7,signal);
+        stripe.position.set(side*2.85,-.02,.12);root.add(stripe);
+        for(const x of [side*5.0,side*6.6]){
+            const mast=box(.17,3.65,.17,scaffold);
+            mast.position.set(x,1.82,2.52);root.add(mast);
+            const foot=box(.56,.15,.59,steel);
+            foot.position.set(x,.08,2.52);root.add(foot);
+        }
+        const awning=box(2.30,.14,3.65,canvas);
+        awning.position.set(side*5.78,3.54,1.13);awning.rotation.z=side*.048;
+        root.add(awning);
+        for(let i=0;i<4;i++){
+            const spare=box(.77,.35,.55,i%2?rust:steel);
+            spare.position.set(side*(3.5+(i%2)*.88),.2+Math.floor(i/2)*.36,2.68);
+            root.add(spare);
+        }
+        const curb=box(.23,.26,5.7,rust);
+        curb.position.set(side*7.15,.11,.1);root.add(curb);
+    }
+    // Low portable crowd railing at the back. The arena still exists outside.
+    const backrail=box(13.3,.13,.14,steel);backrail.position.set(0,1.04,4.70);
+    root.add(backrail);
+    for(let i=-6;i<=6;i+=2){
+        const leg=box(.12,1.45,.12,scaffold);leg.position.set(i,.75,4.70);
+        root.add(leg);
+    }
+    const cable=box(5.1,.035,.04,rust);
+    cable.position.set(-.4,.02,3.80);cable.rotation.y=.24;root.add(cable);
+    const flood=new THREE.SpotLight(0xe7c58f,.85,9,.65,.75,2);
+    flood.position.set(-3.8,3.50,2.55);root.add(flood);root.add(flood.target);
+    flood.target.position.set(0,1.35,0);
+    const signCanvas=document.createElement('canvas');
+    signCanvas.width=384;signCanvas.height=96;
+    const ctx=signCanvas.getContext('2d');
+    if(ctx){
+        ctx.fillStyle='#3b392d';ctx.fillRect(0,0,384,96);
+        ctx.strokeStyle='#bda15c';ctx.lineWidth=5;ctx.strokeRect(4,4,376,88);
+        ctx.fillStyle='#e5bd72';ctx.font='bold 42px monospace';
+        ctx.textAlign='center';ctx.fillText('FIELD PIT',192,52);
+        ctx.fillStyle='#a7b3a2';ctx.font='bold 17px monospace';
+        ctx.fillText('ROUND SERVICE // CREW LANE',192,78);
+        const texture=new THREE.CanvasTexture(signCanvas);
+        texture.colorSpace=THREE.SRGBColorSpace;
+        const placard=new THREE.Mesh(new THREE.PlaneGeometry(3.15,.79),
+            new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
+        placard.position.set(0,2.98,4.52);placard.rotation.y=Math.PI;
+        root.add(placard);
+    }
     return root;
 }
 function buildGarageBay() {

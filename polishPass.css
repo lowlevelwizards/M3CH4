@@ -289,3 +289,63 @@
  .unified-modules>.garage-part-actions{order:-2}
 #unified-garage[data-workspace="garage"].tool-open:not(.replacing)
  .unified-modules>.unified-service{order:-1}
+
+/* k5p2 - Four explicit crew units, with zero automatic allocation. */
+#unified-garage[data-workspace="pit"] .pit-unit-strip{
+    display:flex;align-items:center;gap:3px;min-height:12px;
+    font:900 13px/1 ui-monospace,monospace;letter-spacing:.04em;
+}
+#unified-garage[data-workspace="pit"] .pit-unit-strip .available{color:#bdd5c5}
+#unified-garage[data-workspace="pit"] .pit-unit-strip .spent{color:#d6a458}
+#unified-garage[data-workspace="pit"] .pit-unit-warning{color:#e6a176}
+#unified-garage[data-workspace="pit"] .physical-pit-budget{
+    display:flex;flex-wrap:wrap;column-gap:6px;row-gap:2px;align-items:center;
+}
+#unified-garage[data-workspace="pit"] .physical-pit-budget small{flex-basis:100%}
+#unified-garage[data-workspace="pit"] .physical-pit-progress strong{color:#edc078}
+
+/* Diagnostics: full retained capabilities, grouped instead of a wall of
+   colliding action buttons. Deprecated marketing badges removed. */
+#dev-panel{
+    box-sizing:border-box;max-height:calc(100dvh - 60px);
+    overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;
+    padding:9px;gap:6px;
+}
+#dev-panel .dev-group{
+    box-sizing:border-box;width:100%;min-width:0;
+    border:1px solid #5c715f;background:#121d18dd;
+    margin:3px 0;
+}
+#dev-panel .dev-group>summary{
+    cursor:pointer;touch-action:manipulation;min-height:34px;
+    padding:9px 10px 6px;box-sizing:border-box;color:#e2bd78;
+    font:900 10px/1.1 ui-monospace,monospace;letter-spacing:.06em;
+    list-style:revert;
+}
+#dev-panel .dev-group[open]{background:#1b2720e8}
+#dev-panel .dev-group>.animation-dev-controls,
+#dev-panel .dev-group>.damage-actions,
+#dev-panel .dev-group>.dev-actions{
+    display:flex;flex-wrap:wrap;gap:5px;padding:5px 8px 8px;
+}
+#dev-panel .dev-group>button,
+#dev-panel .dev-group>a{
+    display:block!important;box-sizing:border-box;width:calc(100% - 16px);
+    margin:4px 8px;min-height:34px;padding:7px 9px!important;
+    font:800 10px/1.3 ui-monospace,monospace;
+}
+#dev-panel .dev-group button,
+#dev-panel .dev-group select{
+    flex:1 1 115px;min-width:0;min-height:33px;
+    white-space:normal;overflow-wrap:anywhere;
+}
+#dev-panel .dev-group .animation-dev-speed{
+    flex:1 1 160px;display:flex;gap:5px;align-items:center;
+}
+#dev-panel .dev-group .animation-dev-speed input{width:100%;min-width:60px}
+#dev-panel .dev-group #wipe-save{border-color:#9e6556;color:#ffd5c4}
+@media(max-height:440px){
+    #dev-panel{max-height:calc(100dvh - 42px);padding:5px}
+    #dev-panel pre{max-height:21dvh;font-size:9px}
+    #dev-panel .dev-group>summary{min-height:31px;padding:7px 8px}
+}
