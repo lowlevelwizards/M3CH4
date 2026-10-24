@@ -3321,7 +3321,10 @@ function attemptFire() {
     // Bill the actual consumed discharge, not every pellet, projectile impact,
     // hit, reload, or the holding of the trigger.
     if(!testYard)sortieAmmoCostCents += ammoCostCents(weaponSpec);
-    if(weaponSpec.fireMode!=='continuous')registerPowerShot(playerPower, assembly,weaponSpec?.id);
+    if(weaponSpec.fireMode!=='continuous') {
+        if(selectedWeapon==='secondary') registerPowerShot(playerPower,assembly,weaponSpec.id);
+        else registerPowerShot(playerPower, assembly);
+    }
     // One trigger pull consumes exactly one shell; each actual pellet
     // traverses the ordinary camera→muzzle raycaster and first real hit.
     const degradedSpread=weaponSpreadMultiplier(output);
