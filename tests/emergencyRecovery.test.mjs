@@ -1,103 +1,89 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    FIELD_SERVICE_RECOVERY_RATIO,
-    FIELD_SERVICE_SECONDS,
-    WEAPON_FAULT_FLOOR,
-    advanceFieldService,
-    arrestFirstWeaponFailure,
-    beginFieldService,
-    canFieldService,
-    createFieldServiceState,
-    fieldServiceStationary,
-    weaponFailureState,
-    weaponIntegrityRatio,
-    weaponMissionKillReason,
+ FIELD_SERVICE_SECONDS,FIELD_SERVICE_COOLDOWN_SECONDS,FIELD_SERVICE_RECOVERY_RATIO,
+ advanceFieldService,beginFieldService,canFieldService,createFieldServiceState,
+ fieldServiceStationary,serviceableSlots,fieldServiceTarget,cycleFieldServiceTarget,
+ countDisabled,systemMissionKillReason,weaponFailureState,weaponMissionKillReason
 } from '../fieldService.js';
 import { hostileMissionKillReason } from '../hostileRig.js';
-
-const condition = (combatRatio = 1) => ({
-    parts: {
-        combat: { integrity: 115 * combatRatio, maxIntegrity: 115 },
-    },
+const stopped=()=>({vx:0,vz:0,yawRate:0});
+const machine=(health={})=>({parts:Object.fromEntries(
+ ['structure','mobility','power','command','combat'].map(slot=>[slot,
+ {integrity:(health[slot]??1)*100,maxIntegrity:100,armor:35,maxArmor:35,destruction:0,destroyed:false}]))});
+const service=(c,s,slot)=>{s.selectedSlot=slot;assert.equal(beginFieldService(c,s,stopped()),true);
+ return advanceFieldService(c,s,stopped(),FIELD_SERVICE_SECONDS);};
+test('single and paired failures continue battle; third concurrent failure is a mission kill',()=>{
+ const c=machine({mobility:0});
+ assert.equal(countDisabled(c),1);
+ assert.equal(systemMissionKillReason(c),null);
+ c.parts.combat.integrity=0;
+ assert.equal(countDisabled(c),2);
+ assert.equal(hostileMissionKillReason(c),null);
+ c.parts.power.integrity=0;
+ assert.equal(countDisabled(c),3);
+ assert.match(systemMissionKillReason(c),/TOTAL SYSTEM FAILURE/);
+ assert.equal(weaponMissionKillReason(c),systemMissionKillReason(c));
+ c.parts.mobility.integrity=15;
+ assert.equal(countDisabled(c),2);
+ assert.equal(systemMissionKillReason(c),null);
 });
-const stoppedRig = () => ({ vx: 0, vz: 0, yawRate: 0 });
-const hostileCondition = ({ structure = 1, mobility = 1, power = 1, command = 1, combat = 1 } = {}) => ({
-    parts: Object.fromEntries(Object.entries({ structure, mobility, power, command, combat }).map(([slot, value]) => [
-        slot, { integrity: 100 * value, maxIntegrity: 100 },
-    ])),
+test('destroyed cabin or frame is unrecoverable; noncritical destruction counts as one disable',()=>{
+ const c=machine();
+ c.parts.combat.destroyed=true;c.parts.combat.integrity=0;
+ assert.equal(systemMissionKillReason(c),null);
+ assert.deepEqual(serviceableSlots(c),[]);
+ c.parts.command.destroyed=true;c.parts.command.integrity=0;
+ assert.equal(systemMissionKillReason(c),'PILOT COMPARTMENT DESTROYED');
+ c.parts.command.destroyed=false;c.parts.command.integrity=1;
+ c.parts.structure.destroyed=true;c.parts.structure.integrity=0;
+ assert.equal(systemMissionKillReason(c),'FRAME DESTROYED');
 });
-const behavior = { fireCadenceScale: 1, spreadScale: 1 };
-
-test('first catastrophic weapon hit becomes a recoverable fault instead of dead time', () => {
-    const service = createFieldServiceState();
-    const player = condition(0);
-    const latched = arrestFirstWeaponFailure(player, service, 30);
-
-    assert.equal(latched, true);
-    assert.equal(weaponFailureState(player, service), 'faulted');
-    assert.ok(Math.abs(weaponIntegrityRatio(player) - WEAPON_FAULT_FLOOR) < 1e-9);
-    assert.equal(canFieldService(player, service), true);
-    assert.equal(weaponMissionKillReason(player, service), null);
-
-    // Zero functional integrity is still a disabled, serviceable assembly while the
-    // physical weapon remains intact and this bypass has not been spent.
-    player.parts.combat.integrity = 0;
-    assert.equal(arrestFirstWeaponFailure(player, service, 115 * WEAPON_FAULT_FLOOR), false);
-    assert.equal(weaponFailureState(player, service), 'faulted');
-    assert.equal(canFieldService(player, service), true);
-    assert.equal(weaponMissionKillReason(player, service), null);
-    player.parts.combat.destroyed = true;
-    assert.equal(weaponFailureState(player, service), 'destroyed');
-    assert.equal(weaponMissionKillReason(player, service), 'WEAPON DESTROYED');
+test('field service recovers any disabled module, never armor or destruction overflow',()=>{
+ for(const slot of ['structure','mobility','power','command','combat']){
+  const c=machine({[slot]:0}),s=createFieldServiceState();
+  c.parts[slot].armor=0;c.parts[slot].destruction=17;
+  assert.equal(fieldServiceTarget(c,s),slot);
+  const step=service(c,s,slot);
+  assert.equal(step.event,'completed');
+  assert.equal(step.slot,slot);
+  assert.equal(step.ratio,FIELD_SERVICE_RECOVERY_RATIO);
+  assert.equal(c.parts[slot].integrity,25);
+  assert.equal(c.parts[slot].armor,0);
+  assert.equal(c.parts[slot].destruction,17);
+  assert.equal(s.cooldownLeft,FIELD_SERVICE_COOLDOWN_SECONDS);
+  assert.equal(serviceableSlots(c).length,0);
+ }
 });
-
-test('field service requires the rig to stop and interruption resets the hold', () => {
-    const service = createFieldServiceState();
-    const player = condition(0.08);
-    const movingRig = { vx: 0.5, vz: 0, yawRate: 0 };
-
-    assert.equal(fieldServiceStationary(movingRig), false);
-    assert.equal(beginFieldService(player, service, movingRig), false);
-    assert.equal(beginFieldService(player, service, stoppedRig()), true);
-
-    let result = advanceFieldService(player, service, stoppedRig(), 1.5);
-    assert.equal(result.event, 'progress');
-    assert.equal(service.progress, 1.5);
-
-    result = advanceFieldService(player, service, movingRig, 0.1);
-    assert.equal(result.event, 'interrupted');
-    assert.equal(service.held, false);
-    assert.equal(service.progress, 0);
+test('stationary hold breaks when moving, and cooldown prevents immediate re-service',()=>{
+ const c=machine({combat:0}),s=createFieldServiceState();
+ assert.equal(fieldServiceStationary({vx:.5,vz:0,yawRate:0}),false);
+ assert.equal(beginFieldService(c,s,{vx:.5,vz:0,yawRate:0}),false);
+ assert.equal(beginFieldService(c,s,stopped()),true);
+ assert.equal(advanceFieldService(c,s,stopped(),1).event,'progress');
+ assert.equal(advanceFieldService(c,s,{vx:.5,vz:0,yawRate:0},.1).event,'interrupted');
+ assert.equal(s.progress,0);
+ service(c,s,'combat');
+ c.parts.combat.integrity=0;
+ assert.equal(canFieldService(c,s),false);
+ assert.equal(advanceFieldService(c,s,stopped(),FIELD_SERVICE_COOLDOWN_SECONDS).event,null);
+ assert.equal(canFieldService(c,s),true);
+ assert.equal(service(c,s,'combat').ratio,.20);
+ assert.equal(s.attempts.combat,2);
 });
-
-test('four-second emergency bypass restores only poor combat capability and is one-shot', () => {
-    const service = createFieldServiceState();
-    const player = condition(0.08);
-    const rig = stoppedRig();
-    assert.equal(beginFieldService(player, service, rig), true);
-
-    let result;
-    for (let elapsed = 0; elapsed < FIELD_SERVICE_SECONDS; elapsed += 0.5)
-        result = advanceFieldService(player, service, rig, 0.5);
-
-    assert.equal(result.event, 'completed');
-    assert.equal(service.used, true);
-    assert.equal(service.held, false);
-    assert.ok(Math.abs(weaponIntegrityRatio(player) - FIELD_SERVICE_RECOVERY_RATIO) < 1e-9);
-    assert.equal(weaponFailureState(player, service), 'damaged');
-    assert.equal(canFieldService(player, service), false);
-
-    // If the recovered gun falls through the shutdown threshold again, the sortie
-    // resolves immediately rather than offering an infinite repair loop.
-    player.parts.combat.integrity = player.parts.combat.maxIntegrity * 0.1;
-    assert.equal(weaponFailureState(player, service), 'unrecoverable');
-    assert.equal(weaponMissionKillReason(player, service), 'WEAPON FAULT · FIELD SERVICE SPENT');
-});
-
-test('hostile mission kills report the actual disabled combat-critical system', () => {
-    assert.equal(hostileMissionKillReason(hostileCondition({ combat: 0.1 }), behavior), 'WEAPON DISABLED');
-    assert.equal(hostileMissionKillReason(hostileCondition({ power: 0.1 }), behavior), 'POWER LOST');
-    assert.equal(hostileMissionKillReason(hostileCondition({ mobility: 0 }), behavior), null,
-        'immobilized armed opponent remains dangerous');
+test('third service is increasingly weak, and active choices cycle without serial mutation',()=>{
+ const c=machine({power:0,combat:0}),s=createFieldServiceState();
+ assert.equal(fieldServiceTarget(c,s),'power');
+ assert.equal(cycleFieldServiceTarget(c,s),'combat');
+ assert.equal(fieldServiceTarget(c,s),'combat');
+ service(c,s,'combat');
+ advanceFieldService(c,s,stopped(),10);
+ c.parts.combat.integrity=0;
+ service(c,s,'combat');
+ advanceFieldService(c,s,stopped(),10);
+ c.parts.combat.integrity=0;
+ assert.equal(service(c,s,'combat').ratio,.15);
+ assert.equal(c.parts.combat.integrity,15);
+ assert.equal(c.parts.power.integrity,0);
+ assert.equal(weaponFailureState(c,s),'damaged');
 });
