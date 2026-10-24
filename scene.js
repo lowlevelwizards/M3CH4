@@ -232,6 +232,44 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     const arenaPresentationRoot = new THREE.Group();
     arenaPresentationRoot.name = 'arena-presentation';
     scene.add(arenaPresentationRoot);
+    const tacticalSmokeRoot=new THREE.Group();
+    tacticalSmokeRoot.name='tactical-smoke-optical-cover';
+    arenaPresentationRoot.add(tacticalSmokeRoot);
+    const tacticalCloudMeshes=new Map();
+    function updateTacticalSmoke(clouds=[]){
+        const live=new Set(clouds.map(c=>c.id));
+        for(const [id,group] of tacticalCloudMeshes){
+            if(live.has(id))continue;
+            tacticalSmokeRoot.remove(group);
+            group.traverse(node=>{if(node.isMesh){node.geometry.dispose();node.material.dispose();}});
+            tacticalCloudMeshes.delete(id);
+        }
+        for(const cloud of clouds){
+            let group=tacticalCloudMeshes.get(cloud.id);
+            if(!group){
+                group=new THREE.Group();
+                for(let i=0;i<9;i++){
+                    const phi=i*Math.PI*2/9;
+                    const puff=new THREE.Mesh(
+                        new THREE.SphereGeometry(1,7,5),
+                        new THREE.MeshStandardMaterial({
+                            color:i%3===0?0x353b38:0x282e2a,
+                            roughness:1,transparent:true,opacity:.46,
+                            depthWrite:false,side:THREE.DoubleSide,
+                        }));
+                    puff.position.set(Math.cos(phi)*.50,.98+(i%3)*.33,Math.sin(phi)*.50);
+                    puff.scale.set(1.18,.76,1.18);
+                    group.add(puff);
+                }
+                tacticalSmokeRoot.add(group);
+                tacticalCloudMeshes.set(cloud.id,group);
+            }
+            const spread=Math.min(1,Math.max(.12,(cloud.age??0)/.85));
+            const decay=Math.min(1,Math.max(0,(cloud.life??0)/1.5));
+            group.position.set(cloud.x,0,cloud.z);
+            group.scale.setScalar((cloud.radius??3.5)*.72*spread*decay);
+        }
+    }
     const worldSolids = buildArenaWorld(arenaRoot,world,arenaMap,playerSpawn,hostileSpawn);
     const backlotEnvironment=arenaMap.id==='backlot-dustbowl'
         ?scene.getObjectByName('backlot-outdoor-derby-world'):null;
@@ -3603,7 +3641,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     selectPart(selected);
     return {
-        scene, camera, cockpit, debugColliders,
+        scene, camera, cockpit, debugColliders, updateTacticalSmoke,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout, recordFootprint, setPilotStabilizer,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
