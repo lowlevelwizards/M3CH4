@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {BACKLOT} from '../maps/backlot.js';
-import {BACKLOT_COVER_KITS} from '../backlotObstacleKits.js';
+import {BACKLOT_COVER_KITS,buildBacklotObstacleKit} from '../backlotObstacleKits.js';
 const source=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const machines=source('backlotAnatomicalMachines.js');
 const salvage=source('backlotAnatomicalSalvage.js');
@@ -36,6 +36,21 @@ test('the eleven certified live cover families receive the completion pass',()=>
  assert.match(kits,/combine-threshing-body/);
  assert.match(kits,/flatbed-load-rusted-body/);
  assert.match(kits,/certified-/);
+});
+test('construct each live cover kit with real-sized AABBs, never just regex-check source',()=>{
+ const api={
+  block(){return {userData:{},rotation:{x:0,y:0,z:0}};},
+  drum(){return {userData:{},rotation:{x:0,y:0,z:0}};},
+ };
+ for(const artKit of BACKLOT_COVER_KITS){
+  const solids=[];
+  const obstacle={id:'test-'+artKit,artKit,minX:0,maxX:5,
+   minZ:0,maxZ:3,height:2.8,kind:'barrier'};
+  assert.doesNotThrow(()=>buildBacklotObstacleKit({},obstacle,solids,api),
+   'Live kit crashed: '+artKit);
+  assert.equal(solids.length,1,'one and only one solid shell for '+artKit);
+  assert.equal(solids[0].userData.arenaObstacleId,obstacle.id);
+ }
 });
 test('salvage models are connected where weight or articulation demands',()=>{
  for(const name of [
