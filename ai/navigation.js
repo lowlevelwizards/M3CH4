@@ -2,12 +2,12 @@
  * are inflated by collision radius; moving rigs stay in the legacy local
  * collision/recovery layer. Planner never teleports an actor.
  */
+import {positionHitsCover} from '../backlotCompoundGeometry.js';
 const length=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 function valid(p,world,pad) {
     if(p.x<world.minX+pad||p.x>world.maxX-pad||
         p.z<world.minZ+pad||p.z>world.maxZ-pad)return false;
-    return !(world.obstacles??[]).some(o=>!o.dynamic &&
-        p.x>o.minX-pad&&p.x<o.maxX+pad&&p.z>o.minZ-pad&&p.z<o.maxZ+pad);
+    return !positionHitsCover(p,world.obstacles,pad,{includeDynamic:false});
 }
 function clearSegment(a,b,world,pad) {
     const samples=Math.max(2,Math.ceil(length(a,b)/.9));
