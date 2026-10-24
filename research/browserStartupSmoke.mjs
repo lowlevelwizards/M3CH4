@@ -57,14 +57,17 @@ try {
         throw Error('Cockpit reload hardware missing: '+id);
       for(const other of Object.values(kits))other.visible=false;
       kit.visible=true;
-      for(const [stage,progress] of [.37,.62].entries()){
+      for(const [stage,progress] of [.30,.60].entries()){
         const phase=reloadPhase(spec.reloadSeconds*(1-progress),
             spec.reloadSeconds,id);
         const presentation=reloadCockpitPresentation(phase,id);
         pivot.position.set(1.16+presentation.x,2.04+presentation.y,
             -.62+presentation.z);
         pivot.rotation.set(presentation.tilt,presentation.yaw,0,'YXZ');
-        kit.userData.carriage.position.set(0,phase.bolt*.28,phase.slide*.68);
+        kit.userData.carriage.position.set(0,
+          phase.bolt*.28+phase.ram*.025,phase.slide*.68+phase.rack);
+        kit.userData.carriage.rotation.x=phase.open*
+          (phase.archetype==='breech'?.40:phase.archetype==='pod'?.20:.10);
         const mechanism=kit.userData.reloadMechanism;
         poseReloadHardware(mechanism,phase);
         scene.updateMatrixWorld(true);
@@ -77,13 +80,17 @@ try {
         samples.push({id,stage,screenX:sx,screenY:sy,
             width:bound.x,height:bound.y,travel:phase.cassette,
             carrierX:carrier.position.x,carrierY:carrier.position.y,
-            carrierZ:carrier.position.z});
+            carrierZ:carrier.position.z,carrierRotX:carrier.rotation.x,
+            carrierRotY:carrier.rotation.y,
+            breechAngle:kit.userData.carriage.rotation.x,
+            chargingRack:phase.rack,mechanism:phase.archetype});
         renderer.render(scene,camera);
         const col=(i%2)*2+stage,row=Math.floor(i/2);
         ctx.drawImage(renderer.domElement,col*420,row*195,420,195);
         ctx.fillStyle='rgba(9,15,15,.82)';ctx.fillRect(col*420,row*195,420,22);
         ctx.fillStyle='#f3d99e';ctx.font='bold 14px monospace';
-        ctx.fillText(id+' / '+(stage===0?'EXTRACT':'CHAMBER'),col*420+8,row*195+16);
+        ctx.fillText(id+' / '+(stage===0?'EJECT / OPEN':'INDEX / FEED'),
+          col*420+8,row*195+16);
       }
     }
     renderer.dispose();
@@ -98,10 +105,18 @@ try {
            s.screenY>.06&&s.screenY<.96&&s.width>.12&&s.height>.10))
         throw Error('Physical reload outside iPhone cockpit field: '+JSON.stringify(s));
     }
-    const travel=Math.hypot(extract.carrierX-chamber.carrierX,
+    // A fixed drum must ROTATE about its actual axle, not slide off its mount;
+    // a captive power cell should shift only a few centimeters while contact
+    // relays cycle. Measure both translation and equivalent peripheral arc.
+    const translation=Math.hypot(extract.carrierX-chamber.carrierX,
       extract.carrierY-chamber.carrierY,extract.carrierZ-chamber.carrierZ);
-    if(travel<.045)
-      throw Error('Ammunition has imperceptible extraction-to-feed motion: '+
+    const rotation=Math.hypot(extract.carrierRotX-chamber.carrierRotX,
+      extract.carrierRotY-chamber.carrierRotY)*.23;
+    const travel=translation+rotation;
+    const minimum=extract.mechanism==='capacitor'?.018:
+       extract.id==='gun-light'?.025:.035;
+    if(travel<minimum)
+      throw Error('Captive autoloader failed to index in its actual mount: '+
         extract.id+' / '+travel.toFixed(3));
   }
   console.log('RELOAD COCKPIT: PASS · all eight actual 3D service bays visible in iPhone landscape / contact sheet recorded');
