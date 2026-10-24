@@ -10,9 +10,9 @@ import {createReloadCueState,advanceReloadCue} from './reloadMechanism.js';
 import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityShot,resetWeaponStabilizer } from './weaponStability.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
-import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
+import { WEAPONS, advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, equipAuxiliary, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
-import { equipmentHas, servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
+import { equipmentHas, equipmentMounts, servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
 import { createSmokeState, deploySmoke, stepSmoke, smokeObscures } from './tacticalSmoke.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
@@ -119,6 +119,7 @@ let sortieObjective = createSortieObjective(mappedContract);
 const playerCondition = loadedMachine.playerCondition;
 let weaponSpec = weaponFor(assembly);
 let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+let primaryWeaponState=weaponState,secondaryWeaponState=null,selectedWeapon='primary';
 const hostileWeaponSpec = weaponFor(targetAssembly);
 let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
 const leadBehavior = weaponDoctrine(activeContract.behavior,hostileWeaponSpec.id);
@@ -458,6 +459,12 @@ smokeButton.className='equipment-smoke-btn';
 smokeButton.setAttribute('aria-label','Deploy Cinder smoke screen');
 smokeButton.textContent='SMOKE ×2';
 reloadButton.parentElement?.append(smokeButton);
+const weaponToggleButton=document.createElement('button');
+weaponToggleButton.id='weapon-toggle';weaponToggleButton.type='button';
+weaponToggleButton.className='equipment-weapon-toggle';
+weaponToggleButton.setAttribute('aria-label','Switch primary or secondary weapon');
+weaponToggleButton.textContent='GUN 1 / 2';
+reloadButton.parentElement?.append(weaponToggleButton);
 const weaponLabel = required('#weapon-label');
 const ammoReadout = required('#ammo-count');
 const shotReport = required('#shot-report');
@@ -1383,6 +1390,36 @@ function renderChecks() {
         : 'Direct-mount stations · no adapters';
     renderFieldStatus();
 }
+function togglePilotWeapon(){
+    const secondaryId=equipmentMounts(assembly).secondaryWeapon;
+    const secondarySpec=WEAPONS[secondaryId];
+    const primarySpec=weaponFor(assembly);
+    if(!secondarySpec||!primarySpec||!playerCombatActive||inspecting||testEnded)return false;
+    stopFireInput();
+    if(selectedWeapon==='primary') {
+        primaryWeaponState=weaponState;
+        secondaryWeaponState??=createWeaponState(secondarySpec);
+        weaponState=secondaryWeaponState;
+        weaponSpec=secondarySpec;
+        selectedWeapon='secondary';
+    } else {
+        secondaryWeaponState=weaponState;
+        primaryWeaponState??=createWeaponState(primarySpec);
+        weaponState=primaryWeaponState;
+        weaponSpec=primarySpec;
+        selectedWeapon='primary';
+    }
+    resetWeaponStabilizer(playerMount);
+    arena.setPilotWeapon(weaponSpec);
+    renderAmmo();
+    return true;
+}
+weaponToggleButton.addEventListener('click',togglePilotWeapon);
+window.addEventListener('keydown',event=>{
+    if(event.code==='KeyQ'&&!event.repeat&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&
+        !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))
+        togglePilotWeapon();
+});
 function refreshAssembly(save = false) {
     inspection = inspectAssembly(assembly);
     fieldService.rateMultiplier=servicePumpRate(assembly);
@@ -1391,9 +1428,14 @@ function refreshAssembly(save = false) {
     playerPower = createPowerSystem(assembly);
     updateFunctionalStatus();
     const nextSpec = weaponFor(assembly);
-    if (nextSpec?.id !== weaponSpec?.id)
+    // A new physical fit returns the pilot to gun one. Neither magazine aliases
+    // the other, and the off-hand magazine never inherits the primary ammo count.
+    if (nextSpec?.id !== weaponSpec?.id || selectedWeapon!=='primary')
         weaponState = nextSpec ? createWeaponState(nextSpec) : null;
     weaponSpec = nextSpec;
+    selectedWeapon='primary';
+    primaryWeaponState=weaponState;
+    secondaryWeaponState=null;
     resetWeaponStabilizer(playerMount);
     arena.setPilotWeapon(weaponSpec);
     arena.setPilotStabilizer(playerMount);
@@ -1657,6 +1699,10 @@ function toggleInspection(force) {
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         fieldService = createFieldServiceState(servicePumpRate(assembly));
         smokeState=createSmokeState();
+        primaryWeaponState=selectedWeapon==='primary'?weaponState:createWeaponState(weaponFor(assembly));
+        secondaryWeaponState=null;selectedWeapon='primary';
+        weaponSpec=weaponFor(assembly);weaponState=createWeaponState(weaponSpec);
+        arena.setPilotWeapon(weaponSpec);
         sortieRoundsFired = 0;
         sortieAmmoCostCents = 0;
         sortieProjectiles = 0;
@@ -1912,6 +1958,9 @@ if (testYard) {
             weaponState=weaponSpec?createWeaponState(weaponSpec):null;
             fieldService=createFieldServiceState(servicePumpRate(assembly));
             smokeState=createSmokeState();
+            primaryWeaponState=weaponState;secondaryWeaponState=null;selectedWeapon='primary';
+            weaponSpec=weaponFor(assembly);
+            arena.setPilotWeapon(weaponSpec);
             resetWeaponStabilizer(playerMount);
             arena.clearRockets();
             arena.resetCockpitTransientFeedback();
@@ -2418,6 +2467,10 @@ function frame(now) {
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
+                if(selectedWeapon==='primary' && secondaryWeaponState)
+                    advanceWeapon(secondaryWeaponState,WEAPONS[equipmentMounts(assembly).secondaryWeapon],FIXED_DT);
+                else if(selectedWeapon==='secondary' && primaryWeaponState)
+                    advanceWeapon(primaryWeaponState,weaponFor(assembly),FIXED_DT);
                 soundActualReloadPhases(weaponState,weaponSpec,true,rig);
                 const authorized=weaponSpec.fireMode==='charged'
                     ? advanceChargedTrigger(weaponState,weaponSpec,
@@ -2731,6 +2784,10 @@ function handleFieldServiceInterrupted() {
 function renderAmmo() {
     const failure=weaponFailureState(playerCondition,fieldService);
     smokeButton.hidden=!equipmentHas(assembly,'cinder-smoke');
+    const dual=!!WEAPONS[equipmentMounts(assembly).secondaryWeapon];
+    weaponToggleButton.hidden=!dual;
+    weaponToggleButton.disabled=inspecting||testEnded||!playerCombatActive;
+    weaponToggleButton.textContent=selectedWeapon==='primary'?'GUN 1 / 2':'GUN 2 / 2';
     smokeButton.disabled=inspecting||testEnded||!playerCombatActive||smokeState.charges<=0;
     smokeButton.textContent='SMOKE ×'+smokeState.charges;
     const faults=serviceableSlots(playerCondition);
