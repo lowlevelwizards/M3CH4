@@ -20,7 +20,7 @@ export function buildTrainingCannonVisual(fixture){
   block(r,'TC / lower structural mount foot',[-.20,-.393,.16],[.24,.065,.30],'steel');
   const carriage=group(r,'TC / operating carriage',[0,.28,.25]);
   const bolt=group(carriage,'TC / reciprocating bolt');
-  block(bolt,'TC / sliding steel service block',[0,0,0],[.24,.11,.24],'machined');
+  block(bolt,'TC / sliding steel service block',[0,0,0],[.35,.17,.32],'machined');
   block(carriage,'TC / guide housing',[0,-.08,-.06],[.29,.075,.38],'steel');
   return finishWeapon(r,{carriage,bolt});
 }
