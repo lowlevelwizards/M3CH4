@@ -10,7 +10,7 @@ import {createReloadCueState,advanceReloadCue} from './reloadMechanism.js';
 import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityShot,resetWeaponStabilizer } from './weaponStability.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
-import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
+import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
@@ -220,6 +220,7 @@ function syncOwnedPartFate(slot) {
 let testEnded = false;
 let testEndReason = null;
 let sortieRoundsFired = 0;
+let sortieAmmoCostCents = 0;
 let sortieProjectiles = 0;
 let sortieConfirmedContacts = 0;
 let fieldService = createFieldServiceState();
@@ -772,7 +773,7 @@ function syncCockpitInstruments() {
         systems, armor, team: counts, warning: disabled || lowest < .38 ? 2 : lowest < .72 ? 1 : 0,
         drive: { left: output.left, right: output.right },
         weapon: weaponSpec?.label ?? 'NO WEAPON',
-        ammo: weaponState ? `${weaponState.loaded}/${weaponState.reserve}` : '—',
+        ammo: weaponState ? `${weaponState.loaded}/${reserveReadout(weaponState)}` : '—',
         weaponState: sortiePhase === 'outro' ? 'SAFE' : weaponStateLabel,
     });
 }
@@ -1609,6 +1610,7 @@ function toggleInspection(force) {
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         fieldService = createFieldServiceState();
         sortieRoundsFired = 0;
+        sortieAmmoCostCents = 0;
         sortieProjectiles = 0;
         sortieConfirmedContacts = 0;
         testEnded = false;
@@ -2462,8 +2464,8 @@ function frame(now) {
             `FIELDED   ${inspection.ready ? 'YES (CONTRACT)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    WORLD ${Math.round(renderScale * 100)}% · HUD HI-RES`,
-            `ROUNDS    ${weaponState?.loaded ?? 0}/${weaponState?.reserve ?? 0}`,
-            `SHOTS     ${shotsFired} · SORTIE ${sortieRoundsFired}`,
+            `ROUNDS    ${weaponState?.loaded ?? 0}/${reserveReadout(weaponState)}`,
+            `SHOTS     ${shotsFired} · SORTIE ${sortieRoundsFired} · AMMO ₡${(sortieAmmoCostCents / 100).toFixed(2)}`,
             `TARGET    ${targetCondition.shotsHit} HITS`,
             `SQUAD     ${teamStatus.textContent}${playerCombatActive ? '' : ' · YOU OUT'}`,
             `HOSTILE   ${hostileMotion.phase} · ${hostileRig.x.toFixed(1)} / ${hostileRig.z.toFixed(1)} m`,
@@ -2592,6 +2594,7 @@ function renderAmmo() {
         !playerPower.weaponReady?' · PWR SAG':
         output.weapon<.95?' · DAMAGED':'';
     weaponLabel.textContent=weaponSpec?`${weaponSpec.label}${suffix}`:'NO WEAPON';
+    if(weaponSpec)ammoReadout.title=`CONTRACT SUPPLY · ₡${(ammoCostCents(weaponSpec)/100).toFixed(2)} PER SHOT · UNLIMITED RESERVE`;
     const servicePercent=Math.round(fieldService.progress/FIELD_SERVICE_SECONDS*100);
     const cooling=(fieldService.cooldownLeft??0)>0;
     const servicing=faults.length>0 && playerCombatActive;
@@ -2600,7 +2603,7 @@ function renderAmmo() {
         !weaponSpec||!weaponState?'—':
         !playerPower.weaponReady?'PWR SAG':
         weaponState.reloadLeft>0?`RELOAD ${weaponState.reloadLeft.toFixed(1)}s`:
-        `${weaponState.loaded} / ${weaponState.reserve}`;
+        `${weaponState.loaded} / ${reserveReadout(weaponState)}`;
     const reloading=!!weaponSpec&&!!weaponState&&weaponState.reloadLeft>0;
     const progress=inService?fieldService.progress/FIELD_SERVICE_SECONDS:
         reloading?1-weaponState.reloadLeft/Math.max(.01,weaponSpec.reloadSeconds):0;
@@ -2679,7 +2682,8 @@ function renderDebrief(summary, reason) {
     const rows = [
         ['NET EARNED · CASH CHANGE', signedMoney(summary.netPayout), 'primary','net'],
         ['CONTRACT PAYOUT', '+'+money(summary.grossPayout), '','payout'],
-        [`AMMUNITION SPENT · ${summary.roundsFired} RDS`, '−'+money(summary.ammoCost), '','ammo'],
+        [`CONTRACT AMMUNITION · ${summary.roundsFired} SHOTS`, '−'+money(summary.ammoCost), '','ammo'],
+        ...(summary.ammoAssistance > 0 ? [['CIRCUIT AMMO SUPPORT', '+'+money(summary.ammoAssistance), '','ammo-support']] : []),
         ['WALLET BALANCE', money(summary.creditsAfter), '','balance'],
         ['OPTIONAL REPAIR QUOTE · NOT SPENT', money(summary.repairEstimate), 'repair','estimate'],
         ['BOUT RESULT', summary.victory ? 'VICTORY' : reason, '','result'],
@@ -2782,6 +2786,7 @@ function finishSortie(victory, reason) {
         credits: economy.credits,
         victory,
         roundsFired: sortieRoundsFired,
+        ammoCostCents: sortieAmmoCostCents,
         repairEstimate: totalRepairQuote(playerCondition),
     });
     economy.credits = summary.creditsAfter;
@@ -3099,6 +3104,9 @@ function attemptFire() {
         return;
     }
     weaponState.cooldown *= weaponCycleMultiplier(output);
+    // Bill the actual consumed discharge, not every pellet, projectile impact,
+    // hit, reload, or the holding of the trigger.
+    if(!testYard)sortieAmmoCostCents += ammoCostCents(weaponSpec);
     if(weaponSpec.fireMode!=='continuous')registerPowerShot(playerPower, assembly);
     // One trigger pull consumes exactly one shell; each actual pellet
     // traverses the ordinary camera→muzzle raycaster and first real hit.

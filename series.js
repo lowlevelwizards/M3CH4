@@ -38,6 +38,7 @@ export function createSeries(contractId, rigId, rigName = null, assignmentId = n
         participatingRigIds: [rig],
         rounds: [],
         totalRoundsFired: 0,
+        totalAmmoCostCents: 0,
         finalVictory: null,
         completionReason: null,
         startedAt: stamp,
@@ -56,6 +57,7 @@ export function normalizeSeries(value) {
         const rigId = cleanId(round?.rigId);
         if (!rigId || typeof round?.victory !== 'boolean') throw new Error('Invalid BO3 round');
         const roundsFired = round.roundsFired == null ? null : nonNegativeInteger(round.roundsFired);
+        const ammoCostCents = round.ammoCostCents == null ? null : nonNegativeInteger(round.ammoCostCents);
         return {
             round: index + 1,
             rigId,
@@ -64,6 +66,7 @@ export function normalizeSeries(value) {
             victory: round.victory,
             reason: typeof round.reason === 'string' ? round.reason.slice(0, 160) : '',
             roundsFired,
+            ammoCostCents,
         };
     }) : [];
     const playerWins = rounds.filter(round => round.victory).length;
@@ -78,6 +81,10 @@ export function normalizeSeries(value) {
     if (rounds.length > MAX_ROUNDS || playerWins > WINS_REQUIRED || enemyWins > WINS_REQUIRED)
         throw new Error('Invalid BO3 score');
     const totalRoundsFired = rounds.reduce((sum, round) => sum + (round.roundsFired ?? 0), 0);
+    // Old in-progress saves have no per-weapon price; retain the former ₡1
+    // price for those specific completed rounds during migration.
+    const totalAmmoCostCents = rounds.reduce((sum, round) =>
+        sum + (round.ammoCostCents ?? ((round.roundsFired ?? 0) * 100)), 0);
     return {
         version: SERIES_VERSION,
         id,
@@ -96,6 +103,7 @@ export function normalizeSeries(value) {
             : participatingRigIds,
         rounds,
         totalRoundsFired,
+        totalAmmoCostCents,
         finalVictory,
         completionReason: value.completionReason == null ? null : String(value.completionReason).slice(0, 80),
         startedAt: finite(value.startedAt) ? value.startedAt : Date.now(),
@@ -172,6 +180,7 @@ export function recordSeriesRound(storage, result, options = {}) {
         victory,
         reason: typeof result?.reason === 'string' ? result.reason.slice(0, 160) : '',
         roundsFired: null,
+        ammoCostCents: null,
     };
     const rounds = [...current.rounds, round];
     const playerWins = rounds.filter(item => item.victory).length;
@@ -210,24 +219,30 @@ export function recordSeriesRound(storage, result, options = {}) {
 /** Called by economy settlement immediately after recordSeriesRound. It attaches the
  * current round's ammunition exactly once, then exposes either a deferred or terminal
  * contract settlement directive. */
-export function noteSeriesRoundAmmo(storage, roundsFired) {
+export function noteSeriesRoundAmmo(storage, roundsFired, ammoCostCents = null) {
     const current = loadSeries(storage);
     if (!current || current.rounds.length === 0) return null;
     const rounds = current.rounds.map(round => ({ ...round }));
     const latest = rounds[rounds.length - 1];
-    if (latest.roundsFired == null) latest.roundsFired = nonNegativeInteger(roundsFired);
+    // A completed round's ammunition invoice is immutable. Replayed settlement
+    // hooks cannot overwrite counts, prices, or charge the same rounds again.
+    if (latest.roundsFired == null) {
+        latest.roundsFired = nonNegativeInteger(roundsFired);
+        latest.ammoCostCents = ammoCostCents == null ? null : nonNegativeInteger(ammoCostCents);
+    }
     const next = { ...current, rounds };
     if (!storeSeries(storage, next)) return current;
     return loadSeries(storage);
 }
 
-export function seriesSettlementDirective(storage, currentRoundsFired = 0) {
-    const series = noteSeriesRoundAmmo(storage, currentRoundsFired);
+export function seriesSettlementDirective(storage, currentRoundsFired = 0, currentAmmoCostCents = null) {
+    const series = noteSeriesRoundAmmo(storage, currentRoundsFired, currentAmmoCostCents);
     if (!series) return null;
     return {
         terminal: series.phase === 'complete',
         victory: series.phase === 'complete' ? !!series.finalVictory : null,
         roundsFired: series.totalRoundsFired,
+        ammoCostCents: series.totalAmmoCostCents,
         series,
     };
 }

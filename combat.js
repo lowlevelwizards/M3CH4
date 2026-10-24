@@ -7,21 +7,31 @@ import { mobilityPerformance } from './mobilityPerformance.js';
 import { contractById, selectedContract } from './contracts.js';
 import { applyDestructionOverflow, hydrateDamageFate } from './damageFate.js';
 export const WEAPONS = {
-    'gun-cannon': { id: 'gun-cannon', label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1725, spread: .004, muzzleZ: -1.90, visualRecoil: .92, visualRecovery: 3.05, muzzleFlashSeconds: .095, handling: 'UTILITY / BALANCED' },
-    'gun-short': { id: 'gun-short', label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 2550, spread: .012, muzzleZ: -1.31, visualRecoil: 1.38, visualRecovery: 2.25, muzzleFlashSeconds: .135, handling: 'CLUNKY / HEAVY KICK' },
-    'gun-light': { id: 'gun-light', label: 'NEEDLE CANNON', magazine: 16, spareRounds: 80, roundsPerSecond: 3.5, reloadSeconds: 2.8, damage: 28, recoilImpulseNs: 1050, spread: .002, muzzleZ: -2.73, visualRecoil: .56, visualRecovery: 4.8, muzzleFlashSeconds: .065, handling: 'LIGHT / FAST RECOVERY' },
-    'gun-scatter': { id: 'gun-scatter', label: 'S-6 SCATTERGUN', magazine: 4, spareRounds: 28, roundsPerSecond: 1.0, reloadSeconds: 3.0, pellets: 6, damage: 21, recoilImpulseNs: 3550, spread: .115, muzzleZ: -1.46, visualRecoil: 1.60, visualRecovery: 2.0, muzzleFlashSeconds: .20, handling: 'CLOSE / SIX PHYSICAL PELLETS' },
-    'gun-rivet': { id: 'gun-rivet', label: 'RR-4 RIVET REPEATER', fireMode: 'automatic', magazine: 60, spareRounds: 216, roundsPerSecond: 8.5, reloadSeconds: 4.2, damage: 10, recoilImpulseNs: 470, spread: .014, sustainedSpread: .034, muzzleZ: -1.60, visualRecoil: .26, visualRecovery: 9.0, muzzleFlashSeconds: .045, handling: 'AUTOMATIC / LANE PRESSURE' },
-    'gun-breaker': { id: 'gun-breaker', label: 'BREAKER DRIVER', fireMode: 'charged', chargeSeconds: .70, penetrationEnergy: 135, magazine: 1, spareRounds: 12, roundsPerSecond: 1.0, reloadSeconds: 3.0, damage: 85, recoilImpulseNs: 6200, spread: .004, muzzleZ: -1.80, visualRecoil: 2.0, visualRecovery: 1.55, muzzleFlashSeconds: .17, handling: 'CHARGED / PENETRATION' },
-    'gun-rocket': { id: 'gun-rocket', label: 'SCRAP ROCKET RACK', fireMode: 'projectile', projectileSpeed: 32, blastRadius: 3.5, magazine: 3, spareRounds: 18, roundsPerSecond: 1.1, reloadSeconds: 4.5, damage: 92, recoilImpulseNs: 1700, spread: .010, muzzleZ: -1.60, visualRecoil: .70, visualRecovery: 3.1, muzzleFlashSeconds: .16, handling: 'UNGUIDED / EXPLOSIVE' },
-    'gun-arc': { id: 'gun-arc', label: 'ARC CUTTER', fireMode: 'continuous', activeKw: 42, heatPerTick: .027, ventSeconds: 1.8, rangeMeters: 6, magazine: 50, spareRounds: 250, roundsPerSecond: 10, reloadSeconds: 3.0, damage: 5, recoilImpulseNs: 0, spread: .001, muzzleZ: -1.80, visualRecoil: .06, visualRecovery: 10, muzzleFlashSeconds: .075, handling: 'CONTACT / THERMAL' },
+    'gun-cannon': { id: 'gun-cannon', ammoCostCents: 100, label: 'TRAINING CANNON', magazine: 12, spareRounds: 60, roundsPerSecond: 2.4, reloadSeconds: 2.5, damage: 38, recoilImpulseNs: 1725, spread: .004, muzzleZ: -1.90, visualRecoil: .92, visualRecovery: 3.05, muzzleFlashSeconds: .095, handling: 'UTILITY / BALANCED' },
+    'gun-short': { id: 'gun-short', ammoCostCents: 100, label: 'STUMP CANNON', magazine: 8, spareRounds: 48, roundsPerSecond: 2.0, reloadSeconds: 2.1, damage: 47, recoilImpulseNs: 2550, spread: .012, muzzleZ: -1.31, visualRecoil: 1.38, visualRecovery: 2.25, muzzleFlashSeconds: .135, handling: 'CLUNKY / HEAVY KICK' },
+    'gun-light': { id: 'gun-light', ammoCostCents: 75, label: 'NEEDLE CANNON', magazine: 16, spareRounds: 80, roundsPerSecond: 3.5, reloadSeconds: 2.8, damage: 28, recoilImpulseNs: 1050, spread: .002, muzzleZ: -2.73, visualRecoil: .56, visualRecovery: 4.8, muzzleFlashSeconds: .065, handling: 'LIGHT / FAST RECOVERY' },
+    'gun-scatter': { id: 'gun-scatter', ammoCostCents: 200, label: 'S-6 SCATTERGUN', magazine: 4, spareRounds: 28, roundsPerSecond: 1.0, reloadSeconds: 3.0, pellets: 6, damage: 21, recoilImpulseNs: 3550, spread: .115, muzzleZ: -1.46, visualRecoil: 1.60, visualRecovery: 2.0, muzzleFlashSeconds: .20, handling: 'CLOSE / SIX PHYSICAL PELLETS' },
+    'gun-rivet': { id: 'gun-rivet', ammoCostCents: 25, label: 'RR-4 RIVET REPEATER', fireMode: 'automatic', magazine: 60, spareRounds: 216, roundsPerSecond: 8.5, reloadSeconds: 4.2, damage: 10, recoilImpulseNs: 470, spread: .014, sustainedSpread: .034, muzzleZ: -1.60, visualRecoil: .26, visualRecovery: 9.0, muzzleFlashSeconds: .045, handling: 'AUTOMATIC / LANE PRESSURE' },
+    'gun-breaker': { id: 'gun-breaker', ammoCostCents: 400, label: 'BREAKER DRIVER', fireMode: 'charged', chargeSeconds: .70, penetrationEnergy: 135, magazine: 1, spareRounds: 12, roundsPerSecond: 1.0, reloadSeconds: 3.0, damage: 85, recoilImpulseNs: 6200, spread: .004, muzzleZ: -1.80, visualRecoil: 2.0, visualRecovery: 1.55, muzzleFlashSeconds: .17, handling: 'CHARGED / PENETRATION' },
+    'gun-rocket': { id: 'gun-rocket', ammoCostCents: 800, label: 'SCRAP ROCKET RACK', fireMode: 'projectile', projectileSpeed: 32, blastRadius: 3.5, magazine: 3, spareRounds: 18, roundsPerSecond: 1.1, reloadSeconds: 4.5, damage: 92, recoilImpulseNs: 1700, spread: .010, muzzleZ: -1.60, visualRecoil: .70, visualRecovery: 3.1, muzzleFlashSeconds: .16, handling: 'UNGUIDED / EXPLOSIVE' },
+    'gun-arc': { id: 'gun-arc', ammoCostCents: 5, label: 'ARC CUTTER', fireMode: 'continuous', activeKw: 42, heatPerTick: .027, ventSeconds: 1.8, rangeMeters: 6, magazine: 50, spareRounds: 250, roundsPerSecond: 10, reloadSeconds: 3.0, damage: 5, recoilImpulseNs: 0, spread: .001, muzzleZ: -1.80, visualRecoil: .06, visualRecovery: 10, muzzleFlashSeconds: .075, handling: 'CONTACT / THERMAL' },
 };
 export function weaponFor(assembly) {
     const id = installedPart(assembly, 'combat')?.definition.id;
     return id ? (WEAPONS[id] ?? null) : null;
 }
+/** Contract supply: magazines and real reloads remain physical, but reserve
+ * inventory cannot run dry mid-bout. Infinity is not persisted to owned parts. */
+export const CONTRACT_AMMO_RESERVE = Number.POSITIVE_INFINITY;
+export function reserveReadout(state) {
+    return state?.reserve === CONTRACT_AMMO_RESERVE ? '∞' : String(state?.reserve ?? 0);
+}
+export function ammoCostCents(spec, rounds = 1) {
+    return Number.isSafeInteger(rounds) && rounds >= 0 ?
+        (spec?.ammoCostCents ?? 100) * rounds : 0;
+}
 export function createWeaponState(spec) {
-    return { loaded: spec.magazine, reserve: spec.spareRounds, cooldown: 0, reloadLeft: 0, firingCount: 0, action: createWeaponActionState(spec) };
+    return { loaded: spec.magazine, reserve: CONTRACT_AMMO_RESERVE, cooldown: 0, reloadLeft: 0, firingCount: 0, action: createWeaponActionState(spec) };
 }
 export function startReload(state, spec) {
     if (state.reloadLeft > 0 || state.loaded >= spec.magazine || state.reserve <= 0)
@@ -39,7 +49,7 @@ export function advanceWeapon(state, spec, dt) {
         if (state.reloadLeft === 0) {
             const transferred = Math.min(spec.magazine - state.loaded, state.reserve);
             state.loaded += transferred;
-            state.reserve -= transferred;
+            if (Number.isFinite(state.reserve)) state.reserve -= transferred;
         }
     }
 }
