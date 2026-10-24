@@ -3,48 +3,65 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <meta name="theme-color" content="#161d1b"/>
-<title>M3CH4 · ARMOR LAB · k5t1</title>
+<title>M3CH4 · ARMOR LAB · k5t2</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
-<link rel="stylesheet" href="./armorLab.css?v=k5t1"/>
+<link rel="stylesheet" href="./armorLab.css?v=k5t2"/>
 </head><body>
-<div id="armor-stage" aria-label="Interactive 3D naked-versus-armored part comparison">
-  <div class="armor-compare-label naked">00 / BARE CORE</div>
-  <div class="armor-compare-label armored">01 / FITTED PLATES</div>
-  <div class="armor-midline"></div>
-</div>
 <header class="armor-head">
   <a href="./index.html" id="armor-back">‹ GARAGE / DEV</a>
-  <div><strong>ARMOR LAB</strong><small>k5t1 · CYCLOPS / KESTREL · NO SAVE / NO COMBAT</small></div>
-  <button id="armor-reset-camera" type="button">RESET VIEW</button>
+  <div><strong>ARMOR LAB</strong><small>PRODUCTION CORES · PHYSICAL REMOVABLE PLATES · NO SAVE</small></div>
+  <button id="armor-view-toggle" type="button" aria-pressed="false">SOLO VIEW</button>
+  <button id="armor-focus" type="button" aria-pressed="false">MODEL ONLY</button>
+  <button id="armor-reset-camera" type="button">RESET</button>
 </header>
-<section class="armor-controls" aria-label="Physical armor prototype controls">
-  <div class="armor-row"><label for="armor-part">BODY PART</label>
-    <select id="armor-part"><option value="cab-cyclops">CYCLOPS / COMMAND</option><option value="legs-compact">KESTREL / MOBILITY</option></select>
-  </div>
-  <div class="armor-row"><label for="armor-tier">ARMOR KIT</label><b id="armor-tier-label">LEVEL 1</b></div>
-  <input id="armor-tier" type="range" min="0" max="3" step="1" value="1" aria-label="Armor package level"/>
-  <div class="armor-tiers"><span>0 / BARE</span><span>1 / LIGHT</span><span>2 / MED</span><span>3 / HEAVY</span></div>
-  <div class="armor-stats"><span id="armor-count">2 PANELS</span><span id="armor-mass">+36 KG</span><span id="armor-condition">100% PLATES</span></div>
-  <div class="armor-actions">
-    <button id="armor-front" type="button">FRONT</button>
-    <button id="armor-side" type="button">SIDE</button>
-    <button id="armor-rear" type="button">REAR</button>
-    <button id="armor-walk" type="button" aria-pressed="false">▶ GAIT</button>
-  </div>
-  <div class="armor-note">DRAG TO ORBIT · PINCH / WHEEL TO ZOOM · TAP RIGHT-HAND PLATE TO SELECT IT. LEFT ALWAYS SHOWS THE SAME NAKED PRODUCTION CORE.</div>
-</section>
-<section class="armor-detail" aria-label="Damage and pit service experiment">
-  <div class="armor-detail-head"><strong>INDIVIDUAL PLATES</strong><span id="armor-worker-count">CREW 4 / 4</span></div>
-  <div id="armor-plates" class="armor-plates" role="group" aria-label="Installed armor plates"></div>
-  <div class="armor-actions">
-    <button id="armor-hit" type="button">HIT −35 DAMAGE</button>
-    <button id="armor-strip" type="button">BREAK OFF</button>
-    <button id="armor-patch" type="button">CREW +25%</button>
-    <button id="armor-repair-reset" type="button">RESET</button>
-  </div>
-  <div id="armor-feedback" role="status" aria-live="polite">Tap an armor plate or a row to inspect it.</div>
-  <small class="armor-note">Prototype damage and four-worker allocation are local to this lab. Steel plates protect their actual mesh positions; live-match HP and garage economy are deliberately unchanged.</small>
-</section>
+<div id="armor-stage" aria-label="Unobstructed 3D naked-versus-armored comparison">
+  <div class="armor-compare-label naked">00 / NAKED</div>
+  <div class="armor-compare-label armored">01 / ARMOR KIT</div>
+  <div class="armor-midline"></div>
+</div>
+<div id="armor-dock" aria-label="Compact Armor Lab controls">
+  <section class="armor-controls" aria-label="Armor prototype configuration">
+    <div class="armor-row">
+      <label for="armor-part">MODEL</label>
+      <select id="armor-part"><option value="cab-cyclops">CYCLOPS / COMMAND</option><option value="legs-compact">KESTREL / MOBILITY</option></select>
+      <b id="armor-tier-label">LEVEL 1</b>
+    </div>
+    <div class="armor-tier-line">
+      <div class="armor-range"><input id="armor-tier" type="range" min="0" max="3" step="1" value="1" aria-label="Armor package level"/></div>
+      <div class="armor-tiers"><span>0 BARE</span><span>1 LIGHT</span><span>2 MED</span><span>3 HEAVY</span></div>
+    </div>
+    <div class="armor-actions">
+      <button id="armor-front" type="button">FRONT</button>
+      <button id="armor-side" type="button">SIDE</button>
+      <button id="armor-rear" type="button">REAR</button>
+      <button id="armor-walk" type="button" aria-pressed="false">▶ GAIT</button>
+    </div>
+    <div class="armor-stats"><span id="armor-count">2 PLATES</span><span id="armor-mass">+36 KG</span><span id="armor-condition">100% PLATES</span></div>
+  </section>
+  <section class="armor-detail" aria-label="Individual armor and pit repair">
+    <div class="armor-detail-head">
+      <strong>PLATE DAMAGE</strong>
+      <span id="armor-worker-count">CREW 4 / 4</span>
+      <button id="armor-toggle-plates" type="button" aria-expanded="false" aria-controls="armor-plate-drawer">ALL PLATES ▴</button>
+    </div>
+    <div class="armor-plate-quick">
+      <label for="armor-plate-select">SELECT</label>
+      <select id="armor-plate-select" aria-label="Select fitted armor plate"></select>
+    </div>
+    <div class="armor-actions">
+      <button id="armor-hit" type="button">HIT −35</button>
+      <button id="armor-strip" type="button">BREAK OFF</button>
+      <button id="armor-patch" type="button">CREW +25%</button>
+      <button id="armor-repair-reset" type="button">RESET PLATES</button>
+    </div>
+    <div id="armor-feedback" role="status" aria-live="polite">Tap the armored model or select a plate.</div>
+    <div id="armor-plate-drawer" hidden>
+      <header>FITTED ARMOR INVENTORY <button id="armor-close-plates" type="button">CLOSE ✕</button></header>
+      <div id="armor-plates" class="armor-plates" role="group" aria-label="Installed armor plates"></div>
+      <small class="armor-note">Select a plate or tap it in the 3D model. Each plate has independent prototype condition; repairs cost one of four crew jobs and restore up to 50%.</small>
+    </div>
+  </section>
+</div>
 <div id="armor-error" role="alert" hidden></div>
-<script type="module" src="./armorLab.js?v=k5t1"></script>
+<script type="module" src="./armorLab.js?v=k5t2"></script>
 </body></html>

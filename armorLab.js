@@ -26,7 +26,7 @@ renderer.setScissorTest(true);stage.prepend(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(36,1,.03,50);
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const state={id:'cab-cyclops',tier:1,selected:null,crew:4,walk:false,
-             yaw:-.46,pitch:.18,distance:3.4,drag:null};
+             yaw:-.46,pitch:.18,distance:2.0,drag:null,solo:false};
 let naked=null,armored=null,falling=[],lastTime=0;
 const note=text=>{$('armor-feedback').textContent=text;};
 function recenter(specimen){
@@ -41,13 +41,15 @@ function removeDebris(){
 }
 function rebuild(){
   removeDebris();
+  toggleInventory(false);
   disposeArmorSpecimen(naked);disposeArmorSpecimen(armored);
   naked=createArmoredPrototype(state.id,0);
   armored=createArmoredPrototype(state.id,state.tier);
   scene.add(naked.root,armored.root);
   recenter(naked);recenter(armored);
   state.selected=armored.plates.keys().next().value??null;
-  state.crew=4;state.distance=state.id==='legs-compact'?3.7:3.1;
+  state.crew=4;
+  fitDistance();
   const count=armored.plates.size;
   $('armor-tier-label').textContent='LEVEL '+state.tier;
   $('armor-tier').value=String(state.tier);
@@ -64,6 +66,17 @@ function rebuild(){
 }
 function paintControls(){
   const list=$('armor-plates');list.replaceChildren();
+  const quick=$('armor-plate-select');quick.replaceChildren();
+  for(const [id,plate] of armored.plates){
+    const option=document.createElement('option');option.value=id;
+    option.textContent=plate.label+' · '+Math.round(plate.health*100)+'%';
+    quick.append(option);
+  }
+  if(!armored.plates.size){
+    const empty=document.createElement('option');empty.value='';empty.textContent='NO FITTED ARMOR';
+    quick.append(empty);
+  }
+  quick.value=state.selected??'';quick.disabled=!state.selected;
   let mean=0;
   for(const [id,plate] of armored.plates){
     mean+=plate.health;
@@ -104,6 +117,18 @@ function hurt(damage=35){
   note(p.label+' · '+Math.round(p.health*100)+'%'+(p.health===0?' · PLATE GONE, CORE EXPOSED':' · ARMOR ABSORBED IMPACT'));
   paintControls();
 }
+$('armor-plate-select').addEventListener('change',e=>{
+  state.selected=e.target.value||null;paintControls();
+  const p=armored.plates.get(state.selected);
+  if(p)note(p.label+' · '+Math.round(p.health*100)+'% · '+p.region);
+});
+function toggleInventory(open){
+  $('armor-plate-drawer').hidden=!open;
+  $('armor-toggle-plates').setAttribute('aria-expanded',String(open));
+  $('armor-toggle-plates').textContent=open?'HIDE PLATES ▾':'ALL PLATES ▴';
+}
+$('armor-toggle-plates').addEventListener('click',()=>toggleInventory($('armor-plate-drawer').hidden));
+$('armor-close-plates').addEventListener('click',()=>toggleInventory(false));
 $('armor-hit').addEventListener('click',()=>hurt(35));
 $('armor-strip').addEventListener('click',()=>hurt(9999));
 $('armor-patch').addEventListener('click',()=>{
@@ -124,17 +149,46 @@ function aim(yaw,pitch=.18){state.yaw=yaw;state.pitch=pitch;}
 $('armor-front').addEventListener('click',()=>aim(0,.12));
 $('armor-side').addEventListener('click',()=>aim(-Math.PI/2,.13));
 $('armor-rear').addEventListener('click',()=>aim(Math.PI,.13));
-$('armor-reset-camera').addEventListener('click',()=>{aim(-.46,.18);state.distance=state.id==='legs-compact'?3.7:3.1;});
+$('armor-view-toggle').addEventListener('click',()=>{
+  state.solo=!state.solo;
+  document.body.classList.toggle('armor-solo',state.solo);
+  $('armor-view-toggle').setAttribute('aria-pressed',String(state.solo));
+  $('armor-view-toggle').textContent=state.solo?'COMPARE':'SOLO VIEW';
+  resize();fitDistance();
+});
+$('armor-focus').addEventListener('click',()=>{
+  const focused=document.body.classList.toggle('armor-focus');
+  $('armor-focus').setAttribute('aria-pressed',String(focused));
+  $('armor-focus').textContent=focused?'SHOW TOOLS':'MODEL ONLY';
+  toggleInventory(false);
+  resize();fitDistance();
+});
+$('armor-reset-camera').addEventListener('click',()=>{aim(-.46,.18);fitDistance();});
+function fitDistance(){
+  if(!armored)return;
+  armored.root.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(armored.root),size=new THREE.Vector3();
+  box.getSize(size);
+  // Fit the real catalogue geometry to the unobstructed viewer, never to the
+  // former whole-screen canvas hidden beneath two opaque control panels.
+  const viewportW=Math.max(1,stage.clientWidth/(state.solo?1:2));
+  const viewportH=Math.max(1,stage.clientHeight);
+  const fov=Math.tan(THREE.MathUtils.degToRad(camera.fov)*.5);
+  const span=Math.max(size.y*1.14,size.z*1.1,size.x*viewportH/viewportW*1.2);
+  state.distance=Math.max(1.08,Math.min(6.3,span/(2*fov*.90)));
+}
 function resize(){
   const w=stage.clientWidth,h=stage.clientHeight;
   renderer.setSize(Math.max(1,w),Math.max(1,h),false);
-  camera.aspect=Math.max(1,w/2)/Math.max(1,h);camera.updateProjectionMatrix();
+  camera.aspect=Math.max(1,w/(state.solo?1:2))/Math.max(1,h);camera.updateProjectionMatrix();
 }
 window.addEventListener('resize',resize);resize();
 function pick(clientX,clientY){
   const rect=stage.getBoundingClientRect(),w=rect.width,h=rect.height;
-  if(clientX<rect.left+w/2)return;
-  const u=(clientX-rect.left-w/2)/(w/2),v=(clientY-rect.top)/h;
+  if(!state.solo&&clientX<rect.left+w/2)return;
+  const left=state.solo?rect.left:rect.left+w/2;
+  const paneW=state.solo?w:w/2;
+  const u=(clientX-left)/paneW,v=(clientY-rect.top)/h;
   pointer.set(u*2-1,1-v*2);
   armored.root.visible=true;naked.root.visible=false;
   raycaster.setFromCamera(pointer,camera);
@@ -208,9 +262,13 @@ function loop(timeMs){
     }
   }
   const w=stage.clientWidth,h=stage.clientHeight,split=Math.floor(w/2);
-  renderer.setViewport(0,0,split,h);renderer.setScissor(0,0,split,h);
-  naked.root.visible=true;armored.root.visible=false;renderer.render(scene,camera);
-  renderer.setViewport(split,0,w-split,h);renderer.setScissor(split,0,w-split,h);
+  if(!state.solo){
+    renderer.setViewport(0,0,split,h);renderer.setScissor(0,0,split,h);
+    naked.root.visible=true;armored.root.visible=false;renderer.render(scene,camera);
+    renderer.setViewport(split,0,w-split,h);renderer.setScissor(split,0,w-split,h);
+  }else{
+    renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);
+  }
   naked.root.visible=false;armored.root.visible=true;renderer.render(scene,camera);
 }
 try{rebuild();requestAnimationFrame(loop);}

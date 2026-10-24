@@ -36,6 +36,38 @@ try{
  await page.goto('http://127.0.0.1:8765/armor-lab.html',
   {waitUntil:'domcontentloaded',timeout:60000});
  await page.locator('#armor-plates .armor-plate').first().waitFor({timeout:30000});
+ const layout=await page.evaluate(()=>{
+   const stage=document.querySelector('#armor-stage').getBoundingClientRect();
+   const dock=document.querySelector('#armor-dock').getBoundingClientRect();
+   const head=document.querySelector('.armor-head').getBoundingClientRect();
+   return {stageTop:stage.top,stageBottom:stage.bottom,stageHeight:stage.height,
+     dockTop:dock.top,headBottom:head.bottom,height:innerHeight,
+     drawerHidden:document.querySelector('#armor-plate-drawer').hidden,
+     horizontalOverflow:document.documentElement.scrollWidth>innerWidth+3};
+ });
+ if(!layout.drawerHidden||layout.horizontalOverflow||
+    layout.stageBottom>layout.dockTop+1||
+    layout.stageTop<layout.headBottom-1||
+    layout.stageHeight/layout.height<.51)
+   throw Error('Lab model viewer is blocked by the controls: '+JSON.stringify(layout));
+ await page.locator('#armor-focus').click();
+ const focused=await page.evaluate(()=>({
+   stageHeight:document.querySelector('#armor-stage').getBoundingClientRect().height,
+   dockVisible:getComputedStyle(document.querySelector('#armor-dock')).display!=='none',
+ }));
+ if(focused.dockVisible||focused.stageHeight<layout.stageHeight+90)
+   throw Error('MODEL ONLY mode did not expose viewport '+JSON.stringify(focused));
+ await page.locator('#armor-focus').click();
+ await page.locator('#armor-view-toggle').click();
+ if(!await page.locator('body').evaluate(x=>x.classList.contains('armor-solo')))
+   throw Error('Solo presentation failed');
+ await page.locator('#armor-view-toggle').click();
+ await page.locator('#armor-toggle-plates').click();
+ if(await page.locator('#armor-plate-drawer').getAttribute('hidden')!==null)
+   throw Error('Full plate inventory failed to open');
+ await page.locator('#armor-close-plates').click();
+ if(await page.locator('#armor-plate-drawer').getAttribute('hidden')===null)
+   throw Error('Full plate inventory failed to close');
  let state=await check();
  if(state.count!==2||!state.mass?.includes('36'))
   throw Error('Cyclops level 1 source model missing '+JSON.stringify(state));
