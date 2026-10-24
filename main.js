@@ -1873,6 +1873,12 @@ if (testYard) {
             refreshAssembly(false);
             storeTestYardAssembly(assembly);
         },
+        onEquipment:(mount,id)=>{
+            const fit=equipAuxiliary(assembly,mount,id);
+            if(!fit.ok)throw new Error(fit.reason);
+            refreshAssembly(false);
+            storeTestYardAssembly(assembly);
+        },
         onDeploy:()=>{if(inspecting)toggleInspection(false);},
         onGarage:()=>{if(!inspecting)toggleInspection(true);},
         onTargets:()=>resetTarget.click(),
