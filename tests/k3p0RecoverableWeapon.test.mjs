@@ -1,106 +1,58 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyTargetHit, createTargetCondition, makeRangeTarget } from '../combat.js';
-import {
-  FIELD_SERVICE_RECOVERY_RATIO, FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure,
-  beginFieldService, canFieldService, createFieldServiceState,
-} from '../fieldService.js';
-import { aiWeaponMissionKillReason, aiWeaponRecoveryDirective, aiWeaponRecoveryPosture } from '../aiFieldService.js';
-import { damagePosture } from '../damageBehavior.js';
-
-function actorWithFault(condition, service, overrides = {}) {
-  return {
-    condition, fieldService: service, behavior: { id: 'pressure' },
-    rig: { x: 0, z: 0, vx: 0, vz: 0, yawRate: 0 },
-    motion: { awareness: { lineOfSight: false, underFireSeconds: 1 } },
-    ...overrides,
-  };
+import {applyTargetHit,createTargetCondition,makeRangeTarget} from '../combat.js';
+import {advanceFieldService,beginFieldService,canFieldService,createFieldServiceState,serviceableSlots} from '../fieldService.js';
+import {aiWeaponMissionKillReason,aiWeaponRecoveryDirective,aiWeaponRecoveryPosture} from '../aiFieldService.js';
+import {damagePosture} from '../damageBehavior.js';
+const fixture=()=>({condition:createTargetCondition(makeRangeTarget('yard-dog')),
+ fieldService:createFieldServiceState(),behavior:{id:'pressure'},
+ rig:{x:0,z:0,vx:0,vz:0,yawRate:0},
+ motion:{awareness:{lineOfSight:false,underFireSeconds:1}}});
+function disable(actor,slot){
+ const p=actor.condition.parts[slot];
+ applyTargetHit(actor.condition,slot,p.armor+p.integrity+1);
+ assert.equal(p.integrity,0);assert.equal(p.destroyed,false);
 }
-
-test('first AI weapon disable is a recoverable fault rather than a mission kill', () => {
-  const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-  const service = createFieldServiceState();
-  const weapon = condition.parts.combat;
-  const before = weapon.integrity;
-  applyTargetHit(condition, 'combat', weapon.armor + weapon.integrity + 1);
-  assert.equal(arrestFirstWeaponFailure(condition, service, before), true);
-  assert.equal(canFieldService(condition, service), true);
-  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), null);
+test('any physical module disable is recoverable while actor remains alive',()=>{
+ for(const slot of ['structure','mobility','power','command','combat']){
+  const a=fixture();disable(a,slot);
+  assert.deepEqual(serviceableSlots(a.condition),[slot]);
+  assert.equal(canFieldService(a.condition,a.fieldService),true);
+  assert.equal(aiWeaponMissionKillReason(a.condition,a.behavior,a.fieldService),null);
+ }
 });
-
-test('faulted AI withdraws while exposed and services only when reasonably safe', () => {
-  const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-  const service = createFieldServiceState();
-  const weapon = condition.parts.combat;
-  const before = weapon.integrity;
-  applyTargetHit(condition, 'combat', weapon.armor + weapon.integrity + 1);
-  arrestFirstWeaponFailure(condition, service, before);
-  const actor = actorWithFault(condition, service, { motion: { awareness: { lineOfSight: true, underFireSeconds: 2 } } });
-  const target = { rig: { x: 5, z: 0 } };
-  assert.equal(aiWeaponRecoveryDirective(actor, target).mode, 'WITHDRAW');
-  actor.motion.awareness.lineOfSight = false;
-  const safe = aiWeaponRecoveryDirective(actor, target);
-  assert.equal(safe.mode, 'SERVICE');
-  assert.equal(safe.begin, true);
-  const posture = aiWeaponRecoveryPosture(damagePosture(condition, actor.behavior), safe);
-  assert.equal(posture.preferredMode, 'HOLD');
+test('wounded AI withdraws in danger and services under real cover',()=>{
+ const a=fixture();disable(a,'power');a.motion.awareness.lineOfSight=true;
+ const target={rig:{x:5,z:0}};
+ assert.equal(aiWeaponRecoveryDirective(a,target).mode,'WITHDRAW');
+ a.motion.awareness.lineOfSight=false;
+ const order=aiWeaponRecoveryDirective(a,target);
+ assert.equal(order.mode,'SERVICE');assert.equal(order.slot,'power');
+ assert.equal(order.begin,true);
+ assert.equal(aiWeaponRecoveryPosture(damagePosture(a.condition,a.behavior),order).preferredMode,'HOLD');
 });
-
-test('AI stationary field service returns the gun at twenty percent and spends the bypass', () => {
-  const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-  const service = createFieldServiceState();
-  const weapon = condition.parts.combat;
-  const before = weapon.integrity;
-  applyTargetHit(condition, 'combat', weapon.armor + weapon.integrity + 1);
-  arrestFirstWeaponFailure(condition, service, before);
-  const rig = { vx: 0, vz: 0, yawRate: 0 };
-  assert.equal(beginFieldService(condition, service, rig), true);
-  const result = advanceFieldService(condition, service, rig, FIELD_SERVICE_SECONDS);
-  assert.equal(result.event, 'completed');
-  assert.equal(service.used, true);
-  assert.equal(condition.parts.combat.integrity / condition.parts.combat.maxIntegrity, FIELD_SERVICE_RECOVERY_RATIO);
-  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), null);
+test('immobile AI holds instead of trying to withdraw with broken legs',()=>{
+ const a=fixture();disable(a,'mobility');a.motion.awareness.lineOfSight=true;
+ const o=aiWeaponRecoveryDirective(a,{rig:{x:3,z:0}});
+ assert.equal(o.mode,'SERVICE');assert.equal(o.begin,true);
 });
-
-test('continued fire must actually destroy a latched fault before field service is denied', () => {
-  const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-  const service = createFieldServiceState();
-  const weapon = condition.parts.combat;
-  const before = weapon.integrity;
-  applyTargetHit(condition, 'combat', weapon.armor + weapon.integrity + 1);
-  arrestFirstWeaponFailure(condition, service, before);
-  applyTargetHit(condition, 'combat', 38);
-  assert.equal(condition.parts.combat.integrity, 0);
-  assert.equal(condition.parts.combat.destroyed, false);
-  assert.equal(canFieldService(condition, service), true);
-  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), null);
-  applyTargetHit(condition, 'combat', 38);
-  assert.equal(condition.parts.combat.destroyed, true);
-  assert.equal(canFieldService(condition, service), false);
-  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), 'WEAPON DESTROYED');
+test('AI restart is cooldown-gated and cannot repair destroyed hardware',()=>{
+ const a=fixture();disable(a,'combat');
+ const safe={rig:{x:10,z:0}};
+ beginFieldService(a.condition,a.fieldService,a.rig);
+ const d=advanceFieldService(a.condition,a.fieldService,a.rig,4);
+ assert.equal(d.event,'completed');assert.equal(d.ratio,.25);
+ a.condition.parts.combat.integrity=0;
+ assert.equal(aiWeaponRecoveryDirective(a,safe).mode,'WITHDRAW');
+ a.condition.parts.combat.destroyed=true;
+ assert.equal(serviceableSlots(a.condition).length,0);
 });
-
-test('a post-bypass weapon disable is a real mission kill', () => {
-  const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-  const service = createFieldServiceState();
-  const weapon = condition.parts.combat;
-  const before = weapon.integrity;
-  applyTargetHit(condition, 'combat', weapon.armor + weapon.integrity + 1);
-  arrestFirstWeaponFailure(condition, service, before);
-  const rig = { vx: 0, vz: 0, yawRate: 0 };
-  beginFieldService(condition, service, rig);
-  advanceFieldService(condition, service, rig, FIELD_SERVICE_SECONDS);
-  condition.parts.combat.integrity = condition.parts.combat.maxIntegrity * .08;
-  assert.equal(aiWeaponMissionKillReason(condition, { id: 'pressure' }, service), 'WEAPON DISABLED');
-});
-
-test('live integration gives every AI actor service state and visibly sags a faulted mount', async () => {
-  const main = await import('node:fs/promises').then(fs => fs.readFile(new URL('../main.js', import.meta.url), 'utf8'));
-  const scene = await import('node:fs/promises').then(fs => fs.readFile(new URL('../scene.js', import.meta.url), 'utf8'));
-  assert.match(main, /fieldService: createFieldServiceState\(\)/);
-  assert.match(main, /aiWeaponRecoveryDirective\(actor,\s*target\)/);
-  assert.match(main, /advanceFieldService\(actor\.condition, actor\.fieldService, actor\.rig, FIXED_DT\)/);
-  assert.match(main, /weaponFault: recovery\.active/);
-  assert.match(scene, /record\.weaponFault=!!visual\?\.weaponFault/);
-  assert.match(scene, /const fault=record\.weaponFault\|\|record\.disabledSlots\.has\('combat'\)/);
+test('battle loop exposes all-module service and genuine external recovery particles',async()=>{
+ const fs=await import('node:fs/promises');
+ const main=await fs.readFile(new URL('../main.js',import.meta.url),'utf8');
+ const scene=await fs.readFile(new URL('../scene.js',import.meta.url),'utf8');
+ assert.match(main,/serviceSlot: actor\.fieldService\.held/);
+ assert.match(main,/handleAiFieldServiceCompleted\(actor,serviceStep\)/);
+ assert.match(main,/restoreFieldServicedDrive/);
+ assert.match(scene,/partWorldPoint\(record,record\.serviceSlot\)/);
 });
