@@ -1,0 +1,29 @@
+:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:#121a17;color:#eadcbd;overflow:hidden;touch-action:manipulation}
+button,select,input{font:inherit}button,select{background:#27362f;border:1px solid #59665a;border-radius:3px;color:#eadcbd;padding:9px;min-height:35px}
+button:disabled{opacity:.36}button:active,button.selected{border-color:#eac278;color:#ffdf9e;background:#394d3c}
+a{color:#e9cb8d;text-decoration:none}small{color:#94a79c}
+#armor-stage{position:fixed;inset:0;background:#34433d;touch-action:none}#armor-stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.armor-head{position:absolute;z-index:3;top:0;left:0;right:0;display:flex;align-items:center;gap:13px;padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));background:#141c19ee;border-bottom:1px solid #526052}
+.armor-head>div{display:flex;flex:1;flex-direction:column;gap:2px}.armor-head strong{font-size:16px;letter-spacing:.16em}.armor-head small{font-size:9px}.armor-head a,.armor-head button{font-size:10px}
+.armor-compare-label{position:absolute;z-index:2;top:78px;background:#16261fcf;padding:6px 11px;font-size:10px;letter-spacing:.12em;pointer-events:none}
+.armor-compare-label.naked{left:2%}.armor-compare-label.armored{left:52%}
+.armor-midline{position:absolute;left:50%;height:100%;border-left:1px solid #d7b77977;pointer-events:none;z-index:1}
+.armor-controls,.armor-detail{position:absolute;z-index:3;bottom:max(9px,env(safe-area-inset-bottom));background:#17221eea;border:1px solid #738273;color:#e5ddc8;box-shadow:0 6px 18px #0a0b0a88;border-radius:5px;padding:11px;backdrop-filter:blur(6px)}
+.armor-controls{left:max(10px,env(safe-area-inset-left));width:min(40vw,340px)}
+.armor-detail{right:max(10px,env(safe-area-inset-right));width:min(40vw,365px)}
+.armor-row,.armor-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;margin-bottom:7px}
+.armor-row label{color:#b5c5b8}.armor-row select{max-width:72%;font-size:11px}
+#armor-tier{width:100%;accent-color:#e6bd78}.armor-tiers{display:flex;justify-content:space-between;font-size:8px;color:#acbdb0;margin-bottom:9px}
+.armor-stats{display:flex;gap:8px;flex-wrap:wrap;margin:7px 0}.armor-stats span{padding:5px 7px;background:#2c3c33;font-size:10px;color:#e2d09f}
+.armor-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:8px 0}
+.armor-actions button{font-size:10px;padding:7px 3px;min-height:30px}
+.armor-note{display:block;color:#a9bcae;font-size:9px;line-height:1.5;margin:7px 0 0}
+.armor-detail-head strong{font-size:12px}.armor-detail-head span{font-size:10px;color:#dcb879}
+.armor-plates{display:grid;gap:3px;max-height:min(26vh,190px);overflow-y:auto}
+.armor-plate{width:100%;display:flex;align-items:center;gap:6px;padding:5px 8px;min-height:30px;font-size:10px;text-align:left}
+.armor-plate>span{flex:1}.armor-plate meter{width:58px;height:9px;accent-color:#d9b574}.armor-plate b{width:30px;text-align:right;color:#c9e0d0}
+#armor-feedback{font-size:10px;color:#edc98d;min-height:25px;line-height:1.4}
+#armor-error{position:absolute;z-index:9;left:5vw;top:30%;width:90vw;padding:18px;background:#321b1b;color:#ffdcb1;border:1px solid #b96c52;white-space:pre-wrap}
+@media(max-width:740px){.armor-head{padding:5px 7px}.armor-head strong{font-size:12px}.armor-head a,.armor-head button{font-size:9px;padding:5px}.armor-head small{font-size:8px}.armor-compare-label{top:51px;font-size:8px}.armor-controls,.armor-detail{width:47%;padding:7px;bottom:5px}.armor-detail-head strong{font-size:9px}.armor-actions button{font-size:9px;min-height:24px}.armor-note{font-size:8px}.armor-stats span{font-size:8px}.armor-row{font-size:9px}.armor-row select{font-size:9px}.armor-plates{max-height:21vh}.armor-plate{font-size:8px;padding:4px}.armor-plate meter{width:28px}}
+@media(max-height:420px){.armor-plates{max-height:19vh}.armor-controls,.armor-detail{padding:6px}.armor-stats{margin:3px 0}.armor-note{margin:3px 0}.armor-actions{margin:4px 0}}
