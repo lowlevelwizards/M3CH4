@@ -9,11 +9,27 @@ const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFac
 const errors=[];
 page.on('pageerror',e=>errors.push(String(e.stack||e.message)));
 page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
+async function showInspectionControls(){
+ const compact=await page.locator('body').evaluate(node=>node.classList.contains('gallery-compact'));
+ if(compact)await page.locator('#gallery-ui-toggle').click();
+}
 try{
  await page.goto('http://127.0.0.1:8765/backlot-prop-gallery.html',
   {waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForFunction(()=>window.__backlotGalleryReady?.total>30,
-  undefined,{timeout:30000});
+ try{
+  await page.waitForFunction(()=>window.__backlotGalleryReady?.total>30,
+   undefined,{timeout:30000});
+ }catch(error){
+  const diagnostic=await page.evaluate(()=>({
+   error:document.querySelector('#gallery-error')?.textContent,
+   ready:window.__backlotGalleryReady||null,
+   scripts:[...document.querySelectorAll('script[src]')].map(x=>x.src),
+   title:document.title,
+  })).catch(e=>({inspection:String(e)}));
+  throw Error('Gallery initialization timed out: '+JSON.stringify({
+    diagnostic,errors,original:String(error),
+  }));
+ }
  const stats=await page.evaluate(()=>({
   ...window.__backlotGalleryReady,
   options:document.querySelectorAll('#gallery-select option').length,
@@ -30,6 +46,11 @@ try{
   const audit=stats.assemblyAudits.find(x=>x.id==='experiment-'+family+'-anatomy');
   if(!audit||audit.checked<3)throw Error('Missing anchored '+family+' audit');
  }
+ if(!Array.isArray(stats.styledCoverFamilies)||
+  stats.styledCoverFamilies.length!==11||
+  !stats.styledCoverFamilies.includes('concrete-barrier')||
+  !stats.styledCoverFamilies.includes('tire-stack'))
+  throw Error('Missing polished live cover families '+JSON.stringify(stats.styledCoverFamilies));
  if(stats.experimentalIds?.length!==14||
   !stats.experimentalIds.includes('experiment-loader-anatomy')||
   !stats.experimentalIds.includes('experiment-combine-anatomy')||
@@ -70,7 +91,13 @@ try{
  await page.locator('#gallery-select').selectOption('1');
  if(!(await page.locator('#gallery-current').textContent()).includes('LOADER'))
   throw Error('Loader experiment absent at expected gallery index');
- await page.screenshot({path:'gallery-smoke-artifacts/loader-new.png'});
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-new-v6.png'});
+ // The side elevation must show both side-mounted bucket hinges rather than
+ // rods entering the working scoop.
+ await showInspectionControls();
+ await page.locator('#gallery-angle-cycle').click();
+ await page.locator('#gallery-angle-cycle').click();
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-side-mount-v6.png'});
  await page.locator('#gallery-before-after').click();
  await page.screenshot({path:'gallery-smoke-artifacts/loader-old.png'});
  await page.locator('#gallery-before-after').click();
@@ -82,17 +109,17 @@ try{
   throw Error('Picker still displays tractor lab on pickup prototype');
  // Verify the front, flank, rear and overhead authored inspection presets.
  for(const angle of ['FRONT','SIDE','REAR','TOP']){
-  await page.locator('#gallery-ui-toggle').click().catch(()=>{});
+  await showInspectionControls();
   await page.locator('#gallery-angle-cycle').click();
   if(!(await page.locator('#gallery-angle-cycle').textContent()).includes(angle))
    throw Error('Inspection preset failed: '+angle);
   await page.screenshot({path:'gallery-smoke-artifacts/pickup-'+angle.toLowerCase()+'-v5.png'});
-  await page.locator('#gallery-ui-toggle').click().catch(()=>{});
  }
  await page.screenshot({path:'gallery-smoke-artifacts/pickup-chunk-v4.png'});
- for(const [idx,name] of [[8,'tyre-stack'],[10,'flatbed'],[12,'container']]){
+ for(const [idx,name] of [[8,'tyre-stack'],[9,'barrel-pallet'],[10,'flatbed'],
+  [11,'scrap-wall'],[12,'container'],[13,'concrete-barrier']]){
   await page.locator('#gallery-select').selectOption(String(idx));
-  await page.screenshot({path:'gallery-smoke-artifacts/'+name+'-chunk-v4.png'});
+  await page.screenshot({path:'gallery-smoke-artifacts/'+name+'-finish-v6.png'});
  }
  await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount+stats.experimentCount));
  await page.screenshot({path:'gallery-smoke-artifacts/scenery-sample.png'});

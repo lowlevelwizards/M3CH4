@@ -133,6 +133,9 @@ export function buildAnatomicalDrums(root){
 }
 export function buildAnatomicalFlatbed(root){
  const g=shell(root,'WRECKED FLATBED TRAILER · SALVAGE LOAD');
+ b(g,'flatbed-continuous-underdeck',2.35,.22,5.76,0,.86,-.07,I);
+ for(const z of [-2.10,1.55])
+  f(g,'flatbed-live-axle',[-1.18,.64,z],[1.18,.64,z],.22,S);
  for(const s of [-1,1]){
   f(g,'open-trailer-frame-rail',[s*.95,.75,-3.05],[s*.95,.75,3.04],.24,I);
   for(const z of [-2.10,1.55])wheel(g,'trailer-road-wheel',
@@ -157,6 +160,7 @@ export function buildAnatomicalFlatbed(root){
   const x=-.71+i*1.42,z=(i?-.80:.55);
   f(g,'scattered-girders',[x,1.29,z-1.06],[x+.12,1.87,z+.80],.19,i%2?R:S);
  }
+ b(g,'flatbed-strapped-salvage-plinth',1.78,.30,2.48,0,1.22,-.10,I);
  b(g,'bent-industrial-sheet',2.05,.17,1.42,-.50,2.05,-.18,Y)
   .rotation.z=-.15;
  return g;
@@ -182,6 +186,9 @@ export function buildAnatomicalScrapWall(root){
    [2.22,.41,-.15],.17,D);
  f(g,'overlapping-steel-diagonal',[-1.98,.20,-.22],
    [.94,1.75,-.22],.18,S);
+ for(const side of [-1,1])
+  f(g,'scrap-wall-rear-buttress',[side*1.63,.12,.64],
+    [side*1.63,1.26,.01],.25,I);
  ring(g,'reused-wheel-sidewall',.72,.21,-.71,.76,-.25,C.rubber,'z',10);
  cylinder(g,'wheel-center-bearing',.29,.17,-.71,.76,-.35,S,'z',9);
  // Welds read through slab overlap and material contrast; no tiny beads.
@@ -214,42 +221,48 @@ export function buildAnatomicalContainer(root){
  }
  // Door end is visibly hinged; one leaf twisted outward.
  b(g,'intact-container-door',1.16,2.40,.18,-.61,1.37,2.96,P);
- const door=b(g,'buckled-open-container-door',1.16,2.40,.18,.64,1.37,2.96,R);
- door.rotation.y=-.36;
- for(const x of [-.91,.88])f(g,'vertical-locking-bar',
-   [x,.30,3.02],[x,2.49,3.02],.13,S);
+ // Door rotates at real corner-post hinge, not about its centre.
+ const hinge=new THREE.Group();hinge.name='container-right-hinge-axis';
+ hinge.position.set(1.22,0,2.95);hinge.rotation.y=-.38;g.add(hinge);
+ b(hinge,'buckled-open-container-door',1.16,2.40,.18,-.58,1.37,.03,R);
+ for(const yy of [.54,1.39,2.22])
+  cylinder(g,'container-heavy-hinge-pin',.15,.20,1.23,yy,2.93,I,'y',8);
+ f(hinge,'open-door-locking-bar',[-.58,.20,.16],[-.58,2.48,.16],.11,S);
+ f(g,'vertical-locking-bar',[-.91,.30,3.02],[-.91,2.49,3.02],.13,S);
  return g;
 }
 export function buildAnatomicalConcrete(root){
  const g=shell(root,'SCRAPYARD CAST CONCRETE ROAD BLOCKS');
  for(let j=0;j<3;j++){
-  const x=(j-1)*1.75,tilt=j===1?.07:0;
+  const x=(j-1)*1.59,tilt=j===1?.025:0;
   const piece=profile(g,'solid-sloped-jersey-profile',
    [[-.42,.05],[-.56,.40],[-.29,.77],[-.20,1.28],
    [.20,1.28],[.29,.77],[.56,.40],[.42,.05]],1.60,x,
    j===1?C.cream:C.clay,.02);
   piece.rotation.z=tilt;
   b(g,'cast-orange-warning-stripe',1.37,.19,.075,x,.97,-.39,Y);
+  if(j===2)b(g,'large-concrete-impact-spall',.55,.34,.085,x+.34,.56,-.45,R)
+   .rotation.z=-.07;
   if(j===1)b(g,'chipped-exposed-rebar',.17,.34,.14,x+.59,1.19,-.13,S)
     .rotation.z=.10;
  }
  return g;
 }
 export const SALVAGE_EXHIBITS=Object.freeze([
- {id:'generator',label:'GENERATOR · SOLID V5',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
+ {id:'generator',label:'GENERATOR · FINISH V6',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
   match:o=>o.artKit==='generator-unit',build:buildAnatomicalGenerator},
- {id:'turbine',label:'TURBINE HOUSING · SOLID V5',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
+ {id:'turbine',label:'TURBINE HOUSING · FINISH V6',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
   match:o=>o.artKit==='turbine-housing',build:buildAnatomicalTurbine},
- {id:'tyres',label:'TYRE STACK · SOLID V5',details:'THREE GROUNDED HOLLOW TYRES · NO RACK',
+ {id:'tyres',label:'TYRE STACK · FINISH V6',details:'THREE GROUNDED HOLLOW TYRES · NO RACK',
   match:o=>o.artKit==='tire-stack',build:buildAnatomicalTyreStack},
- {id:'barrels',label:'OIL DRUM PALLET · SOLID V5',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
+ {id:'barrels',label:'OIL DRUM PALLET · FINISH V6',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
   match:o=>o.artKit==='barrel-cluster',build:buildAnatomicalDrums},
- {id:'flatbed',label:'FLATBED TRAILER · SOLID V5',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
+ {id:'flatbed',label:'FLATBED TRAILER · FINISH V6',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
   match:o=>o.artKit==='flatbed-fragment',build:buildAnatomicalFlatbed},
- {id:'barricade',label:'WELDED SCRAP WALL · SOLID V5',details:'IRREGULAR WELDED PANELS · BRACING',
+ {id:'barricade',label:'WELDED SCRAP WALL · FINISH V6',details:'IRREGULAR WELDED PANELS · BRACING',
   match:o=>o.artKit==='scrap-barricade',build:buildAnatomicalScrapWall},
- {id:'container',label:'SHIPPING CONTAINER · SOLID V5',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
+ {id:'container',label:'SHIPPING CONTAINER · FINISH V6',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
   match:o=>o.artKit==='shipping-container',build:buildAnatomicalContainer},
- {id:'concrete',label:'CONCRETE BARRIER · SOLID V5',details:'TRUE CAST SLOPES · CHIPPED REBAR',
+ {id:'concrete',label:'CONCRETE BARRIER · FINISH V6',details:'TRUE CAST SLOPES · CHIPPED REBAR',
   match:o=>o.artKit==='concrete-barrier',build:buildAnatomicalConcrete},
 ]);

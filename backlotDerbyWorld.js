@@ -483,8 +483,8 @@ export function buildBacklotPropCatalog(world){
  const comparison=new THREE.Group();comparison.name='experimental-versus-production-tractor';
  comparison.add(newPart,oldPart,collisionOverlay);
  catalog.push({id:'experiment-tractor-anatomy',category:'experiment',
-   label:'TRACTOR ANATOMY · SOLID V5',
-   detail:'STRUCTURAL CORE vs CURRENT LIVE MODEL · NOT YET IN MATCHES',
+   label:'TRACTOR ANATOMY · FINISH V6',
+   detail:'FINAL SHAPE POLISH vs CURRENT LIVE MODEL · NOT YET IN MATCHES',
    group:comparison,
    experiment:{newPart,oldPart,collisionOverlay,audit:tractorAudit}});
 

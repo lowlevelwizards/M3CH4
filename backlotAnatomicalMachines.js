@@ -54,7 +54,7 @@ function track(root,side){
  return g;
 }
 export function buildAnatomicalLoader(root){
- const g=new THREE.Group();g.name='ANATOMICAL TRACKED FRONT LOADER';
+ const g=new THREE.Group();g.name='LOADER WITH REAR-MOUNTED EXTERNAL BUCKET TRUNNIONS';
  root.add(g);
  // Forward is -Z. The track carriage outweighs the cab and engine.
  ladder(g,'loader-box-frame',3.35,-2.10,2.35,1.08);
@@ -99,15 +99,28 @@ export function buildAnatomicalLoader(root){
  f(cab,'front-cage-crossbar',[-1.15,3.18,-1.03],[1.15,3.18,-1.03],.14,S);
  f(cab,'steering-column',[0,1.86,-.81],[0,2.42,-.98],.12,S);
  ring(cab,'operator-control-wheel',.31,.073,0,2.42,-1.0,D,'z',9);
- // Articulating two-arm bucket: every member reaches an actual pivot.
- for(const s of [-1,1]){
-  const x=s*1.30;
-  cylinder(g,'rear-boom-pivot',.33,.42,x,2.05,.70,S,'x',10);
-  f(g,'loader-lift-boom',[x,2.08,.66],[x,1.94,-1.83],.34,Y);
-  f(g,'loader-boom-drop-link',[x,1.94,-1.83],[s*1.48,1.24,-2.72],.28,Y);
-  f(g,'lift-hydraulic-outer',[s*1.09,1.30,.55],[x,1.63,-1.15],.24,I);
-  f(g,'exposed-chrome-piston',[x,1.63,-1.15],[x,1.89,-1.84],.13,S);
-  cylinder(g,'bucket-hinge-pin',.24,.50,s*1.48,1.24,-2.72,S,'x',9);
+ // Lift arms stop at the REAR of the bucket and connect through
+ // outboard trunnions. The working scoop surface stays unobstructed.
+ // Back plate occupies z=-2.48..-2.81: all boom links are behind it.
+ for(const side of [-1,1]){
+  const rearX=side*1.30,elbowX=side*1.79,lugX=side*2.72;
+  cylinder(g,'rear-boom-pivot',.35,.48,rearX,2.04,.69,S,'x',10);
+  f(g,'loader-lift-boom',[rearX,2.06,.66],[elbowX,1.70,-1.67],.36,Y);
+  cylinder(g,'loader-elbow-pivot',.27,.33,elbowX,1.70,-1.67,S,'x',8);
+  const link=f(g,'loader-boom-drop-link',[elbowX,1.70,-1.67],
+    [lugX,1.30,-2.31],.28,Y);
+  // Maintain inspectable engineering attachment data for the gallery audit.
+  link.userData.rearBucketPin=[lugX,1.30,-2.31];
+  metal(g,'bucket-side-external-hinge-bracket',.31,.57,.45,
+    side*2.68,1.29,-2.44,R);
+  cylinder(g,'bucket-hinge-pin',.27,.39,lugX,1.29,-2.36,S,'x',9);
+  // Hydraulic rod operates the boom hinge, NOT the bucket wall.
+  f(g,'lift-hydraulic-outer',[side*1.09,1.32,.44],
+    [side*1.45,1.46,-.99],.25,I);
+  f(g,'exposed-chrome-piston',[side*1.45,1.46,-.99],
+    [side*1.64,1.72,-1.52],.14,S);
+  cylinder(g,'loader-hydraulic-rod-clevis',.20,.30,
+    side*1.64,1.72,-1.52,C.clay,'x',8);
  }
  // Hollow V-section bucket with a floor and high rear wall, NOT a solid box.
  profile(g,'welded-hollow-bucket-floor',
@@ -121,6 +134,10 @@ export function buildAnatomicalLoader(root){
   profile(g,'individual-bucket-teeth',[[-3.47,.43],[-4.01,.29],[-3.53,.70]],.42,xx,S);
  }
  metal(g,'damaged-bucket-reinforcement',5.03,.23,.21,0,1.70,-2.69,P);
+ // Brackets and side cheeks form the outboard path into the scoop.
+ for(const side of [-1,1])
+  metal(g,'bucket-side-rear-gusset',.24,.72,.24,
+    side*2.59,1.23,-2.43,I);
  // Operating scars: offset and missing components without arbitrary clutter.
  metal(g,'bent-side-service-panel',.95,.52,.095,1.26,1.79,1.16,R)
   .rotation.y=.24;
@@ -320,14 +337,14 @@ export function buildAnatomicalCoupling(root){
  return g;
 }
 export const MACHINE_EXHIBITS=Object.freeze([
- {id:'loader',label:'TRACKED LOADER · SOLID V5',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
+ {id:'loader',label:'TRACKED LOADER · FINISH V6',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
   match:o=>o.id.startsWith('loader-'),front:'-z',build:buildAnatomicalLoader},
- {id:'combine',label:'COMBINE HARVESTER · SOLID V5',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
+ {id:'combine',label:'COMBINE HARVESTER · FINISH V6',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
   match:o=>o.artKit==='combine-harvester',front:'-z',build:buildAnatomicalCombine},
- {id:'pickup',label:'PICKUP WRECK · SOLID V5',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
+ {id:'pickup',label:'PICKUP WRECK · FINISH V6',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
   match:o=>o.artKit==='pickup-wreck',build:buildAnatomicalPickup},
- {id:'engine',label:'ENGINE BANK · SOLID V5',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
+ {id:'engine',label:'ENGINE BANK · FINISH V6',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
   match:o=>o.id.startsWith('exposed-engine-'),build:buildAnatomicalEngine},
- {id:'coupling',label:'GEAR COUPLING · SOLID V5',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
+ {id:'coupling',label:'GEAR COUPLING · FINISH V6',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
   match:o=>o.id.startsWith('coupling-'),build:buildAnatomicalCoupling},
 ]);

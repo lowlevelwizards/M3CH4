@@ -74,7 +74,7 @@ function shippingContainer(c){
    c.box('container-hinge',.13,.22,.055,x+w*off,h*.65,zz+s*.065,C.rust,.38);
  }
  // Corrugation on BOTH broad sides for all camera angles.
- const n=clamp(Math.floor(w/.32),8,26);
+ const n=clamp(Math.floor(w/.52),5,12);
  for(let i=0;i<n;i++){
    const px=c.o.minX+w*(i+.5)/n;
    c.box('container-corrugation',w/(n*2.7),h*.79,.068,
@@ -83,43 +83,44 @@ function shippingContainer(c){
      px,h*.52,other,C.teal,.34);
  }
  for(const s of [-1,1]){const xx=x+s*w*.503;
-  const ribs=clamp(Math.floor(d/.45),3,12);
+  const ribs=clamp(Math.floor(d/.73),3,7);
   for(let i=0;i<ribs;i++)c.box('container-end-pressed-rib',
     .064,h*.71,d/(ribs*2.8),xx,h*.53,c.o.minZ+d*(i+.5)/ribs,C.olive,.35);
  }
- c.box('container-top-rust-patch',w*.49,.035,d*.36,x-w*.14,h+.015,z,C.rust,.14);
+ c.box('container-top-rust-patch',w*.61,.075,d*.36,x-w*.14,h+.015,z,C.rust,.14);
  rim(c,'container-base-sill',x,.10,z,w*.95,d*.94,C.ink);
 }
 function tyreStacks(c){
  const {w,d,h,x,z}=c;
- // Staggered tyre columns bolted to a dark steel rack, no fake passage.
- const across=clamp(Math.round(w/1.25),2,5);
- const rows=d>=3?2:1;
- const maxR=Math.min(.55,w/across*.39,d/rows*.41);
- const tiers=clamp(Math.floor(h/(maxR*.68)),2,5);
- for(let row=0;row<rows;row++)for(let i=0;i<across;i++){
-  const px=c.o.minX+w*(i+.5)/across;
-  const pz=c.o.minZ+d*(row+.5)/rows;
-  for(let tier=0;tier<tiers;tier++){
-   const t=maxR*.64;const py=.22+t*.5+t*tier;
-   if(py+t*.5>h+.01)break;
-   c.cyl('stacked-tractor-rubber',maxR,t,px+(tier%2)*.045,py,pz,
-     C.rubber,'y',10);
-   // A smaller dusty wheel hub makes each level legible as a tire.
-   c.cyl('tractor-tyre-sidewall',maxR*.67,t*.05,px,py+t*.52,pz,
-     C.steel,'y',10);
-   c.cyl('tyre-centre-hole-dark',maxR*.29,t*.06,px,py+t*.56,pz,
-     C.ink,'y',8);
-  }
+ // A solid, backed pile, not an implausible rack/axle sculpture. The
+ // certified opaque AABB behind it remains visible and hit-blocking.
+ const radius=Math.min(.64,h*.31,w*.26,d*.29);
+ const n=Math.max(2,Math.min(3,Math.floor(w/(radius*1.70))));
+ const centers=Array.from({length:n},(_,i)=>x+(i-(n-1)*.5)*(radius*1.82));
+ const bottom=Math.max(radius*.32,.26);
+ c.box('tyre-pile-grounded-foot',w*.94,Math.max(.18,h*.17),d*.82,
+   x,Math.max(.11,h*.13),z,C.rubber,.13);
+ for(let i=0;i<n;i++){
+  const px=centers[i],zz=z+(i%2===0?-.07:.09);
+  // Chunky sidewalls and dark central sockets; never advertise a
+  // walk-through hole in certified solid collision geometry.
+  c.cyl('chunky-reclaimed-tractor-tire',radius,radius*.52,px,bottom+radius*.30,zz,
+    C.rubber,'y',10);
+  c.cyl('tyre-visible-sidewall',radius*.67,radius*.075,px,
+    bottom+radius*.61,zz,C.steel,'y',10);
+  c.cyl('tyre-recessed-centre',radius*.33,radius*.082,px,
+    bottom+radius*.67,zz,C.ink,'y',8);
  }
- for(let j=0;j<3;j++)c.box('tyre-rack-crossbar',w*.92,.12,.14,
-   x,h*(.12+j*.35),c.front-.008,j===1?C.rust:C.olive,.31);
- for(const a of [-1,1])c.box('tyre-rack-end-cap',.17,h*.92,d*.85,
-   x+a*w*.47,h*.50,z,C.ink,.34);
+ // One partially overlapping upper tyre makes this read as a stack at
+ // gameplay distance; no thin steel rack pretending to hold 10 tires.
+ c.cyl('one-upper-grounded-tractor-tyre',radius*.92,radius*.50,
+   x,bottom+radius*.79,z,C.rubber,'y',10);
+ c.cyl('upper-tyre-recessed-sidewall',radius*.53,radius*.08,
+   x,bottom+radius*1.05,z,C.steel,'y',10);
 }
 function drums(c){
  const {w,d,h,x,z}=c;
- const n=clamp(Math.round(w/.88),2,6),radius=Math.min(.44,d*.30,w/n*.43);
+ const n=clamp(Math.round(w/1.07),2,4),radius=Math.min(.44,d*.30,w/n*.43);
  // Dense pallet & backboard match the actual solid AABB. All visible
  // barrels remain separated visually but not falsely penetrable.
  c.box('oil-drum-pallet',w*.94,.19,d*.9,x,.16,z,C.brown,.20);
@@ -160,8 +161,8 @@ function pickup(c){
   }
  }
  c.box('pickup-radiator-grille',.04,h*.25,d*.67,c.o.maxX-.07,h*.37,z,C.ink);
- for(let i=-2;i<=2;i++)c.box('pickup-grille-slats',
-   .055,.05,d*.10,c.o.maxX-.029,h*.38,z+i*d*.12,C.cream,.4);
+ for(let i=-1;i<=1;i++)c.box('pickup-grille-slats',
+   .055,.05,d*.10,c.o.maxX-.029,h*.38,z+i*d*.18,C.cream,.4);
  c.box('pickup-dented-roof',w*.41,.09,d*.91,cabx,h*.94,z,C.brown);
 }
 function generator(c){
@@ -173,9 +174,9 @@ function generator(c){
      x-w*.24,h*.52,face,C.olive,.22);
  c.box('generator-hatch-seal',w*.30,.05,.074,
      x-w*.24,h*.77,face-.028,C.ink,.24);
- for(let i=0;i<7;i++)
+ for(let i=0;i<4;i++)
   c.box('generator-cooling-louvre',w*.36,.05,.095,
-     x+w*.20,h*(.25+i*.078),face-.037,i%3===0?C.silver:C.ink,.40);
+     x+w*.20,h*(.28+i*.135),face-.037,i%3===0?C.silver:C.ink,.40);
  c.box('generator-horizontal-exhaust',w*.18,.16,d*.12,
      x+w*.39,h*.87,z-d*.27,C.rust);
  c.box('generator-panel-label',w*.22,.16,.082,
@@ -187,7 +188,7 @@ function scrapWall(c){
  const {w,h,x,z}=c,front=c.front-.019;
  // Large uneven patched armor plates — meaningful solid blocker behind
  // the small sheet stagger; never advertise a shoot-through slit.
- const plates=clamp(Math.floor(w/1.10),3,8);
+ const plates=clamp(Math.floor(w/1.55),3,5);
  for(let i=0;i<plates;i++){
   const pw=w/plates,px=c.o.minX+pw*(i+.5);
   const ph=h*(.56+(i%3)*.12);
@@ -199,7 +200,7 @@ function scrapWall(c){
      px,h*.53,front-.065,C.steel,.40).rotation.z=i%4===0?.27:-.27;
  }
  rivetRow(c,'scrap-plate-rivet-row',c.o.minX+w*.1,c.o.maxX-w*.1,h*.71,
-   front-.09,clamp(Math.ceil(w/.6),5,12));
+   front-.09,clamp(Math.ceil(w/1.20),3,6));
  c.box('scrap-brace-top-angle',w*.93,.14,.24,x,h-.07,z,C.ink,.39);
 }
 function flatbed(c){
@@ -207,8 +208,8 @@ function flatbed(c){
  // The obstacle is a trailer carrying an enormous unsecured scrap load.
  c.box('flatbed-rail-upper',w*.98,.16,.19,x,h*.48,c.front,C.rust,.32);
  c.box('flatbed-rail-lower',w*.98,.18,.19,x,h*.19,c.front,C.ink,.43);
- for(let i=0;i<6;i++)c.box('flatbed-stake',.12,h*.76,.14,
-   c.o.minX+w*(i+.5)/6,h*.5,c.front-.07,C.ink,.32);
+ for(let i=0;i<4;i++)c.box('flatbed-stake',.12,h*.76,.14,
+   c.o.minX+w*(i+.5)/4,h*.5,c.front-.07,C.ink,.32);
  for(const px of [x-w*.33,x+w*.33]){
   c.cyl('flatbed-tyres',Math.min(.46,h*.19),.14,px,h*.25,
     c.front-.029,C.rubber,'z',10);
@@ -219,8 +220,8 @@ function flatbed(c){
    x-w*.28,h*.83,z,C.olive);
  c.box('flatbed-load-rusted-body',w*.36,h*.34,d*.62,
    x+w*.22,h*.82,z,C.rust);
- for(let i=0;i<4;i++)c.box('flatbed-angled-scrap',w*.13,.17,d*.82,
-   c.o.minX+w*(i+.50)/4,h*.91,z,i%2?C.steel:C.yellow,.39)
+ for(let i=0;i<2;i++)c.box('flatbed-angled-scrap',w*.13,.17,d*.82,
+   c.o.minX+w*(i+.50)/2,h*.91,z,i%2?C.steel:C.yellow,.39)
    .rotation.z=i%2===0?.12:-.14;
 }
 function turbine(c){
@@ -228,8 +229,8 @@ function turbine(c){
  c.cyl('turbine-cast-fan-body',rad,.13,x,h*.53,face,C.ink,'z',12);
  c.cyl('turbine-steel-housing',rad*.86,.16,x,h*.53,face-.03,
    C.silver,'z',12);
- for(let i=0;i<8;i++){
-  const a=i*Math.PI/4,rr=rad*.58;
+ for(let i=0;i<5;i++){
+  const a=i*Math.PI*2/5,rr=rad*.58;
   const blade=c.box('turbine-fan-vane',rad*.43,.13,.13,
      x+Math.cos(a)*rr,h*.53+Math.sin(a)*rr,face-.19,C.olive,.49);
   blade.rotation.z=a+.42;
@@ -267,13 +268,16 @@ function tractor(c){
 function harvester(c){
  const {x,z,w,d,h}=c;
  tractor(c);
+ // Wide integrated grain-processing mass, not a frame carrying a loose bin.
+ c.box('combine-threshing-body',w*.90,h*.38,d*.84,
+   x,h*.57,z+d*.08,C.olive,.29);
  // Wider agricultural header and crop intake distinguish the combine
  // from a truck or another anonymous wall.
  c.box('combine-harvester-header',w*.91,.23,d*.16,
    x,h*.26,c.front+.15,C.rust,.32);
- for(let i=0;i<7;i++)
+ for(let i=0;i<5;i++)
   c.box('combine-harvester-header-tooth',.10,.13,d*.17,
-    c.o.minX+w*(i+.5)/7,h*.18,c.front+.08,C.ink,.30);
+    c.o.minX+w*(i+.5)/5,h*.18,c.front+.08,C.ink,.30);
  c.box('combine-grain-bin',w*.67,h*.16,d*.63,
    x,h*.88,z+d*.12,C.yellow,.27);
  c.box('combine-unloader-boom',w*.13,.13,d*.68,

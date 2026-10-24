@@ -12,7 +12,7 @@ const gallery=source('backlotPropGallery.js');
 const html=source('backlot-prop-gallery.html');
 
 test('loader reads as large bucket, broad tracks and heavy connected machinery',()=>{
- assert.match(machines,/SOLID V5/);
+ assert.match(machines,/FINISH V6/);
  assert.match(machines,/i<=6;i\+\+\)route\.push/);
  assert.match(machines,/for\(let tooth=0;tooth<6;tooth\+\+\)/);
  assert.match(machines,/connected-crawler-track-shoe',\.85,\.23,\.48/);
@@ -40,7 +40,7 @@ test('engine and salvage resolve into major assemblies with fewer details',()=>{
  assert.match(salvage,/for\(let i=0;i<2;i\+\+\)\{\s*const x=-\.71\+i\*1\.42/);
  assert.match(salvage,/for\(let i=0;i<7;i\+\+\)\{\s*const z=-2\.49\+i\*\.83/);
  assert.doesNotMatch(salvage,/for\(let i=0;i<10;i\+\+\)cylinder\(g,'individual-weld-head'/);
- assert.match(salvage,/SOLID V5/);
+ assert.match(salvage,/FINISH V6/);
 });
 test('shared tyres and tractor trim match broad silhouette hierarchy',()=>{
  assert.match(primitives,/treadCount=8/);
@@ -54,7 +54,7 @@ test('gallery labels are specific to each experiment and do not mislabel pickup 
  assert.match(html,/id="gallery-experiment-title"/);
  assert.doesNotMatch(html,/TRACTOR REBUILD LAB/);
  assert.match(gallery,/\$\('gallery-experiment-title'\)\.textContent=e\.label/);
- assert.match(gallery,/SOLID V5/);
+ assert.match(gallery,/FINISH V6/);
 });
 test('stylistic rebuild does not change certified Backlot combat geometry',()=>{
  assert.equal(BACKLOT.version,3);

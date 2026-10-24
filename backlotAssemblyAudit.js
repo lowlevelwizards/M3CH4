@@ -19,6 +19,8 @@ const JOINS=Object.freeze({
   ['loader-operator-pedestal','cab-floor'],
   ['loader-main-transmission-belly','loader-front-bulkhead'],
   ['loader-main-transmission-belly','loader-bolted-track-cheek'],
+  ['loader-boom-drop-link','bucket-side-external-hinge-bracket'],
+  ['bucket-side-external-hinge-bracket','bucket-open-end-plate'],
  ],
  combine:[
   ['combine-solid-thresher-core','grain-hopper-tapered-bin'],
@@ -88,6 +90,24 @@ export function auditBacklotAssembly(group,family,{maxGap=.22}={}){
    issue:'unsupported structural gap',separation:Number(separation.toFixed(3)),
   });
  }
+ if(family==='loader'){
+  // A mass-to-mass bounding-box check isn't sufficient for the loader:
+  // its long support rods could still pierce the scoop. Verify that both
+  // real outboard attachment pins end behind/outside the bucket rear wall.
+  const dropLinks=[];
+  group.traverse(o=>{if(o.name==='loader-boom-drop-link')dropLinks.push(o);});
+  if(dropLinks.length!==2)
+   failures.push({pair:'loader bucket arms',issue:'both external lift arms required'});
+  for(const arm of dropLinks){
+   const pin=arm.userData?.rearBucketPin;
+   if(!pin||Math.abs(pin[0])<2.65||pin[2]<-2.46)
+    failures.push({pair:'loader bucket arm',issue:'arm enters working scoop instead of outboard rear trunnion'});
+  }
+  const hinges=[];
+  group.traverse(o=>{if(o.name==='bucket-side-external-hinge-bracket')hinges.push(o);});
+  if(hinges.length!==2)
+   failures.push({pair:'loader bucket trunnions',issue:'missing external side hinge bracket'});
+ }
  if(family==='tyres'){
   // Prevent an accidental return to shafts/racks that don't read as tires.
   const tyres=[1,2,3].map(i=>group.getObjectByName('individual-grounded-tractor-tyre-'+i));
@@ -102,6 +122,6 @@ export function auditBacklotAssembly(group,family,{maxGap=.22}={}){
     failures.push({pair:'tyre pile',issue:'third tyre should lean against pile'});
   }
  }
- return {family,checked:pairs.length+(family==='tyres'?3:0),
+ return {family,checked:pairs.length+(family==='tyres'?3:0)+(family==='loader'?4:0),
   pass:failures.length===0,failures};
 }
