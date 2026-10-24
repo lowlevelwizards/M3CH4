@@ -1,95 +1,64 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    WEAPONS,
-    applyTargetHit,
-    createTargetCondition,
-    makeRangeTarget,
-} from '../combat.js';
-import { hostileMissionKillReason } from '../hostileRig.js';
-
-const EXPECTED = Object.freeze({
-    'gun-cannon': Object.freeze({ structure: 14, critical: 8, kestrel: 8, yard: 10, hauler: 13 }),
-    'gun-short': Object.freeze({ structure: 11, critical: 7, kestrel: 7, yard: 8, hauler: 11 }),
-    'gun-light': Object.freeze({ structure: 18, critical: 11, kestrel: 11, yard: 13, hauler: 18 }),
-});
-
-function shotsToMissionKill(spec, slot) {
-    const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-    let shots = 0;
-    while (!hostileMissionKillReason(condition) && shots < 100) {
-        applyTargetHit(condition, slot, spec.damage);
-        shots++;
-    }
-    return shots;
+import {WEAPONS,TARGET_RESILIENCE,applyTargetHit,createTargetCondition,makeRangeTarget} from '../combat.js';
+import {countDisabled,systemMissionKillReason} from '../fieldService.js';
+const baseline={structure:[260,250],mobility:[170,185],power:[110,190],command:[120,185],combat:[130,180]};
+const guns=['gun-cannon','gun-short','gun-light'];
+function shotsToDisable(spec,slot,contract='yard-dog'){
+ const c=createTargetCondition(makeRangeTarget(contract));let n=0;
+ while(c.parts[slot].integrity>0&&n<250){applyTargetHit(c,slot,spec.damage);n++;}
+ return n;
 }
-
-function shotsToMobilityZero(spec, contractId) {
-    const condition = createTargetCondition(makeRangeTarget(contractId));
-    let shots = 0;
-    while (condition.parts.mobility.integrity > 0 && shots < 100) {
-        applyTargetHit(condition, 'mobility', spec.damage);
-        shots++;
-    }
-    return shots;
+function time(shots,spec){
+ return Math.max(0,shots-1)/spec.roundsPerSecond+
+ Math.floor(Math.max(0,shots-1)/spec.magazine)*spec.reloadSeconds;
 }
-
-function perfectHoldSeconds(shots, spec) {
-    const triggerTime = Math.max(0, shots - 1) / spec.roundsPerSecond;
-    const reloads = Math.floor(Math.max(0, shots - 1) / spec.magazine);
-    return triggerTime + reloads * spec.reloadSeconds;
-}
-
-test('critical systems require about three seconds of perfect focused fire', () => {
-    for (const id of Object.keys(EXPECTED)) {
-        const spec=WEAPONS[id];
-        const expected = EXPECTED[id].critical;
-        for (const slot of ['power', 'command', 'combat']) {
-            const shots = shotsToMissionKill(spec, slot);
-            const seconds = perfectHoldSeconds(shots, spec);
-            assert.equal(shots, expected, `${spec.label} ${slot} shot count`);
-            assert.ok(seconds >= 2.75 && seconds <= 3.15,
-                `${spec.label} ${slot} should take about three seconds, got ${seconds.toFixed(2)}`);
-        }
-    }
+test('all five modules double internal durability without artificially extending armor phase',()=>{
+ for(const [slot,[oldHp,oldArmor]] of Object.entries(baseline)){
+  assert.deepEqual(TARGET_RESILIENCE[slot],[oldHp*2,oldArmor]);
+ }
 });
-
-test('fresh frame kills exceed every current magazine and land in the seven-to-eight second envelope', () => {
-    for (const id of Object.keys(EXPECTED)) {
-        const spec=WEAPONS[id];
-        const shots = shotsToMissionKill(spec, 'structure');
-        const seconds = perfectHoldSeconds(shots, spec);
-        assert.equal(shots, EXPECTED[id].structure, `${spec.label} frame shot count`);
-        assert.ok(shots > spec.magazine, `${spec.label} must reload before a fresh frame kill`);
-        assert.ok(seconds >= 7 && seconds <= 8.1,
-            `${spec.label} frame kill should take 7-8 seconds of perfect held fire, got ${seconds.toFixed(2)}`);
-    }
+test('critical weapon faults now follow several seconds of penetrated operation',()=>{
+ for(const id of guns){
+  const spec=WEAPONS[id];const c=createTargetCondition(makeRangeTarget('yard-dog'));
+  const part=c.parts.power;let shots=0,breach=-1,underHalf=-1;
+  while(part.integrity>0 && shots<250){
+   const hit=applyTargetHit(c,'power',spec.damage);shots++;
+   if(hit.internalDamage>0 && breach<0)breach=shots;
+   if(part.integrity<part.maxIntegrity*.5&&underHalf<0)underHalf=shots;
+  }
+  assert.ok(breach>=4, spec.label+' armor breach should not be instant');
+  assert.ok(shots-underHalf>=1,spec.label+' needs a damaged-phase shot after crossing half');
+  assert.ok(time(shots,spec)>3.25,spec.label+' must survive materially longer than old three-second kill');
+  assert.equal(countDisabled(c),1);
+  assert.equal(systemMissionKillReason(c),null);
+ }
 });
-
-test('fresh critical housings absorb several hits before internal damage begins', () => {
-    for (const id of Object.keys(EXPECTED)) {
-        const spec=WEAPONS[id];
-        const condition = createTargetCondition(makeRangeTarget('yard-dog'));
-        for (let shot = 1; shot <= 3; shot++) {
-            const hit = applyTargetHit(condition, 'combat', spec.damage);
-            assert.equal(hit.internalDamage, 0,
-                `${spec.label} should still be working through weapon housing on shot ${shot}`);
-        }
-    }
+test('focusing multiple systems, not one critical component, produces knockout',()=>{
+ const c=createTargetCondition(makeRangeTarget('yard-dog'));
+ for(const slot of ['power','command']){
+  const p=c.parts[slot];applyTargetHit(c,slot,p.armor+p.integrity);
+  assert.equal(systemMissionKillReason(c),null);
+ }
+ const p=c.parts.combat;applyTargetHit(c,'combat',p.armor+p.integrity);
+ assert.match(systemMissionKillReason(c),/THREE DISABLES/);
 });
-
-test('mobility durability preserves Kestrel < Yardwalker < Hauler and makes Hauler require a reload', () => {
-    for (const id of Object.keys(EXPECTED)) {
-        const spec=WEAPONS[id];
-        const kestrel = shotsToMobilityZero(spec, 'cutter');
-        const yard = shotsToMobilityZero(spec, 'yard-dog');
-        const hauler = shotsToMobilityZero(spec, 'mule');
-        const expected = EXPECTED[id];
-
-        assert.equal(kestrel, expected.kestrel, `${spec.label} Kestrel shot count`);
-        assert.equal(yard, expected.yard, `${spec.label} Yardwalker shot count`);
-        assert.equal(hauler, expected.hauler, `${spec.label} Hauler shot count`);
-        assert.ok(kestrel < yard && yard < hauler, `${spec.label} mobility hierarchy`);
-        assert.ok(hauler > spec.magazine, `${spec.label} must reload to fully destroy fresh Hauler mobility`);
-    }
+test('Kestrel remains fragile, Yardwalker balanced and Hauler substantially tougher',()=>{
+ for(const id of guns){
+  const w=WEAPONS[id];
+  const k=shotsToDisable(w,'mobility','cutter'),
+    y=shotsToDisable(w,'mobility','yard-dog'),
+    h=shotsToDisable(w,'mobility','mule');
+  assert.ok(k<y&&y<h,`${id}: ${k}/${y}/${h}`);
+  assert.ok(h>w.magazine);
+ }
+});
+test('all eight weapons retain physical, bounded damage rates while the new HP curve applies',()=>{
+ for(const w of Object.values(WEAPONS)){
+  assert.ok(w.damage>0&&w.roundsPerSecond>0&&w.magazine>0&&w.reloadSeconds>0);
+  const spec=WEAPONS[w.id],c=createTargetCondition(makeRangeTarget('yard-dog'));
+  const hit=applyTargetHit(c,'structure',spec.damage);
+  assert.ok(hit.armorAbsorbed>=0);
+  assert.equal(c.parts.structure.maxIntegrity,baseline.structure[0]*2);
+ }
 });
