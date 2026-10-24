@@ -249,20 +249,20 @@ export function buildAnatomicalConcrete(root){
  return g;
 }
 export const SALVAGE_EXHIBITS=Object.freeze([
- {id:'generator',label:'GENERATOR · SOLID V5',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
+ {id:'generator',label:'GENERATOR · FINISH V6',details:'OPEN ALTERNATOR · ENGINE · EXHAUST',
   match:o=>o.artKit==='generator-unit',build:buildAnatomicalGenerator},
- {id:'turbine',label:'TURBINE HOUSING · SOLID V5',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
+ {id:'turbine',label:'TURBINE HOUSING · FINISH V6',details:'HOLLOW VOLUTE · IMPELLER · SHAFT',
   match:o=>o.artKit==='turbine-housing',build:buildAnatomicalTurbine},
- {id:'tyres',label:'TYRE STACK · SOLID V5',details:'THREE GROUNDED HOLLOW TYRES · NO RACK',
+ {id:'tyres',label:'TYRE STACK · FINISH V6',details:'THREE GROUNDED HOLLOW TYRES · NO RACK',
   match:o=>o.artKit==='tire-stack',build:buildAnatomicalTyreStack},
- {id:'barrels',label:'OIL DRUM PALLET · SOLID V5',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
+ {id:'barrels',label:'OIL DRUM PALLET · FINISH V6',details:'CURVED BARRELS · ROLLED RIMS · PALLET',
   match:o=>o.artKit==='barrel-cluster',build:buildAnatomicalDrums},
- {id:'flatbed',label:'FLATBED TRAILER · SOLID V5',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
+ {id:'flatbed',label:'FLATBED TRAILER · FINISH V6',details:'RAILS · SUSPENSION · ACTUAL SCRAP LOAD',
   match:o=>o.artKit==='flatbed-fragment',build:buildAnatomicalFlatbed},
- {id:'barricade',label:'WELDED SCRAP WALL · SOLID V5',details:'IRREGULAR WELDED PANELS · BRACING',
+ {id:'barricade',label:'WELDED SCRAP WALL · FINISH V6',details:'IRREGULAR WELDED PANELS · BRACING',
   match:o=>o.artKit==='scrap-barricade',build:buildAnatomicalScrapWall},
- {id:'container',label:'SHIPPING CONTAINER · SOLID V5',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
+ {id:'container',label:'SHIPPING CONTAINER · FINISH V6',details:'HOLLOW CORRUGATED FRAME · HINGED DOORS',
   match:o=>o.artKit==='shipping-container',build:buildAnatomicalContainer},
- {id:'concrete',label:'CONCRETE BARRIER · SOLID V5',details:'TRUE CAST SLOPES · CHIPPED REBAR',
+ {id:'concrete',label:'CONCRETE BARRIER · FINISH V6',details:'TRUE CAST SLOPES · CHIPPED REBAR',
   match:o=>o.artKit==='concrete-barrier',build:buildAnatomicalConcrete},
 ]);
