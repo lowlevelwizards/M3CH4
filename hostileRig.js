@@ -1,5 +1,6 @@
 import { selectedContract } from './contracts.js';
 import { systemMissionKillReason } from './fieldService.js';
+import {weaponDamageResponse} from './woundResponse.js';
 
 const clamp01 = (n) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 const ratio = (condition, slot) => {
@@ -19,7 +20,7 @@ export function hostileOutput(condition, behavior = null) {
     const command = ratio(condition, 'command');
     const weapon = ratio(condition, 'combat');
     const operational = structure > 0 && command > 0 && power > 0 && weapon > 0;
-    const baseSpread = .010 + (1 - weapon) * .045 + (1 - power) * .020;
+    const baseSpread = .010 * weaponDamageResponse(weapon).spreadMultiplier + (1 - power) * .007;
     return {
         structure, mobility, power, command, weapon, operational,
         // Only the physical fitted weapon controls cyclic rate. Pilot personality
