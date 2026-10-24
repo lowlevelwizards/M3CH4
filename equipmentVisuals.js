@@ -7,11 +7,12 @@ import { equipmentMounts } from './equipment.js';
 import { buildPartVisual } from './partVisuals.js';
 const mat=(color,metalness=.62)=>new THREE.MeshStandardMaterial({color,roughness:.78,metalness});
 const STEEL=0x424745,BLACK=0x292d2b,RUST=0x805133,YELLOW=0xb38a3a,TEAL=0x387c7c;
-export function addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes) {
+export function addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes,combatGroup=null) {
   if(!hull)return;
   const eq=equipmentMounts(assembly);
   const addGroup=(name,x,y,z,slot='structure')=>{
-    const group=new THREE.Group();group.name='equipment:'+name;group.position.set(x,y,z);hull.add(group);
+    const group=new THREE.Group();group.name='equipment:'+name;group.position.set(x,y,z);
+    (slot==='combat'&&combatGroup?combatGroup:hull).add(group);
     const add=(geometry,color,px,py,pz,angles=null)=>{
       const mesh=new THREE.Mesh(geometry,mat(color));
       mesh.position.set(px,py,pz);
@@ -63,7 +64,7 @@ export function addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes) {
     for(const x of [-.57,.57])a.box(.19,.47,.34,BLACK,x,-.13,.14);
   }
   if(eq.combatCradle==='twin-spar'){
-    const a=addGroup('twin-spar',-.75,.22,-.75,'combat');
+    const a=addGroup('twin-spar',-2.08,0,.07,'combat');
     a.box(1.76,.19,.62,STEEL,.75,-.08,.12);
     for(const x of [-.16,1.67]){
       a.cyl(.19,.13,RUST,x,0,.03,'z');
@@ -72,7 +73,7 @@ export function addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes) {
     if(eq.secondaryWeapon){
       const weapon=buildPartVisual(eq.secondaryWeapon,{mode:'gameplay'});
       if(weapon){
-        weapon.position.set(-.37,.02,-.13);
+        weapon.position.set(-.08,.02,-.13);
         a.group.add(weapon);
         weapon.traverse(mesh=>{
           if(!mesh.isMesh||mesh.userData.visualOnly)return;
