@@ -182,6 +182,14 @@ export function drawCockpitChannel(screen,channel,data,profile,damage=null){
         }
         ctx.globalAlpha=1;
     }
+    if(damage?.staticStrength>.52 && channel!=='systems'){
+        const strength=Math.min(.12,damage.staticStrength*.10);
+        ctx.globalAlpha=strength;
+        ctx.fillStyle=p.edge;
+        ctx.fillRect(4,h-5,Math.max(6,w-8),1);
+        if(channel==='motion'||channel==='weapon')ctx.fillRect(w-6,11,1,Math.min(18,h-20));
+        ctx.globalAlpha=1;
+    }
     screen.texture.needsUpdate=true;
 }
 export function drawDimensionAudit(){

@@ -38,8 +38,8 @@ export function machineWoundPose({
        left:l,right:r,
        // Always favor the actually weaker side rather than an arbitrary
        // oscillation. Load transfer and authored contacts remain authoritative.
-       bodyRoll:clamp(differential*f.roll*1.15+frameWeak*.018,-.15,.15),
-       bodyPitch:clamp((l.severity+r.severity)*f.pitch*.42+frameWeak*.045,0,.16),
+       bodyRoll:clamp(differential*f.roll*1.15+frameWeak*.027,-.15,.15),
+       bodyPitch:clamp((l.severity+r.severity)*f.pitch*.42+frameWeak*.062,0,.16),
        bodyDrop:clamp((l.severity*clamp(loadLeft)+r.severity*clamp(loadRight))*f.sag+
            frameWeak*f.frameDrop*.54,0,.12),
        strideHealth:clamp((clamp(left)+clamp(right))/2),

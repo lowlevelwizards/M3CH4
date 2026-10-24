@@ -3,6 +3,7 @@
  * contains independently damaged left/right drive sections, not new shop slots.
  * No rendering, randomness, persistence, repairs or enemy AI in this module. */
 import { inspectAssembly, installedPart } from './components.js';
+import {weaponDamageResponse} from './woundResponse.js';
 const clamp01 = (n) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 export function createFunctionalDamage() { return { drives: {} }; }
 function driveSections(assembly, state) {
@@ -95,10 +96,10 @@ export function derateRigConfig(base, output) {
     };
 }
 export function weaponSpreadMultiplier(output) {
-    return 1 + Math.pow(1 - output.weapon, 1.3) * 2.5;
+    return weaponDamageResponse(output.weapon).spreadMultiplier;
 }
 export function weaponCycleMultiplier(output) {
-    return 1 + (1 - output.weapon) * .75;
+    return weaponDamageResponse(output.weapon).cycleMultiplier;
 }
 
 /** Reconcile a legitimate mobility field restart with the two physical drives.

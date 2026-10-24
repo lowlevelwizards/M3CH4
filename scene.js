@@ -7,6 +7,7 @@ import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4z1';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
 import {machineWoundPose,recoveryMotion} from './woundedMachine.js';
+import {electricalDistress,frameDistress} from './woundResponse.js';
 import {physicalContactWeight} from './physicalContactWeight.js';
 import {moduleFailureSignature,failureSurfaceFactor} from './moduleFailureSignatures.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
@@ -1072,12 +1073,15 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     const pilotFractureParts=[];
     let hitPitchKick = 0, hitRollKick = 0, hitYawKick = 0, hitShakeKick = 0, gunDamageKick = 0;
     let powerBlackout = 0, powerFlicker = 0, cockpitWarningLevel = 0;
-    let persistentPowerHealth = 1, persistentCommandHealth = 1;
+    let persistentPowerHealth = 1, persistentCommandHealth = 1, persistentBusRatio = 1;
     let driveLeftHealth = 1, driveRightHealth = 1, powerArcCooldown = 1.8;
     let cockpitInstrumentKey = '', cockpitMotionKey = '';
-    let crackKey = -1;
+    let crackKey = -1, worstCabPercent = 100;
     function redrawCracks(commandPercent) {
-        const level = Math.max(0, Math.min(1, (72 - commandPercent) / 72));
+        // Emergency field service restores circuitry, not shattered glass.
+        // Actual workshop inspections may show the freshly repaired condition.
+        worstCabPercent = inspecting ? commandPercent : Math.min(worstCabPercent,commandPercent);
+        const level = Math.max(0, Math.min(1, (72 - worstCabPercent) / 72));
         const key = Math.round(level * 8);
         if (key === crackKey) return;
         crackKey = key;
@@ -1229,6 +1233,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         redrawCracks(Number(s.command ?? 100));
     }
     function updateCockpitMotion(data = {}) {
+        persistentBusRatio=Math.max(0,Math.min(1,Number(data.power?.busRatio??1)));
         const normalized = {
             speed: Number(data.speed ?? 0).toFixed(1),
             direction: String(data.direction ?? 'IDLE'),
@@ -1309,6 +1314,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         pilotFeet=null;pilotLandingKick=0;
         Object.assign(pilotHitResponse,createHitResponse());
         powerBlackout = powerFlicker = 0;
+        worstCabPercent=100;crackKey=-1; persistentBusRatio=1;
         powerArcCooldown = 1.8;
         combinerHud.position.set(0, 0, 0);
         blackoutMaterial.opacity = 0;
@@ -1972,10 +1978,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         visualYaw += yawDelta * smoothing;
         const targetPitch = THREE.MathUtils.clamp(
             -state.longitudinalAcceleration * .012 - (state.footingLoad ?? 0) * .008, -.045, .045);
+        const frameWound=frameDistress(serviceVisual?.frameHealth??1,state.driveLoad??0,pilotFeet?.weightShift??0);
         const targetRoll = THREE.MathUtils.clamp(
             -state.yawRate * Math.abs(state.forwardSpeed) * .008 -
             (state.lateralAcceleration ?? 0) * .004+
-            (pilotFeet?.weightShift??0)*.024, -.065, .065);
+            (pilotFeet?.weightShift??0)*.024+frameWound.twist, -.065, .065);
         if(!inspecting){
             const kind=installedPart(previewAssembly,'mobility')?.definition.id??'legs-yard';
             pilotFeet=serviceVisual?.gait?.contactFeet??advanceFootContacts(pilotFeet,state,kind,dt);
@@ -1995,7 +2002,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         cockpitPitch += (targetPitch - cockpitPitch) * (1 - Math.exp(-8 * dt));
         cockpitRoll += (targetRoll - cockpitRoll) * (1 - Math.exp(-9 * dt));
         cockpitHeave += ((footfall - impactKick - (state.brace ?? 0) * .032 -
-            (state.footingLoad ?? 0) * .015 - (state.recoilLoad ?? 0) * .012) -
+            (state.footingLoad ?? 0) * .015 - (state.recoilLoad ?? 0) * .012 - frameWound.sag) -
             cockpitHeave) * (1 - Math.exp(-12 * dt));
         const renderYaw = physicsYawToViewYaw(visualYaw);
         const nowMs = performance.now();
@@ -3491,10 +3498,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             powerArcCooldown = 1.25 + Math.random() * (2.7 - severity);
         }
         const now = performance.now();
+        const powerDistress=electricalDistress(persistentBusRatio,persistentPowerHealth);
         const flickerWave = Math.abs(Math.sin(now * .105));
         const flicker = powerFlicker > 0 ? (flickerWave > .67 ? .68 : .16 + flickerWave * .16) : 0;
         blackoutMaterial.opacity = powerBlackout > 0 ? .995 : flicker;
-        const screenOpacity = powerBlackout > 0 ? .01 : powerFlicker > 0 ? (flickerWave > .67 ? .12 : .74) : .92;
+        const screenOpacity = (powerBlackout > 0 ? .01 : powerFlicker > 0 ? (flickerWave > .67 ? .12 : .74) : .92) * (1-powerDistress.dim);
         for (const screen of Object.values(cockpit.userData.instrumentScreens)) screen.mesh.material.opacity = screenOpacity;
         const commandDamage = Math.max(0, .62 - persistentCommandHealth) / .62;
         combinerHud.position.x = Math.sin(now * .089) * commandDamage * .00085;
@@ -3528,7 +3536,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         }
         const pulse = .55 + .45 * Math.abs(Math.sin(performance.now() * .008));
         const lamps = cockpit.userData.warningLamps;
-        lamps.amberLampMat.emissiveIntensity = cockpitWarningLevel >= 1 ? 1.4 * pulse : .08;
+        lamps.amberLampMat.emissiveIntensity = cockpitWarningLevel >= 1 ? 1.4 * pulse : persistentBusRatio<.90 ? .68*pulse : .08;
         lamps.redLampMat.emissiveIntensity = cockpitWarningLevel >= 2 ? 2.8 * pulse : .03;
         lamps.amberWash.intensity = cockpitWarningLevel >= 1 ? 1.8 * pulse : 0;
         lamps.redWash.intensity = cockpitWarningLevel >= 2 ? 3.4 * pulse : 0;
