@@ -4,6 +4,7 @@
  * Never pushes the rig, changes collision, serial state or grants traction.
  * No Three.js, DOM, allocations per simulation step beyond returned snapshots.
  */
+import {legImpairment} from './woundedMachine.js';
 import {createImpactCatchState,impactCatchEvidence,injectImpactCatch,
   advanceImpactCatch,commitImpactCatchStep,impactCatchProfile} from './impactCatch.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -49,10 +50,12 @@ export function registerFootImpact(state,hit={}){
  * from the nominal authored foot rest positions (not absolute rig positions).
  * 'heel plant' can occur during active turning even if linear speed is zero.
  */
-export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabled=false}={}){
+export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabled=false,leftHealth=1,rightHealth=1}={}){
   if(!state||state.family!==family)state=createFootContacts(rig,family);
   const p=footContactProfile(family);
   const hit=state.hitCatch??(state.hitCatch=createImpactCatchState());
+  const leftInjury=legImpairment(leftHealth,rig.driveLoad??0,family);
+  const rightInjury=legImpairment(rightHealth,rig.driveLoad??0,family);
   const safeDt=clamp(Number.isFinite(dt)?dt:0,0,.10);
   advanceImpactCatch(hit,safeDt);
   const x=rig.x??0,z=rig.z??0,yaw=rig.yaw??0;
@@ -96,11 +99,12 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   for(const f of state.feet){
     const nominal=offsets(rig,f.side,p);
     if(f.mode==='swing'){
+      const injury=f.side<0?leftInjury:rightInjury;
       // Fast locomotion is a quicker higher-energy transfer; precision
       // creep takes shorter, deliberate time with reliable ground support.
       const gaitTime=f.impactCatch?.78:state.gaitMode==='HUSTLE'?.82:
         state.gaitMode==='CREEP'?1.24:1;
-      f.swing=clamp(f.swing+safeDt/(p.stepSeconds*gaitTime),0,1);
+      f.swing=clamp(f.swing+safeDt/(p.stepSeconds*gaitTime*injury.swingTime),0,1);
       // A swing aims toward where the body will be when the foot lands.
       // Target remains committed after step initiation, so it cannot chase
       // the machine and appear to hover/skate.
@@ -108,7 +112,7 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       f.x=f.startX+(f.targetX-f.startX)*t;
       f.z=f.startZ+(f.targetZ-f.startZ)*t;
       f.y=f.startY+(f.targetY-f.startY)*t;
-      f.lift=Math.sin(Math.PI*t)*p.lift*(state.gaitMode==='HUSTLE'?1.12:1);
+      f.lift=Math.sin(Math.PI*t)*p.lift*injury.swingLift*(state.gaitMode==='HUSTLE'?1.12:1);
       if(f.swing>=1){
         f.mode='stance';f.x=f.targetX;f.z=f.targetZ;f.y=f.targetY;f.lift=0;f.swing=0;
         f.impactCatch=false;
@@ -156,7 +160,8 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
       const nominal=offsets(rig,candidate.side,p);
       // Look ahead only a modest distance in the measured motion direction.
       // Limit relative placement by the family-specific available reach.
-      const leadTime=clamp(p.stepSeconds*(state.gaitMode==='HUSTLE'?.45:.33),.06,.18);
+      const injury=candidate.side<0?leftInjury:rightInjury;
+      const leadTime=clamp(p.stepSeconds*(state.gaitMode==='HUSTLE'?.45:.33)*injury.reach,.06,.18);
       // A real unstable rig catches itself by widening its support polygon
       // by at most half the family lateral reach. This is a planted step,
       // not a translation/turn of the authoritative body physics.
@@ -202,7 +207,10 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   for(const f of state.feet){
     const swing=f.mode==='swing';
     const preparing=f.side===state.preparingSide&&state.prepareLeft>0;
-    const target=swing?0:preparing?.10:1;
+    const injury=f.side<0?leftInjury:rightInjury;
+    // A failing drive accepts less powered support, but a planted pad
+    // never teleports or loses its grounding solely from this weighting.
+    const target=swing?0:preparing?.10:.58+.42*injury.health;
     f.load+=(target-f.load)*(1-Math.exp(-safeDt*15));
     total+=f.load;
   }
@@ -215,8 +223,10 @@ export function advanceFootContacts(state,rig,family='legs-yard',dt=1/60,{disabl
   state.bodyCompression=0;
   for(const f of state.feet){
     f.load/=Math.max(.001,total);
+    const injury=f.side<0?leftInjury:rightInjury;
     f.compression=f.mode==='stance'
       ?p.compression*f.load*(.4+.6*state.actuatorEffort+state.recovery*.12)+
+         injury.kneeCompression*f.load*(.35+.65*state.actuatorEffort)+
          impactCatchProfile(family).loadCompression*hit.force*f.load
       :0;
     state.bodyCompression+=f.compression;

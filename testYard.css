@@ -30,3 +30,13 @@ body.test-yard .yard-stats.not-ready{border-color:#b78c55;color:#f6c078;backgrou
 body.test-yard .yard-feedback{font-size:11px;color:#f4c66e;min-height:1.25em;margin:6px 0}
 body.test-yard #orbit-help{bottom:8px}
 @media(max-width:730px){body.test-yard .yard-toolbar{gap:3px;padding:4px}body.test-yard .yard-toolbar button,body.test-yard .yard-toolbar a{padding:6px 5px;min-height:30px;font-size:9px}body.test-yard .yard-toolbar .yard-tag{font-size:10px;margin:0 3px}body.test-yard .yard-bench{top:47px;width:min(310px,46vw);padding:9px}body.test-yard .yard-help{font-size:10px}}
+
+/* A touchable range-only damage injector, never part of the campaign HUD. */
+body.test-yard .yard-injury{position:absolute;top:58px;left:max(8px,env(safe-area-inset-left));width:min(292px,42vw);max-height:calc(100vh - 72px);overflow-y:auto;box-sizing:border-box;background:rgba(19,27,26,.96);border:1px solid #a5814d;border-radius:5px;pointer-events:auto;padding:12px;box-shadow:0 5px 20px #000a}
+body.test-yard .yard-injury[hidden]{display:none}
+body.test-yard .yard-damage-inputs{display:grid;gap:7px}
+body.test-yard .yard-condition-buttons{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;margin:10px 0}
+body.test-yard .yard-condition-buttons button{padding:8px 2px;min-height:37px;font-size:10px}
+body.test-yard .yard-injury-readout{min-height:2.6em;margin:8px 0;font:700 11px/1.4 ui-monospace,monospace;color:#edc88d}
+body.test-yard .yard-injury>.yard-secondary{white-space:normal;width:100%;min-height:36px}
+@media(max-width:730px){body.test-yard .yard-injury{top:47px;left:5px;width:min(270px,48vw);padding:8px}body.test-yard .yard-condition-buttons{grid-template-columns:repeat(5,minmax(0,1fr))}body.test-yard .yard-condition-buttons button{font-size:9px;padding:7px 1px}}

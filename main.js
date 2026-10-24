@@ -46,6 +46,7 @@ import { aiWeaponEngagement } from './ai/weaponTactics.js';
 import { createRoundClock,advanceRoundClock,formatRoundClock } from './roundClock.js';
 import { createFaultSupportState, faultSupportForActor, resetFaultSupportState, updateFaultSupportAssignments } from './faultSupport.js';
 import { damagePosture } from './damageBehavior.js';
+import {damageLabCondition} from './woundedMachine.js';
 import { advanceSortieObjective, createSortieObjective, objectivePresentation, objectiveStatusText } from './sortieObjectives.js';
 import { clearMachineSave, loadMachine, storeMachine } from './persistence.js';
 import { advanceHostileController, createHostileController, disabledReason, hostileAimSlot, hostileMissionKillReason, hostileOutput, hostileSpread, } from './hostileRig.js';
@@ -269,9 +270,20 @@ function shoveDisabledWrecks(moverState, moverConfig) {
 function aiLocomotionConfig(actor) {
     const mobility = installedPart(actor.assembly, 'mobility');
     if (mobility) {
-        const part = actor.condition.parts.mobility;
-        const health = Math.max(0, part.integrity / Math.max(1, part.maxIntegrity));
-        actor.driveDamage.drives[mobility.instance.serial] = { left: health, right: health };
+        const part=actor.condition.parts.mobility;
+        const health=Math.max(0,part.integrity/Math.max(1,part.maxIntegrity));
+        const serial=mobility.instance.serial;
+        const previous=actor.driveDamage.drives[serial];
+        const mean=previous?(previous.left+previous.right)/2:health;
+        if(!previous) actor.driveDamage.drives[serial]={left:health,right:health};
+        else if(Math.abs(mean-health)>.0001){
+            // Keep the relative damaged side after a new internal hit or
+            // service. The existing average module integrity is authoritative.
+            const offset=(previous.left-previous.right)/2;
+            const allowed=Math.min(health,1-health,Math.abs(offset));
+            const skew=Math.sign(offset)*allowed;
+            actor.driveDamage.drives[serial]={left:health+skew,right:health-skew};
+        }
     }
     return derateRigConfig(actor.baseConfig,
         powerConstrainedOutput(functionalOutput(actor.assembly, actor.driveDamage), actor.powerSystem));
@@ -524,7 +536,7 @@ function soundActualReloadPhases(state,spec,local=false,sourceRig=null){
 // Sound cadence is isolated from the physics integrator. Do not mutate drive,
 // foot contacts or any persistent machine state to produce these events.
 const movementSoundStates=new WeakMap();
-function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
+function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false,driveHealth=null){
     const distance=local?0:Math.hypot(machineRig.x-rig.x,machineRig.z-rig.z);
     // All rigs advance their visible gait whether or not they are audible.
     // Only emission is distance culled; never freeze remote animation.
@@ -533,7 +545,10 @@ function emitMachineMotionSound(machineAssembly,machineRig,dt,local=false){
     const familyId=installedPart(machineAssembly,'mobility')?.definition.id??'legs-yard';
     const family=soundFamilyFor(familyId);
     const speed=Math.hypot(machineRig.vx,machineRig.vz);
-    acoustic.contactFeet=advanceFootContacts(acoustic.contactFeet,machineRig,familyId,dt);
+    acoustic.contactFeet=advanceFootContacts(acoustic.contactFeet,machineRig,familyId,dt,{
+        leftHealth:driveHealth?.left??1,rightHealth:driveHealth?.right??1,
+        disabled:(driveHealth?.left??1)<=0&&(driveHealth?.right??1)<=0,
+    });
     if(local||distance<24){
         const mark=groundFootprint(acoustic.contactFeet,machineRig,familyId);
         if(mark)arena.recordFootprint(mark);
@@ -1868,6 +1883,76 @@ if (testYard) {
             controls.setEnabled(!inspecting);
             showStatus('TEST RIG REBUILT · TARGET DAMAGE PRESERVED');
         },
+        onReadDamage:(who,slot)=>{
+            const subject=who==='enemy'?primaryEnemyActor:null;
+            const cond=subject?.condition??playerCondition;
+            const health=cond.parts[slot]?.maxIntegrity>0?
+                Math.round(100*cond.parts[slot].integrity/cond.parts[slot].maxIntegrity):0;
+            const instance=installedPart(subject?.assembly??assembly,'mobility');
+            const driveState=subject?.driveDamage??damage;
+            const sides=instance&&driveState.drives?.[instance.instance.serial];
+            return `${who==='enemy'?'ENEMY':'PILOT'} · ${slot.toUpperCase()} ${health}%`+
+                (slot==='mobility'&&sides?` · L ${Math.round(sides.left*100)}% / R ${Math.round(sides.right*100)}%`:'');
+        },
+        onDamage:({who,slot,side,percent})=>{
+            if(!testYard || !SLOTS.includes(slot))return 'NOT AVAILABLE';
+            const actor=who==='enemy'?primaryEnemyActor:null;
+            if(actor&&!actor.active)return 'RESET TARGETS TO RESTART A KNOCKED-OUT AI';
+            const target=actor?.condition??playerCondition;
+            const hardware=actor?.assembly??assembly;
+            const damageState=actor?.driveDamage??damage;
+            const part=target.parts[slot];
+            if(!part)return 'MODULE NOT INSTALLED';
+            const ratio=damageLabCondition(target.parts,slot,percent);
+            if(slot==='mobility'){
+                const fitted=installedPart(hardware,slot);
+                if(fitted){
+                    const serial=fitted.instance.serial;
+                    const v=damageState.drives[serial]??{left:1,right:1};
+                    if(side==='left')v.left=ratio;
+                    else if(side==='right')v.right=ratio;
+                    else v.left=v.right=ratio;
+                    damageState.drives[serial]=v;
+                    const average=(v.left+v.right)/2;
+                    part.integrity=part.maxIntegrity*average;
+                    part.armor=average===1?part.maxArmor:0;
+                }
+            }
+            const fitted=installedPart(hardware,slot);
+            if(fitted) {fitted.instance.condition=part.integrity/Math.max(1,part.maxIntegrity);fitted.instance.destroyed=false;}
+            resetDamageFate(part);
+            if(actor){
+                mirrorTargetCondition(actor.assembly,actor.condition);
+                arena.updateCombatantDamage(actor.id,actor.condition);
+                if(actor.id==='enemy-0')renderTarget();
+            }else{
+                updateFunctionalStatus();arena.updatePilotDamage(playerCondition);
+                renderPlayerDamageHUD();renderAmmo();
+            }
+            return `INJECTED ${slot.toUpperCase()} · ${Math.round(part.integrity/Math.max(1,part.maxIntegrity)*100)}% · ${who.toUpperCase()}`;
+        },
+        onResetDamage:who=>{
+            if(!testYard)return;
+            const actor=who==='enemy'?primaryEnemyActor:null;
+            const cond=actor?.condition??playerCondition;
+            const hardware=actor?.assembly??assembly;
+            const driveState=actor?.driveDamage??damage;
+            for(const slot of SLOTS){
+                damageLabCondition(cond.parts,slot,100);
+                resetDamageFate(cond.parts[slot]);
+                const fitted=installedPart(hardware,slot);
+                if(fitted)fitted.instance.condition=1;
+                if(slot==='mobility'&&fitted)
+                    driveState.drives[fitted.instance.serial]={left:1,right:1};
+            }
+            if(actor){
+                mirrorTargetCondition(actor.assembly,actor.condition);
+                arena.updateCombatantDamage(actor.id,actor.condition);
+            }else{
+                updateFunctionalStatus();arena.updatePilotDamage(playerCondition);
+                renderPlayerDamageHUD();renderAmmo();
+            }
+        },
         onResetLoadout:()=>{
             clearTestYardAssembly();
             Object.assign(assembly,readTestYardAssembly());
@@ -1934,10 +2019,13 @@ function frame(now) {
                     playerCondition.parts.power.integrity / Math.max(1, playerCondition.parts.power.maxIntegrity));
                 if(!powerWasReady&&playerPower.weaponReady)
                     soundSystemEvent('recharge',{variant:1,cockpit:true,strength:.42});
+                else if(powerWasReady&&!playerPower.weaponReady&&
+                    playerCondition.parts.power.integrity<playerCondition.parts.power.maxIntegrity*.5)
+                    soundSystemEvent('zap',{variant:1,cockpit:true,strength:.26});
                 output = powerConstrainedOutput(staticOutput, playerPower);
                 effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
-                emitMachineMotionSound(assembly,rig,FIXED_DT,true);
+                emitMachineMotionSound(assembly,rig,FIXED_DT,true,{left:output.left,right:output.right});
                 advanceWeaponStabilizer(playerMount,weaponSpec?.id,rig,
                     movementSoundStates.get(rig),{
                         combat:weaponIntegrityRatio(playerCondition),
@@ -2207,7 +2295,7 @@ function frame(now) {
                     Math.abs(maneuver.steer) < .12;
                 if (settledToShoot) maneuver = { ...maneuver, brake: 1 };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
-                if(actor.active)actor.visualGait=emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false);
+                if(actor.active)actor.visualGait=emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false,actor.driveDamage.drives[installedPart(actor.assembly,'mobility')?.instance.serial]??null);
                 advanceWeaponStabilizer(actor.stabilizer,actor.weaponSpec?.id,actor.rig,
                     actor.visualGait,{
                         combat:actor.condition.parts.combat.integrity/
@@ -2228,6 +2316,9 @@ function frame(now) {
                     weaponFault: actor.condition.parts.combat.integrity<=0,
                     weaponServicing: actor.fieldService.held && actor.fieldService.activeSlot==='combat',
                     serviceSlot: actor.fieldService.held ? actor.fieldService.activeSlot : null,
+                    recoveryEventId:actor.fieldService.lastServicedSlot?`${actor.fieldService.lastServicedSlot}:${actor.fieldService.attempts[actor.fieldService.lastServicedSlot]}`:null,
+                    recoverySlot:actor.fieldService.lastServicedSlot,
+                    driveHealth:actor.driveDamage.drives[installedPart(actor.assembly,'mobility')?.instance.serial]??null,
                     gait:actor.visualGait,stability:actor.stabilizer,
                     reloadLeft:actor.weaponState?.reloadLeft??0,
                     reloadSeconds:actor.weaponSpec?.reloadSeconds??0,
@@ -2325,8 +2416,12 @@ function frame(now) {
     const playerRecoveryState = weaponFailureState(playerCondition, fieldService);
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
         weaponFault: playerRecoveryState === 'faulted',
+        weaponHealth:weaponIntegrityRatio(playerCondition),
         weaponServicing: fieldService.held && fieldService.activeSlot==='combat',
         serviceSlot: fieldService.held ? fieldService.activeSlot : null,
+        recoveryEventId:fieldService.lastServicedSlot?`${fieldService.lastServicedSlot}:${fieldService.attempts[fieldService.lastServicedSlot]}`:null,
+        recoverySlot:fieldService.lastServicedSlot,
+        driveHealth:{left:output.left,right:output.right},
         gait:movementSoundStates.get(rig),stability:playerMount,
         reloadLeft:weaponState?.reloadLeft??0,
         reloadSeconds:weaponSpec?.reloadSeconds??0,
@@ -2953,6 +3048,11 @@ function attemptAiFire(actor, target, shotIndex) {
     // Cover impacts, misses and friendly obstruction are still fired rounds.
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
     if (consumed === null) return;
+    const rough=1-actor.condition.parts.combat.integrity/
+        Math.max(1,actor.condition.parts.combat.maxIntegrity);
+    const proximity=Math.hypot(actor.rig.x-rig.x,actor.rig.z-rig.z);
+    if(rough>.5&&proximity<14&&consumed%3===1)
+        soundSystemEvent('hydraulics',{variant:2,cockpit:false,distance:proximity,strength:(rough-.4)*.18});
     // One external recoil stroke per consumed trigger, not one per physical pellet.
     arena.triggerCombatantFiringEvent(actor.id,actor.weaponSpec.id,{
         brace:actor.rig.brace??0,
@@ -3088,6 +3188,9 @@ function presentPlayerDischarge(contact,shot) {
         condition:weaponIntegrityRatio(playerCondition),shotIndex:shot,
     });
     soundWeaponMechanism(weaponSpec.id,{shotIndex:shot,cockpit:true});
+    const worn=1-weaponIntegrityRatio(playerCondition);
+    if(worn>.5 && (weaponSpec.fireMode!=='automatic'||shot%4===1))
+        soundSystemEvent('hydraulics',{cockpit:true,variant:2,strength:(worn-.4)*.24});
 }
 function attemptFire() {
     if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !playerPower.weaponReady || !appSheet.classList.contains('hidden'))

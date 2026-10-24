@@ -57,7 +57,12 @@ export function advancePowerSystem(state,assembly,rig,dt,powerHealth=1) {
     state.reserveKJ = clamp(state.reserveKJ,0,reserveCap);
     const availableReserve = reserveCap - state.reserveKJ;
     const target = Math.min(capacity,demandKw + (availableReserve > .001 ? spec.rechargeKw : 0));
-    const tau = target > state.generationKw ? spec.responseSeconds : spec.fallSeconds;
+    // A damaged generator has less usable continuous output AND slower load
+    // following. Large drive/weapon steps expose genuine voltage shortages.
+    // No random brownouts and no hidden extra electrical reserve.
+    const weakness=1-clamp(powerHealth,0,1);
+    const tau = (target > state.generationKw ? spec.responseSeconds : spec.fallSeconds)*
+        (1+weakness*1.25);
     const blend = 1 - Math.exp(-dt / Math.max(.001,tau));
     state.generationKw = clamp(state.generationKw + (target - state.generationKw)*blend,0,capacity);
     const shortageKw = Math.max(0,demandKw-state.generationKw);
