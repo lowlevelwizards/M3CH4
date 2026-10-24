@@ -35,8 +35,9 @@ export function serviceableSlots(condition) {
         return !!p && !p.destroyed && p.integrity<=0;
     });
 }
-export function createFieldServiceState(){
+export function createFieldServiceState(rateMultiplier=1){
     return {used:false,held:false,progress:0,faultLatched:false,
+        rateMultiplier:Number.isFinite(rateMultiplier)?Math.max(1,Math.min(1.5,rateMultiplier)):1,
         selectedSlot:null,activeSlot:null,cooldownLeft:0,attempts:{},
         lastServicedSlot:null,lastRecoveryRatio:0};
 }
@@ -89,7 +90,7 @@ export function advanceFieldService(condition,service,rig,dt){
         cancelFieldService(service);
         return {event:'interrupted',progress:0};
     }
-    service.progress=Math.min(FIELD_SERVICE_SECONDS,service.progress+dt);
+    service.progress=Math.min(FIELD_SERVICE_SECONDS,service.progress+dt*(service.rateMultiplier??1));
     if(service.progress<FIELD_SERVICE_SECONDS)
         return {event:'progress',progress:service.progress,slot};
     const attempt=(service.attempts[slot]??0)+1;
