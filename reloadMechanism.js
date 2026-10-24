@@ -5,45 +5,73 @@
 const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,Number.isFinite(n)?n:a));
 const eased=(a,b,t)=>{const x=clamp((t-a)/(b-a));return x*x*(3-2*x);};
 const hold=(a,b,c,d,t)=>eased(a,b,t)*(1-eased(c,d,t));
-export const RELOAD_STAGES=Object.freeze(['unlock','extract','feed','chamber','lock']);
-const make=(mass,slide,feed,feedStyle,feedAxis,events)=>Object.freeze({
+// One mechanical choreography, six distinct operating states. Every action
+// is powered by the weapon itself. A round never appears from off-machine.
+export const RELOAD_STAGES=Object.freeze([
+ 'unlock','extract','feed','chamber','lock','charge',
+]);
+const make=(mass,slide,feed,feedStyle,feedAxis,events,archetype,source)=>Object.freeze({
  mass,slide,feed,feedStyle,feedAxis,events:Object.freeze(events),
+ archetype,source,
 });
+/** Machine-integrated source for every weapon. The part that indexes is
+ * physically joined to the receiver or an original captive magazine; it is
+ * never hand-inserted, floated across space, or rebuilt at runtime.
+ */
 export const RELOAD_MECHANISMS=Object.freeze({
- 'gun-cannon':make(.72,.28,.31,'tray','z',[.045,.18,.36,.66,.85]),
- 'gun-short':make(1.25,.42,.40,'shell','z',[.045,.20,.42,.71,.88]),
- 'gun-light':make(.40,.21,.28,'clip','z',[.035,.16,.33,.65,.83]),
- 'gun-scatter':make(1.08,.32,.44,'cassette','y',[.045,.19,.40,.69,.87]),
- 'gun-rivet':make(.88,.22,.47,'drum','x',[.055,.20,.43,.71,.87]),
- 'gun-breaker':make(1.65,.48,.48,'penetrator','z',[.045,.22,.44,.73,.89]),
- 'gun-rocket':make(1.05,.24,.50,'rack','z',[.045,.18,.42,.74,.90]),
- 'gun-arc':make(.55,.23,.39,'cell','y',[.045,.16,.38,.70,.85]),
+ 'gun-cannon':make(.72,.28,.26,'tray','z',[.045,.18,.37,.65,.82,.92],
+   'breech','rear receiver reserve hopper > powered feed tray'),
+ 'gun-short':make(1.25,.42,.30,'shell','z',[.045,.20,.38,.67,.83,.92],
+   'breech','rear shell reservoir > captured steel ram cradle'),
+ 'gun-light':make(.40,.21,.18,'clip','z',[.035,.17,.38,.65,.82,.92],
+   'index','internal box magazine > reciprocating bolt'),
+ 'gun-scatter':make(1.08,.32,.21,'cassette','y',[.045,.19,.40,.68,.84,.93],
+   'index','captive side cassette > powered shell index'),
+ 'gun-rivet':make(.88,.22,.20,'drum','x',[.055,.20,.39,.68,.84,.93],
+   'index','fixed drum axle > pawl-driven belt feed'),
+ 'gun-breaker':make(1.65,.48,.32,'penetrator','z',[.045,.22,.41,.69,.85,.94],
+   'breech','rear demolition-charge reservoir > hydraulic ram'),
+ 'gun-rocket':make(1.05,.24,.29,'rack','z',[.045,.18,.40,.70,.85,.94],
+   'pod','captive rear three-round ordnance carrier > launcher tubes'),
+ 'gun-arc':make(.55,.23,.16,'cell','y',[.045,.16,.39,.65,.82,.91],
+   'capacitor','fixed transformer bus > captive capacitor cell'),
 });
 export function reloadMechanism(id){return RELOAD_MECHANISMS[id]??RELOAD_MECHANISMS['gun-cannon'];}
 export function reloadPhase(left,total,id='gun-cannon'){
- if(!(Number.isFinite(total)&&total>0&&Number.isFinite(left)&&left>0))
-   return {active:false,progress:1,stage:'ready',index:5,
-     slide:0,bolt:0,cassette:0,feed:0,feedVisible:false,lock:0,
-     ram:0,settle:0,mass:reloadMechanism(id).mass};
  const p=reloadMechanism(id);
+ const idle={active:false,progress:1,stage:'ready',index:6,
+   slide:0,bolt:0,cassette:0,feed:0,feedVisible:false,lock:0,ram:0,
+   settle:0,mass:p.mass,open:0,clear:0,indexMotion:0,close:0,
+   charge:0,rack:0,feedTravel:0,archetype:p.archetype};
+ if(!(Number.isFinite(total)&&total>0&&Number.isFinite(left)&&left>0))
+   return idle;
  const t=clamp(1-left/total);
  let index=0;
  for(let i=0;i<p.events.length;i++)if(t>=p.events[i])index=i;
  const stage=RELOAD_STAGES[index];
- // Huge mechanisms remain physically OPEN while loading instead of
- // springing shut during the middle of the operation.
- const opening=hold(.05,.24,.77,.94,t);
- const slide=p.slide*opening;
- const bolt=.22*hold(.15,.30,.73,.93,t);
- const cassette=p.feed*hold(.19,.32,.69,.91,t);
- const feed=hold(.30,.48,.66,.81,t);
- // Feed mass advances from an open loader to the actual chamber, but never
- // magically changes a round count before combat.js completes its timer.
- const ram=hold(.58,.76,.80,.96,t);
- const lock=eased(.83,.96,t);
- const settle=hold(.78,.84,.91,.99,t)*p.mass;
- return {active:true,progress:t,stage,index,slide,bolt,cassette,
-    feed,feedVisible:t>=.24&&t<.84,lock,ram,settle,mass:p.mass};
+ // Unlock, open, eject through a gravity/return chute, and hold open until
+ // the ONBOARD feed has indexed its next round.
+ const open=eased(.06,.23,t)*(1-eased(.69,.85,t));
+ const clear=hold(.18,.27,.33,.47,t);
+ const indexMotion=hold(.33,.49,.63,.79,t);
+ const close=eased(.71,.87,t);
+ // A visible powered return-stroke *after* the bolt is back in battery.
+ const charge=hold(.88,.917,.952,.998,t);
+ const feedTravel=p.feed*indexMotion;
+ const rack=.13*charge;
+ const slide=p.slide*open;
+ const bolt=.18*open+.16*charge;
+ const cassette=p.feed*indexMotion;
+ const ram=hold(.53,.64,.76,.91,t);
+ const lock=close;
+ const settle=(hold(.83,.89,.90,.96,t)+hold(.947,.97,.975,1,t)*.5)*p.mass;
+ // A retained shell is visible only through the OPEN chamber; captive
+ // drum/cassette/rack/cell remains attached and visible throughout.
+ const feedVisible=p.archetype==='index'||p.archetype==='pod'||
+   p.archetype==='capacitor'||(t>=.18&&t<.89);
+ return {active:true,progress:t,stage,index,slide,bolt,cassette,feed:indexMotion,
+    feedVisible,lock,ram,settle,mass:p.mass,open,clear,indexMotion,close,
+    charge,rack,feedTravel,archetype:p.archetype};
 }
 /** k5r.7 — Subtractive, physically integrated reload actions.
  * One service port per gun, placed directly on its EXISTING rear receiver,
