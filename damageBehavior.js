@@ -44,12 +44,12 @@ export function damagePosture(condition, behavior = null) {
     }
 
     const control = Math.min(1, command * 1.15, power * 1.12);
-    const paceScale = .36 + mobility * .64;
-    const steerScale = .42 + Math.min(mobility, control) * .58;
-    const strafeScale = .18 + mobility * .82;
+    const paceScale = .22 + mobility * .78;
+    const steerScale = .26 + Math.min(mobility, control) * .74;
+    const strafeScale = .08 + mobility * .92;
     const aggressionScale = Math.max(.18, Math.min(structure, power, Math.max(.15, combat)));
     const recoilRecoveryScale = 1 + (1 - Math.min(structure, command, combat)) * .8;
-    const animationHealth = Math.max(.08, Math.min(mobility, structure * .8 + .2, power * .85 + .15));
+    const animationHealth = Math.max(.05, Math.min(mobility, structure * .8 + .2, power * .85 + .15));
 
     return Object.freeze({
         state, preferredMode,
