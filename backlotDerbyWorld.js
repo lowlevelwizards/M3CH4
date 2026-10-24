@@ -458,14 +458,17 @@ export function batchBacklotDerbyDecorations(root){
   // profiles). Instancing by *identical geometry* still leaves ~65 draws.
   // Convert these static meshes into one baked nonindexed geometry PER
   // material, preserving positions, normals, wheel holes, and bucket gaps.
+  // Per-geometry and then per-material merging still creates too many
+  // draw calls on iPhone. Three shared vertex-colour buckets preserve
+  // original rusty/paint/rubber colour while retaining coarse differences
+  // between matte components, painted castings and bare steel.
   const materialsByKey=new Map();
   for(const group of completed)group.traverse(node=>{
    if(!node.isMesh||node.isInstancedMesh||node.material?.transparent||
       Array.isArray(node.material))return;
-   const key=node.material.uuid;
-   if(!materialsByKey.has(key))materialsByKey.set(key,{
-     material:node.material,items:[],
-   });
+   const metal=Number(node.material.metalness??.2);
+   const key=metal<.12?'matte':metal>=.31?'bare-metal':'painted';
+   if(!materialsByKey.has(key))materialsByKey.set(key,{tier:key,items:[]});
    materialsByKey.get(key).items.push({
      node,matrix:inverse.clone().multiply(node.matrixWorld),
    });
@@ -482,23 +485,35 @@ export function batchBacklotDerbyDecorations(root){
     if(geo.index)geo=geo.toNonIndexed();
     if(!geo.getAttribute('normal'))geo.computeVertexNormals();
     count+=geo.getAttribute('position').count;
-    return geo;
+    return {geo,color:item.node.material.color};
    });
-   const positions=new Float32Array(count*3),normals=new Float32Array(count*3);
+   const positions=new Float32Array(count*3),normals=new Float32Array(count*3),
+     colors=new Float32Array(count*3);
    let at=0;
-   for(const geo of transformed){
+   for(const {geo,color} of transformed){
     const p=geo.getAttribute('position'),n=geo.getAttribute('normal');
-    positions.set(p.array,at);
-    normals.set(n.array,at);
-    at+=p.array.length;
-    geo.dispose();
+    positions.set(p.array,at);normals.set(n.array,at);
+    const c=color??new THREE.Color(0xffffff);
+    for(let i=0;i<p.array.length;i+=3){
+     const k=at+i;colors[k]=c.r;colors[k+1]=c.g;colors[k+2]=c.b;
+    }
+    at+=p.array.length;geo.dispose();
    }
    const geometry=new THREE.BufferGeometry();
    geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
    geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));
+   geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
    geometry.computeBoundingSphere();
-   const mesh=new THREE.Mesh(geometry,pack.material);
-   mesh.name='baked-static-backlot-scenery';
+   const styles={
+    matte:{metalness:.04,roughness:.97},
+    painted:{metalness:.19,roughness:.88},
+    'bare-metal':{metalness:.40,roughness:.81},
+   };
+   const material=new THREE.MeshStandardMaterial({
+    color:0xffffff,vertexColors:true,flatShading:true,...styles[pack.tier],
+   });
+   const mesh=new THREE.Mesh(geometry,material);
+   mesh.name='baked-static-backlot-'+pack.tier;
    mesh.userData.visualOnly=true;mesh.receiveShadow=true;mesh.castShadow=false;
    merged.add(mesh);secondaryBatches++;
   }
