@@ -33,7 +33,7 @@ test('every LIVE raycast solid is independently compared to the authored gamepla
  assert.match(cert,/expected=new Map/);
  assert.match(cert,/authoritativeRaycastSolids/);
 });
-test('the gallery's fourteen hollow mechanical prototypes are NOT deceptively certified as solid',()=>{
+test("the gallery\u0027s fourteen hollow mechanical prototypes are NOT deceptively certified as solid",()=>{
  assert.match(cert,/currentPolicy:'retain-certified-AABBs-until-compound-fit'/);
  assert.match(cert,/galleryOnly:true/);
  assert.match(cert,/plannedFamilies:Object\.freeze/);
