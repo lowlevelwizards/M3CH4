@@ -26,10 +26,10 @@ const FITS=Object.freeze({
   [.17,.83,.15,.88,.44,1.45], // diesel engine
   [.12,.88,.13,.91,1.44,1.98], // visible bonnet shell
  ],
- 'tractor-wheel-fl':[[.08,.92,.08,.92,0,1.43]],
- 'tractor-wheel-rl':[[.08,.92,.08,.92,0,1.43]],
- 'tractor-wheel-fr':[[.08,.92,.08,.92,0,1.43]],
- 'tractor-wheel-rr':[[.08,.92,.08,.92,0,1.43]],
+ 'tractor-wheel-fl':[[.12,1.13,-.15,1.20,0,2.22]],
+ 'tractor-wheel-rl':[[.65,1.35,.55,1.35,0,1.35]],
+ 'tractor-wheel-fr':[[-.11,.87,-.15,1.20,0,2.22]],
+ 'tractor-wheel-rr':[[-.28,.30,.55,1.35,0,1.35]],
  'loader-scoop':[
   [.02,.98,.02,.98,.08,.42], // working floor
   [.02,.98,.73,.98,.40,1.48], // bucket backplate
@@ -39,15 +39,15 @@ const FITS=Object.freeze({
  ],
  'loader-engine':[
   [.15,.85,.10,.89,.12,1.28], // drive/transmission belly
-  [.20,.78,.53,.94,1.27,1.88], // engine rear housing
+  [.20,.78,.53,.94,1.27,2.18], // engine rear housing
  ],
  'loader-cab':[
   [.14,.86,.08,.93,.35,1.55], // operator plinth
-  [.07,.18,.08,.21,1.54,2.76], // front left cage upright
-  [.82,.93,.08,.21,1.54,2.76],
-  [.07,.18,.79,.92,1.54,2.76], // rear uprights
-  [.82,.93,.79,.92,1.54,2.76],
-  [.04,.96,.05,.95,2.62,2.77], // canopy
+  [.07,.18,.08,.21,1.54,3.33], // front left cage upright
+  [.82,.93,.08,.21,1.54,3.33],
+  [.07,.18,.79,.92,1.54,3.33], // rear uprights
+  [.82,.93,.79,.92,1.54,3.33],
+  [.04,.96,.05,.95,3.19,3.47], // high real canopy
  ],
  'loader-track-left':[
   [.06,.94,.04,.96,0,.34], // grounded track shoes
