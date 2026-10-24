@@ -1816,6 +1816,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     let cockpitRoll = 0;
     let cockpitPitch = 0;
     const gunPivot = cockpit.userData.gunPivot;
+    let pilotWeaponMountX=1.16;
     const flashMesh = cockpit.userData.flashMesh;
     let previewAssembly=initial;
     let animationPreviewMode='off',animationPreviewSpeed=3,previewTime=0,
@@ -2027,7 +2028,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             (pilotStabilityPose?.pitch??0)+reloadView.tilt,
             lookYaw*.85+(pilotStabilityPose?.yaw??0)+reloadView.yaw,
             gunDamageKick*damageWave*.16+pilotHitResponse.roll*.22, 'YXZ');
-        gunPivot.position.x=1.16+gunDamageKick*damageWave*.045+reloadView.x;
+        gunPivot.position.x=pilotWeaponMountX+gunDamageKick*damageWave*.045+reloadView.x;
         const mountWear=Math.pow(1-THREE.MathUtils.clamp(serviceVisual?.weaponHealth??1,0,1),2);
         gunPivot.position.y=2.04+reloadView.y-pilotRecovery.compression*.25-mountWear*.036;
         // Powered breech: open, eject, index from the built-in feed,
@@ -2588,7 +2589,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const first = raycaster.intersectObjects([...exterior.pickMeshes,...emptyMountPicks], false)[0];
         return first?.object.userData.slot ?? null;
     }
-    function setPilotWeapon(spec) {
+    function setPilotWeapon(spec,secondary=false) {
+        // Twin-Spar's off-hand shot originates on the left, not the old right
+        // barrel. Inspection and standard single-gun rigs retain the old mount.
+        pilotWeaponMountX=secondary?-.94:1.16;
+        gunPivot.position.x=pilotWeaponMountX;
         const barrel = cockpit.userData.gunBarrel;
         const breech = cockpit.userData.gunBreech;
         gunPivot.visible = !!spec;
