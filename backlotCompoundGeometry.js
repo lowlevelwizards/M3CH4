@@ -20,6 +20,7 @@ const FITS=Object.freeze({
   [.07,.19,.79,.89,1.38,3.08],
   [.81,.93,.79,.89,1.38,3.08],
   [.06,.94,.03,.19,1.36,1.72], // low rear crossbrace
+  [.19,.83,.09,.19,1.77,1.97], // midheight visible rear safety bar
   [.02,.98,.02,.97,3.05,3.34], // canopy, air beneath
  ],
  'tractor-bonnet':[
@@ -39,7 +40,7 @@ const FITS=Object.freeze({
  ],
  'loader-engine':[
   [.15,.85,.10,.89,.12,1.28], // drive/transmission belly
-  [.20,.78,.53,.94,1.27,2.18], // engine rear housing
+  [.12,.78,.28,.94,1.27,2.18], // high forward clutch/engine casting
  ],
  'loader-cab':[
   [.14,.86,.08,.93,.35,1.55], // operator plinth
