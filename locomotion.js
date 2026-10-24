@@ -1,5 +1,6 @@
 import {walkingLongitudinalIntent} from './walkingController.js';
 
+import {movementPieces} from './backlotCompoundGeometry.js';
 /** Holding brake plants the feet once nearly stationary. This is a shared,
  * deterministic controller state: no extra button and no special AI exceptions. */
 export const PLANTED_PIVOT = Object.freeze({
@@ -288,7 +289,8 @@ function resolveWorldCollisions(state, config, world) {
         applyCollisionVelocity(state, 0, collisionNormalZ, config);
     }
     for (const obstacle of world.obstacles) {
-        resolveCircleAabb(state, obstacle, radius, config);
+        for(const piece of movementPieces(obstacle))
+            resolveCircleAabb(state, piece, radius, config);
     }
 }
 function resolveCircleAabb(state, obstacle, radius, config) {
