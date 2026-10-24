@@ -35,7 +35,7 @@ async function check(){
 try{
  await page.goto('http://127.0.0.1:8765/armor-lab.html',
   {waitUntil:'domcontentloaded',timeout:60000});
- await page.locator('#armor-plates .armor-plate').first().waitFor({timeout:30000});
+ await page.locator('#armor-plates .armor-plate').first().waitFor({state:'attached',timeout:30000});
  const layout=await page.evaluate(()=>{
    const stage=document.querySelector('#armor-stage').getBoundingClientRect();
    const dock=document.querySelector('#armor-dock').getBoundingClientRect();
