@@ -1796,8 +1796,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             if(mechanism.rest.carriageRotation)
                 mechanism.carriage.rotation.copy(mechanism.rest.carriageRotation);
             mechanism.bolt.position.copy(mechanism.rest.bolt);
-            if(mechanism.cassette && mechanism.rest.cassette)
+            if(mechanism.cassette && mechanism.rest.cassette){
                 mechanism.cassette.position.copy(mechanism.rest.cassette);
+                mechanism.cassette.rotation.set(0,0,0);
+            }
             poseReloadHardware(mechanism,null);
         }
     }
@@ -1980,7 +1982,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         gunPivot.position.y=2.04+reloadView.y;
         // Powered breech: open, eject, index from the built-in feed,
         // close, then a short charging rack AFTER lock-up.
-        cockpit.userData.gunBreech.position.z=-.19+reload.slide+reload.rack+
+        cockpit.userData.gunBreech.position.z=-.19+reload.slide*
+            (reload.archetype==='breech'?.35:1)+reload.rack+
             pilotFiringPose.bolt*.105;
         cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
         cockpit.userData.gunBreech.rotation.x=reload.open*
@@ -1990,7 +1993,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         if(activeKit?.visible){
             const mech=activeKit.userData.reloadMechanism;
             activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13+
-                reload.slide*.68+reload.rack;
+                reload.slide*(reload.archetype==='breech'?.32:.68)+reload.rack;
             activeKit.userData.carriage.position.y=pilotFiringPose.stop*.024+
                 reload.bolt*.28+reload.ram*.025;
             activeKit.userData.carriage.rotation.x=reload.open*
@@ -2225,7 +2228,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 const weaponId=installedPart(record.assembly,'combat')?.definition.id;
                 if(mechanism){
                     const rest=mechanism.rest;
-                    mechanism.carriage.position.z=rest.carriage.z+reload.slide+
+                    mechanism.carriage.position.z=rest.carriage.z+
+                        reload.slide*(reload.archetype==='breech'?.32:1)+
                         reload.rack+(record.recoilKick??0)*.35+
                         (discharge?.bolt??0)*.09;
                     mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14+
