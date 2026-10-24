@@ -174,7 +174,7 @@ function generator(c){
      x-w*.24,h*.52,face,C.olive,.22);
  c.box('generator-hatch-seal',w*.30,.05,.074,
      x-w*.24,h*.77,face-.028,C.ink,.24);
- for(let i=0;i<7;i++)
+ for(let i=0;i<4;i++)
   c.box('generator-cooling-louvre',w*.36,.05,.095,
      x+w*.20,h*(.28+i*.135),face-.037,i%3===0?C.silver:C.ink,.40);
  c.box('generator-horizontal-exhaust',w*.18,.16,d*.12,
@@ -229,8 +229,8 @@ function turbine(c){
  c.cyl('turbine-cast-fan-body',rad,.13,x,h*.53,face,C.ink,'z',12);
  c.cyl('turbine-steel-housing',rad*.86,.16,x,h*.53,face-.03,
    C.silver,'z',12);
- for(let i=0;i<8;i++){
-  const a=i*Math.PI/4,rr=rad*.58;
+ for(let i=0;i<5;i++){
+  const a=i*Math.PI*2/5,rr=rad*.58;
   const blade=c.box('turbine-fan-vane',rad*.43,.13,.13,
      x+Math.cos(a)*rr,h*.53+Math.sin(a)*rr,face-.19,C.olive,.49);
   blade.rotation.z=a+.42;
@@ -268,11 +268,14 @@ function tractor(c){
 function harvester(c){
  const {x,z,w,d,h}=c;
  tractor(c);
+ // Wide integrated grain-processing mass, not a frame carrying a loose bin.
+ c.box('combine-threshing-body',w*.90,h*.38,d*.84,
+   x,h*.57,z+d*.08,C.olive,.29);
  // Wider agricultural header and crop intake distinguish the combine
  // from a truck or another anonymous wall.
  c.box('combine-harvester-header',w*.91,.23,d*.16,
    x,h*.26,c.front+.15,C.rust,.32);
- for(let i=0;i<7;i++)
+ for(let i=0;i<5;i++)
   c.box('combine-harvester-header-tooth',.10,.13,d*.17,
     c.o.minX+w*(i+.5)/5,h*.18,c.front+.08,C.ink,.30);
  c.box('combine-grain-bin',w*.67,h*.16,d*.63,
