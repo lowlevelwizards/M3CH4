@@ -22,7 +22,7 @@ test('rebuilt exterior scenery does not become physically blocked cover',()=>{
  assert.match(derby,/auditBacklotCollisionTruth\(root,world,solids\)/);
  assert.match(derby,/secondaryGeometryClearance\(source,world\)/);
  assert.match(gallery,/secondaryCollisionClearance:catalog.secondaryCollisionClearance/);
- assert.match(stage,/collisionCertificate\.authoritativeRaycastSolids!==57/);
+ assert.match(stage,/collisionCertificate\.authoritativeRaycastSolids!==60/);
  assert.match(stage,/uncollidableOffsiteAssets!==18/);
 });
 test('every LIVE raycast solid is independently compared to the authored gameplay prism',()=>{
@@ -37,7 +37,7 @@ test("the gallery\u0027s fourteen hollow mechanical prototypes are NOT deceptive
  assert.match(cert,/currentPolicy:'tractor-and-loader-compound-live/);
  assert.match(cert,/galleryOnly:false/);
  assert.match(cert,/plannedFamilies:Object\.freeze/);
- assert.match(cert,/tractor','loader','combine','pickup'/);
+ assert.match(cert,/promotedFamilies:Object\.freeze\(\['tractor','loader'\]\)/);
  assert.doesNotMatch(secondary,/world\.obstacles\.|solids\.push|arenaObstacleId/);
 });
 test('Backlot physical and tactical routes preserve their shared collision truth',()=>{
