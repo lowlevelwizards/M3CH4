@@ -1,0 +1,46 @@
+name: k5s3 Wounded Machines
+on:
+  pull_request:
+    paths:
+      - 'woundedMachine.js'
+      - 'footContactController.js'
+      - 'scene.js'
+      - 'sceneAssembly.js'
+      - 'main.js'
+      - 'testYard.js'
+      - 'testYard.css'
+      - 'weaponStability.js'
+      - 'powerDynamics.js'
+      - 'tests/k5s3WoundedMachine.test.mjs'
+      - '.github/workflows/k5s3-wounded-machines.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'woundedMachine.js'
+      - 'footContactController.js'
+      - 'scene.js'
+      - 'main.js'
+      - 'weaponStability.js'
+      - 'powerDynamics.js'
+      - 'tests/k5s3WoundedMachine.test.mjs'
+      - '.github/workflows/k5s3-wounded-machines.yml'
+jobs:
+  mechanical:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check simulator and scene syntax
+        run: |
+          node --check main.js
+          node --check scene.js
+          node --check sceneAssembly.js
+          node --check woundedMachine.js
+          node --check footContactController.js
+          node --check powerDynamics.js
+          node --check weaponStability.js
+          node --check testYard.js
+      - name: Test damage curve, grounded IK, power, mount and sandbox
+        run: node --test tests/k5s3WoundedMachine.test.mjs tests/a2a4GroundedGait.test.mjs tests/weaponStability.test.mjs tests/k3v4PowerDynamics.test.mjs tests/testYard.test.mjs
