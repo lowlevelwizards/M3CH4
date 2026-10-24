@@ -6,6 +6,7 @@ import {applyIndustrialFinish} from './industrialMaterialSystem.js';
 import {createSurfaceScarRenderer} from './surfaceDamageRenderer.js?v=k4z1';
 import {physicalFailurePose} from './surfaceDamageLanguage.js';
 import {familyFailureAnatomy,conditionFailureFlags} from './familyFailureAnatomy.js';
+import {machineWoundPose,recoveryMotion} from './woundedMachine.js';
 import {physicalContactWeight} from './physicalContactWeight.js';
 import {moduleFailureSignature,failureSurfaceFactor} from './moduleFailureSignatures.js';
 import {addPhysicalServiceStamp} from './serviceEvidenceVisuals.js';
@@ -1903,6 +1904,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     // Presenting foot plants through a damped cab gives actual walking load
     // cues, without the old unrelated wall-clock sine bob.
     let pilotFeet=null,pilotLandingKick=0,cockpitLagX=0,cockpitLagZ=0;
+    let pilotRecoveryEvent=null,pilotRecoverySlot=null,pilotRecoveryElapsed=3;
     // Live reference to the same fixed-step state used by the projectile ray.
     // No interpolated second accuracy state and no new raycasts per frame.
     let pilotStabilityPose=null;
@@ -1910,14 +1912,18 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         footEvidenceRoot.visible=!inspecting;
         if(serviceVisual?.stability)pilotStabilityPose=serviceVisual.stability;
-        const wasServicing = !!pilotServiceSlot;
+        if(serviceVisual?.recoveryEventId&&serviceVisual.recoveryEventId!==pilotRecoveryEvent){
+            pilotRecoveryEvent=serviceVisual.recoveryEventId;
+            pilotRecoverySlot=serviceVisual.recoverySlot;
+            pilotRecoveryElapsed=0;
+            pilotWeaponRecoveryKick=1;
+            pilotRecoveryBurstPending=true;
+        }
+        pilotRecoveryElapsed+=Math.max(0,dt);
         pilotWeaponFault = !!serviceVisual?.weaponFault;
         pilotWeaponServicing = !!serviceVisual?.weaponServicing;
         pilotServiceSlot = serviceVisual?.serviceSlot ?? (pilotWeaponServicing?'combat':null);
-        if (wasServicing && !pilotServiceSlot && !pilotWeaponFault) {
-            pilotWeaponRecoveryKick = 1;
-            pilotRecoveryBurstPending = true;
-        }
+        // Interrupted repairs are not successful hydraulic restarts.
         pilotWeaponRecoveryKick = Math.max(0, pilotWeaponRecoveryKick - dt * 2.25);
         const smoothing = 1 - Math.exp(-16 * dt);
         visualX += (state.x - visualX) * smoothing;
@@ -1936,7 +1942,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             pilotLandingKick=Math.max(pilotLandingKick*Math.exp(-dt*11),
                 pilotFeet.landings?pilotFeet.lastLandingStrength*.023:0);
         }else{pilotFeet=null;pilotLandingKick=0;}
-        const footfall=-pilotLandingKick-(pilotFeet?.bodyCompression??0)*.24;
+        const pilotRecovery=recoveryMotion(pilotRecoveryElapsed,pilotRecoverySlot,
+            installedPart(previewAssembly,'mobility')?.definition.id);
+        const footfall=-pilotLandingKick-(pilotFeet?.bodyCompression??0)*.24-pilotRecovery.compression;
         // A cab has its own inertia over the hip structure. Expose just a
         // few centimeters of counter-motion; maintain a stable, aimable view.
         const lagX=THREE.MathUtils.clamp(-(state.lateralAcceleration??0)*.007,-.022,.022);
@@ -1954,9 +1962,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const damageWave = Math.sin(nowMs * .043);
         const impactJitter = hitShakeKick * Math.sin(nowMs * .117);
         const driveDamage = 1 - Math.min(driveLeftHealth, driveRightHealth);
-        const sustainedDriveRoll = (driveRightHealth - driveLeftHealth) * .032 +
-            Math.sin(nowMs * .017) * driveDamage * Math.min(Math.abs(state.forwardSpeed) / 2.2, 1) * .008;
-        const mobilityStumble = Math.sin(nowMs * .026) * driveDamage * Math.min(Math.abs(state.forwardSpeed) / 2.8, 1) * .008;
+        const sustainedDriveRoll=(driveRightHealth-driveLeftHealth)*.035*
+            Math.min(1,(state.footingLoad??0)+.25)+
+            (pilotFeet?.weightShift??0)*driveDamage*.025;
+        const mobilityStumble=(state.footSlipMps??0)*driveDamage*.006;
         // The camera is the pilot's head; the combiner belongs to the mech. Inverse
         // free-look keeps the display on the windshield until chassis body-follow catches up.
         const tether = combinerTetherFromLook(lookYaw, lookPitch);
@@ -1966,7 +1975,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             cockpitRoll * .75 - hitRollKick * .25 + sustainedDriveRoll * .28,
             'YXZ');
         const pilotServiceSag = pilotWeaponFault ? (pilotWeaponServicing ? .20 : .13) : 0;
-        const pilotRecoveryLift = pilotWeaponRecoveryKick * .09;
+        const pilotRecoveryLift = pilotWeaponRecoveryKick * .09 + pilotRecovery.bolt;
         // The Stump's service port used to sit behind the camera at the
         // right-hand screen edge. Bring the genuine gun assembly into view
         // while its breech is open, never a duplicate HUD loading animation.
@@ -1980,7 +1989,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             lookYaw*.85+(pilotStabilityPose?.yaw??0)+reloadView.yaw,
             gunDamageKick*damageWave*.16+pilotHitResponse.roll*.22, 'YXZ');
         gunPivot.position.x=1.16+gunDamageKick*damageWave*.045+reloadView.x;
-        gunPivot.position.y=2.04+reloadView.y;
+        gunPivot.position.y=2.04+reloadView.y-pilotRecovery.compression*.25;
         // Powered breech: open, eject, index from the built-in feed,
         // close, then a short charging rack AFTER lock-up.
         cockpit.userData.gunBreech.position.z=-.19+reload.slide*
@@ -2076,15 +2085,19 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         root.rotation.y=physicsYawToViewYaw(state.yaw??0);
         if(record.active&&!record.wrecked&&!record.cleared){
             const dt=Math.max(0,Math.min(.10,visual?.dt??1/60));
-            const wasServicing=!!record.serviceSlot;
+            if(visual?.recoveryEventId&&record.lastRecoveryEvent!==visual.recoveryEventId){
+                record.lastRecoveryEvent=visual.recoveryEventId;
+                record.recoverySlot=visual.recoverySlot;
+                record.recoveryElapsed=0;
+                record.weaponRecoveryKick=1;
+                record.recoveryBurstPending=true;
+            }
+            record.recoveryElapsed=(record.recoveryElapsed??3)+dt;
             record.weaponFault=!!visual?.weaponFault;
             record.weaponServicing=!!visual?.weaponServicing;
             if(record.serviceSlot && !visual?.serviceSlot) record.lastServiceSlot=record.serviceSlot;
             record.serviceSlot=visual?.serviceSlot??(record.weaponServicing?'combat':null);
-            if(wasServicing&&!record.serviceSlot&&!record.weaponFault){
-                record.weaponRecoveryKick=1;
-                record.recoveryBurstPending=true;
-            }
+            // Cancelled field service does not trigger the finished animation.
             record.weaponRecoveryKick=Math.max(0,(record.weaponRecoveryKick??0)-dt*2);
             const health=THREE.MathUtils.clamp(visual?.posture?.animationHealth??1,.08,1);
             const speed=Math.hypot(state.vx??0,state.vz??0);
@@ -2092,6 +2105,20 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             const mobilityId=installedPart(record.assembly,'mobility')?.definition.id??'legs-yard';
             const spec=familyAnimation(mobilityId);
             const visualGait=visual?.gait;
+            const mobilityPart=record.condition?.parts?.mobility;
+            const mh=mobilityPart?.maxIntegrity>0?
+                THREE.MathUtils.clamp(mobilityPart.integrity/mobilityPart.maxIntegrity,0,1):1;
+            const left=visual?.driveHealth?.left??mh;
+            const right=visual?.driveHealth?.right??mh;
+            const wound=machineWoundPose({family:mobilityId,left,right,
+                structure:record.condition?.parts?.structure?.integrity/
+                    Math.max(1,record.condition?.parts?.structure?.maxIntegrity??1),
+                command:record.condition?.parts?.command?.integrity/
+                    Math.max(1,record.condition?.parts?.command?.maxIntegrity??1),
+                loadLeft:record.footContacts?.feet?.[0]?.load??.5,
+                loadRight:record.footContacts?.feet?.[1]?.load??.5,
+                driveLoad:state.driveLoad??0});
+            const restart=recoveryMotion(record.recoveryElapsed,record.recoverySlot,mobilityId);
             if(visual?.stability)record.stabilityPose=visual.stability;
             if(motion){
                 if(visualGait){
@@ -2160,15 +2187,14 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                     // The actually injured side carries a rough compression
                     // knee under load. Milliradian-scale secondary metal motion
                     // only; grounded foot anchors and actual gait are untouched.
-                    const mobilityPart=record.condition?.parts?.mobility;
-                    const mobilityHealth=mobilityPart
-                        ?THREE.MathUtils.clamp(mobilityPart.integrity/
-                            Math.max(1,mobilityPart.maxIntegrity),0,1):1;
-                    if(side===record.lastMobilityHitSide&&mobilityHealth<.67){
-                        const rough=(.67-mobilityHealth)*.065*moving;
-                        leg.knee.rotation.z+=rough*Math.sin(motion.phase*1.5);
-                        leg.hip.rotation.z+=rough*.42;
-                    }
+                    const injury=side<0?wound.left:wound.right;
+                    const plantedLoad=supportFoot?.load??.5;
+                    // Injured shock struts compress under the ACTUAL
+                    // planted-foot load; healthy side stays at authored rest.
+                    leg.knee.rotation.x-=injury.kneeCompression*(.35+.65*plantedLoad)+restart.knee;
+                    leg.ankle.rotation.x+=injury.ankleSupport*plantedLoad;
+                    leg.hip.rotation.z+=side*injury.hipRoll*plantedLoad;
+                    leg.foot.rotation.z-=side*injury.hipRoll*.50*plantedLoad;
                 }
             }
             const desired=visual?.target
@@ -2205,7 +2231,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 frame.position.x=frameBase.position.x+
                     (record.footContacts?.weightShift??0)*.018;
                 frame.position.y=frameBase.position.y-
-                    (record.footContacts?.bodyCompression??0)*.38;
+                    (record.footContacts?.bodyCompression??0)*.38-wound.bodyDrop*.25;
             }
             if(command&&commandBase&&!record.destroyedSlots.has('command')){
                 const commandBroken=record.disabledSlots.has('command');
@@ -2223,7 +2249,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 combat.rotation.x=combatBase.rotation.x+aim.elevation+
                     (fault?.20:0)-(recovery*.12)+(discharge?.mount??0)+
                     (record.hitResponse?.mount??0)*.56+(record.stabilityPose?.pitch??0);
-                combat.rotation.z=combatBase.rotation.z+(fault?.14:0);
+                combat.rotation.z=combatBase.rotation.z+(fault?.14:0)+
+                    (1-health)*(record.stabilityPose?.yaw??0)*.45;
                 combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
                     (discharge?.travel??0)*.085+reload.settle*.027;
@@ -2266,6 +2293,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             record.contactPresentation=contact;
             root.position.y-=contact.drop;
             root.position.y-=(record.footContacts?.bodyCompression??0)*.24;
+            root.position.y-=wound.bodyDrop+restart.compression;
             const catchLoad=record.footContacts?.hitCatch;
             const catchForce=catchLoad?.force??0;
             const damage=1-health;
@@ -2289,9 +2317,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 active:record.active&&!record.wrecked,
             });
             root.position.y-=failed.rootDrop;
-            root.rotation.x+=failed.rootPitch+contact.pitch+(record.hitResponse?.pitch??0)+
+            root.rotation.x+=failed.rootPitch+wound.bodyPitch+restart.pitch+
+                contact.pitch+(record.hitResponse?.pitch??0)+
                 catchForce*(catchLoad?.z??0)*.018;
-            root.rotation.z+=failed.rootRoll+contact.roll+(record.hitResponse?.roll??0)-
+            root.rotation.z+=failed.rootRoll+wound.bodyRoll+restart.roll+
+                contact.roll+(record.hitResponse?.roll??0)-
                 catchForce*(catchLoad?.x??0)*.025;
             root.position.y-=Math.abs(record.hitResponse?.translation??0)*.26;
         }
@@ -3171,6 +3201,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const record = squadCombatants.get(id);
         if (!record || !condition?.parts) return;
         record.condition = condition;
+        for(const slot of ['mobility','structure','command','power','combat']){
+            const part=condition.parts[slot];
+            if(part&&!part.destroyed&&part.integrity<=0&&!record.disabledSlots.has(slot))
+                markPartDisabledVisual(id,slot);
+        }
         // A restarted module should return to its mounting datum. Disabling a
         // subsystem is NOT permanent deformation; only destruction detaches it.
         for(const slot of [...record.disabledSlots]) {
