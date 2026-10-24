@@ -97,15 +97,15 @@ test('round tableau is genuinely noninteractive, reload uses authoritative timin
   assert.match(main, /classList\.remove\('victory-showcase', 'sortie-outro-active'\)/);
   for (const selector of ['#controls', '#fire', '#reload', '#brake', '#allied-observation'])
     assert.ok(css.includes('body.sortie-outro-active ' + selector), selector);
-  assert.match(main, /1 - weaponState\.reloadLeft \/ Math\.max\(\.01, weaponSpec\.reloadSeconds\)/);
+  assert.match(main, /1\s*-\s*weaponState\.reloadLeft\s*\/\s*Math\.max\(\.01,weaponSpec\.reloadSeconds\)/);
   assert.match(main, /--reload-progress/);
   assert.match(source('styles.css'), /reload-button\.reloading::before/);
 });
 
 test('repair sparks move upward and outward; absent stations have no airborne plus markers', () => {
   const scene = source('scene.js');
-  assert.match(scene, /pilotServiceSparkBudget \+= 64 \* dt/);
-  assert.match(scene, /record\.serviceSparkBudget \+= 60 \* dt/);
+  assert.match(scene, /pilotServiceSparkBudget \+= 82 \* dt/);
+  assert.match(scene, /record\.serviceSparkBudget \+= 82 \* dt/);
   assert.match(scene, /1\.2\+Math\.random\(\)\*1\.7/);
   assert.match(scene, /!installedPart\(assembly, 'structure'\)\) return/);
   assert.doesNotMatch(scene, /bracket\.add\(plate\)/);
