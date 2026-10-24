@@ -680,7 +680,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         wounds: new Map(SLOTS.map(slot => [slot, []])), woundMarks: [],
         baseParts: capturePartTransforms(targetExterior), articulation: captureArticulation(targetExterior),
         recoilKick: 0, recoilRecovery: 3.2,
-        weaponFault: false, weaponServicing: false, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
+        weaponFault: false, weaponServicing: false, serviceSlot: null, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
     });
     function colorsFor(exterior) {
         const colors = new WeakMap();
@@ -709,7 +709,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             baseParts: capturePartTransforms(actorExterior), articulation: captureArticulation(actorExterior),
             recoilKick: 0, recoilRecovery: 3.2,
             hitResponse:createHitResponse(),fractureParts:[],lastMobilityHitSide:0,
-        weaponFault: false, weaponServicing: false, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
+        weaponFault: false, weaponServicing: false, serviceSlot: null, serviceSparkBudget: 0, weaponRecoveryKick: 0, recoveryBurstPending: false,
         };
         squadCombatants.set(id, record);
         return record;
@@ -1637,7 +1637,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     let pilotFiringPose=pilotFiringState.pose;
     let muzzleFlash = 0;
     let pilotWeaponPresentation = { visualRecoil: 1, visualRecovery: 3.6, muzzleFlashSeconds: .10 };
-    let pilotWeaponFault = false, pilotWeaponServicing = false, pilotServiceSparkBudget = 0;
+    let pilotWeaponFault = false, pilotWeaponServicing = false, pilotServiceSlot = null, pilotServiceSparkBudget = 0;
     let pilotWeaponRecoveryKick = 0, pilotRecoveryBurstPending = false;
     let exterior = buildExteriorRig(initial);
     calibrateExteriorSoles(exterior);
@@ -1910,10 +1910,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     function updateRigVisual(state, lookYaw, lookPitch, dt, serviceVisual = null) {
         footEvidenceRoot.visible=!inspecting;
         if(serviceVisual?.stability)pilotStabilityPose=serviceVisual.stability;
-        const wasServicing = pilotWeaponServicing;
+        const wasServicing = !!pilotServiceSlot;
         pilotWeaponFault = !!serviceVisual?.weaponFault;
         pilotWeaponServicing = !!serviceVisual?.weaponServicing;
-        if (wasServicing && !pilotWeaponServicing && !pilotWeaponFault) {
+        pilotServiceSlot = serviceVisual?.serviceSlot ?? (pilotWeaponServicing?'combat':null);
+        if (wasServicing && !pilotServiceSlot && !pilotWeaponFault) {
             pilotWeaponRecoveryKick = 1;
             pilotRecoveryBurstPending = true;
         }
@@ -2075,10 +2076,12 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         root.rotation.y=physicsYawToViewYaw(state.yaw??0);
         if(record.active&&!record.wrecked&&!record.cleared){
             const dt=Math.max(0,Math.min(.10,visual?.dt??1/60));
-            const wasServicing=record.weaponServicing;
+            const wasServicing=!!record.serviceSlot;
             record.weaponFault=!!visual?.weaponFault;
             record.weaponServicing=!!visual?.weaponServicing;
-            if(wasServicing&&!record.weaponServicing&&!record.weaponFault){
+            if(record.serviceSlot && !visual?.serviceSlot) record.lastServiceSlot=record.serviceSlot;
+            record.serviceSlot=visual?.serviceSlot??(record.weaponServicing?'combat':null);
+            if(wasServicing&&!record.serviceSlot&&!record.weaponFault){
                 record.weaponRecoveryKick=1;
                 record.recoveryBurstPending=true;
             }
@@ -2330,7 +2333,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             (arenaMap.id==='backlot-dustbowl'||arenaMap.id==='test-yard')?.0048:.0125;
         if (!enabled) setAnimationPreview('off');
         if (enabled) {
-            pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSparkBudget = 0;
+            pilotWeaponFault = false; pilotWeaponServicing = false; pilotServiceSlot=null; pilotServiceSparkBudget = 0;
             pilotWeaponRecoveryKick = 0; pilotRecoveryBurstPending = false;
             exterior.root.position.set(0,(exterior.groundOffset??0)+GARAGE_PAD_TOP_Y,0);
             exterior.root.rotation.y = GARAGE_RIG_YAW;
@@ -3168,6 +3171,19 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const record = squadCombatants.get(id);
         if (!record || !condition?.parts) return;
         record.condition = condition;
+        // A restarted module should return to its mounting datum. Disabling a
+        // subsystem is NOT permanent deformation; only destruction detaches it.
+        for(const slot of [...record.disabledSlots]) {
+            const part=condition.parts[slot];
+            if(!part || part.destroyed || part.integrity<=0)continue;
+            const group=record.exterior.partGroups.get(slot);
+            const base=record.baseParts.get(slot);
+            if(group&&base) {
+                group.position.copy(base.position);
+                group.rotation.copy(base.rotation);
+            }
+            record.disabledSlots.delete(slot);
+        }
         for (const [slot, meshes] of record.exterior.partMeshes) {
             const state = condition.parts[slot];
             if (!state) continue;
@@ -3358,13 +3374,15 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         powerBlackout = Math.max(0, powerBlackout - dt);
         powerFlicker = Math.max(0, powerFlicker - dt);
         powerArcCooldown = Math.max(0, powerArcCooldown - dt);
-        if (!inspecting && pilotWeaponServicing) {
+        if (!inspecting && pilotServiceSlot) {
             cockpit.updateWorldMatrix(true, true);
-            pilotServiceSparkBudget += 64 * dt;
+            pilotServiceSparkBudget += 82 * dt;
             while (pilotServiceSparkBudget >= 1) {
                 pilotServiceSparkBudget -= 1;
                 const side=Math.random()<.5?-1:1;
-                const origin=gunPivot.localToWorld(new THREE.Vector3(side*.14,.02,.26));
+                const origin=pilotServiceSlot==='combat' ?
+                    gunPivot.localToWorld(new THREE.Vector3(side*.14,.02,.26)) :
+                    cockpit.localToWorld(new THREE.Vector3(side*.30,-.30,pilotServiceSlot==='power'?.12:-.25));
                 const spread=new THREE.Vector3(side*(1.05+Math.random()*1.5),0,(Math.random()-.5)*1.2)
                     .transformDirection(gunPivot.matrixWorld).multiplyScalar(1.0);
                 const velocity=spread.add(new THREE.Vector3(0,1.2+Math.random()*1.7,0));
@@ -3373,7 +3391,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         } else pilotServiceSparkBudget = 0;
         if (!inspecting && pilotRecoveryBurstPending) {
             cockpit.updateWorldMatrix(true, true);
-            const origin = gunPivot.localToWorld(new THREE.Vector3(0, .01, .26));
+            const origin = cockpit.localToWorld(new THREE.Vector3(0,-.28,-.15));
             flashDamageLight(origin, 0x76dfff, 5.5, .10, 3.6);
             for (let i = 0; i < 16; i++) {
                 const side=i%2===0?-1:1;
@@ -3469,18 +3487,19 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         for (const record of squadCombatants.values()) {
             if (!record.condition?.parts || record.cleared) continue;
             record.exterior.root.updateWorldMatrix(true, true);
-            if (record.weaponServicing && record.active && !record.wrecked) {
-                record.serviceSparkBudget += 60 * dt;
+            if (record.serviceSlot && record.active && !record.wrecked) {
+                record.serviceSparkBudget += 82 * dt;
                 while (record.serviceSparkBudget >= 1) {
                     record.serviceSparkBudget -= 1;
                     const side=Math.random()<.5?-1:1;
-                    const origin=weaponServicePoint(record).add(new THREE.Vector3(side*.12,.04,0));
+                    const origin=(record.serviceSlot==='combat'?weaponServicePoint(record):
+                        partWorldPoint(record,record.serviceSlot)).add(new THREE.Vector3(side*.12,.04,0));
                     const velocity=new THREE.Vector3(side*(1.05+Math.random()*1.45),1.1+Math.random()*1.8,(Math.random()-.5)*1.6);
                     activateParticle(sparkPool,'spark',origin,velocity,1.15+Math.random()*.65,.32+Math.random()*.22,-2.1,0,Math.random()>.22?0x76dfff:0xe0fbff);
                 }
             } else record.serviceSparkBudget = 0;
             if (record.recoveryBurstPending && record.active && !record.wrecked) {
-                const origin = weaponServicePoint(record);
+                const origin = partWorldPoint(record,record.lastServiceSlot??'combat');
                 flashDamageLight(origin, 0x76dfff, 6.5, .10, 4.2);
                 for (let i = 0; i < 18; i++) {
                     const side=i%2===0?-1:1;
