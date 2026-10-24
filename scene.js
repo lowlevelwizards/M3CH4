@@ -66,7 +66,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     if (!definition) return null;
     const condition = Math.max(0, Math.min(1, Number(state.condition) || 0));
     const destroyed = !!state.destroyed || state.status === 'destroyed';
-    const key = `k4a:${definitionId}:${state.serial||'PREVIEW'}:${destroyed ? 'x' : Math.round(condition * 10)}:${Math.round((state.wear||0)*20)}:${state.repairs||0}:${state.history?.deployments||0}:${JSON.stringify(normalizePaint(state.paint))}`;
+    const key = `k5e:${definitionId}:${state.serial||'PREVIEW'}:${destroyed ? 'x' : Math.round(condition * 10)}:${Math.round((state.wear||0)*20)}:${state.repairs||0}:${state.history?.deployments||0}:${JSON.stringify(normalizePaint(state.paint))}`;
     if (partThumbnailCache.has(key)) return partThumbnailCache.get(key);
     if (!partThumbnailRenderer) {
         partThumbnailRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
@@ -109,9 +109,9 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
     const camera = new THREE.PerspectiveCamera(36, 96 / 72, .03, 40);
     const radius = Math.max(.35, sphere.radius);
-    // Weapon geometry points toward -Z; show muzzle/action, not the rear of the receiver.
-    camera.position.set(radius * 1.65, radius * .92,
-        definition.slot==='combat'?-radius*2.25:radius*2.25);
+    // Every authored exterior presents its -Z/front face to the viewer.
+    // Keep weapon framing unchanged; other stations previously showed their backs.
+    camera.position.set(radius * 1.65, radius * .92, -radius * 2.25);
     camera.lookAt(0, 0, 0);
     partThumbnailRenderer.render(previewScene, camera);
     const url = partThumbnailRenderer.domElement.toDataURL('image/png');
@@ -154,7 +154,7 @@ export function rigThumbnailDataUrl(assembly){
     visual.root.position.sub(sphere.center);
     const radius=Math.max(.35,sphere.radius);
     const camera=new THREE.PerspectiveCamera(36,96/72,.03,60);
-    camera.position.set(radius*1.55,radius*.86,radius*2.4);
+    camera.position.set(radius*1.55,radius*.86,-radius*2.4);
     camera.lookAt(0,0,0);
     partThumbnailRenderer.render(stage,camera);
     const url=partThumbnailRenderer.domElement.toDataURL('image/png');
