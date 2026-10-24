@@ -6,6 +6,7 @@ import { createFieldServiceState, advanceFieldService, beginFieldService,
 import { normalizeEquipment, equipmentMounts, servicePumpRate, stabilizerRecoilMultiplier } from '../equipment.js';
 import { createSmokeState, deploySmoke, stepSmoke, smokeObscures } from '../tacticalSmoke.js';
 import { decodeMachine, encodeMachine } from '../persistence.js';
+import { standbyDemandKw,createPowerSystem } from '../powerDynamics.js';
 import { createStableFromMachine, encodeStable, decodeStable } from '../stable.js';
 
 const stopped={vx:0,vz:0,yawRate:0,brace:1};
@@ -92,4 +93,14 @@ test('legacy saves without equipment remain compatible, new machine and stable r
   const decoded=decodeStable(encodeStable(stable),machine);
   assert.equal(decoded.status,'restored');
   assert.equal(decoded.stable.rigs[0].equipment.utilityLeft,'cinder-smoke');
+});
+
+test('mounted equipment genuinely increases live idle bus load',()=>{
+ const assembly=makeTestAssembly();
+ const idle=standbyDemandKw(assembly);
+ const basePower=createPowerSystem(assembly);
+ assert.equal(equipAuxiliary(assembly,'utilityLeft','mule-pump').ok,true);
+ assert.equal(standbyDemandKw(assembly)-idle,12);
+ const fittedPower=createPowerSystem(assembly);
+ assert.equal(fittedPower.demandKw-basePower.demandKw,12);
 });
