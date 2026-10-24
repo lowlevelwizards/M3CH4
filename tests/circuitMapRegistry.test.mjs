@@ -56,7 +56,7 @@ test('live scene and combat use the same contract world for line-of-fire and AI'
  // roster identities required by damage, target choice and bout scoring.
  assert.match(main,/makeSupportActor\(HOSTILE_SUPPORT_SPAWNS\[index\]\.id/);
  assert.doesNotMatch(main,/makeSupportActor\(spawn\.id, HOSTILE_TEAM/);
- assert.match(main,/observeBattlefield\(aiMemory,participants,sortieObjective,selectedWorld,aiClock\)/);
+ assert.match(main,/observeBattlefield\(aiMemory,participants,sortieObjective,selectedWorld,aiClock,smokeState\.clouds\)/);
  assert.match(main,/createSortieObjective\(mappedContract\)/);
  assert.match(scene,/const world=arenaMap\.world/);
  assert.match(scene,/firstCoverHit\(muzzle, bore, world\.obstacles/);
