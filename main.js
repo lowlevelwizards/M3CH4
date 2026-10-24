@@ -1410,7 +1410,7 @@ function togglePilotWeapon(){
         selectedWeapon='primary';
     }
     resetWeaponStabilizer(playerMount);
-    arena.setPilotWeapon(weaponSpec);
+    arena.setPilotWeapon(weaponSpec,selectedWeapon==='secondary');
     renderAmmo();
     return true;
 }
@@ -1696,12 +1696,11 @@ function toggleInspection(force) {
         boutLedger = createBoutLedger(boutRoster());
         clearBoutResult();
         controls.recenterLook();
-        weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+        weaponSpec=weaponFor(assembly);
+        weaponState=weaponSpec?createWeaponState(weaponSpec):null;
+        primaryWeaponState=weaponState;secondaryWeaponState=null;selectedWeapon='primary';
         fieldService = createFieldServiceState(servicePumpRate(assembly));
         smokeState=createSmokeState();
-        primaryWeaponState=selectedWeapon==='primary'?weaponState:createWeaponState(weaponFor(assembly));
-        secondaryWeaponState=null;selectedWeapon='primary';
-        weaponSpec=weaponFor(assembly);weaponState=createWeaponState(weaponSpec);
         arena.setPilotWeapon(weaponSpec);
         sortieRoundsFired = 0;
         sortieAmmoCostCents = 0;
@@ -1955,11 +1954,11 @@ if (testYard) {
             playerCombatActive=true;
             playerMissionKillReason=null;
             testEnded=false;testEndReason=null;
+            weaponSpec=weaponFor(assembly);
             weaponState=weaponSpec?createWeaponState(weaponSpec):null;
+            primaryWeaponState=weaponState;secondaryWeaponState=null;selectedWeapon='primary';
             fieldService=createFieldServiceState(servicePumpRate(assembly));
             smokeState=createSmokeState();
-            primaryWeaponState=weaponState;secondaryWeaponState=null;selectedWeapon='primary';
-            weaponSpec=weaponFor(assembly);
             arena.setPilotWeapon(weaponSpec);
             resetWeaponStabilizer(playerMount);
             arena.clearRockets();
