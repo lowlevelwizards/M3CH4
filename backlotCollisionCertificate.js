@@ -43,30 +43,39 @@ export function secondaryGeometryClearance(root,world,{margin=SAFE_MARGIN}={}){
 }
 export function auditBacklotCollisionTruth(root,world,solids){
  const secondary=secondaryGeometryClearance(root,world);
- const expected=new Map((world.obstacles||[]).map(o=>[o.id,o]));
+ const parents=new Map((world.obstacles||[]).map(o=>[o.id,o]));
+ const expectedParts=new Map();
+ for(const o of parents.values())for(const part of collisionPieces(o)){
+  const key=part.partId??o.id;
+  if(expectedParts.has(key))throw Error('Duplicate physical part '+key);
+  expectedParts.set(key,{parent:o,part});
+ }
  const hits=new Map();
  const errors=[...secondary.errors];
  for(const solid of solids||[]){
   const id=solid.userData?.arenaObstacleId;
   if(!id||id==='floor')continue;
-  if(!expected.has(id)){
-   errors.push('Unknown physical blocker '+id);continue;
+  const key=solid.userData?.compoundPartId??id;
+  const expected=expectedParts.get(key);
+  if(!expected||expected.parent.id!==id){
+   errors.push('Unexpected physical collider '+key);continue;
   }
-  hits.set(id,(hits.get(id)||0)+1);
-  const o=expected.get(id);
+  hits.set(key,(hits.get(key)||0)+1);
+  const p=expected.part;
   solid.updateWorldMatrix(true,false);
   const actual=new THREE.Box3().setFromObject(solid);
-  for(const [have,want,key] of [
-   [actual.min.x,o.minX,'minX'],[actual.max.x,o.maxX,'maxX'],
-   [actual.min.z,o.minZ,'minZ'],[actual.max.z,o.maxZ,'maxZ'],
-   [actual.min.y,0,'minY'],[actual.max.y,o.height,'maxY']]){
+  for(const [have,want,axis] of [
+   [actual.min.x,p.minX,'minX'],[actual.max.x,p.maxX,'maxX'],
+   [actual.min.z,p.minZ,'minZ'],[actual.max.z,p.maxZ,'maxZ'],
+   [actual.min.y,p.minY??0,'minY'],[actual.max.y,p.maxY??p.height,'maxY']]){
    if(Math.abs(have-want)>EPS)
-    errors.push(id+' rendered hit volume does not match authored '+key+
-      ' (actual '+rounded(have)+', authored '+rounded(want)+')');
+    errors.push(key+' hit prism differs from physical '+axis+
+      ' (render '+rounded(have)+', rule '+rounded(want)+')');
   }
  }
- for(const id of expected.keys())
-  if(hits.get(id)!==1)errors.push(id+' must have one authoritative raycast prism, got '+(hits.get(id)||0));
+ for(const key of expectedParts.keys())
+  if(hits.get(key)!==1)
+   errors.push(key+' must have exactly one raycast prism; got '+(hits.get(key)||0));
  const artGroups=root.children.filter(group=>SECONDARY.test(group.name));
  for(const group of artGroups)
   group.traverse(o=>{
@@ -75,7 +84,9 @@ export function auditBacklotCollisionTruth(root,world,solids){
   });
  return Object.freeze({
   pass:errors.length===0,
-  gameplayObstacleCount:expected.size,
+  gameplayObstacleCount:parents.size,
+  compoundFamilyCount:COMPOUND_FAMILY_IDS.length,
+  expectedPhysicalParts:expectedParts.size,
   authoritativeRaycastSolids:[...hits.values()].reduce((a,b)=>a+b,0),
   uncollidableOffsiteAssets:secondary.count,
   secondary,
@@ -88,10 +99,11 @@ export function auditBacklotCollisionTruth(root,world,solids){
  * would preserve invisible hits and is not an acceptable promotion.
  */
 export const ANATOMY_COLLISION_PROMOTION=Object.freeze({
-  currentPolicy:'retain-certified-AABBs-until-compound-fit',
-  galleryOnly:true,
+  currentPolicy:'tractor-and-loader-compound-live; other-families-await-fit',
+  galleryOnly:false,
+  promotedFamilies:Object.freeze(['tractor','loader']),
   plannedFamilies:Object.freeze([
-   'tractor','loader','combine','pickup','engine','coupling','generator',
+   'combine','pickup','engine','coupling','generator',
    'turbine','tyres','drums','flatbed','barricade','container','concrete',
   ]),
 });
