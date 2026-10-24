@@ -51,10 +51,11 @@ export function reloadPhase(left,total,id='gun-cannon'){
  const stage=RELOAD_STAGES[index];
  // Unlock, open, eject through a gravity/return chute, and hold open until
  // the ONBOARD feed has indexed its next round.
- const open=eased(.06,.23,t)*(1-eased(.69,.85,t));
+ const open=eased(.06,.23,t)*(1-eased(.73,.87,t));
  const clear=hold(.18,.27,.33,.47,t);
- const indexMotion=hold(.33,.49,.63,.79,t);
- const close=eased(.71,.87,t);
+ // Feed returns to its housed position BEFORE the breech can close.
+ const indexMotion=hold(.33,.49,.59,.72,t);
+ const close=eased(.75,.88,t);
  // A visible powered return-stroke *after* the bolt is back in battery.
  const charge=hold(.88,.917,.952,.998,t);
  const feedTravel=p.feed*indexMotion;
@@ -62,13 +63,13 @@ export function reloadPhase(left,total,id='gun-cannon'){
  const slide=p.slide*open;
  const bolt=.18*open+.16*charge;
  const cassette=p.feed*indexMotion;
- const ram=hold(.53,.64,.76,.91,t);
+ const ram=hold(.50,.61,.68,.75,t);
  const lock=close;
  const settle=(hold(.83,.89,.90,.96,t)+hold(.947,.97,.975,1,t)*.5)*p.mass;
  // A retained shell is visible only through the OPEN chamber; captive
  // drum/cassette/rack/cell remains attached and visible throughout.
  const feedVisible=p.archetype==='index'||p.archetype==='pod'||
-   p.archetype==='capacitor'||(t>=.18&&t<.89);
+   p.archetype==='capacitor'||(t>=.18&&t<.84);
  return {active:true,progress:t,stage,index,slide,bolt,cassette,feed:indexMotion,
     feedVisible,lock,ram,settle,mass:p.mass,open,clear,indexMotion,close,
     charge,rack,feedTravel,archetype:p.archetype};
