@@ -12,8 +12,20 @@ page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
 try{
  await page.goto('http://127.0.0.1:8765/backlot-prop-gallery.html',
   {waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForFunction(()=>window.__backlotGalleryReady?.total>30,
-  undefined,{timeout:30000});
+ try{
+  await page.waitForFunction(()=>window.__backlotGalleryReady?.total>30,
+   undefined,{timeout:30000});
+ }catch(error){
+  const diagnostic=await page.evaluate(()=>({
+   error:document.querySelector('#gallery-error')?.textContent,
+   ready:window.__backlotGalleryReady||null,
+   scripts:[...document.querySelectorAll('script[src]')].map(x=>x.src),
+   title:document.title,
+  })).catch(e=>({inspection:String(e)}));
+  throw Error('Gallery initialization timed out: '+JSON.stringify({
+    diagnostic,errors,original:String(error),
+  }));
+ }
  const stats=await page.evaluate(()=>({
   ...window.__backlotGalleryReady,
   options:document.querySelectorAll('#gallery-select option').length,
