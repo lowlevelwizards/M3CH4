@@ -18,7 +18,7 @@ export function buildArcCutterVisual(fixture) {
  block(r,'AC / U1 mount',[-.31,-.45,.27],[.30,.07,.36],'steel');
  const carriage=group(r,'AC / sliding electrode assembly',[0,.46,-.14]);
  const bolt=group(carriage,'AC / insulated feed actuator');
- block(bolt,'AC / electrode ratchet',[0,0,0],[.32,.12,.24],'machined');
+ block(bolt,'AC / electrode ratchet',[0,0,0],[.42,.16,.29],'machined');
  block(carriage,'AC / guide hood',[0,-.08,-.025],[.40,.08,.39],'steel');
  return finishWeapon(r,{carriage,bolt});
 }

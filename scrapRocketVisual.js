@@ -17,7 +17,7 @@ export function buildScrapRocketVisual(fixture) {
  block(r,'SR / U1 shoe',[-.37,-.48,.26],[.32,.075,.34],'steel');
  const carriage=group(r,'SR / pressure-trigger housing',[0,.46,.23]);
  const bolt=group(carriage,'SR / firing ratchet');
- block(bolt,'SR / electrical trigger arm',[0,0,0],[.29,.11,.29],'machined');
+ block(bolt,'SR / electrical trigger arm',[0,0,0],[.41,.15,.34],'machined');
  block(carriage,'SR / insulated guide',[0,-.09,-.05],[.36,.08,.45],'dark');
  return finishWeapon(r,{carriage,bolt});
 }

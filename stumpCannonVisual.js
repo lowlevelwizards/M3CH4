@@ -18,7 +18,7 @@ export function buildStumpCannonVisual(fixture){
   tube(r,'SC / top lifting eye dark center',[0,.366,-.38],.040,.118,'dark');
   const carriage=group(r,'SC / short heavy reciprocating action',[0,.30,.24]);
   const bolt=group(carriage,'SC / rear breech slider');
-  block(bolt,'SC / sliding machined block',[0,0,0],[.30,.14,.22],'machined');
-  block(carriage,'SC / action channel',[0,-.11,-.05],[.37,.075,.37],'steel');
+  block(bolt,'SC / sliding machined block',[0,0,0],[.47,.22,.34],'machined');
+  block(carriage,'SC / action channel',[0,-.11,-.05],[.48,.11,.41],'steel');
   return finishWeapon(r,{carriage,bolt});
 }

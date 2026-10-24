@@ -240,16 +240,17 @@ export function soundWeaponReloadPhase(weaponId,stage,{distance=0,pan=0,cockpit=
  const profile=reloadMechanism(weaponId);
  const d=Math.max(0,Number(distance)||0);
  if(d>23&&!cockpit)return {ok:true,skipped:true};
- const n=stage==='unlock'?0:stage==='extract'?1:stage==='feed'?2:stage==='chamber'?3:stage==='lock'?4:5;
+ const n=stage==='unlock'?0:stage==='extract'?1:stage==='feed'?2:
+    stage==='chamber'?3:stage==='lock'?4:stage==='charge'?5:6;
  const heavy=profile.mass;
  try{
    const start=ctx.currentTime;
    const source=ctx.createBufferSource();
    source.buffer=mechanismNoise(ctx);
-   source.playbackRate.value=[1.28,.85,.97,.70,.72,1.10][n]/
+   source.playbackRate.value=[1.28,.85,.97,.70,.72,1.33,1.10][n]/
        (0.75+heavy*.23);
    const filter=ctx.createBiquadFilter();filter.type='bandpass';
-   filter.frequency.value=[2000,1100,1350,830,950,1450][n]/
+   filter.frequency.value=[2000,1100,1350,830,950,1840,1450][n]/
        (0.81+heavy*.12);
    filter.Q.value=.65;
    const panner=ctx.createStereoPanner?.();
@@ -259,7 +260,7 @@ export function soundWeaponReloadPhase(weaponId,stage,{distance=0,pan=0,cockpit=
    // loading press, not as another quiet generic reload UI beep.
    const stumpFactor=weaponId==='gun-short'?
        (n===3||n===4?1.75:1.35):1;
-   const loud=[.25,.36,.32,.48,.53,.35][n]*
+   const loud=[.25,.36,.32,.48,.53,.43,.35][n]*
        Math.min(1.65,.65+heavy*.46)*stumpFactor*
        (cockpit?.50:.25/(1+Math.pow(d/11,1.6)));
    gain.gain.setValueAtTime(Math.max(.0005,loud),start);
@@ -276,7 +277,7 @@ export function soundWeaponReloadPhase(weaponId,stage,{distance=0,pan=0,cockpit=
    source.start(start);
    // A deep industrial ram body on chamber/lock. Not another shot or
    // artificially delayed reload: one tiny oscillator per mechanical event.
-   if(n===3||n===4){
+   if(n===3||n===4||n===5){
      const body=ctx.createOscillator();body.type='triangle';
      const low=ctx.createGain();const dur=.12+heavy*.045;
      body.frequency.setValueAtTime(165/(.6+heavy*.5),start);

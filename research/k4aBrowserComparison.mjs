@@ -102,7 +102,31 @@ async function fingerprint(origin){
 }
 try{
  const [baseline,updated]=await Promise.all([fingerprint(beforeUrl),fingerprint(afterUrl)]);
- const findings={geometryUnchanged:[],mobilityRecolored:[],recolored:[],roles:[],isolation:true};
+ const findings={geometryUnchanged:[],mechanicalBreechesRebuilt:[],
+   mobilityRecolored:[],recolored:[],roles:[],isolation:true};
+ // k5r.8 legitimately enlarges only the pre-existing powered breech/bolt
+ // blocks named here. Strict hierarchy, transform, fixture geometry and PBR
+ // invariants remain in force for EVERY other mesh.
+ const approvedBreeches=new Map([
+   ['gun-cannon',new Set(['TC / sliding steel service block'])],
+   ['gun-short',new Set(['SC / sliding machined block','SC / action channel'])],
+   ['gun-breaker',new Set(['BD / reciprocating breech','BD / piston track'])],
+   ['gun-rocket',new Set(['SR / electrical trigger arm'])],
+   ['gun-arc',new Set(['AC / electrode ratchet'])],
+ ]);
+ const comparable=(id,entries)=>{
+   const names=approvedBreeches.get(id)??new Set();
+   return entries.map(entry=>{
+      if(!names.has(entry.name))return entry;
+      // Ignore only authored vertex SIZE; do not ignore parent, transform,
+      // geometry kind, index count, other new meshes, or material roles.
+      return {...entry,attributes:Object.fromEntries(
+        Object.entries(entry.attributes??{}).map(([n,a])=>[n,{
+           count:a.count,itemSize:a.itemSize,hash:'AUTHORED-BREECH-RESIZE',
+        }])),
+        index:entry.index?{...entry.index,hash:'AUTHORED-BREECH-RESIZE'}:null};
+   });
+ };
  // This comparison originally ran only while k.4a was introducing material
  // roles for the first time. Later visual PRs compare against an already
  // materialized main branch, where unchanged factory skins are correct.
@@ -110,9 +134,22 @@ try{
   part.materials.some(material=>!!material.roleFromMaterial));
  for(const [id,old] of Object.entries(baseline)){
   const fresh=updated[id];
-  if(JSON.stringify(old.hierarchy)!==JSON.stringify(fresh.hierarchy))
-    throw Error('Geometry/hierarchy/transforms changed for '+id);
-  findings.geometryUnchanged.push(id);
+  if(JSON.stringify(comparable(id,old.hierarchy))!==
+     JSON.stringify(comparable(id,fresh.hierarchy)))
+    throw Error('Unapproved geometry/hierarchy/transforms changed for '+id);
+  const allowed=approvedBreeches.get(id);
+  if(allowed){
+    for(const name of allowed){
+      const before=old.hierarchy.find(x=>x.name===name);
+      const after=fresh.hierarchy.find(x=>x.name===name);
+      if(!before||!after||before.type!=='Mesh'||after.type!=='Mesh')
+        throw Error('Actual authored breech missing: '+id+'/'+name);
+      if(JSON.stringify(before.attributes&&Object.keys(before.attributes))!==
+         JSON.stringify(after.attributes&&Object.keys(after.attributes)))
+        throw Error('Authored breech topology unexpectedly changed: '+id+'/'+name);
+    }
+    findings.mechanicalBreechesRebuilt.push(id);
+  }else findings.geometryUnchanged.push(id);
   if(id.startsWith('legs-')){
    // k.4b intentionally gives the three mobility families their own factory
    // coating. The legs retain identical physical metal, geometry and PBR.

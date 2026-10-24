@@ -34,7 +34,7 @@ try {
     const THREE=await import('three');
     // Bypass the import map's ./scene.js -> sceneAssembly.js wrapper;
     // the actual authored cockpit constructor lives in the base renderer.
-    const {buildCockpit}=await import('./scene.js?source=k5r7');
+    const {buildCockpit}=await import('./scene.js?source=k5r8');
     const {WEAPONS}=await import('./combat.js');
     const {reloadPhase,reloadCockpitPresentation}=await import('./reloadMechanism.js');
     const {poseReloadHardware}=await import('./weaponVisualKit.js');
@@ -57,14 +57,17 @@ try {
         throw Error('Cockpit reload hardware missing: '+id);
       for(const other of Object.values(kits))other.visible=false;
       kit.visible=true;
-      for(const [stage,progress] of [.37,.62].entries()){
+      for(const [stage,progress] of [.30,.60].entries()){
         const phase=reloadPhase(spec.reloadSeconds*(1-progress),
             spec.reloadSeconds,id);
         const presentation=reloadCockpitPresentation(phase,id);
         pivot.position.set(1.16+presentation.x,2.04+presentation.y,
             -.62+presentation.z);
         pivot.rotation.set(presentation.tilt,presentation.yaw,0,'YXZ');
-        kit.userData.carriage.position.set(0,phase.bolt*.28,phase.slide*.68);
+        kit.userData.carriage.position.set(0,
+          phase.bolt*.28+phase.ram*.025,phase.slide*.68+phase.rack);
+        kit.userData.carriage.rotation.x=phase.open*
+          (phase.archetype==='breech'?.40:phase.archetype==='pod'?.20:.10);
         const mechanism=kit.userData.reloadMechanism;
         poseReloadHardware(mechanism,phase);
         scene.updateMatrixWorld(true);
@@ -77,19 +80,23 @@ try {
         samples.push({id,stage,screenX:sx,screenY:sy,
             width:bound.x,height:bound.y,travel:phase.cassette,
             carrierX:carrier.position.x,carrierY:carrier.position.y,
-            carrierZ:carrier.position.z});
+            carrierZ:carrier.position.z,carrierRotX:carrier.rotation.x,
+            carrierRotY:carrier.rotation.y,
+            breechAngle:kit.userData.carriage.rotation.x,
+            chargingRack:phase.rack,mechanism:phase.archetype});
         renderer.render(scene,camera);
         const col=(i%2)*2+stage,row=Math.floor(i/2);
         ctx.drawImage(renderer.domElement,col*420,row*195,420,195);
         ctx.fillStyle='rgba(9,15,15,.82)';ctx.fillRect(col*420,row*195,420,22);
         ctx.fillStyle='#f3d99e';ctx.font='bold 14px monospace';
-        ctx.fillText(id+' / '+(stage===0?'EXTRACT':'CHAMBER'),col*420+8,row*195+16);
+        ctx.fillText(id+' / '+(stage===0?'EJECT / OPEN':'INDEX / FEED'),
+          col*420+8,row*195+16);
       }
     }
     renderer.dispose();
     return {samples,image:sheet.toDataURL('image/png')};
   });
-  writeFileSync(output+'/k5r7-all-eight-cockpit-reloads.png',
+  writeFileSync(output+'/k5r8-all-eight-cockpit-reloads.png',
     Buffer.from(reloadAudit.image.split(',')[1],'base64'));
   for(let i=0;i<reloadAudit.samples.length;i+=2){
     const extract=reloadAudit.samples[i],chamber=reloadAudit.samples[i+1];
@@ -98,10 +105,18 @@ try {
            s.screenY>.06&&s.screenY<.96&&s.width>.12&&s.height>.10))
         throw Error('Physical reload outside iPhone cockpit field: '+JSON.stringify(s));
     }
-    const travel=Math.hypot(extract.carrierX-chamber.carrierX,
+    // A fixed drum must ROTATE about its actual axle, not slide off its mount;
+    // a captive power cell should shift only a few centimeters while contact
+    // relays cycle. Measure both translation and equivalent peripheral arc.
+    const translation=Math.hypot(extract.carrierX-chamber.carrierX,
       extract.carrierY-chamber.carrierY,extract.carrierZ-chamber.carrierZ);
-    if(travel<.045)
-      throw Error('Ammunition has imperceptible extraction-to-feed motion: '+
+    const rotation=Math.hypot(extract.carrierRotX-chamber.carrierRotX,
+      extract.carrierRotY-chamber.carrierRotY)*.23;
+    const travel=translation+rotation;
+    const minimum=extract.mechanism==='capacitor'?.018:
+       extract.id==='gun-light'?.025:.035;
+    if(travel<minimum)
+      throw Error('Captive autoloader failed to index in its actual mount: '+
         extract.id+' / '+travel.toFixed(3));
   }
   console.log('RELOAD COCKPIT: PASS · all eight actual 3D service bays visible in iPhone landscape / contact sheet recorded');
@@ -110,7 +125,7 @@ try {
     const {activePlayerArena}=await import('./scene.js');
     const arena=activePlayerArena()?.arena;
     const mapId=arena?.scene?.getObjectByName('arena-environment')?.userData?.mapId;
-    const group=arena?.scene?.getObjectByName('backlot-dustbowl-visuals');
+    const group=arena?.scene?.getObjectByName('backlot-outdoor-derby-world');
     const stats=group?.userData?.backlotStats;
     let objects=0,colliders=0,dynamicLights=0;
     group?.traverse(node=>{
@@ -126,11 +141,22 @@ try {
   if(!backlot.mapId)
     throw Error('Loaded arena has no physical map ID: '+JSON.stringify(backlot));
   if(backlot.mapId==='backlot-dustbowl'){
-    if(!backlot.visible||backlot.objects<25||backlot.objects>145||
-       backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights||
-       backlot.stats?.fixtureBatch?.callsSaved<12)
-      throw Error('Backlot mobile batching or cover mismatch: '+JSON.stringify(backlot));
-    console.log('DUSTBOWL: PASS · instanced fences and no new colliders');
+    // Modern Backlot is the independently authored outdoor derby scene.
+    // Unlike its 2025 prototype it INCLUDES the certified physical obstacle
+    // shells and intentionally uses sunlight, not four artificial floodlights.
+    // Check the current venue contract, never a retired scenery group name.
+    if(!backlot.visible||backlot.objects<25||
+       backlot.stats?.sky!=='open'||
+       backlot.stats?.enclosingWarehouseWalls!==0||
+       backlot.stats?.overheadWarehouseFixtures!==0||
+       !(backlot.stats?.obstacleCount>0)||
+       backlot.stats?.collisionSolids!==backlot.stats?.obstacleCount||
+       backlot.colliders<1||
+       backlot.colliders>backlot.stats.obstacleCount*4||
+       backlot.dynamicLights||
+       !(backlot.stats?.fixtureBatch?.callsSaved>=12))
+      throw Error('Backlot open-air physical venue, cover or batching mismatch: '+JSON.stringify(backlot));
+    console.log('DUSTBOWL: PASS · certified derby cover, instanced scenery and open sky');
   }else{
     // A non-Backlot mission should not accidentally instantiate Backlot.
     if(backlot.visible)throw Error('Backlot visuals leaked into '+backlot.mapId);

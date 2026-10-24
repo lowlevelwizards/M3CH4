@@ -6,7 +6,8 @@ test('every authored gun has distinct feed travel/type and real timer remains un
  const types=new Set(),travel=new Set();
  for(const [id,weapon] of Object.entries(WEAPONS)){
    const recipe=RELOAD_MECHANISMS[id];types.add(recipe.feedStyle);travel.add(recipe.slide);
-   assert.equal(recipe.events.length,5);
+   assert.equal(recipe.events.length,6);
+   assert.ok(recipe.source.includes('>'),id+' needs physically mounted ammunition/power origin');
    assert.equal(reloadPhase(weapon.reloadSeconds,weapon.reloadSeconds,id).stage,'unlock');
    assert.equal(reloadPhase(0,weapon.reloadSeconds,id).stage,'ready');
    const state=createWeaponState(weapon);state.loaded=0;const reserve=state.reserve;
@@ -57,5 +58,40 @@ test('the visible chamber cannot alter weapon ammunition during its animation',(
  for(let i=0;i<30;i++){advanceWeapon(s,w,.075);
    reloadPhase(s.reloadLeft,w.reloadSeconds,w.id);
    assert.equal(s.loaded,0);assert.equal(s.reserve,original);
+ }
+});
+
+test('every machine opens, clears, indexes ONBOARD supply, closes then racks after lock',()=>{
+ for(const [id,w] of Object.entries(WEAPONS)){
+  const p=t=>reloadPhase(w.reloadSeconds*(1-t),w.reloadSeconds,id);
+  const opening=p(.25),clearing=p(.32),feeding=p(.56),closed=p(.88),
+        charging=p(.938),idle=p(1);
+  assert.ok(opening.open>.85,id+' must physically open');
+  assert.ok(clearing.clear>0,id+' requires powered ejection/clearance');
+  assert.ok(feeding.indexMotion>.7,id+' must index from onboard reserve');
+  assert.ok(feeding.open>.9,id+' cannot feed against closed breech');
+  assert.ok(closed.close>.9,id+' must re-lock');
+  assert.ok(closed.open<.1,id+' cover must be shut before rack');
+  assert.ok(charging.charge>.1,id+' must rack AFTER closed');
+  assert.equal(idle.charge,0,id+' must settle to rest');
+  assert.equal(idle.open,0,id+' no open gun at ready');
+  assert.equal(idle.indexMotion,0,id+' no phantom feed at ready');
+ }
+});
+test('reloading is always autonomous rather than magical detachable replacement',()=>{
+ const expected={
+ 'gun-cannon':['breech','rear receiver reserve hopper'],
+ 'gun-short':['breech','rear shell reservoir'],
+ 'gun-light':['index','internal box magazine'],
+ 'gun-scatter':['index','captive side cassette'],
+ 'gun-rivet':['index','fixed drum axle'],
+ 'gun-breaker':['breech','rear demolition-charge reservoir'],
+ 'gun-rocket':['pod','captive rear three-round ordnance carrier'],
+ 'gun-arc':['capacitor','fixed transformer bus'],
+ };
+ for(const [id,[type,origin]] of Object.entries(expected)){
+  const p=RELOAD_MECHANISMS[id];
+  assert.equal(p.archetype,type);
+  assert.ok(p.source.startsWith(origin),id);
  }
 });

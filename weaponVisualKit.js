@@ -65,11 +65,13 @@ export function strut(parent,name,from,to,width,depth,tone='steel'){
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
   return mesh;
 }
-/** k5r.7 — Subtractive reload modeling.
- * ONE existing receiver socket, ONE removable carrier. The actual authored
- * carriage/bolt is the opening and locking action. No ghost spent unit, second
- * drum, floating lid, detached rail, miniature loading machine or extra
- * collider. The carrier stays mechanically engaged in its existing port.
+/** k5r.8 — SELF-ACTUATED RELOAD.
+ * The fixed socket connects to the weapon's EXISTING rear reserve housing.
+ * There is no reinserted loose magazine, hovering feed, or invisible hands:
+ * shells are pushed forward from captive feed trays; drums/cassettes index;
+ * the rocket rack is a captive rear pod; the Arc cell never gets replaced.
+ * Existing slide/bolt/carriage opens and racks. A single *spent* case can
+ * fall away from the real breech on heavy kinetic guns.
  */
 export function attachReloadHardware(root,id){
  const layout=reloadVisualLayout(id);
@@ -78,12 +80,12 @@ export function attachReloadHardware(root,id){
  const shell=style==='shell'||style==='penetrator';
  const width=id==='gun-short'?.38:id==='gun-breaker'?.40:
    style==='rack'?.45:style==='drum'?.36:.28;
- // The sole dark inset is FLUSH with the existing receiver and remains
- // partly under the cartridge/drum. It is the same slot for all four beats.
+ // This is an integral receiver aperture, not a second decorative tray.
+ // It overlaps the authored gun's existing rear feed case.
  const socket=group(root,'RELOAD / receiver socket',
    [layout.feed[0],layout.feed[1]-.10,layout.feed[2]]);
  block(socket,'RELOAD / inset receiver well',[0,0,0],
-   [width+.05,.10,style==='rack'?.48:.39],'dark');
+   [width+.05,.15,style==='rack'?.48:.39],'dark');
  if(shell){
    tube(carrier,'RELOAD / single heavy shell or penetrator',[0,0,0],
      id==='gun-short'?.17:id==='gun-breaker'?.14:.105,
@@ -122,35 +124,78 @@ export function attachReloadHardware(root,id){
      if(node.isMesh)node.userData.visualOnly=true;
    });
  }
- // Large visible magazines must remain part of the complete weapon body
- // before and after reload. Hidden chambers reveal their ONE shell only
- // while the ORIGINAL sliding breech is open.
+ // This is an ACTUAL spent casing driven by the breech ejector, not a
+ // second magazine or a replacement shell popping into existence. It leaves
+ // the chamber and falls under gravity, only during the extraction beat.
+ const kinetic=['gun-cannon','gun-short','gun-light','gun-breaker'].includes(id);
+ let spent=null;
+ if(kinetic){
+   spent=group(root,'RELOAD / powered casing ejector',
+     [layout.feed[0]-.035,layout.feed[1]-.08,layout.feed[2]+.055]);
+   tube(spent,'RELOAD / single expelled casing',[0,0,0],
+     id==='gun-short'?.105:id==='gun-breaker'?.09:.065,
+     id==='gun-short'?.26:.20,'raw');
+   spent.userData.visualOnly=true;
+   spent.traverse(node=>{if(node.isMesh)node.userData.visualOnly=true;});
+   spent.visible=false;
+ }
+ // These are not props delivered by a hand. A feed tray remains captive,
+ // the heavy shell rides the ram inside the breech, magazines stay attached,
+ // and a power cell is a built-in capacitor. Do not disappear/reinsert it.
  carrier.visible=!!layout.exposed;
- return {feed:carrier,socket,layout,rest:{
+ return {feed:carrier,socket,spent,layout,rest:{
    feed:carrier.position.clone(),socket:socket.position.clone(),
+   spent:spent?.position.clone()??null,
  }};
 }
 export function poseReloadHardware(mechanism,phase){
  const loader=mechanism?.loader;
  if(!loader)return;
- const {feed,socket,layout,rest}=loader;
- const t=phase?.progress??1;
- const active=!!phase?.active;
- feed.visible=layout.exposed||(active&&t>=.21&&t<.83);
- const extension=active?(phase?.feed??0)*layout.travel:0;
- // The cartridge NEVER leaves the port: displacement is smaller than its
- // depth (or drum diameter), and the dark receiver well never moves.
+ const {feed,socket,spent,layout,rest}=loader;
+ const active=!!phase?.active,travel=active?(phase.feedTravel??0):0;
+ const profile=reloadMechanism(mechanism.weaponId);
+ const archetype=profile.archetype;
+ // The breech COVER is already the original gun carriage. New ammo is
+ // visible only while that breech is OPEN; it is never inserted by a hand.
+ feed.visible=layout.exposed||(active&&phase.feedVisible);
  feed.position.copy(rest.feed);
- if(layout.step==='integral side cassette'||layout.step==='integral rotary drum'){
-   feed.position.x-=extension;
-   feed.position.y-=extension*.18;
- }else if(layout.step==='plug-in power cell'){
-   feed.position.y+=extension*.60;
- }else{
-   feed.position.z+=extension;
-   feed.position.y+=extension*.12;
+ feed.rotation.set(0,0,0);
+ if(archetype==='breech'){
+   // From a captured rear reservoir toward the chamber (-Z).
+   // Never extend beyond the actual barrel-side of the receiver opening.
+   feed.position.z-=Math.min(travel,layout.travel);
+   feed.position.y+=Math.min(travel,layout.travel)*.07;
+ }else if(archetype==='index'){
+   if(profile.feedStyle==='drum'){
+     // Pawl rotates the original captive feed drum on its mounted axle.
+     feed.rotation.x=(phase.indexMotion??0)*.68;
+   }else if(profile.feedStyle==='cassette'){
+     // Fixed shell cassette indexes in its lateral receiver guides.
+     feed.position.y-=Math.min(travel,layout.travel)*.60;
+   }else{
+     // Needle's internal stack feeds one round upward, within its bolt.
+     feed.position.y+=Math.min(travel,layout.travel)*.35;
+   }
+ }else if(archetype==='pod'){
+   // Rear captive ordnance cassette pushes three rockets into the fixed
+   // launcher tubes. No loose rockets cross open air.
+   feed.position.z-=Math.min(travel,layout.travel);
+ }else if(archetype==='capacitor'){
+   // Arc is powered by its on-mount transformer: cell does not get swapped.
+   // Brief contact decoupling, then final charging rack re-engages.
+   feed.position.y+=Math.min((phase.open??0)*.025,.025)+
+     (phase.indexMotion??0)*.035;
  }
  socket.position.copy(rest.socket);
+ if(spent&&rest.spent){
+   const p=active?phase.progress:0;
+   const travelEject=Math.max(0,Math.min(1,(p-.18)/.21));
+   spent.visible=active&&p>=.18&&p<.39;
+   spent.position.set(rest.spent.x-.20*travelEject,
+     rest.spent.y-.32*travelEject*travelEject,
+     rest.spent.z+.12*travelEject);
+   spent.rotation.z=-travelEject*.6;
+ }
 }
 
 /** An exterior Scattergun and Rivet already contain ORIGINAL side-mounted
@@ -160,11 +205,19 @@ export function poseReloadHardware(mechanism,phase){
 export function poseExistingReloadMagazine(mechanism,phase,id){
  const magazine=mechanism?.cassette,rest=mechanism?.rest?.cassette;
  if(!magazine||!rest)return;
- const travel=(phase?.active?phase.feed:0)*
-   reloadVisualLayout(id).travel;
+ const motion=phase?.active?(phase.indexMotion??0):0;
+ const travel=motion*reloadVisualLayout(id).travel;
  magazine.position.copy(rest);
- magazine.position.x+=travel;
- magazine.position.y-=travel*.18;
+ magazine.rotation.x=0;magazine.rotation.y=0;
+ if(id==='gun-rivet'){
+   // Rotate the original 60-rivet drum around its own bearing axis.
+   magazine.rotation.x=motion*.72;
+   magazine.position.x+=Math.min(.025,travel*.15);
+ }else if(id==='gun-scatter'){
+   // Move the EXISTING captive shell cassette by one index pitch.
+   magazine.position.y-=travel*.62;
+   magazine.rotation.y=motion*.08;
+ }
 }
 /** The model's serviceable moving elements use their own authored rest pose.
  * All values are presentation-only; reload/firing rules stay in combat.js.
@@ -176,9 +229,11 @@ export function finishWeapon(root,{carriage,bolt,cassette=null}){
   const loader=cassette?null:attachReloadHardware(root,root.userData.fitFixtureId);
   root.userData.weaponMechanism={
     carriage,bolt,cassette,loader,
+    weaponId:root.userData.fitFixtureId,
     feedAxis:reloadMechanism(root.userData.fitFixtureId).feedAxis,
     rest:{
       carriage:carriage.position.clone(),
+      carriageRotation:carriage.rotation.clone(),
       bolt:bolt.position.clone(),
       cassette:cassette?.position.clone()??null,
     },
