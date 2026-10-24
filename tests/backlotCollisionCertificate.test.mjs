@@ -22,20 +22,20 @@ test('rebuilt exterior scenery does not become physically blocked cover',()=>{
  assert.match(derby,/auditBacklotCollisionTruth\(root,world,solids\)/);
  assert.match(derby,/secondaryGeometryClearance\(source,world\)/);
  assert.match(gallery,/secondaryCollisionClearance:catalog.secondaryCollisionClearance/);
- assert.match(stage,/collisionCertificate\.authoritativeRaycastSolids!==34/);
+ assert.match(stage,/collisionCertificate\.authoritativeRaycastSolids!==57/);
  assert.match(stage,/uncollidableOffsiteAssets!==18/);
 });
 test('every LIVE raycast solid is independently compared to the authored gameplay prism',()=>{
  for(const axis of ['minX','maxX','minZ','maxZ','minY','maxY'])
   assert.ok(cert.includes("'"+axis+"'"),axis);
- assert.match(cert,/hits\.get\(id\)!==1/);
+ assert.match(cert,/hits\.get\(key\)!==1/);
  assert.match(cert,/new THREE\.Box3\(\)\.setFromObject\(solid\)/);
- assert.match(cert,/expected=new Map/);
+ assert.match(cert,/expectedParts=new Map/);
  assert.match(cert,/authoritativeRaycastSolids/);
 });
 test("the gallery\u0027s fourteen hollow mechanical prototypes are NOT deceptively certified as solid",()=>{
- assert.match(cert,/currentPolicy:'retain-certified-AABBs-until-compound-fit'/);
- assert.match(cert,/galleryOnly:true/);
+ assert.match(cert,/currentPolicy:'tractor-and-loader-compound-live/);
+ assert.match(cert,/galleryOnly:false/);
  assert.match(cert,/plannedFamilies:Object\.freeze/);
  assert.match(cert,/tractor','loader','combine','pickup'/);
  assert.doesNotMatch(secondary,/world\.obstacles\.|solids\.push|arenaObstacleId/);
