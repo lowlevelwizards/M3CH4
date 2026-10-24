@@ -58,8 +58,15 @@ try {
  if(!await swap.isVisible()||!await smoke.isVisible())throw Error('EQUIPMENT CONTROLS NOT VISIBLE');
  await swap.click();
  if(!/2 \/ 2/.test(await swap.textContent()))throw Error('SECONDARY WEAPON NOT SELECTED');
+ const secondBefore=await page.locator('#ammo-count').textContent();
+ await page.locator('#fire').click();
+ await page.waitForTimeout(120);
+ const secondAfter=await page.locator('#ammo-count').textContent();
+ if(secondAfter===secondBefore)throw Error('SECOND GUN DID NOT FIRE '+JSON.stringify({secondBefore,secondAfter}));
  await swap.click();
  if(!/1 \/ 2/.test(await swap.textContent()))throw Error('PRIMARY WEAPON NOT RESTORED');
+ const primaryAmmo=await page.locator('#ammo-count').textContent();
+ if(primaryAmmo===secondAfter)throw Error('SHARED MAGAZINE ALIAS '+JSON.stringify({primaryAmmo,secondAfter}));
  await smoke.click();
  if(!/×1/.test(await smoke.textContent()))throw Error('CINDER SMOKE DID NOT DISCHARGE');
  if(await page.locator('.yard-shell').evaluate(node=>node.classList.contains('garage')))
