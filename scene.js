@@ -2111,10 +2111,10 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             const left=visual?.driveHealth?.left??mh;
             const right=visual?.driveHealth?.right??mh;
             const wound=machineWoundPose({family:mobilityId,left,right,
-                structure:record.condition?.parts?.structure?.integrity/
-                    Math.max(1,record.condition?.parts?.structure?.maxIntegrity??1),
-                command:record.condition?.parts?.command?.integrity/
-                    Math.max(1,record.condition?.parts?.command?.maxIntegrity??1),
+                structure:record.condition?.parts?.structure?.maxIntegrity>0?
+                    record.condition.parts.structure.integrity/record.condition.parts.structure.maxIntegrity:1,
+                command:record.condition?.parts?.command?.maxIntegrity>0?
+                    record.condition.parts.command.integrity/record.condition.parts.command.maxIntegrity:1,
                 loadLeft:record.footContacts?.feet?.[0]?.load??.5,
                 loadRight:record.footContacts?.feet?.[1]?.load??.5,
                 driveLoad:state.driveLoad??0});
