@@ -3,6 +3,7 @@
  * Viewed rig changes only a Three.js preview; battle-active rig changes at DEPLOY.
  */
 import { BY_ID } from './components.js';
+import { EQUIPMENT_DEFS, SECONDARY_WEAPONS, equipmentMounts } from './equipment.js';
 import { stationLabel, conditionFromPart, formatCondition } from './uiLanguage.js';
 import { createModuleIcon } from './moduleIcons.js';
 import { cycleBayId } from './bayCycle.js';
@@ -69,6 +70,7 @@ function markModuleInspected(serial){
 let viewedId = loadStable(storage).stable.activeRigId || 'rig-01';
 let mode = 'garage', selectedSlot = null, selectedHardwareSerial = null, selectedJobId = null;
 let identityExpanded = false;
+let equipmentExpanded = false;
 let paintExpanded = false, paintPreviewEdits = null, paintHighlightSlots = null;
 let swapExpanded = false, drawerExpanded = false, detailsExpanded = false;
 let triageSelected=new Set();let triageRigId=null;
@@ -713,6 +715,46 @@ function appendIdentityForm(view, stable) {
     return wrap;
 }
 
+function equipmentPanel(stable) {
+    const current=equipmentMounts(bayAssembly(stable,viewedId));
+    const box=el('details','workshop-equipment-panel');
+    box.open=equipmentExpanded;
+    const title=el('summary','workshop-equipment-title','▤ OPTIONAL HARDWARE · PHYSICAL MOUNTS');
+    title.addEventListener('click',()=>{equipmentExpanded=!equipmentExpanded;});
+    box.append(title,el('p','workshop-equipment-hint',
+        'Auxiliary parts add mass and generator load. Frame-limited sockets; only primary stations count toward knockout.'));
+    const mounts=[
+        ['utilityLeft','UTILITY · LEFT',Object.values(EQUIPMENT_DEFS).filter(x=>x.mount==='utility')],
+        ['utilityRight','UTILITY · RIGHT',Object.values(EQUIPMENT_DEFS).filter(x=>x.mount==='utility')],
+        ['armorFront','FRONTAL ARMOR',Object.values(EQUIPMENT_DEFS).filter(x=>x.mount==='armor')],
+        ['combatCradle','WEAPON CRADLE',Object.values(EQUIPMENT_DEFS).filter(x=>x.mount==='cradle')],
+        ['secondaryWeapon','SECONDARY WEAPON',SECONDARY_WEAPONS.map(id=>BY_ID.get(id)).filter(Boolean)],
+    ];
+    for(const [mount,label,defs] of mounts) {
+        const row=el('label','workshop-equipment-row');
+        row.append(el('span','',label));
+        const select=el('select','workshop-equipment-choice');
+        select.setAttribute('aria-label',label);
+        const empty=el('option','','— NONE —');empty.value='';select.append(empty);
+        for(const def of defs){
+            const opt=el('option','',def.name.replace('Deactivated ','')+' · '+def.massKg+' KG');
+            opt.value=def.id;select.append(opt);
+        }
+        select.value=current[mount]||'';
+        select.disabled=mount==='secondaryWeapon'&&!current.combatCradle;
+        select.addEventListener('change',()=>{
+            const result=emitEdit('m3ch4:bay-equipment',{rigId:viewedId,mount,id:select.value||null});
+            message(result.ok?'FITTING UPDATED · '+label:result.reason,!result.ok);
+            previewSignature='';render();
+        });
+        row.append(select);box.append(row);
+    }
+    const fitted=Object.entries(current).map(([mount,id])=>mount==='secondaryWeapon'?BY_ID.get(id):EQUIPMENT_DEFS[id]).filter(Boolean);
+    box.append(el('small','workshop-equipment-summary',
+        fitted.length+' FITTED · '+fitted.reduce((n,x)=>n+x.massKg,0)+' KG · '+
+        fitted.reduce((n,x)=>n+Math.max(0,-x.powerKw),0)+' KW LOAD'));
+    return box;
+}
 function renderGarage(stable,machine,view) {
     if(paintExpanded) {
         dock.append(createPaintBooth({
@@ -736,6 +778,7 @@ function renderGarage(stable,machine,view) {
         return;
     }
     if (selectedSlot) dock.append(moduleDetails(stable,view,machine));
+    dock.append(equipmentPanel(stable));
     if (!identityExpanded) return;
     const title=el('div','workshop-machine-heading');
     title.append(el('strong','',view.name.toUpperCase()),
