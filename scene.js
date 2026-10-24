@@ -3016,6 +3016,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const impactDistance = muzzle.distanceTo(point);
         const contact={ actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
             shieldedSlot: cover ? null : shieldedSlot,
+            equipmentId:cover?null:(actual?.object?.userData?.equipmentId??null),
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             point, normal: surfaceNormal, muzzle, distance: impactDistance,
             // The sight may deliberately end on a wall/floor/rig. Only warn if
@@ -3090,6 +3091,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             actorId: slot ? actorId : null,
             slot: slot ?? null, blockedBy, shieldedSlot: cover ? null : shieldedSlot,
             point, normal: surfaceNormal, muzzle,
+            equipmentId:cover?null:(actual?.object?.userData?.equipmentId??null),
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             distance: muzzle.distanceTo(point), driveSide,
         };
