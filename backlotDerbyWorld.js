@@ -1,8 +1,8 @@
-/** Backlot Dustbowl: an outdoor scrap-derby ring, not the indoor box arena.
- * Gameplay geometry remains one certified AABB per obstacle. Wreck details,
- * spectator structures, tracks, and the perimeter are visual-only; live
- * projectiles, AI line of sight, navigation, and hit certification still use
- * the same world.obstacles data.
+/** Backlot Dustbowl: true compound tractor/loader steel.
+ * Original obstacle group identities remain authored in maps/backlot.js.
+ * The rebuilt tractor/loader receive shared physical collision sub-prisms;
+ * other cover retains its existing single certified AABB.
+ * Navigation, locomotion, AI LOS and ballistics all use those exact parts.
  */
 import * as THREE from 'three';
 import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
