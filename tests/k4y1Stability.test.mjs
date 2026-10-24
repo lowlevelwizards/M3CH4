@@ -97,7 +97,7 @@ test('round tableau is genuinely noninteractive, reload uses authoritative timin
   assert.match(main, /classList\.remove\('victory-showcase', 'sortie-outro-active'\)/);
   for (const selector of ['#controls', '#fire', '#reload', '#brake', '#allied-observation'])
     assert.ok(css.includes('body.sortie-outro-active ' + selector), selector);
-  assert.match(main, /1\s*-\s*weaponState\.reloadLeft\s*\/\s*Math\.max\(\.01,weaponSpec\.reloadSeconds\)/);
+  assert.match(main, /1\s*-\s*weaponState\.reloadLeft\s*\/\s*Math\.max\(\.01,reloadDuration\(weaponState,weaponSpec\)\)/);
   assert.match(main, /--reload-progress/);
   assert.match(source('styles.css'), /reload-button\.reloading::before/);
 });
