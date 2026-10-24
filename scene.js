@@ -1793,6 +1793,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const mechanism=exterior.partGroups.get('combat')?.userData.weaponMechanism;
         if(mechanism){
             mechanism.carriage.position.copy(mechanism.rest.carriage);
+            if(mechanism.rest.carriageRotation)
+                mechanism.carriage.rotation.copy(mechanism.rest.carriageRotation);
             mechanism.bolt.position.copy(mechanism.rest.bolt);
             if(mechanism.cassette && mechanism.rest.cassette)
                 mechanism.cassette.position.copy(mechanism.rest.cassette);
@@ -1976,14 +1978,24 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             gunDamageKick*damageWave*.16+pilotHitResponse.roll*.22, 'YXZ');
         gunPivot.position.x=1.16+gunDamageKick*damageWave*.045+reloadView.x;
         gunPivot.position.y=2.04+reloadView.y;
-        cockpit.userData.gunBreech.position.z=-.19+reload.slide+pilotFiringPose.bolt*.105;
+        // Powered breech: open, eject, index from the built-in feed,
+        // close, then a short charging rack AFTER lock-up.
+        cockpit.userData.gunBreech.position.z=-.19+reload.slide+reload.rack+
+            pilotFiringPose.bolt*.105;
         cockpit.userData.gunBreech.position.y=reload.bolt*.24+pilotFiringPose.stop*.019;
+        cockpit.userData.gunBreech.rotation.x=reload.open*
+            (reload.archetype==='breech'?.27:.09);
         cockpit.userData.scatterGreebles.position.y=0;
         const activeKit=cockpit.userData.weaponKits[pilotWeaponPresentation.id];
         if(activeKit?.visible){
-            activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13+reload.slide*.68;
-            activeKit.userData.carriage.position.y=pilotFiringPose.stop*.024+reload.bolt*.28;
-            poseReloadHardware(activeKit.userData.reloadMechanism,reload);
+            const mech=activeKit.userData.reloadMechanism;
+            activeKit.userData.carriage.position.z=pilotFiringPose.bolt*.13+
+                reload.slide*.68+reload.rack;
+            activeKit.userData.carriage.position.y=pilotFiringPose.stop*.024+
+                reload.bolt*.28+reload.ram*.025;
+            activeKit.userData.carriage.rotation.x=reload.open*
+                (reload.archetype==='breech'?.40:reload.archetype==='pod'?.20:.10);
+            poseReloadHardware(mech,reload);
         }
         // The heavy loading mechanism transfers a small, visible load into
         // the mounting without disturbing the ballistic barrel's sightline.
@@ -2214,9 +2226,15 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 if(mechanism){
                     const rest=mechanism.rest;
                     mechanism.carriage.position.z=rest.carriage.z+reload.slide+
-                        (record.recoilKick??0)*.35+(discharge?.bolt??0)*.09;
-                    mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14;
+                        reload.rack+(record.recoilKick??0)*.35+
+                        (discharge?.bolt??0)*.09;
+                    mechanism.carriage.position.y=rest.carriage.y+reload.bolt*.14+
+                        reload.ram*.032;
+                    mechanism.carriage.rotation.x=(rest.carriageRotation?.x??0)+
+                        reload.open*(reload.archetype==='breech'?.40:
+                            reload.archetype==='pod'?.20:.10);
                     mechanism.bolt.position.z=rest.bolt.z+reload.bolt+
+                        reload.ram*.13+reload.rack+
                         (discharge?.bolt??0)*.12;
                     // Existing side drums/cassettes slide ONLY a short
                     // distance on their authored mount. Never fabricate a
@@ -4041,7 +4059,8 @@ export function buildCockpit(scene) {
         }
         group.add(carriage);group.userData.carriage=carriage;
         const loader=attachReloadHardware(group,id);
-        group.userData.reloadMechanism={loader,feedAxis:reloadMechanism(id).feedAxis};
+        group.userData.reloadMechanism={loader,weaponId:id,
+            feedAxis:reloadMechanism(id).feedAxis};
         group.visible=false;gunPivot.add(group);weaponKits[id]=group;
     };
     kit('gun-cannon',[[-.20,-.15,-.31,.12,.15,.82,'metal'],[.20,-.15,-.31,.12,.15,.82,'metal']],
