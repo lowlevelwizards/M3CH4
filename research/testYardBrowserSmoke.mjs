@@ -22,7 +22,7 @@ try {
    })))+' '+errors.join('\n')+' '+String(err));
  }
  const bench=await page.evaluate(()=>({
-   selects:document.querySelectorAll('.yard-select').length,
+   selects:document.querySelectorAll('.yard-parts .yard-select').length,
    weapons:document.querySelector('.yard-select[aria-label="WEAPON"]')?.options.length,
    garage:document.querySelector('.yard-shell')?.classList.contains('garage'),
    map:document.querySelector('#dev-version')?.textContent,
@@ -42,6 +42,26 @@ try {
  if(await page.locator('.yard-shell').evaluate(node=>node.classList.contains('garage')))
    throw Error('Deploy did not leave garage');
  await page.screenshot({path:'browser-smoke-artifacts/test-yard-range.png'});
+ // Interactive injury laboratory must operate on the real paired drive and
+ // enemy module, without ever touching persistent campaign save data.
+ await page.locator('.yard-toolbar button').filter({hasText:'DAMAGE'}).click();
+ const lab=page.locator('#yard-damage-lab');
+ await lab.locator('select[aria-label="System to injure"]').selectOption('mobility');
+ await lab.locator('select[aria-label="Mobility side"]').selectOption('left');
+ await lab.getByRole('button',{name:'25%'}).click();
+ const wounded=await lab.locator('.yard-injury-readout').textContent();
+ if(!/L 25% \/ R 100%/.test(wounded))throw Error('LEFT DRIVE NOT INJURED '+wounded);
+ await page.screenshot({path:'browser-smoke-artifacts/test-yard-damage-lab.png'});
+ await lab.getByRole('button',{name:'RESTORE SELECTED MACHINE'}).click();
+ const restored=await lab.locator('.yard-injury-readout').textContent();
+ if(!/L 100% \/ R 100%/.test(restored))throw Error('DRIVE NOT RESTORED '+restored);
+ await lab.locator('select[aria-label="Machine to injure"]').selectOption('enemy');
+ await lab.locator('select[aria-label="System to injure"]').selectOption('power');
+ await lab.getByRole('button',{name:'50%'}).click();
+ const damagedEnemy=await lab.locator('.yard-injury-readout').textContent();
+ if(!/ENEMY · POWER 50%/.test(damagedEnemy))throw Error('AI MODULE NOT INJURED '+damagedEnemy);
+ await lab.getByRole('button',{name:'RESTORE SELECTED MACHINE'}).click();
+ await page.locator('.yard-toolbar button').filter({hasText:'DAMAGE'}).click();
  const before=await page.locator('#ammo-count').textContent();
  await page.locator('#fire').click({timeout:10000});
  await page.waitForTimeout(100);
