@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
 import {buildBacklotObstacleKit} from './backlotObstacleKits.js';
 import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
-import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
+import {buildAnatomicalLoader,MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
 import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
 import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
 import {upgradeBacklotSecondaryProps} from './backlotSecondaryAnatomy.js';
