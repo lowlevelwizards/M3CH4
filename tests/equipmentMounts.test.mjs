@@ -100,7 +100,7 @@ test('mounted equipment genuinely increases live idle bus load',()=>{
  const idle=standbyDemandKw(assembly);
  const basePower=createPowerSystem(assembly);
  assert.equal(equipAuxiliary(assembly,'utilityLeft','mule-pump').ok,true);
- assert.equal(standbyDemandKw(assembly)-idle,12);
+ assert.ok(Math.abs(standbyDemandKw(assembly)-idle-12)<1e-8);
  const fittedPower=createPowerSystem(assembly);
- assert.equal(fittedPower.demandKw-basePower.demandKw,12);
+ assert.ok(Math.abs(fittedPower.demandKw-basePower.demandKw-12)<1e-8);
 });
