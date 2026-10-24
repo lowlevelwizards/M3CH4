@@ -126,7 +126,7 @@ function electricalTrial(assembly, baseConfig, gunId, powerCondition, phase) {
         maxDemandKw: rounded(maxDemandKw), brownoutFrames,
         lowReserve: rounded(lowReserve),
         endReserve: rounded(power.reserveFraction), shots, powerBlockedTriggers,
-        ammoSpent: weapon.firingCount // Actual spent discharges; reserves are now infinite. };
+        ammoSpent: weapon.firingCount }; // Count spent discharges, never infinite inventory. };
 }
 
 function measureVariant(name, recipeIds, driveLeft, driveRight, powerCondition) {
