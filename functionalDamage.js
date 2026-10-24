@@ -60,7 +60,7 @@ export function functionalOutput(assembly, state) {
     return {
         left, right, power, powerAvailableKw, nominalDemandKw, powerFactor, weapon,
         drive: (left + right) / 2 * powerFactor,
-        weaponOperational: weapon > .12 && powerAvailableKw >= Math.max(4, Math.abs(weaponPart?.definition.powerKw ?? 0)),
+        weaponOperational: weapon > 0 && powerAvailableKw >= Math.max(4, Math.abs(weaponPart?.definition.powerKw ?? 0)),
     };
 }
 /** Translate actual component performance to the *existing* force-based model.
@@ -87,8 +87,21 @@ export function derateRigConfig(base, output) {
     };
 }
 export function weaponSpreadMultiplier(output) {
-    return 1 + (1 - output.weapon) * 7;
+    return 1 + Math.pow(1 - output.weapon, 1.3) * 2.5;
 }
 export function weaponCycleMultiplier(output) {
-    return 1 + (1 - output.weapon) * 1.2;
+    return 1 + (1 - output.weapon) * .75;
+}
+
+/** Reconcile a legitimate mobility field restart with the two physical drives.
+ * Preserve stronger surviving drive health; never conjure armor or remove wear.
+ */
+export function restoreFieldServicedDrive(assembly,state,ratio) {
+    const sections=driveSections(assembly,state);
+    const installed=installedPart(assembly,'mobility');
+    if(!sections||!installed)return;
+    const floor=clamp01(ratio);
+    sections.left=Math.max(sections.left,floor);
+    sections.right=Math.max(sections.right,floor);
+    installed.instance.condition=(sections.left+sections.right)/2;
 }
