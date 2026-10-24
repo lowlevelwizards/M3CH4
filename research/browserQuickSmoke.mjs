@@ -45,8 +45,8 @@ try{
       oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
   if(!backlot.stats?.collisionCertificate?.pass||
-   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==59||
-   backlot.stats.collisionCertificate.expectedPhysicalParts!==59||
+   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==60||
+   backlot.stats.collisionCertificate.expectedPhysicalParts!==60||
    backlot.stats.collisionCertificate.uncollidableOffsiteAssets!==18)
     throw Error('Backlot physical/render certificate failed: '+
       JSON.stringify(backlot.stats?.collisionCertificate));
