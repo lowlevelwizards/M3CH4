@@ -442,8 +442,13 @@ export function batchBacklotDerbyDecorations(root){
  // plain trailer boxes would cost many dozens of additional iPhone draws.
  // This happens only in the live render graph; the source gallery retains
  // the true unbatched, named component hierarchy for inspection.
- const completed=[...root.children].filter(node=>node.isGroup&&
-   /^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/.test(node.name));
+ // Globally batch the newly live static machines WITH the already
+ // optimized offsite scenery. Local wheel groups otherwise leave ~80 extra
+ // draw calls despite sharing the same material and geometry primitives.
+ const completed=[...root.children].filter(node=>node.isGroup&&(
+   /^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/.test(node.name)||
+   /^LIVE compound rebuilt (?:tractor|tracked loader)$/.test(node.name)));
+ const secondaryAssemblyCount=completed.filter(n=>n.name.startsWith('secondary-')).length;
  let secondaryInstances=0,secondaryBatches=0;
  if(completed.length){
   root.updateWorldMatrix(true,true);
@@ -512,7 +517,8 @@ export function batchBacklotDerbyDecorations(root){
    }
  }
  return Object.freeze({sourceMeshes,batches,instances,
-   secondaryAssemblies:completed.length,secondaryInstances,secondaryBatches,
+   secondaryAssemblies:secondaryAssemblyCount,secondaryInstances,secondaryBatches,
+   globallyBatchedLiveMachines:completed.length-secondaryAssemblyCount,
    callsSaved:instances-batches+secondaryInstances-secondaryBatches});
 }
 export function buildBacklotDerbyWorld(scene,world,solids){
