@@ -3,6 +3,7 @@
  * through plausible line-of-sight observation and expire after lost contact.
  */
 import { tacticalRigVisible } from '../tacticalAwareness.js';
+import { smokeObscures } from '../tacticalSmoke.js';
 import { partHealth } from '../damageBehavior.js';
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -33,7 +34,7 @@ export function actorCapabilities(actor) {
         endurance:Math.min(structure,Math.max(.15,power),Math.max(.15,command)),
         speed:Math.max(.12,mobility)*Math.max(.30,power)};
 }
-export function observeBattlefield(memory,roster,objective,world,time=0) {
+export function observeBattlefield(memory,roster,objective,world,time=0,smokeClouds=[]) {
     const participants=(roster??[]).filter(a=>a?.rig).map(a=>({
         id:a.id,team:a.team,active:a.active!==false,label:a.label??a.id,
         position:{x:a.rig.x,z:a.rig.z},
@@ -63,7 +64,8 @@ export function observeBattlefield(memory,roster,objective,world,time=0) {
                 // Wide optics still have a rear blind sector. Proximity does
                 // not grant exact coordinates through the chassis.
                 return fwd>Math.cos(112*Math.PI/180)&&
-                    tacticalRigVisible(friend.position,enemy.position,world);
+                    tacticalRigVisible(friend.position,enemy.position,world) &&
+                    !smokeObscures(friend.position,enemy.position,smokeClouds);
             });
             if(spotted){
                 const report={id:enemy.id,team:enemy.team,
