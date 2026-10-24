@@ -6,7 +6,7 @@ const source=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('Cyclops and Kestrel have individually addressed symmetry and authentic tier progressions',()=>{
   assert.equal(installedArmorPlates('cab-cyclops',0).length,0);
   assert.deepEqual([0,1,2,3].map(n=>installedArmorPlates('cab-cyclops',n).length),[0,2,4,8]);
-  assert.deepEqual([0,1,2,3].map(n=>installedArmorPlates('legs-compact',n).length),[0,2,6,12]);
+  assert.deepEqual([0,1,2,3].map(n=>installedArmorPlates('legs-compact',n).length),[0,2,4,8]);
   for(const entry of Object.values(ARMOR_PROTOTYPES)){
     assert.equal(new Set(entry.plates.map(p=>p.id)).size,entry.plates.length);
     assert.ok(entry.plates.every(p=>p.massKg>0&&p.hp>0&&p.region));

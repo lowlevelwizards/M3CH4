@@ -21,16 +21,12 @@ export const ARMOR_PROTOTYPES=Object.freeze({
     plates:Object.freeze([
       {id:'kestrel-left-shin',label:'LEFT SHIN GREAVE',tier:1,region:'front-left',massKg:14,hp:72},
       {id:'kestrel-right-shin',label:'RIGHT SHIN GREAVE',tier:1,region:'front-right',massKg:14,hp:72},
-      {id:'kestrel-left-knee',label:'LEFT KNEE SHIELD',tier:2,region:'joint-left',massKg:13,hp:75},
-      {id:'kestrel-right-knee',label:'RIGHT KNEE SHIELD',tier:2,region:'joint-right',massKg:13,hp:75},
       {id:'kestrel-left-thigh',label:'LEFT FRONT THIGH',tier:2,region:'front-left',massKg:18,hp:90},
       {id:'kestrel-right-thigh',label:'RIGHT FRONT THIGH',tier:2,region:'front-right',massKg:18,hp:90},
       {id:'kestrel-left-flank',label:'LEFT OUTER THIGH',tier:3,region:'outer-left',massKg:18,hp:92},
       {id:'kestrel-right-flank',label:'RIGHT OUTER THIGH',tier:3,region:'outer-right',massKg:18,hp:92},
-      {id:'kestrel-left-ankle',label:'LEFT HOCK SHELL',tier:3,region:'joint-left',massKg:10,hp:62},
-      {id:'kestrel-right-ankle',label:'RIGHT HOCK SHELL',tier:3,region:'joint-right',massKg:10,hp:62},
-      {id:'kestrel-left-boot',label:'LEFT BOOT CAP',tier:3,region:'foot-left',massKg:12,hp:70},
-      {id:'kestrel-right-boot',label:'RIGHT BOOT CAP',tier:3,region:'foot-right',massKg:12,hp:70},
+      {id:'kestrel-left-boot',label:'LEFT SPLIT BOOT GUARD',tier:3,region:'foot-left',massKg:12,hp:70},
+      {id:'kestrel-right-boot',label:'RIGHT SPLIT BOOT GUARD',tier:3,region:'foot-right',massKg:12,hp:70},
     ]),
   }),
 });
