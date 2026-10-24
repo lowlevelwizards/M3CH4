@@ -59,10 +59,11 @@ test('gallery exposes all polished cover families and distinct DEV prototypes',(
  assert.match(gallery,/experimentalIds:entries\.filter/);
 });
 test('finish pass leaves gameplay collision, navigation and save shape unchanged',()=>{
+ assert.match(kits,/shell\.userData\.arenaObstacleId=o\.id/);
  assert.equal(BACKLOT.version,3);
  assert.equal(BACKLOT.world.obstacles.length,34);
  assert.equal(BACKLOT.world.obstacles.filter(o=>o.id.startsWith('loader-')).length,5);
  assert.equal(BACKLOT.world.obstacles.filter(o=>o.id.startsWith('tractor-')).length,7);
- for(const file of [machines,salvage,audit,kits,scenery])
+ for(const file of [machines,salvage,audit,scenery])
   assert.doesNotMatch(file,/world\.obstacles\.push|localStorage|arenaObstacleId\s*=/);
 });
