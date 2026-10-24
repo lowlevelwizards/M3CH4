@@ -106,11 +106,11 @@ try{
  await page.screenshot({path:'armor-lab-artifacts/kestrel-armor-1.png'});
  await tier(2);
  state=await check();
- if(state.count!==6)throw Error('Kestrel medium thigh armor missing '+JSON.stringify(state));
+ if(state.count!==4)throw Error('Kestrel 4-piece medium limb-shell armor missing '+JSON.stringify(state));
  await page.screenshot({path:'armor-lab-artifacts/kestrel-armor-2.png'});
  await tier(3);
  state=await check();
- if(state.count!==12)throw Error('Kestrel 12 independent articulated limb panels missing '+JSON.stringify(state));
+ if(state.count!==8)throw Error('Kestrel 8 independent fitted limb panels missing '+JSON.stringify(state));
  await page.locator('#armor-walk').click();
  if(await page.locator('#armor-walk').getAttribute('aria-pressed')!=='true')
   throw Error('Kestrel gait toggle did not engage');
@@ -163,9 +163,76 @@ try{
   }
   return byTier;
  });
- if(alignment['legs-compact:3'].count!==12||
+ if(alignment['legs-compact:3'].count!==8||
    alignment['cab-cyclops:3'].count!==8)
   throw Error('Silhouette armor geometry missing '+JSON.stringify(alignment));
+ const physical=await page.evaluate(async()=>{
+  const THREE=await import('three');
+  const {createArmoredPrototype,disposeArmorSpecimen}=await import('./armorPrototype.js');
+  const specimen=createArmoredPrototype('legs-compact',3);
+  const footClearance=[],jointClearance=[];
+  const poses=[
+    {hip:0,knee:0,ankle:0},
+    {hip:.24,knee:.24,ankle:-.14},
+    {hip:-.24,knee:.12,ankle:.14},
+    {hip:.14,knee:-.13,ankle:-.08},
+  ];
+  // Check transformed vertices, NOT just node-parent names or bounding boxes.
+  // The shells should remain outside the real bearing hub volumes even
+  // through articulated poses; the naked pivots stay visually exposed.
+  for(const pose of poses){
+    for(const side of ['left','right']){
+      const hip=specimen.root.getObjectByName(side+'Hip');
+      const knee=specimen.root.getObjectByName(side+'Knee');
+      const ankle=specimen.root.getObjectByName(side+'Ankle');
+      hip.rotation.x=pose.hip;
+      knee.rotation.x=pose.knee;
+      ankle.rotation.x=pose.ankle;
+    }
+    specimen.root.updateMatrixWorld(true);
+    for(const [id,plate] of specimen.plates){
+      const mesh=plate.mesh,verts=mesh.geometry.getAttribute('position');
+      const side=id.includes('left')?'left':'right';
+      for(const [nodeName,radius] of [['Hip',.12],['Knee',.094],['Ankle',.060]]){
+        const pivot=specimen.root.getObjectByName(side+nodeName);
+        const centre=pivot.getWorldPosition(new THREE.Vector3());
+        let nearest=Infinity;
+        for(let v=0;v<verts.count;v++){
+          const world=new THREE.Vector3().fromBufferAttribute(verts,v).applyMatrix4(mesh.matrixWorld);
+          nearest=Math.min(nearest,world.distanceTo(centre));
+        }
+        if(nearest<radius)
+          throw Error('Armor invades '+side+nodeName+' pivot during '+JSON.stringify(pose)+
+            ': '+id+' '+nearest.toFixed(4));
+        jointClearance.push(nearest);
+      }
+    }
+  }
+  // A single forked boot plate covers BOTH existing toe pads but its
+  // center gap remains an actual absence of steel, not a painted seam.
+  for(const side of ['left','right']){
+    const plate=specimen.plates.get('kestrel-'+side+'-boot').mesh;
+    specimen.root.getObjectByName(side+'Hip').rotation.x=0;
+    specimen.root.getObjectByName(side+'Knee').rotation.x=0;
+    specimen.root.getObjectByName(side+'Ankle').rotation.x=0;
+    specimen.root.updateMatrixWorld(true);
+    const foot=plate.parent;
+    const down=new THREE.Vector3(0,-1,0).transformDirection(foot.matrixWorld);
+    const sample=x=>{
+      const start=foot.localToWorld(new THREE.Vector3(x,.30,-.19));
+      return new THREE.Raycaster(start,down,0,.5).intersectObject(plate,false).length>0;
+    };
+    const triple=[sample(-.105),sample(0),sample(.105)];
+    if(!triple[0]||triple[1]||!triple[2])
+      throw Error('Fork armor closed split toe slot '+side+' '+triple);
+    footClearance.push({side,openCentre:!triple[1],armoredToes:2});
+  }
+  disposeArmorSpecimen(specimen);
+  return {jointClearanceMin:Math.min(...jointClearance),footClearance};
+ });
+ if(physical.footClearance.length!==2||
+   physical.jointClearanceMin<.060)
+  throw Error('Kestrel joint or boot validation failed '+JSON.stringify(physical));
  const geometry=await page.evaluate(async()=>{
   const {createArmoredPrototype,disposeArmorSpecimen}=await import('./armorPrototype.js');
   const cy=createArmoredPrototype('cab-cyclops',3);
@@ -178,9 +245,9 @@ try{
   disposeArmorSpecimen(cy);disposeArmorSpecimen(ke);
   return {names,head};
  });
- if(geometry.names.length!==12||geometry.names.some(p=>!p.moveWithLeg)||
+ if(geometry.names.length!==8||geometry.names.some(p=>!p.moveWithLeg)||
     geometry.head.length!==8)throw Error('Plate joint attachment missing '+JSON.stringify(geometry));
  if(errors.length)throw Error('Armor browser errors '+JSON.stringify(errors));
  console.log('ARMOR LAB PASS '+JSON.stringify({cyclopsPlateCount:8,
-  kestrelPlateCount:12,geometry,crewRestoration:true}));
+  kestrelPlateCount:8,geometry,crewRestoration:true}));
 }finally{await browser.close();}
