@@ -3060,6 +3060,15 @@ function finishSortie(victory, reason) {
     renderAmmo();
     syncCockpitInstruments();
 }
+// Plate interception follows the ACTUAL hit mesh. A frontal impact has
+// reduced ballistic energy while structural armor remains; flanks and stripped
+// armor get no bonus. Damage still belongs to the five real core stations.
+function equipmentAdjustedDamage(contact, condition, damage) {
+    if(contact?.equipmentId==='boarhide' &&
+        (condition?.parts?.structure?.armor??0)>.01)
+        return damage*.63;
+    return damage;
+}
 function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage, audible = true) {
     const serviceInterruptedByHit = fieldService.held;
     stopFieldServiceInput();
@@ -3067,7 +3076,7 @@ function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage
     const partBefore = playerCondition.parts[contact.slot];
     const before = partSnapshot(partBefore);
     const beforeIntegrity = partBefore.integrity;
-    const hit = applyTargetHit(playerCondition, contact.slot, shotDamage);
+    const hit = applyTargetHit(playerCondition, contact.slot, equipmentAdjustedDamage(contact,playerCondition,shotDamage));
     if (hit.internalDamage > 0) {
         const amount = hit.internalDamage / Math.max(1, partBefore.maxIntegrity);
         if (contact.slot === 'mobility')
@@ -3267,7 +3276,7 @@ function resolveAiShotContact(actor,target,contact,damage) {
     interruptAiFieldService(target);
     const beforePart = partSnapshot(target.condition.parts[contact.slot]);
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
-    const hit = applyTargetHit(target.condition, contact.slot, damage);
+    const hit = applyTargetHit(target.condition, contact.slot, equipmentAdjustedDamage(contact,target.condition,damage));
     const newlyDisabled=beforeIntegrity>0&&target.condition.parts[contact.slot].integrity<=0;
     if(newlyDisabled)noteAiModuleDisabled(target,contact.slot,actor.rig);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
@@ -3426,7 +3435,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         // shove it or spend ammunition breaking it down into a much smaller remnant.
         if (!targetActor.active) {
             const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
-            const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
+            const hit = applyTargetHit(targetActor.condition, contact.slot, equipmentAdjustedDamage(contact,targetActor.condition,damage));
             const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
             targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, damage);
             const cleared = targetActor.wreckIntegrity <= .001;
@@ -3462,7 +3471,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         interruptAiFieldService(targetActor);
         const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
-        const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
+        const hit = applyTargetHit(targetActor.condition, contact.slot, equipmentAdjustedDamage(contact,targetActor.condition,damage));
         const newlyDisabled=beforeIntegrity>0&&targetActor.condition.parts[contact.slot].integrity<=0;
         if(newlyDisabled)noteAiModuleDisabled(targetActor,contact.slot,rig);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
