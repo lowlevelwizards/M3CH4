@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three';
 import {BACKLOT} from './maps/backlot.js';
-import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r9';
+import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5s0';
 import {BACKLOT_COVER_KITS} from './backlotObstacleKits.js';
 const $=id=>{const node=document.getElementById(id);if(!node)throw Error('Missing #'+id);return node;};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
@@ -121,7 +121,8 @@ function buildGrid(){
  selectEl.append(optgroup1,optgroup2);
  return {coverCount,experimentCount:catalog.experimentCount,showcaseCount:catalog.showcaseCount,
   sceneryArchetypes:catalog.sceneryArchetypes,total:entries.length,
-  styledCoverFamilies:BACKLOT_COVER_KITS};
+  styledCoverFamilies:BACKLOT_COVER_KITS,
+  secondaryAssemblyIds:entries.filter(e=>e.id.startsWith('secondary-')).map(e=>e.id)};
 }
 let yaw=0,pitch=0,active=0,drag=null,joystickPointer=null;
 const axes={x:0,y:0,up:0,down:0};

@@ -162,6 +162,7 @@ function horizonFarm(root,w){
  for(const [x,z,h] of [[-86,-39,19],[76,-48,23],[82,39,15]]){
   cylinder(g,'farm-grain-silo',4.0,4.3,h,x,h/2,z,surface(0x888b7c,{metalness:.25}),12);
   const crown=new THREE.Mesh(new THREE.ConeGeometry(4.25,2.7,12),metal);
+  crown.name='farm-silo-conical-crown';
   crown.position.set(x,h+1.2,z);crown.userData.visualOnly=true;g.add(crown);
   for(const y of [2.1,h*.45,h*.88])
    cylinder(g,'silo-corrosion-band',4.22,4.22,.2,x,y,z,red,12);

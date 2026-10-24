@@ -11,6 +11,7 @@ import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
 import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
 import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
 import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
+import {upgradeBacklotSecondaryProps} from './backlotSecondaryAnatomy.js';
 import {auditBacklotAssembly} from './backlotAssemblyAudit.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
@@ -229,6 +230,19 @@ function createWreck(parent,o,solids){
 
 
  if(pillar){
+   // Four actual in-arena collision columns: preserve their opaque AABBs.
+   // Compose believable floodlight towers on those certified columns, not
+   // on the o.art-only machine path (the pillars do not carry art tags).
+   for(const yy of [h*.29,h*.63,h*.87])
+    block(parent,'arena-light-structural-mast-collar',w*.91,.19,d*.91,
+      x,yy,z,P.rust2,.36);
+   block(parent,'arena-light-maintenance-junction-box',w*.72,.75,d*.70,
+      x,1.45,z+d*.39,P.steel,.29);
+   for(const dx of [-.72,.72]){
+    const strut=block(parent,'arena-light-outboard-brace',.16,1.12,.20,
+      x+dx*.71,h-.34,z,P.rust,.35);
+    strut.rotation.z=dx>0?-.38:.38;
+   }
    block(parent,'welded-lamp-mast',w*.48,h*.95,d*.48,x,h*.51,z,P.iron,.54);
    block(parent,'lamp-head',2.05,.25,.45,x,h+.30,z,P.steel,.42);
    for(const dx of [-.69,0,.69])
@@ -386,6 +400,49 @@ function dirtMarks(root,w){
  * while the repeated planks, tyres, spectators and scrap stay purely visual.
  */
 export function batchBacklotDerbyDecorations(root){
+ // Secondary scenery is *entirely* visual and permanently static.
+ // First instance the 18 rebuilt offsite assemblies ACROSS objects, not
+ // separately inside each wagon/pole/shack. Without this, replacing eight
+ // plain trailer boxes would cost many dozens of additional iPhone draws.
+ // This happens only in the live render graph; the source gallery retains
+ // the true unbatched, named component hierarchy for inspection.
+ const completed=[...root.children].filter(node=>node.isGroup&&
+   /^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/.test(node.name));
+ let secondaryInstances=0,secondaryBatches=0;
+ if(completed.length){
+  root.updateWorldMatrix(true,true);
+  const inverse=root.matrixWorld.clone().invert();
+  const buckets=new Map();
+  for(const group of completed){
+   group.traverse(node=>{
+    if(!node.isMesh||node.isInstancedMesh||node.material?.transparent)return;
+    const key=node.geometry.uuid+':'+node.material.uuid;
+    if(!buckets.has(key))buckets.set(key,[]);
+    buckets.get(key).push({node,matrix:inverse.clone().multiply(node.matrixWorld)});
+    secondaryInstances++;
+   });
+  }
+  for(const group of completed)root.remove(group);
+  const merged=new THREE.Group();merged.name='batch-completed-secondary-scenery';
+  root.add(merged);
+  for(const items of buckets.values()){
+   if(items.length===1){
+    const {node,matrix}=items[0];
+    const one=node.clone();
+    matrix.decompose(one.position,one.quaternion,one.scale);
+    merged.add(one);
+    continue;
+   }
+   const batch=new THREE.InstancedMesh(items[0].node.geometry,
+     items[0].node.material,items.length);
+   batch.name='instanced-secondary-scenery';
+   batch.userData.visualOnly=true;
+   batch.castShadow=false;batch.receiveShadow=true;
+   items.forEach((item,i)=>batch.setMatrixAt(i,item.matrix));
+   batch.instanceMatrix.needsUpdate=true;
+   merged.add(batch);secondaryBatches++;
+  }
+ }
  // Batch static siblings at EVERY authored hierarchy level, not just the
  // world root. All instances use local transforms, so rotated rails, scaled
  // cladding, distant barns and bleachers remain exactly where built.
@@ -419,7 +476,8 @@ export function batchBacklotDerbyDecorations(root){
    }
  }
  return Object.freeze({sourceMeshes,batches,instances,
-   callsSaved:instances-batches});
+   secondaryAssemblies:completed.length,secondaryInstances,secondaryBatches,
+   callsSaved:instances-batches+secondaryInstances-secondaryBatches});
 }
 export function buildBacklotDerbyWorld(scene,world,solids){
  const root=new THREE.Group();root.name='backlot-outdoor-derby-world';
@@ -428,6 +486,7 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  for(const obstacle of world.obstacles)createWreck(root,obstacle,solids);
  dirtMarks(root,world);spectatorYard(root,world);
  upgradeBacklotScenery(root,world);
+ upgradeBacklotSecondaryProps(root,world);
  const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
    fixtureBatch,
@@ -563,6 +622,7 @@ export function buildBacklotPropCatalog(world){
  buildBacklotTerrainAndFacilities(source,world);
  spectatorYard(source,world);
  upgradeBacklotScenery(source,world);
+ upgradeBacklotSecondaryProps(source,world);
  source.updateWorldMatrix(true,true);
  // Scenic assemblies from the original venue's own generation pass.
  const scenicShows=[
@@ -587,6 +647,31 @@ export function buildBacklotPropCatalog(world){
    });
    if(group.children.length)catalog.push({id:'assembly-'+feature.id,category:'scenery',
      label:feature.label,detail:group.children.length+' REAL VENUE COMPONENTS · ASSEMBLED',group});
+ }
+ // Inspect complete connected secondary objects, not individual spokes.
+ const secondary=[
+  ['farm-wagon','FARM WAGON · STRUCTURAL REBUILD','secondary-trailer-farm-wagon-0'],
+  ['salvage-flatbed','OFFSITE SALVAGE WAGON · REBUILD','secondary-trailer-salvage-flatbed-1'],
+  ['fuel-shack','FUEL SERVICE SHACK · REBUILD','secondary-fuel-counter-shack'],
+  ['mechanic-shed','OPEN REPAIR BAY · REBUILD','secondary-mechanic-service-shed'],
+  ['grain-silo','GRAIN SILO · CHUTES / LADDER','secondary-working-grain-silo-0'],
+  ['power-pole','POWER POLE · TRANSFORMER / BRACES','secondary-power-pole-0'],
+  ['yard-entry','YARD GATE · BRACED STEEL ARCH','secondary-derby-gate'],
+  ['main-entrance','HOG PEN MARQUEE · TRUSSED GATE','secondary-hog-pen-entry-gantry'],
+ ];
+ for(const [id,label,nodeName] of secondary){
+  const src=source.getObjectByName(nodeName);
+  if(!src)throw Error('Secondary Backlot exhibit missing '+nodeName);
+  const group=new THREE.Group();
+  src.traverse(o=>{
+   if(!o.isMesh)return;
+   const clone=o.clone();
+   clone.matrix.copy(o.matrixWorld);
+   clone.matrix.decompose(clone.position,clone.quaternion,clone.scale);
+   group.add(clone);
+  });
+  catalog.push({id:'secondary-'+id,category:'scenery',label,
+    detail:group.children.length+' REAL ASSEMBLED SECONDARY PROP PARTS',group});
  }
  const scenicNames=new Set(),scenicComponents=[];
  const exclude=/^(offsite-farm-earth|uneven-oval-dirt-berm|random-scraped-earth|continuous-churned-oval-rut|sunbleached-dirt-patches|churned-wheel-ruts|airborne-dust|impact-dirt-puff|real-cover-impact-scar|worn-objective-track|distant-earth-ridge)/;
