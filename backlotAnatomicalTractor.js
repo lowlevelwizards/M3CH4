@@ -134,6 +134,10 @@ export function buildAnatomicalTractor(root){
   beam(g,'rear-safety-cage-diagonal',[side*1.10,1.47,-2.94],
     [side*1.19,2.95,-2.20],.062,C.rust,6);
  }
+ // Braced rear safety rail physically shields the oblique arena spawn lane,
+ // while retaining the cab's open side windows and overhead visibility.
+ beam(g,'midheight-rear-rollcage-screen',[-1.06,1.86,-2.72],
+  [1.06,1.86,-2.72],.18,C.steel,8);
  block(g,'cab-floating-canopy-roof',2.98,.27,2.52,0,3.15,-1.99,C.paint,.27);
  beam(g,'canopy-front-crossrail',[-1.2,3.04,-1.01],
    [1.2,3.04,-1.01],.08,C.iron);
