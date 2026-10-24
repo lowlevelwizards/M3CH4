@@ -15,9 +15,11 @@ const FITS=Object.freeze({
  'tractor-cab':[
   [.12,.88,.03,.21,.28,1.39], // seat/gearbox rear
   [.12,.88,.76,.95,.45,1.43], // dashboard/bulkhead
-  [.07,.19,.15,.87,1.38,3.08], // left ROPS
-  [.81,.93,.15,.87,1.38,3.08], // right ROPS
-  [.06,.94,.03,.19,1.55,3.05], // rear cage
+  [.07,.19,.10,.20,1.38,3.08], // four discrete ROPS uprights
+  [.81,.93,.10,.20,1.38,3.08],
+  [.07,.19,.79,.89,1.38,3.08],
+  [.81,.93,.79,.89,1.38,3.08],
+  [.06,.94,.03,.19,1.36,1.72], // low rear crossbrace
   [.02,.98,.02,.97,3.05,3.34], // canopy, air beneath
  ],
  'tractor-bonnet':[
