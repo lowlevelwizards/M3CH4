@@ -67,6 +67,10 @@ export function buildAnatomicalLoader(root){
  metal(g,'loader-main-transmission-belly',2.96,.96,3.88,0,1.01,.11,C.olive);
  metal(g,'loader-operator-pedestal',2.16,.51,1.54,0,1.48,-.29,I);
  metal(g,'loader-front-bulkhead',2.54,.62,.34,0,1.62,-1.14,R);
+ // Heavy clutch side housing links this bulkhead to the engine's upper
+ // steel mass; body-height shots meet visible metal, not a ghost wall.
+ metal(g,'loader-forward-clutch-side-housing',2.58,.65,.48,
+  0,1.82,-.97,I);
  for(const side of [-1,1]){
   metal(g,'loader-bolted-track-cheek',.25,.65,2.22,
     side*1.55,1.29,-.24,C.clay);
