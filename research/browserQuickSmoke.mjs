@@ -44,6 +44,11 @@ try{
       physicalCover,garageBackground:scene?.background?.isColor===true,
       oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
+  if(!backlot.stats?.collisionCertificate?.pass||
+   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==34||
+   backlot.stats.collisionCertificate.uncollidableOffsiteAssets!==18)
+    throw Error('Backlot physical/render certificate failed: '+
+      JSON.stringify(backlot.stats?.collisionCertificate));
   if(!backlot.stats||!backlot.garageBackground||backlot.oldWarehouse||
      backlot.stats.enclosingWarehouseWalls!==0||
      backlot.stats.sky!=='open'||
