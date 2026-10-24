@@ -12,6 +12,7 @@ import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
 import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
 import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
 import {upgradeBacklotSecondaryProps} from './backlotSecondaryAnatomy.js';
+import {auditBacklotCollisionTruth,secondaryGeometryClearance} from './backlotCollisionCertificate.js';
 import {auditBacklotAssembly} from './backlotAssemblyAudit.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
@@ -487,9 +488,11 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  dirtMarks(root,world);spectatorYard(root,world);
  upgradeBacklotScenery(root,world);
  upgradeBacklotSecondaryProps(root,world);
+ // Certify named geometry before static instancing consumes scene groups.
+ const collisionCertificate=auditBacklotCollisionTruth(root,world,solids);
  const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
-   fixtureBatch,
+   fixtureBatch,collisionCertificate,
    environment:root.userData.backlotReactivity? 'reactive-dustbowl':'static',
    obstacleCount:world.obstacles.length,collisionSolids:world.obstacles.length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
@@ -624,6 +627,7 @@ export function buildBacklotPropCatalog(world){
  upgradeBacklotScenery(source,world);
  upgradeBacklotSecondaryProps(source,world);
  source.updateWorldMatrix(true,true);
+ const secondaryCollisionClearance=secondaryGeometryClearance(source,world);
  // Scenic assemblies from the original venue's own generation pass.
  const scenicShows=[
    {id:'announcer',label:'ANNOUNCER BOOTH & MARQUEE',
@@ -708,5 +712,5 @@ export function buildBacklotPropCatalog(world){
  }
  return {specimens:catalog,coverCount:world.obstacles.length,
    experimentCount:1+extraExhibits.length,showcaseCount:featured.length,sceneryAssemblyCount:scenicShows.length,
-   sceneryArchetypes:scenicNames.size};
+   sceneryArchetypes:scenicNames.size,secondaryCollisionClearance};
 }
