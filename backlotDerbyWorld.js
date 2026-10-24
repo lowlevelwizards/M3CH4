@@ -14,6 +14,7 @@ import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
 import {upgradeBacklotSecondaryProps} from './backlotSecondaryAnatomy.js';
 import {auditBacklotCollisionTruth,secondaryGeometryClearance} from './backlotCollisionCertificate.js';
 import {auditBacklotAssembly} from './backlotAssemblyAudit.js';
+import {collisionPieces,isCompoundObstacle} from './backlotCompoundGeometry.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -152,6 +153,40 @@ function physicalScrapPart(root,o,solids){
      x,h*.48,front,P.steel,.35);
  }
  return mass;
+}
+/** Exactly the same compound prisms consumed by locomotion, AI and
+ * coverTruth are raycast directly. They are kept OUT of the scene graph:
+ * no invisible render geometry, no unnecessary WebGL calls, no shadows.
+ * The beautifully detailed models supply the visible surface.
+ */
+function physicalCompoundPart(o,solids){
+ for(const prism of collisionPieces(o)){
+  const w=prism.maxX-prism.minX,d=prism.maxZ-prism.minZ,
+    h=prism.maxY-(prism.minY??0);
+  const hit=new THREE.Mesh(boxGeo(1,1,1),mat(P.iron,.26));
+  hit.name='real-compound-collider-'+prism.partId;
+  hit.position.set((prism.minX+prism.maxX)/2,
+    (prism.minY??0)+h/2,(prism.minZ+prism.maxZ)/2);
+  hit.scale.set(w,h,d);
+  hit.userData.arenaObstacleId=o.id;
+  hit.userData.compoundPartId=prism.partId;
+  hit.userData.physicalOnly=true;
+  hit.updateMatrixWorld(true);
+  // Deliberately DO NOT add to root. The scene's solids[] raycaster
+  // continues to test this object without rendering phantom surfaces.
+  solids.push(hit);
+ }
+}
+function addLiveMechanicalAnatomy(root){
+ const tractor=buildAnatomicalTractor(root);
+ tractor.name='LIVE compound rebuilt tractor';
+ tractor.position.set(-4.07,0,-1.65);
+ tractor.scale.set(1.32,1,1.23);
+ const loader=buildAnatomicalLoader(root);
+ loader.name='LIVE compound rebuilt tracked loader';
+ loader.position.set(5.08,0,.43);
+ loader.scale.set(1.12,1,.92);
+ return {tractor,loader};
 }
 /** Visible metal/wood mass intentionally fills each gameplay obstacle prism:
  * none of the ornament changes cover, routes, or hit tests.
@@ -484,7 +519,10 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  const root=new THREE.Group();root.name='backlot-outdoor-derby-world';
  root.userData.venue='open-sky-scrap-derby';
  perimeter(root,world);
- for(const obstacle of world.obstacles)createWreck(root,obstacle,solids);
+ for(const obstacle of world.obstacles)
+  if(isCompoundObstacle(obstacle))physicalCompoundPart(obstacle,solids);
+  else createWreck(root,obstacle,solids);
+ addLiveMechanicalAnatomy(root);
  dirtMarks(root,world);spectatorYard(root,world);
  upgradeBacklotScenery(root,world);
  upgradeBacklotSecondaryProps(root,world);
@@ -494,7 +532,7 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  root.userData.backlotStats={
    fixtureBatch,collisionCertificate,
    environment:root.userData.backlotReactivity? 'reactive-dustbowl':'static',
-   obstacleCount:world.obstacles.length,collisionSolids:world.obstacles.length,
+   obstacleCount:world.obstacles.length,collisionSolids:solids.filter(x=>x.userData?.arenaObstacleId!=='floor').length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
    perimeter:'two-metre-stockyard-rails',sky:'open',
    detailedCoverCount:world.obstacles.filter(o=>o.artKit||o.art).length,
@@ -531,13 +569,14 @@ export function buildBacklotPropCatalog(world){
  const colliderMaterial=new THREE.LineBasicMaterial({
    color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
  });
- for(const o of currentTractor){
+ for(const o of currentTractor)for(const part of collisionPieces(o)){
+   const height=(part.maxY??part.height)-(part.minY??0);
    const shell=new THREE.LineSegments(
      new THREE.EdgesGeometry(new THREE.BoxGeometry(
-       o.maxX-o.minX,o.height,o.maxZ-o.minZ)),colliderMaterial);
-   shell.name='current-map-collider-'+o.id;
-   shell.position.set((o.minX+o.maxX)/2-oldC.x,o.height*.5,
-     (o.minZ+o.maxZ)/2-oldC.z);
+       part.maxX-part.minX,height,part.maxZ-part.minZ)),colliderMaterial);
+   shell.name='live-compound-collider-'+(part.partId??o.id);
+   shell.position.set((part.minX+part.maxX)/2-oldC.x,
+     (part.minY??0)+height*.5,(part.minZ+part.maxZ)/2-oldC.z);
    shell.userData.colliderOverlay=true;collisionOverlay.add(shell);
  }
  collisionOverlay.visible=false;
@@ -546,7 +585,7 @@ export function buildBacklotPropCatalog(world){
  comparison.add(newPart,oldPart,collisionOverlay);
  catalog.push({id:'experiment-tractor-anatomy',category:'experiment',
    label:'TRACTOR ANATOMY · FINISH V6',
-   detail:'FINAL SHAPE POLISH vs CURRENT LIVE MODEL · NOT YET IN MATCHES',
+   detail:'THIS MODEL IS NOW LIVE · compare with LEGACY AABB machinery',
    group:comparison,
    experiment:{newPart,oldPart,collisionOverlay,audit:tractorAudit}});
 
@@ -568,16 +607,17 @@ export function buildBacklotPropCatalog(world){
   const assemblyAudit=auditBacklotAssembly(newPart,exhibit.id);
   const collisionOverlay=new THREE.Group();
   collisionOverlay.name='EXISTING LIVE COLLIDERS ONLY '+exhibit.id;
-  for(const o of parts){
+  for(const o of parts)for(const part of collisionPieces(o)){
+   const height=(part.maxY??part.height)-(part.minY??0);
    const edges=new THREE.LineSegments(
     new THREE.EdgesGeometry(new THREE.BoxGeometry(
-     o.maxX-o.minX,o.height,o.maxZ-o.minZ)),
+     part.maxX-part.minX,height,part.maxZ-part.minZ)),
     new THREE.LineBasicMaterial({
      color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
     }));
-   edges.position.set((o.minX+o.maxX)/2-center.x,o.height*.5,
-      (o.minZ+o.maxZ)/2-center.z);
-   edges.name='current-map-collider-'+o.id;
+   edges.position.set((part.minX+part.maxX)/2-center.x,
+      (part.minY??0)+height*.5,(part.minZ+part.maxZ)/2-center.z);
+   edges.name='live-compound-collider-'+(part.partId??o.id);
    edges.userData.colliderOverlay=true;
    collisionOverlay.add(edges);
   }
@@ -586,7 +626,7 @@ export function buildBacklotPropCatalog(world){
   group.name='EXPERIMENT '+exhibit.id;
   group.add(newPart,oldPart,collisionOverlay);
   catalog.push({id:'experiment-'+exhibit.id+'-anatomy',category:'experiment',
-   label:exhibit.label,detail:exhibit.details+' · NOT YET IN MATCHES',
+   label:exhibit.label,detail:exhibit.details+(exhibit.id==='loader'?' · THIS MODEL IS NOW LIVE':' · DEV-ONLY'),
    group,experiment:{newPart,oldPart,collisionOverlay,audit:assemblyAudit,front:exhibit.front||'+z'}});
  }
  const describe=o=>o.artKit||o.art||(
