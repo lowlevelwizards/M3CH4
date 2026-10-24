@@ -97,11 +97,11 @@ function tyreStacks(c){
  const radius=Math.min(.64,h*.31,w*.26,d*.29);
  const n=Math.max(2,Math.min(3,Math.floor(w/(radius*1.70))));
  const centers=Array.from({length:n},(_,i)=>x+(i-(n-1)*.5)*(radius*1.82));
+ const bottom=Math.max(radius*.32,.26);
  c.box('tyre-pile-grounded-foot',w*.94,Math.max(.18,h*.17),d*.82,
    x,Math.max(.11,h*.13),z,C.rubber,.13);
  for(let i=0;i<n;i++){
   const px=centers[i],zz=z+(i%2===0?-.07:.09);
-  const bottom=Math.max(radius*.32,.26);
   // Chunky sidewalls and dark central sockets; never advertise a
   // walk-through hole in certified solid collision geometry.
   c.cyl('chunky-reclaimed-tractor-tire',radius,radius*.52,px,bottom+radius*.30,zz,
