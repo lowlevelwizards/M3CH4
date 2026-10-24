@@ -570,6 +570,9 @@ export function buildBacklotPropCatalog(world){
  oldPart.add(oldTractor);oldPart.visible=false;
  const newPart=new THREE.Group();
  const actualTractor=buildAnatomicalTractor(newPart);
+ const tractorAudit=auditBacklotAssembly(newPart,'tractor');
+ // Audit mechanical joins at native authoring scale, before presentation
+ // transform, so the same .22m tolerance remains comparable across builds.
  // The A/B gallery now inspects the exact LIVE machine transform.
  actualTractor.scale.set(1.32,1,1.23);
  actualTractor.position.set(-4.07-oldC.x,0,-1.65-oldC.z);
@@ -589,7 +592,6 @@ export function buildBacklotPropCatalog(world){
    shell.userData.colliderOverlay=true;collisionOverlay.add(shell);
  }
  collisionOverlay.visible=false;
- const tractorAudit=auditBacklotAssembly(newPart,'tractor');
  const comparison=new THREE.Group();comparison.name='experimental-versus-production-tractor';
  comparison.add(newPart,oldPart,collisionOverlay);
  catalog.push({id:'experiment-tractor-anatomy',category:'experiment',
@@ -614,11 +616,11 @@ export function buildBacklotPropCatalog(world){
   const oldPart=new THREE.Group();oldPart.add(oldRoot);oldPart.visible=false;
   const newPart=new THREE.Group();
   const actual=exhibit.build(newPart);
+  const assemblyAudit=auditBacklotAssembly(newPart,exhibit.id);
   if(exhibit.id==='loader'){
    actual.scale.set(1.12,1,.92);
    actual.position.set(5.08-center.x,0,.43-center.z);
   }
-  const assemblyAudit=auditBacklotAssembly(newPart,exhibit.id);
   const collisionOverlay=new THREE.Group();
   collisionOverlay.name='EXISTING LIVE COLLIDERS ONLY '+exhibit.id;
   for(const o of parts)for(const part of collisionPieces(o)){
