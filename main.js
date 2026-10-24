@@ -2019,6 +2019,9 @@ function frame(now) {
                     playerCondition.parts.power.integrity / Math.max(1, playerCondition.parts.power.maxIntegrity));
                 if(!powerWasReady&&playerPower.weaponReady)
                     soundSystemEvent('recharge',{variant:1,cockpit:true,strength:.42});
+                else if(powerWasReady&&!playerPower.weaponReady&&
+                    playerCondition.parts.power.integrity<playerCondition.parts.power.maxIntegrity*.5)
+                    soundSystemEvent('zap',{variant:1,cockpit:true,strength:.26});
                 output = powerConstrainedOutput(staticOutput, playerPower);
                 effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
@@ -2413,6 +2416,7 @@ function frame(now) {
     const playerRecoveryState = weaponFailureState(playerCondition, fieldService);
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
         weaponFault: playerRecoveryState === 'faulted',
+        weaponHealth:weaponIntegrityRatio(playerCondition),
         weaponServicing: fieldService.held && fieldService.activeSlot==='combat',
         serviceSlot: fieldService.held ? fieldService.activeSlot : null,
         recoveryEventId:fieldService.lastServicedSlot?`${fieldService.lastServicedSlot}:${fieldService.attempts[fieldService.lastServicedSlot]}`:null,
@@ -3044,6 +3048,11 @@ function attemptAiFire(actor, target, shotIndex) {
     // Cover impacts, misses and friendly obstruction are still fired rounds.
     const consumed = fireWeapon(actor.weaponState, actor.weaponSpec);
     if (consumed === null) return;
+    const rough=1-actor.condition.parts.combat.integrity/
+        Math.max(1,actor.condition.parts.combat.maxIntegrity);
+    const proximity=Math.hypot(actor.rig.x-rig.x,actor.rig.z-rig.z);
+    if(rough>.5&&proximity<14&&consumed%3===1)
+        soundSystemEvent('hydraulics',{variant:2,cockpit:false,distance:proximity,strength:(rough-.4)*.18});
     // One external recoil stroke per consumed trigger, not one per physical pellet.
     arena.triggerCombatantFiringEvent(actor.id,actor.weaponSpec.id,{
         brace:actor.rig.brace??0,
@@ -3179,6 +3188,9 @@ function presentPlayerDischarge(contact,shot) {
         condition:weaponIntegrityRatio(playerCondition),shotIndex:shot,
     });
     soundWeaponMechanism(weaponSpec.id,{shotIndex:shot,cockpit:true});
+    const worn=1-weaponIntegrityRatio(playerCondition);
+    if(worn>.5 && (weaponSpec.fireMode!=='automatic'||shot%4===1))
+        soundSystemEvent('hydraulics',{cockpit:true,variant:2,strength:(worn-.4)*.24});
 }
 function attemptFire() {
     if (!playerCombatActive || !weaponSpec || !weaponState || !rigConfig || inspecting || testEnded || !inspection.ready || !output.weaponOperational || !playerPower.weaponReady || !appSheet.classList.contains('hidden'))
