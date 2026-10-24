@@ -125,7 +125,7 @@ try {
     const {activePlayerArena}=await import('./scene.js');
     const arena=activePlayerArena()?.arena;
     const mapId=arena?.scene?.getObjectByName('arena-environment')?.userData?.mapId;
-    const group=arena?.scene?.getObjectByName('backlot-dustbowl-visuals');
+    const group=arena?.scene?.getObjectByName('backlot-outdoor-derby-world');
     const stats=group?.userData?.backlotStats;
     let objects=0,colliders=0,dynamicLights=0;
     group?.traverse(node=>{
@@ -141,11 +141,22 @@ try {
   if(!backlot.mapId)
     throw Error('Loaded arena has no physical map ID: '+JSON.stringify(backlot));
   if(backlot.mapId==='backlot-dustbowl'){
-    if(!backlot.visible||backlot.objects<25||backlot.objects>145||
-       backlot.stats?.floodlights!==4||backlot.colliders||backlot.dynamicLights||
-       backlot.stats?.fixtureBatch?.callsSaved<12)
-      throw Error('Backlot mobile batching or cover mismatch: '+JSON.stringify(backlot));
-    console.log('DUSTBOWL: PASS · instanced fences and no new colliders');
+    // Modern Backlot is the independently authored outdoor derby scene.
+    // Unlike its 2025 prototype it INCLUDES the certified physical obstacle
+    // shells and intentionally uses sunlight, not four artificial floodlights.
+    // Check the current venue contract, never a retired scenery group name.
+    if(!backlot.visible||backlot.objects<25||
+       backlot.stats?.sky!=='open'||
+       backlot.stats?.enclosingWarehouseWalls!==0||
+       backlot.stats?.overheadWarehouseFixtures!==0||
+       !(backlot.stats?.obstacleCount>0)||
+       backlot.stats?.collisionSolids!==backlot.stats?.obstacleCount||
+       backlot.colliders<1||
+       backlot.colliders>backlot.stats.obstacleCount*4||
+       backlot.dynamicLights||
+       !(backlot.stats?.fixtureBatch?.callsSaved>=12))
+      throw Error('Backlot open-air physical venue, cover or batching mismatch: '+JSON.stringify(backlot));
+    console.log('DUSTBOWL: PASS · certified derby cover, instanced scenery and open sky');
   }else{
     // A non-Backlot mission should not accidentally instantiate Backlot.
     if(backlot.visible)throw Error('Backlot visuals leaked into '+backlot.mapId);
