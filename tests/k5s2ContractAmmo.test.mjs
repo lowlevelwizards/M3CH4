@@ -77,8 +77,9 @@ test('production code bills consumed discharges once, preserves AI and collision
     assert.match(main,/reserveReadout\(weaponState\)/);
     assert.match(main,/summary\.ammoAssistance/);
     for(const html of [index,yard]){
-        for(const path of ['combat.js','economy.js','series.js'])
+        for(const path of ['economy.js','series.js'])
             assert.ok(html.includes(`"./${path}": "./${path}?v=k5s2"`),path);
-        assert.match(html,/main\.js\?v=k5e1/);
+        assert.ok(html.includes('"./combat.js": "./combat.js?v=k5s4"'));
+        assert.match(html,/main\.js\?v=k5s4/);
     }
 });

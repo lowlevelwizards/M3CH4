@@ -31,12 +31,17 @@ export function ammoCostCents(spec, rounds = 1) {
         (spec?.ammoCostCents ?? 100) * rounds : 0;
 }
 export function createWeaponState(spec) {
-    return { loaded: spec.magazine, reserve: CONTRACT_AMMO_RESERVE, cooldown: 0, reloadLeft: 0, firingCount: 0, action: createWeaponActionState(spec) };
+    return { loaded: spec.magazine, reserve: CONTRACT_AMMO_RESERVE, cooldown: 0, reloadLeft: 0, reloadDuration:spec.reloadSeconds, firingCount: 0, action: createWeaponActionState(spec) };
 }
-export function startReload(state, spec) {
+export function reloadDuration(state,spec){
+    return Number.isFinite(state?.reloadDuration)&&state.reloadDuration>0?state.reloadDuration:spec.reloadSeconds;
+}
+export function startReload(state, spec, cycleMultiplier=1) {
     if (state.reloadLeft > 0 || state.loaded >= spec.magazine || state.reserve <= 0)
         return false;
-    state.reloadLeft = spec.reloadSeconds;
+    const factor=Number.isFinite(cycleMultiplier)?Math.max(1,Math.min(2.4,cycleMultiplier)):1;
+    state.reloadDuration=spec.reloadSeconds*factor;
+    state.reloadLeft=state.reloadDuration;
     return true;
 }
 export function advanceWeapon(state, spec, dt) {

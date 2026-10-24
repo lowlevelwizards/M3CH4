@@ -39,6 +39,10 @@ export function cockpitImpactProfile(slot, { internalDamage = 0, disabled = fals
         base.arcCount = internal > 0 ? (disabled ? 4 : 2 + Math.round(severity)) : 0;
     }
     else if (slot === 'command') {
+        // Optical electronics stutter only on a real internal cab strike.
+        // Short localized blackout on disable; mandatory safety UI survives.
+        if(internal>0){base.flickerSeconds=.22+.34*severity;
+            if(disabled)base.blackoutSeconds=.12;}
         base.yaw = (disabled ? .052 : .021) * (severity + .4);
         base.pitch = -.014 * severity;
         base.sparkCount += internal > 0 ? 4 : 0;
