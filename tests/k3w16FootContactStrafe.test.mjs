@@ -66,8 +66,8 @@ test('DEV strafe inspection and Safari deployment versions are fresh',()=>{
  assert.match(html,/<option value="strafe-left">STRAFE LEFT<\/option>/);
  assert.match(html,/<option value="strafe-right">STRAFE RIGHT<\/option>/);
  assert.match(html,/articulationMotion\.js\?v=k5a2/);
- assert.match(html,/sceneAssembly\.js\?v=k5s0/);
- assert.match(html,/main\.js\?v=k5r8/);
- assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5s0/);
+ assert.match(html,/sceneAssembly\.js\?v=k5s1/);
+ assert.match(html,/main\.js\?v=k5s1/);
+ assert.match(source('sceneAssembly.js'),/scene\.js\?source=k5s1/);
  assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
 });
