@@ -11,7 +11,8 @@ import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityS
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
-import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
+import { BY_ID, equipSerial, equipAuxiliary, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
+import { servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -64,8 +65,8 @@ import { resetDamageFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
 import { createModuleIcon } from './moduleIcons.js';
-import { loadStable, serialOwner } from './stable.js';
-import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount } from './garageBay.js';
+import { loadStable, storeStable, rigById, serialOwner } from './stable.js';
+import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount, bayAssembly } from './garageBay.js';
 import { buyCounterLot } from './usedPartsCounter.js';
 import { loadCampaign } from './campaign.js';
 import {TEST_YARD,readTestYardAssembly,storeTestYardAssembly,clearTestYardAssembly,createTestYardPanel} from './testYard.js';
@@ -138,7 +139,7 @@ const primaryEnemyActor = {
     powerSystem: createPowerSystem(targetAssembly),
     behavior: leadBehavior,
     spawn: hostileSpawn, active: true, targetId: 'player', killReason: null,
-    fieldService: createFieldServiceState(),
+    fieldService: createFieldServiceState(servicePumpRate(targetAssembly)),
     teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
     combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
@@ -168,7 +169,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex
         stabilizer:createWeaponStabilizer(),
         powerSystem: createPowerSystem(actorAssembly),
         behavior, spawn, active: true, targetId: null, killReason: null,
-        fieldService: createFieldServiceState(),
+        fieldService: createFieldServiceState(servicePumpRate(actorAssembly)),
         teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
         combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
         wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
@@ -224,7 +225,7 @@ let sortieRoundsFired = 0;
 let sortieAmmoCostCents = 0;
 let sortieProjectiles = 0;
 let sortieConfirmedContacts = 0;
-let fieldService = createFieldServiceState();
+let fieldService = createFieldServiceState(servicePumpRate(assembly));
 const faultSupportState = createFaultSupportState();
 let lastPlayerScreenId = null;
 let servicePointerId = null;
@@ -983,7 +984,7 @@ function resetAiActor(actor) {
     Object.assign(actor.controller,createHostileController(
         actor.id==='enemy-0'?.45:actor.team===FRIENDLY_TEAM?.38:.52,actor.behavior));
     Object.assign(actor.motion, createEnemyMotion(actor.behavior));
-    actor.fieldService = createFieldServiceState();
+    actor.fieldService = createFieldServiceState(servicePumpRate(actor.assembly));
     actor.active = true;
     actor.targetId = null;
     actor.fireLane = null;
@@ -1376,6 +1377,7 @@ function renderChecks() {
 }
 function refreshAssembly(save = false) {
     inspection = inspectAssembly(assembly);
+    fieldService.rateMultiplier=servicePumpRate(assembly);
     rigConfig = deriveRigConfig(assembly);
     playerPower = createPowerSystem(assembly);
     updateFunctionalStatus();
@@ -1467,6 +1469,27 @@ document.addEventListener('m3ch4:counter-buy', event => {
         detail:{serial:result.part.serial,definitionId:result.part.definitionId,
             source:'used parts counter'},
     }));
+});
+document.addEventListener('m3ch4:bay-equipment', event => {
+    const request=event.detail;
+    if(!request||!inspecting||testYard){if(request)request.result={ok:false,reason:'GARAGE ONLY'};return;}
+    try {
+        const stable=loadStable(saveStorage).stable;
+        const active=request.rigId===stable.activeRigId;
+        const candidate=active?assembly:bayAssembly(stable,request.rigId);
+        if(!candidate){request.result={ok:false,reason:'UNKNOWN BAY'};return;}
+        const result=equipAuxiliary(candidate,request.mount,request.id);
+        if(!result.ok){request.result=result;return;}
+        if(active){
+            refreshAssembly(true);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+        }else{
+            const rig=rigById(stable,request.rigId);
+            rig.equipment={...candidate.equipment};
+            if(!storeStable(saveStorage,stable)){request.result={ok:false,reason:'SAVE FAILED'};return;}
+        }
+        request.result={ok:true};
+    } catch(error){request.result={ok:false,reason:error?.message||'FITTING REJECTED'};}
 });
 document.addEventListener('m3ch4:bay-generator-mount', event => {
     const request = event.detail;
@@ -1623,7 +1646,7 @@ function toggleInspection(force) {
         clearBoutResult();
         controls.recenterLook();
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
-        fieldService = createFieldServiceState();
+        fieldService = createFieldServiceState(servicePumpRate(assembly));
         sortieRoundsFired = 0;
         sortieAmmoCostCents = 0;
         sortieProjectiles = 0;
@@ -1871,7 +1894,7 @@ if (testYard) {
             playerMissionKillReason=null;
             testEnded=false;testEndReason=null;
             weaponState=weaponSpec?createWeaponState(weaponSpec):null;
-            fieldService=createFieldServiceState();
+            fieldService=createFieldServiceState(servicePumpRate(assembly));
             resetWeaponStabilizer(playerMount);
             arena.clearRockets();
             arena.resetCockpitTransientFeedback();
@@ -3073,7 +3096,7 @@ function attemptAiFire(actor, target, shotIndex) {
         cockpit:false,
     });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
-    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
+    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(actor.assembly,actor.rig));
     // The shot samples the existing state. Only its NEXT shot inherits kick.
     const mountSpread=actor.weaponSpec.fireMode==='automatic'
         ? weaponActionSpreadRadians(actor.weaponSpec,actor.weaponState,actor.rig.brace??0):0;
@@ -3221,7 +3244,7 @@ function attemptFire() {
         const aim=arena.traceShot(baseX,baseY,weaponSpec.muzzleZ);
         const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
-        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
+        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig));
         registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         shotsFired++;sortieRoundsFired++;sortieProjectiles++;
         presentPlayerDischarge(aim,shot);
@@ -3261,7 +3284,7 @@ function attemptFire() {
     warnNearbyAiFromShot(FRIENDLY_TEAM,center);
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
-    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
+    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig));
     registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
     shotsFired++;
     sortieRoundsFired++;
