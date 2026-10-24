@@ -54,7 +54,11 @@ try{
      backlot.stats.enclosingWarehouseWalls!==0||
      backlot.stats.sky!=='open'||
      backlot.stats.fixtureBatch?.callsSaved<80||
-     backlot.physicalCover!==backlot.stats.obstacleCount||
+     // The 12 newly promoted machinery parent records now have off-scene
+     // raycast-only compound meshes. Count visible LEGACY cover here; their
+     // 38 compound child solids were already certified above.
+     backlot.physicalCover!==(backlot.stats.obstacleCount-
+       backlot.stats.collisionCertificate.compoundFamilyCount)||
      backlot.activeDrawObjects<backlot.physicalCover||
      backlot.activeDrawObjects>320)
     throw Error('Mobile open-air Backlot world validation failed: '+JSON.stringify(backlot));
