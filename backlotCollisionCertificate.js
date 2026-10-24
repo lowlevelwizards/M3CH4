@@ -8,6 +8,7 @@
  * instancing, and on the actual solids used by the firing raycaster.
  */
 import * as THREE from 'three';
+import {collisionPieces,COMPOUND_FAMILY_IDS} from './backlotCompoundGeometry.js';
 
 const SECONDARY=/^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/;
 const EPS=.035,SAFE_MARGIN=.65;
