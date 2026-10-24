@@ -156,3 +156,43 @@ test('clearing a series removes only BO3 lifecycle state', () => {
     assert.equal(loadSeries(storage), null);
     assert.equal(storage.getItem('unrelated'), 'keep');
 });
+
+test('mixed-weapon BO3 invoices preserve fractional prices and charge each round once',()=>{
+    const {storage}=readyStorage();
+    const prev=globalThis.localStorage;
+    globalThis.localStorage=storage;
+    try {
+        startSeries(storage,'yard-dog','rig-01','CHEAP RIVET','assign-1');
+        recordSeriesRound(storage,{victory:true,reason:'R1'});
+        const first=settleSortie({credits:600,victory:true,roundsFired:9,ammoCostCents:225,victoryPayout:850});
+        assert.equal(first.deferred,true);
+        assert.equal(first.creditsAfter,600);
+        assert.equal(loadSeries(storage).rounds[0].ammoCostCents,225);
+        // A repeated settlement for this completed round cannot raise the bill.
+        settleSortie({credits:600,victory:true,roundsFired:999,ammoCostCents:99999,victoryPayout:850});
+        assert.equal(loadSeries(storage).rounds[0].ammoCostCents,225);
+        beginSeriesRound(storage,'rig-02','ROCKET RACK','assign-2');
+        recordSeriesRound(storage,{victory:true,reason:'R2'});
+        const last=settleSortie({credits:600,victory:true,roundsFired:3,ammoCostCents:2400,victoryPayout:850});
+        assert.equal(last.deferred,false);
+        assert.equal(last.roundsFired,12);
+        assert.equal(last.ammoCost,27,'₡2.25 + ₡24 = ₡26.25 rounded once');
+        assert.equal(last.creditsAfter,1423);
+        assert.equal(last.series.totalAmmoCostCents,2625);
+    }finally{
+        if(prev===undefined)delete globalThis.localStorage;
+        else globalThis.localStorage=prev;
+    }
+});
+
+test('legacy active series with no weapon invoice retains old one-credit-per-round pricing',()=>{
+    const {storage}=readyStorage();
+    startSeries(storage,'yard-dog','rig-01','LEGACY','assign-1');
+    recordSeriesRound(storage,{victory:true,reason:'OLD'});
+    const legacy=noteSeriesRoundAmmo(storage,12);
+    const raw=JSON.parse(encodeSeries(legacy));
+    delete raw.rounds[0].ammoCostCents;
+    storage.setItem('m3ch4-series-v1',JSON.stringify(raw));
+    assert.equal(loadSeries(storage).totalAmmoCostCents,1200);
+    assert.equal(loadSeries(storage).rounds[0].ammoCostCents,null);
+});

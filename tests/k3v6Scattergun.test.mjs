@@ -85,7 +85,7 @@ test('heavy recoil, four-shell magazine and three-second reload preserve origina
     assert.equal(fireWeapon(gun,spec),null);
     advanceWeapon(gun,spec,spec.reloadSeconds+.001);
     assert.equal(gun.loaded,4);
-    assert.equal(gun.reserve,spec.spareRounds-4);
+    assert.equal(gun.reserve,Infinity,'contract ammunition never runs out');
     const config=deriveRigConfig(scatterAssembly());
     const rig=createRigState();
     applyRecoil(rig,config,0,-1,spec.recoilImpulseNs);

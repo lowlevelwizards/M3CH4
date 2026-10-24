@@ -1,0 +1,41 @@
+name: k5s2 Contract Ammunition and BO3 Billing
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'combat.js'
+      - 'main.js'
+      - 'economy.js'
+      - 'series.js'
+      - 'tests/k5s2ContractAmmo.test.mjs'
+      - 'tests/k3q2Series.test.mjs'
+      - 'tests/economy.test.mjs'
+      - 'tests/k3v6Scattergun.test.mjs'
+      - '.github/workflows/k5s2-contract-ammo.yml'
+  pull_request:
+    paths:
+      - 'combat.js'
+      - 'main.js'
+      - 'economy.js'
+      - 'series.js'
+      - 'tests/k5s2ContractAmmo.test.mjs'
+      - 'tests/k3q2Series.test.mjs'
+      - 'tests/economy.test.mjs'
+      - 'tests/k3v6Scattergun.test.mjs'
+      - '.github/workflows/k5s2-contract-ammo.yml'
+jobs:
+  ammunition:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check combat.js
+          node --check economy.js
+          node --check series.js
+          node --check main.js
+      - name: Real ammunition, magazine, BO3 and economy regressions
+        run: node --test tests/k5s2ContractAmmo.test.mjs tests/k3q2Series.test.mjs tests/economy.test.mjs tests/k3v6Scattergun.test.mjs
