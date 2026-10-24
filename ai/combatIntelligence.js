@@ -1,3 +1,4 @@
+import {positionHitsCover,allMovementPieces} from '../backlotCompoundGeometry.js';
 /** k.3u.7: physically grounded threat evidence and combat-support advice.
  * This file changes neither physics nor hit authority. An inferred bearing
  * must NEVER be promoted to a visible contact or aim target.
@@ -78,9 +79,7 @@ export function counterFlankOrder(actor,order,allies,contacts,world,now=0){
  const pad=1.5;
  const valid=world&&flank.x>world.minX+pad&&flank.x<world.maxX-pad&&
   flank.z>world.minZ+pad&&flank.z<world.maxZ-pad&&
-  !(world.obstacles??[]).some(o=>!o.dynamic&&
-    flank.x>o.minX-pad&&flank.x<o.maxX+pad&&
-    flank.z>o.minZ-pad&&flank.z<o.maxZ+pad);
+  !positionHitsCover(flank,world.obstacles,pad,{includeDynamic:false});
  const point=valid?flank:target;
  return {goal:'ENGAGE',role:'INTERCEPT',point:{...point},targetActorId:threat.id,
     reason:'INTERCEPT OBSERVED ATTACKER',note:'COVER ALLY UNDER FIRE',
@@ -93,7 +92,7 @@ export function cautiousApproach(world,from,to,radius=1.4,style='pressure'){
  const d=dist(from,to),dx=(to.x-from.x)/d,dz=(to.z-from.z)/d;
  const tolerance=style==='bruiser'?5:style==='skirmisher'?10:7;
  let best=null,score=Infinity;
- for(const o of world.obstacles??[]){
+ for(const o of allMovementPieces(world.obstacles)){
   if(o.dynamic||(o.height??o.maxY??0)<2.25)continue;
   const pad=radius+.8;
   const candidates=[
@@ -107,9 +106,7 @@ export function cautiousApproach(world,from,to,radius=1.4,style='pressure'){
    if(lateral>tolerance)continue;
    if(p.x<world.minX+pad||p.x>world.maxX-pad||
       p.z<world.minZ+pad||p.z>world.maxZ-pad)continue;
-   if((world.obstacles??[]).some(q=>!q.dynamic&&
-      p.x>q.minX-radius&&p.x<q.maxX+radius&&
-      p.z>q.minZ-radius&&p.z<q.maxZ+radius))continue;
+   if(positionHitsCover(p,world.obstacles,radius,{includeDynamic:false}))continue;
    // Cover must actually interrupt exposure to the destination sector.
    if(!tacticalCoverBlocker(p,to,world,1.6))continue;
    if(!tacticalLineOfSight(from,p,world))continue;
