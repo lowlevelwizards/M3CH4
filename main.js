@@ -2557,7 +2557,7 @@ function handleFieldServiceCompleted(serviceStep) {
         owned.instance.destroyed=!!part.destroyed;
         owned.instance.wear=Math.min(1,(owned.instance.wear??0)+.08);
     }
-    if (weaponState) {
+    if (slot === 'combat' && weaponState) {
         weaponState.reloadLeft = 0;
         weaponState.cooldown = Math.max(weaponState.cooldown, .55);
     }
@@ -2630,18 +2630,18 @@ function renderTarget() {
     behavior.className = 'target-row';
     behavior.textContent = `MOTION: ${hostileMotion.phase} · ${hostileMotion.navigation}`;
     targetReadout.appendChild(behavior);
-    if (canFieldService(targetCondition, primaryEnemyActor.fieldService)) {
+    if (serviceableSlots(targetCondition).length) {
         const recovery = document.createElement('div');
         recovery.className = 'target-row';
         const pct = Math.round(primaryEnemyActor.fieldService.progress / FIELD_SERVICE_SECONDS * 100);
         recovery.textContent = primaryEnemyActor.fieldService.held
-            ? `WEAPON RECOVERY: FIELD SERVICE ${pct}%`
-            : 'WEAPON RECOVERY: FAULTED · SEEKING SAFE SERVICE';
+            ? `SYSTEM RECOVERY: ${primaryEnemyActor.fieldService.activeSlot?.toUpperCase()} ${pct}%`
+            : `SYSTEM RECOVERY: ${fieldServiceTarget(targetCondition,primaryEnemyActor.fieldService)?.toUpperCase()} · ${primaryEnemyActor.fieldService.cooldownLeft>0?'COOLDOWN':'SEEKING COVER'}`;
         targetReadout.appendChild(recovery);
-    } else if (primaryEnemyActor.fieldService.used && hostileOutput(targetCondition, primaryEnemyActor.behavior).weapon > .12) {
+    } else if (primaryEnemyActor.fieldService.used) {
         const recovery = document.createElement('div');
         recovery.className = 'target-row';
-        recovery.textContent = 'WEAPON RECOVERY: EMERGENCY BYPASS SPENT · DEGRADED';
+        recovery.textContent = 'SYSTEM RECOVERY: EMERGENCY RESTART PERFORMED · DEGRADED';
         targetReadout.appendChild(recovery);
     }
     if (devPanel.classList.contains('hidden') && !testYard) {
@@ -3319,7 +3319,12 @@ window.addEventListener('keydown', event => {
         attemptFire();
     }
     if (event.code === 'KeyR' && weaponState && weaponSpec && !event.repeat) {
-        if (!inspecting && !testEnded && playerCombatActive && canFieldService(playerCondition, fieldService)) {
+        if (!inspecting && !testEnded && playerCombatActive && serviceableSlots(playerCondition).length) {
+            if(event.shiftKey || fieldService.cooldownLeft>0) {
+                cycleFieldServiceTarget(playerCondition,fieldService);
+                renderAmmo();
+                return;
+            }
             if (beginFieldService(playerCondition, fieldService, rig)) {
                 serviceKeyHeld = true;
                 soundReload();
@@ -3345,40 +3350,51 @@ window.addEventListener('blur', () => {
     stopFireInput();
     stopFieldServiceInput();
 });
+let servicePointerStart=0;
 reloadButton.addEventListener('pointerdown', event => {
-    if (playerCombatActive && canFieldService(playerCondition, fieldService)) {
-        if (!beginFieldService(playerCondition, fieldService, rig)) {
+    if(playerCombatActive && serviceableSlots(playerCondition).length) {
+        event.preventDefault();
+        if(!canFieldService(playerCondition,fieldService)) {
+            cycleFieldServiceTarget(playerCondition,fieldService);
             renderAmmo();
             return;
         }
-        event.preventDefault();
-        servicePointerId = event.pointerId;
+        if(!beginFieldService(playerCondition,fieldService,rig)) {
+            renderAmmo();
+            return;
+        }
+        servicePointerStart=performance.now();
+        servicePointerId=event.pointerId;
         reloadButton.setPointerCapture(event.pointerId);
         soundReload();
-        shotReport.classList.remove('faded', 'penetrated');
+        shotReport.classList.remove('faded','penetrated');
         shotReport.classList.add('disabled-part');
-        shotReport.textContent = 'FIELD SERVICE STARTED · HOLD STILL · RELEASE OR MOVE TO ABORT';
-        reportFade = 5;
+        shotReport.textContent='FIELD SERVICE · HOLD STILL · RELEASE OR MOVE TO ABORT';
+        reportFade=5;
         renderAmmo();
         return;
     }
-    if (weaponState && weaponSpec) startReload(weaponState, weaponSpec);
+    if(weaponState&&weaponSpec)startReload(weaponState,weaponSpec);
     renderAmmo();
 });
-const endServicePointer = event => {
-    if (event.pointerId !== servicePointerId)
-        return;
-    servicePointerId = null;
-    if (fieldService.held)
-        cancelFieldService(fieldService);
+const endServicePointer=event=>{
+    if(event.pointerId!==servicePointerId)return;
+    const quickTap=performance.now()-servicePointerStart<240 &&
+        (fieldService.progress??0)<.30;
+    servicePointerId=null;
+    if(fieldService.held)cancelFieldService(fieldService);
+    if(quickTap && serviceableSlots(playerCondition).length>1)
+        cycleFieldServiceTarget(playerCondition,fieldService);
     renderAmmo();
 };
-reloadButton.addEventListener('pointerup', endServicePointer);
-reloadButton.addEventListener('pointercancel', endServicePointer);
-reloadButton.addEventListener('lostpointercapture', endServicePointer);
-reloadButton.addEventListener('click', event => {
-    if (event.detail === 0 && !canFieldService(playerCondition, fieldService)) {
-        if (weaponState && weaponSpec) startReload(weaponState, weaponSpec);
+reloadButton.addEventListener('pointerup',endServicePointer);
+reloadButton.addEventListener('pointercancel',endServicePointer);
+reloadButton.addEventListener('lostpointercapture',endServicePointer);
+reloadButton.addEventListener('click',event=>{
+    if(event.detail===0) {
+        if(serviceableSlots(playerCondition).length)
+            cycleFieldServiceTarget(playerCondition,fieldService);
+        else if(weaponState&&weaponSpec)startReload(weaponState,weaponSpec);
         renderAmmo();
     }
 });
