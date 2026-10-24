@@ -9,6 +9,10 @@ const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFac
 const errors=[];
 page.on('pageerror',e=>errors.push(String(e.stack||e.message)));
 page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
+async function showInspectionControls(){
+ const compact=await page.locator('body').evaluate(node=>node.classList.contains('gallery-compact'));
+ if(compact)await page.locator('#gallery-ui-toggle').click();
+}
 try{
  await page.goto('http://127.0.0.1:8765/backlot-prop-gallery.html',
   {waitUntil:'domcontentloaded',timeout:60000});
@@ -90,6 +94,7 @@ try{
  await page.screenshot({path:'gallery-smoke-artifacts/loader-new-v6.png'});
  // The side elevation must show both side-mounted bucket hinges rather than
  // rods entering the working scoop.
+ await showInspectionControls();
  await page.locator('#gallery-angle-cycle').click();
  await page.locator('#gallery-angle-cycle').click();
  await page.screenshot({path:'gallery-smoke-artifacts/loader-side-mount-v6.png'});
@@ -104,12 +109,11 @@ try{
   throw Error('Picker still displays tractor lab on pickup prototype');
  // Verify the front, flank, rear and overhead authored inspection presets.
  for(const angle of ['FRONT','SIDE','REAR','TOP']){
-  await page.locator('#gallery-ui-toggle').click().catch(()=>{});
+  await showInspectionControls();
   await page.locator('#gallery-angle-cycle').click();
   if(!(await page.locator('#gallery-angle-cycle').textContent()).includes(angle))
    throw Error('Inspection preset failed: '+angle);
   await page.screenshot({path:'gallery-smoke-artifacts/pickup-'+angle.toLowerCase()+'-v5.png'});
-  await page.locator('#gallery-ui-toggle').click().catch(()=>{});
  }
  await page.screenshot({path:'gallery-smoke-artifacts/pickup-chunk-v4.png'});
  for(const [idx,name] of [[8,'tyre-stack'],[9,'barrel-pallet'],[10,'flatbed'],
