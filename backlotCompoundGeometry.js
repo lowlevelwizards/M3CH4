@@ -71,6 +71,7 @@ export const COMPOUND_HULL_CLEARANCE=Object.freeze({bodyTop:2.8});
  */
 export function collisionPieces(obstacle){
  if(!obstacle || typeof obstacle!=='object')return [];
+ if(obstacle.partId)return [obstacle];
  const fit=FITS[obstacle.id];
  if(!fit || obstacle.dynamic)return [obstacle];
  let cached=CACHE.get(obstacle);
