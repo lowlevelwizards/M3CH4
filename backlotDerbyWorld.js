@@ -387,6 +387,49 @@ function dirtMarks(root,w){
  * while the repeated planks, tyres, spectators and scrap stay purely visual.
  */
 export function batchBacklotDerbyDecorations(root){
+ // Secondary scenery is *entirely* visual and permanently static.
+ // First instance the 18 rebuilt offsite assemblies ACROSS objects, not
+ // separately inside each wagon/pole/shack. Without this, replacing eight
+ // plain trailer boxes would cost many dozens of additional iPhone draws.
+ // This happens only in the live render graph; the source gallery retains
+ // the true unbatched, named component hierarchy for inspection.
+ const completed=[...root.children].filter(node=>node.isGroup&&
+   /^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/.test(node.name));
+ let secondaryInstances=0,secondaryBatches=0;
+ if(completed.length){
+  root.updateWorldMatrix(true,true);
+  const inverse=root.matrixWorld.clone().invert();
+  const buckets=new Map();
+  for(const group of completed){
+   group.traverse(node=>{
+    if(!node.isMesh||node.isInstancedMesh||node.material?.transparent)return;
+    const key=node.geometry.uuid+':'+node.material.uuid;
+    if(!buckets.has(key))buckets.set(key,[]);
+    buckets.get(key).push({node,matrix:inverse.clone().multiply(node.matrixWorld)});
+    secondaryInstances++;
+   });
+  }
+  for(const group of completed)root.remove(group);
+  const merged=new THREE.Group();merged.name='batch-completed-secondary-scenery';
+  root.add(merged);
+  for(const items of buckets.values()){
+   if(items.length===1){
+    const {node,matrix}=items[0];
+    const one=node.clone();
+    matrix.decompose(one.position,one.quaternion,one.scale);
+    merged.add(one);
+    continue;
+   }
+   const batch=new THREE.InstancedMesh(items[0].node.geometry,
+     items[0].node.material,items.length);
+   batch.name='instanced-secondary-scenery';
+   batch.userData.visualOnly=true;
+   batch.castShadow=false;batch.receiveShadow=true;
+   items.forEach((item,i)=>batch.setMatrixAt(i,item.matrix));
+   batch.instanceMatrix.needsUpdate=true;
+   merged.add(batch);secondaryBatches++;
+  }
+ }
  // Batch static siblings at EVERY authored hierarchy level, not just the
  // world root. All instances use local transforms, so rotated rails, scaled
  // cladding, distant barns and bleachers remain exactly where built.
@@ -420,7 +463,8 @@ export function batchBacklotDerbyDecorations(root){
    }
  }
  return Object.freeze({sourceMeshes,batches,instances,
-   callsSaved:instances-batches});
+   secondaryAssemblies:completed.length,secondaryInstances,secondaryBatches,
+   callsSaved:instances-batches+secondaryInstances-secondaryBatches});
 }
 export function buildBacklotDerbyWorld(scene,world,solids){
  const root=new THREE.Group();root.name='backlot-outdoor-derby-world';
