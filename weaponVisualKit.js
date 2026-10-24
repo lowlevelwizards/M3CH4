@@ -183,7 +183,8 @@ export function poseReloadHardware(mechanism,phase){
  }else if(archetype==='capacitor'){
    // Arc is powered by its on-mount transformer: cell does not get swapped.
    // Brief contact decoupling, then final charging rack re-engages.
-   feed.position.y+=Math.min((phase.open??0)*.045,.045);
+   feed.position.y+=Math.min((phase.open??0)*.025,.025)+
+     (phase.indexMotion??0)*.035;
  }
  socket.position.copy(rest.socket);
  if(spent&&rest.spent){
