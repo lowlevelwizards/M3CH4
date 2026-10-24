@@ -2411,6 +2411,21 @@ function frame(now) {
                     maneuver = { throttle: 0, strafe: 0, steer: 0, brake: 1 };
                 else
                     maneuver = { ...maneuver, throttle: maneuver.throttle * Math.max(.66, posture.paceScale), strafe: (maneuver.strafe ?? 0) * Math.max(.56, posture.strafeScale), steer: maneuver.steer * Math.max(.62, posture.steerScale) };
+                // A voltage-starved gunner can reduce its REAL actuator load
+                // to recover the common bus, rather than magically receiving
+                // power or continuing to sprint while its weapon is offline.
+                // Never delay an evacuation, a live capture or urgent service.
+                const assignmentGoal=actor.brain?.intent?.goal??order?.goal;
+                const canConserve=!!target&&actorOutput.power<.7&&
+                    actor.powerSystem.busRatio<.90&&actor.fireLane?.clear===true&&
+                    !actor.fieldService.held&&!recovery.active&&
+                    !['WITHDRAW','CAPTURE','CONTEST','SEARCH'].includes(assignmentGoal)&&
+                    (actor.motion?.awareness?.underFireSeconds??0)<.8;
+                if(canConserve){
+                    maneuver={...maneuver,throttle:maneuver.throttle*.25,
+                        strafe:(maneuver.strafe??0)*.25,
+                        brake:Math.hypot(actor.rig.vx,actor.rig.vz)<.4?1:maneuver.brake};
+                }
                 // An AI holding a firing position plants the same feet through
                 // the same brake input. Do not add a special AI recoil buff.
                 const settledToShoot = !recovery.active && !!target &&
@@ -2470,7 +2485,10 @@ function frame(now) {
                         withinFiringArc(actor.rig,target.rig)&&
                         // At range, a disturbed weapon can settle behind cover.
                         // Close, urgent and contested shots remain possible.
-                        (actor.stabilizer.settled>.32 ||
+                        // A battered weapon needs a physically more settled
+                        // mount before discretionary shots. Immediate danger
+                        // and contested objectives never impose a hidden lock.
+                        (actor.stabilizer.settled>.32+.32*weaponDamageResponse(actorOutput.weapon).mountStress ||
                             Math.hypot(target.rig.x-actor.rig.x,
                                 target.rig.z-actor.rig.z)<11 ||
                             !!sortieObjective.domination?.points?.some(p=>p.contested))&&

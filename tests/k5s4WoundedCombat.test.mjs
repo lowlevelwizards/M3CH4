@@ -100,3 +100,12 @@ test('glass stays fractured through an emergency restart and live sound events a
   assert.match(main,/playServiceRestart\(slot\)/);
   assert.match(main,/emitWoundedHardwareSounds\(actor\.rig,actor\.condition/);
 });
+
+test('wounded AI conserves actual generator draw and waits for visible mount settling',()=>{
+  const main=src('main.js');
+  assert.match(main,/const canConserve=!!target&&actorOutput\.power<\.7/);
+  assert.match(main,/actor\.powerSystem\.busRatio<\.90/);
+  assert.match(main,/\['WITHDRAW','CAPTURE','CONTEST','SEARCH'\]/);
+  assert.match(main,/actor\.stabilizer\.settled>\.32\+\.32\*weaponDamageResponse\(actorOutput\.weapon\)\.mountStress/);
+  assert.match(main,/Math\.hypot\(target\.rig\.x-actor\.rig\.x,/);
+});
