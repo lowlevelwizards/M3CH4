@@ -46,6 +46,12 @@ try{
   const audit=stats.assemblyAudits.find(x=>x.id==='experiment-'+family+'-anatomy');
   if(!audit||audit.checked<3)throw Error('Missing anchored '+family+' audit');
  }
+ if(!Array.isArray(stats.secondaryAssemblyIds)||stats.secondaryAssemblyIds.length!==8)
+  throw Error('Eight secondary prop assemblies missing: '+JSON.stringify(stats.secondaryAssemblyIds));
+ for(const id of ['secondary-farm-wagon','secondary-salvage-flatbed',
+   'secondary-fuel-shack','secondary-mechanic-shed','secondary-grain-silo',
+   'secondary-power-pole','secondary-yard-entry','secondary-main-entrance'])
+  if(!stats.secondaryAssemblyIds.includes(id))throw Error('Missing assembly '+id);
  if(!Array.isArray(stats.styledCoverFamilies)||
   stats.styledCoverFamilies.length!==11||
   !stats.styledCoverFamilies.includes('concrete-barrier')||
@@ -123,6 +129,29 @@ try{
  }
  await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount+stats.experimentCount));
  await page.screenshot({path:'gallery-smoke-artifacts/scenery-sample.png'});
+ // Eight complete newly rebuilt secondary assemblies. These are full
+ // linked source objects, not isolated box-detail components.
+ for(const id of stats.secondaryAssemblyIds){
+  // Use the bound exhibit labels as stable navigation irrespective of cover count.
+  const positions={
+   'secondary-farm-wagon':'FARM WAGON',
+   'secondary-salvage-flatbed':'OFFSITE SALVAGE WAGON',
+   'secondary-fuel-shack':'FUEL SERVICE SHACK',
+   'secondary-mechanic-shed':'OPEN REPAIR BAY',
+   'secondary-grain-silo':'GRAIN SILO',
+   'secondary-power-pole':'POWER POLE',
+   'secondary-yard-entry':'YARD GATE',
+   'secondary-main-entrance':'HOG PEN MARQUEE',
+  };
+  const options=await page.locator('#gallery-select option').evaluateAll(
+   nodes=>nodes.map(x=>({text:x.textContent,value:x.value})));
+  const found=options.find(x=>x.text?.includes(positions[id]));
+  if(!found)throw Error('Missing gallery entry for '+id);
+  await page.locator('#gallery-select').selectOption(found.value);
+  const info=await page.locator('#gallery-current').textContent();
+  if(!info?.includes(positions[id]))throw Error('Wrong full assembly: '+id+' '+info);
+  await page.screenshot({path:'gallery-smoke-artifacts/'+id+'-full.png'});
+ }
  // Navigating back out of the DEV lab must always preserve the live app link.
  const back=await page.locator('#gallery-exit').getAttribute('href');
  if(!back?.includes('index.html'))throw Error('No return to game');
