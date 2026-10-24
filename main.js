@@ -12,7 +12,8 @@ import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
 import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, equipAuxiliary, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
-import { servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
+import { equipmentHas, servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
+import { createSmokeState, deploySmoke, stepSmoke, smokeObscures } from './tacticalSmoke.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -226,6 +227,7 @@ let sortieAmmoCostCents = 0;
 let sortieProjectiles = 0;
 let sortieConfirmedContacts = 0;
 let fieldService = createFieldServiceState(servicePumpRate(assembly));
+let smokeState=createSmokeState();
 const faultSupportState = createFaultSupportState();
 let lastPlayerScreenId = null;
 let servicePointerId = null;
@@ -450,6 +452,12 @@ const sortieOutroReason = required('#sortie-outro-reason');
 const winnerTableau = required('#winner-tableau');
 const fireButton = required('#fire');
 const reloadButton = required('#reload');
+const smokeButton=document.createElement('button');
+smokeButton.id='utility-smoke';smokeButton.type='button';
+smokeButton.className='equipment-smoke-btn';
+smokeButton.setAttribute('aria-label','Deploy Cinder smoke screen');
+smokeButton.textContent='SMOKE ×2';
+reloadButton.parentElement?.append(smokeButton);
 const weaponLabel = required('#weapon-label');
 const ammoReadout = required('#ammo-count');
 const shotReport = required('#shot-report');
@@ -1378,6 +1386,7 @@ function renderChecks() {
 function refreshAssembly(save = false) {
     inspection = inspectAssembly(assembly);
     fieldService.rateMultiplier=servicePumpRate(assembly);
+    smokeButton.hidden=!equipmentHas(assembly,'cinder-smoke');
     rigConfig = deriveRigConfig(assembly);
     playerPower = createPowerSystem(assembly);
     updateFunctionalStatus();
@@ -1647,6 +1656,7 @@ function toggleInspection(force) {
         controls.recenterLook();
         weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
         fieldService = createFieldServiceState(servicePumpRate(assembly));
+        smokeState=createSmokeState();
         sortieRoundsFired = 0;
         sortieAmmoCostCents = 0;
         sortieProjectiles = 0;
@@ -1895,6 +1905,7 @@ if (testYard) {
             testEnded=false;testEndReason=null;
             weaponState=weaponSpec?createWeaponState(weaponSpec):null;
             fieldService=createFieldServiceState(servicePumpRate(assembly));
+            smokeState=createSmokeState();
             resetWeaponStabilizer(playerMount);
             arena.clearRockets();
             arena.resetCockpitTransientFeedback();
@@ -2026,6 +2037,7 @@ function frame(now) {
     if (!inspecting && (!testEnded || aftermathDriving) && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
+            stepSmoke(smokeState,FIXED_DT);
             const followSteer = bodyFollowSteer(input.lookYaw);
             const bodySteer = THREE.MathUtils.clamp(input.steer + followSteer, -1, 1);
             syncMovingObstacles();
@@ -2095,7 +2107,7 @@ function frame(now) {
                 aiClock+=FIXED_DT;
                 aiPlanCooldown-=FIXED_DT;aiPerceptionCooldown-=FIXED_DT;
                 if(aiPerceptionCooldown<=0||!aiSnapshot){
-                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,selectedWorld,aiClock);
+                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,selectedWorld,aiClock,smokeState.clouds);
                     aiPerceptionCooldown=.15; // fast, bounded LOS; team orders remain slow
                 }
                 if(aiPlanCooldown<=0){
@@ -2308,6 +2320,7 @@ function frame(now) {
                 // An AI holding a firing position plants the same feet through
                 // the same brake input. Do not add a special AI recoil buff.
                 const settledToShoot = !recovery.active && !!target &&
+                    !smokeObscures(actor.rig,target.rig,smokeState.clouds) &&
                     actor.fireLane?.clear===true &&
                     actor.weaponState?.loaded > 0 &&
                     withinFiringArc(actor.rig, target.rig) &&
@@ -2352,7 +2365,8 @@ function frame(now) {
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
                         startReload(actor.weaponState, actor.weaponSpec);
                     soundActualReloadPhases(actor.weaponState,actor.weaponSpec,false,actor.rig);
-                    const ready=actor.powerSystem.weaponReady && actor.weaponState.cooldown<=0 &&
+                    const ready=actor.powerSystem.weaponReady &&
+                        (!target||!smokeObscures(actor.rig,target.rig,smokeState.clouds)) && actor.weaponState.cooldown<=0 &&
                         actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
                         !!target&&actor.fireLane?.clear===true&&
                         withinFiringArc(actor.rig,target.rig)&&
@@ -2597,6 +2611,7 @@ function frame(now) {
         ].join('\n');
     }
     // World and cockpit telemetry deliberately use separate resolution budgets.
+    arena.updateTacticalSmoke(smokeState.clouds);
     arena.camera.layers.set(0);
     renderer.render(arena.scene, arena.camera);
     hudRenderer.clear();
@@ -2613,6 +2628,14 @@ function frame(now) {
     window.__m3ch4BootOK = true; // first actual 3D + cockpit render completed
     requestAnimationFrame(frame);
 }
+smokeButton.addEventListener('click',()=>{
+    if(inspecting||testEnded||!playerCombatActive||!equipmentHas(assembly,'cinder-smoke'))return;
+    if(deploySmoke(smokeState,rig)){
+        arena.updateTacticalSmoke(smokeState.clouds);
+        showStatus('CINDER DISCHARGED · OPTICAL COVER');
+        renderAmmo();
+    }
+});
 devToggle.addEventListener('click', () => {
     const opening = devPanel.classList.contains('hidden');
     devPanel.classList.toggle('hidden');
@@ -2701,6 +2724,9 @@ function handleFieldServiceInterrupted() {
 }
 function renderAmmo() {
     const failure=weaponFailureState(playerCondition,fieldService);
+    smokeButton.hidden=!equipmentHas(assembly,'cinder-smoke');
+    smokeButton.disabled=inspecting||testEnded||!playerCombatActive||smokeState.charges<=0;
+    smokeButton.textContent='SMOKE ×'+smokeState.charges;
     const faults=serviceableSlots(playerCondition);
     const selected=fieldServiceTarget(playerCondition,fieldService);
     const available=playerCombatActive && canFieldService(playerCondition,fieldService);
