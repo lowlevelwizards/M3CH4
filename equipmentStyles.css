@@ -21,3 +21,10 @@
   .workshop-equipment-row { grid-template-columns: 1fr; gap: 3px; }
   .equipment-smoke-btn { min-width: 62px; }
 }
+
+.equipment-weapon-toggle {
+ min-width: 74px;min-height:46px;padding:6px 8px;border:2px solid #9a8962;border-radius:7px;
+ background:#3a3325;color:#f1d5a0;font:800 .7rem/1.1 system-ui,sans-serif;
+}
+.equipment-weapon-toggle:disabled{opacity:.45}
+.equipment-weapon-toggle[hidden]{display:none!important}
