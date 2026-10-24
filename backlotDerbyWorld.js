@@ -453,35 +453,54 @@ export function batchBacklotDerbyDecorations(root){
  if(completed.length){
   root.updateWorldMatrix(true,true);
   const inverse=root.matrixWorld.clone().invert();
-  const buckets=new Map();
-  for(const group of completed){
-   group.traverse(node=>{
-    if(!node.isMesh||node.isInstancedMesh||node.material?.transparent)return;
-    const key=node.geometry.uuid+':'+node.material.uuid;
-    if(!buckets.has(key))buckets.set(key,[]);
-    buckets.get(key).push({node,matrix:inverse.clone().multiply(node.matrixWorld)});
-    secondaryInstances++;
+  // The offsite scenery and live machines use many distinct primitive
+  // dimensions (especially tyres, torus radii, sloped roofs and bucket
+  // profiles). Instancing by *identical geometry* still leaves ~65 draws.
+  // Convert these static meshes into one baked nonindexed geometry PER
+  // material, preserving positions, normals, wheel holes, and bucket gaps.
+  const materialsByKey=new Map();
+  for(const group of completed)group.traverse(node=>{
+   if(!node.isMesh||node.isInstancedMesh||node.material?.transparent||
+      Array.isArray(node.material))return;
+   const key=node.material.uuid;
+   if(!materialsByKey.has(key))materialsByKey.set(key,{
+     material:node.material,items:[],
    });
-  }
+   materialsByKey.get(key).items.push({
+     node,matrix:inverse.clone().multiply(node.matrixWorld),
+   });
+   secondaryInstances++;
+  });
   for(const group of completed)root.remove(group);
   const merged=new THREE.Group();merged.name='batch-completed-secondary-scenery';
   root.add(merged);
-  for(const items of buckets.values()){
-   if(items.length===1){
-    const {node,matrix}=items[0];
-    const one=node.clone();
-    matrix.decompose(one.position,one.quaternion,one.scale);
-    merged.add(one);
-    continue;
+  for(const pack of materialsByKey.values()){
+   let count=0;
+   const transformed=pack.items.map(item=>{
+    let geo=item.node.geometry.clone();
+    geo.applyMatrix4(item.matrix);
+    if(geo.index)geo=geo.toNonIndexed();
+    if(!geo.getAttribute('normal'))geo.computeVertexNormals();
+    count+=geo.getAttribute('position').count;
+    return geo;
+   });
+   const positions=new Float32Array(count*3),normals=new Float32Array(count*3);
+   let at=0;
+   for(const geo of transformed){
+    const p=geo.getAttribute('position'),n=geo.getAttribute('normal');
+    positions.set(p.array,at);
+    normals.set(n.array,at);
+    at+=p.array.length;
+    geo.dispose();
    }
-   const batch=new THREE.InstancedMesh(items[0].node.geometry,
-     items[0].node.material,items.length);
-   batch.name='instanced-secondary-scenery';
-   batch.userData.visualOnly=true;
-   batch.castShadow=false;batch.receiveShadow=true;
-   items.forEach((item,i)=>batch.setMatrixAt(i,item.matrix));
-   batch.instanceMatrix.needsUpdate=true;
-   merged.add(batch);secondaryBatches++;
+   const geometry=new THREE.BufferGeometry();
+   geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+   geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));
+   geometry.computeBoundingSphere();
+   const mesh=new THREE.Mesh(geometry,pack.material);
+   mesh.name='baked-static-backlot-scenery';
+   mesh.userData.visualOnly=true;mesh.receiveShadow=true;mesh.castShadow=false;
+   merged.add(mesh);secondaryBatches++;
   }
  }
  // Batch static siblings at EVERY authored hierarchy level, not just the
