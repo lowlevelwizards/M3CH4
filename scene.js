@@ -1989,7 +1989,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             lookYaw*.85+(pilotStabilityPose?.yaw??0)+reloadView.yaw,
             gunDamageKick*damageWave*.16+pilotHitResponse.roll*.22, 'YXZ');
         gunPivot.position.x=1.16+gunDamageKick*damageWave*.045+reloadView.x;
-        gunPivot.position.y=2.04+reloadView.y-pilotRecovery.compression*.25;
+        const mountWear=Math.pow(1-THREE.MathUtils.clamp(serviceVisual?.weaponHealth??1,0,1),2);
+        gunPivot.position.y=2.04+reloadView.y-pilotRecovery.compression*.25-mountWear*.036;
         // Powered breech: open, eject, index from the built-in feed,
         // close, then a short charging rack AFTER lock-up.
         cockpit.userData.gunBreech.position.z=-.19+reload.slide*
@@ -2240,6 +2241,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 command.position.y=commandBase.position.y-(commandBroken?.09:0);
             }
             if(combat&&combatBase&&!record.destroyedSlots.has('combat')){
+                const internal=record.condition?.parts?.combat;
+                const wear=internal?.maxIntegrity>0?Math.pow(1-
+                    THREE.MathUtils.clamp(internal.integrity/internal.maxIntegrity,0,1),2):0;
                 const recovery=record.weaponRecoveryKick??0;
                 const discharge=record.firingState?.pose;
                 const reload=reloadArticulation(visual?.reloadLeft??0,
@@ -2249,9 +2253,9 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
                 combat.rotation.x=combatBase.rotation.x+aim.elevation+
                     (fault?.20:0)-(recovery*.12)+(discharge?.mount??0)+
                     (record.hitResponse?.mount??0)*.56+(record.stabilityPose?.pitch??0);
-                combat.rotation.z=combatBase.rotation.z+(fault?.14:0)+
+                combat.rotation.z=combatBase.rotation.z+(fault?.14:0)+wear*.065+
                     (1-health)*(record.stabilityPose?.yaw??0)*.45;
-                combat.position.y=combatBase.position.y-(fault?.09:0)+recovery*.014;
+                combat.position.y=combatBase.position.y-(fault?.09:0)-wear*.045+recovery*.014;
                 combat.position.z=combatBase.position.z+(record.recoilKick??0)*.70+
                     (discharge?.travel??0)*.085+reload.settle*.027;
                 const mechanism=combat.userData.weaponMechanism;
