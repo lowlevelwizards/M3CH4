@@ -569,7 +569,10 @@ export function buildBacklotPropCatalog(world){
  oldTractor.position.set(-oldC.x,-oldB.min.y,-oldC.z);
  oldPart.add(oldTractor);oldPart.visible=false;
  const newPart=new THREE.Group();
- buildAnatomicalTractor(newPart);
+ const actualTractor=buildAnatomicalTractor(newPart);
+ // The A/B gallery now inspects the exact LIVE machine transform.
+ actualTractor.scale.set(1.32,1,1.23);
+ actualTractor.position.set(-4.07-oldC.x,0,-1.65-oldC.z);
  const collisionOverlay=new THREE.Group();
  collisionOverlay.name='AUTHORITATIVE OLD BACKLOT AABBs — reference only';
  const colliderMaterial=new THREE.LineBasicMaterial({
@@ -609,7 +612,12 @@ export function buildBacklotPropCatalog(world){
   const center=bounds.getCenter(new THREE.Vector3());
   oldRoot.position.set(-center.x,-bounds.min.y,-center.z);
   const oldPart=new THREE.Group();oldPart.add(oldRoot);oldPart.visible=false;
-  const newPart=new THREE.Group();exhibit.build(newPart);
+  const newPart=new THREE.Group();
+  const actual=exhibit.build(newPart);
+  if(exhibit.id==='loader'){
+   actual.scale.set(1.12,1,.92);
+   actual.position.set(5.08-center.x,0,.43-center.z);
+  }
   const assemblyAudit=auditBacklotAssembly(newPart,exhibit.id);
   const collisionOverlay=new THREE.Group();
   collisionOverlay.name='EXISTING LIVE COLLIDERS ONLY '+exhibit.id;
