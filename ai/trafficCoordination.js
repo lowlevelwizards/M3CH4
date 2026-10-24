@@ -1,3 +1,4 @@
+import {positionHitsCover,allMovementPieces} from '../backlotCompoundGeometry.js';
 /**
  * Experimental physical teammate traffic advice. This module never moves a rig,
  * changes collision geometry or invents positions: the existing intent executor
@@ -18,9 +19,7 @@ const valid=(p,world,radius)=>
   Number.isFinite(p?.x)&&Number.isFinite(p?.z)&&
   p.x>=world.minX+radius&&p.x<=world.maxX-radius&&
   p.z>=world.minZ+radius&&p.z<=world.maxZ-radius&&
-  !(world.obstacles??[]).some(o=>!o.dynamic&&
-    p.x>o.minX-radius&&p.x<o.maxX+radius&&
-    p.z>o.minZ-radius&&p.z<o.maxZ+radius);
+  !positionHitsCover(p,world.obstacles,radius,{includeDynamic:false});
 function clear(from,to,world,pad){
   if(!valid(to,world,pad))return false;
   for(let k=1;k<=Math.max(2,Math.ceil(dist(from,to)/.65));k++){
@@ -63,7 +62,7 @@ export function isPhysicalChoke(rig,waypoint,world,radius=1){
   const dx=waypoint.x-rig.x,dz=waypoint.z-rig.z;
   const length=Math.hypot(dx,dz);if(length<1.5)return false;
   const nx=dx/length,nz=dz/length;
-  const staticBoxes=(world.obstacles??[]).filter(o=>!o.dynamic);
+  const staticBoxes=allMovementPieces(world.obstacles).filter(o=>!o.dynamic);
   if(!staticBoxes.length)return false;
   const lateral=Math.max(3.6,2*radius+1.8);
   const inside=(p,o)=>p.x>=o.minX&&p.x<=o.maxX&&
