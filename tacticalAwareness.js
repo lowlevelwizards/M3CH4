@@ -1,4 +1,5 @@
 import { firstCoverHit } from './coverTruth.js';
+import {allCollisionPieces} from './backlotCompoundGeometry.js';
 
 const distance = (a, b) => Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -90,7 +91,7 @@ export function recentThreatTargetId(owner) {
 }
 
 function staticObstacles(world) {
-    return (world?.obstacles ?? []).filter(obstacle => !obstacle.dynamic);
+    return allCollisionPieces((world?.obstacles ?? []).filter(obstacle => !obstacle.dynamic));
 }
 
 /** Body-height tactical LOS. Ballistic raycasts remain authoritative for actual fire;
