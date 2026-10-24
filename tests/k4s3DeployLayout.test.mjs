@@ -62,7 +62,7 @@ test('mobile page loads fresh k4s.3 CSS and the deploy fix JS',()=>{
     const html=src('index.html'),adapter=src('garageMountUI.js');
     assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
     assert.match(html,/k4s3Layout\.css\?v=k4s3/);
-    assert.match(html,/unifiedGarageUI\.js\?v=k5p4/);
+    assert.match(html,/unifiedGarageUI\.js\?v=k5e1/);
     assert.match(adapter,/unifiedGarageUI\.js\?v=k5p4/);
     assert.ok(html.indexOf('k4s3Layout.css')>html.indexOf('k4s2GarageFlow.css'));
 });

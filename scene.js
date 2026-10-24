@@ -19,6 +19,7 @@ import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './b
 import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironmentPass.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
+import { addEquipmentVisuals } from './equipmentVisuals.js';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import {attachReloadHardware,poseReloadHardware,poseExistingReloadMagazine} from './weaponVisualKit.js';
 import {reloadMechanism,reloadCockpitPresentation} from './reloadMechanism.js';
@@ -66,7 +67,7 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     if (!definition) return null;
     const condition = Math.max(0, Math.min(1, Number(state.condition) || 0));
     const destroyed = !!state.destroyed || state.status === 'destroyed';
-    const key = `k4a:${definitionId}:${state.serial||'PREVIEW'}:${destroyed ? 'x' : Math.round(condition * 10)}:${Math.round((state.wear||0)*20)}:${state.repairs||0}:${state.history?.deployments||0}:${JSON.stringify(normalizePaint(state.paint))}`;
+    const key = `k4a:${definitionId}:front-face5e:${state.serial||'PREVIEW'}:${destroyed ? 'x' : Math.round(condition * 10)}:${Math.round((state.wear||0)*20)}:${state.repairs||0}:${state.history?.deployments||0}:${JSON.stringify(normalizePaint(state.paint))}`;
     if (partThumbnailCache.has(key)) return partThumbnailCache.get(key);
     if (!partThumbnailRenderer) {
         partThumbnailRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
@@ -109,9 +110,9 @@ export function partThumbnailDataUrl(definitionId, state = {}) {
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
     const camera = new THREE.PerspectiveCamera(36, 96 / 72, .03, 40);
     const radius = Math.max(.35, sphere.radius);
-    // Weapon geometry points toward -Z; show muzzle/action, not the rear of the receiver.
-    camera.position.set(radius * 1.65, radius * .92,
-        definition.slot==='combat'?-radius*2.25:radius*2.25);
+    // Every authored exterior presents its -Z/front face to the viewer.
+    // Keep weapon framing unchanged; other stations previously showed their backs.
+    camera.position.set(radius * 1.65, radius * .92, -radius * 2.25);
     camera.lookAt(0, 0, 0);
     partThumbnailRenderer.render(previewScene, camera);
     const url = partThumbnailRenderer.domElement.toDataURL('image/png');
@@ -154,7 +155,7 @@ export function rigThumbnailDataUrl(assembly){
     visual.root.position.sub(sphere.center);
     const radius=Math.max(.35,sphere.radius);
     const camera=new THREE.PerspectiveCamera(36,96/72,.03,60);
-    camera.position.set(radius*1.55,radius*.86,radius*2.4);
+    camera.position.set(radius*1.55,radius*.86,-radius*2.4);
     camera.lookAt(0,0,0);
     partThumbnailRenderer.render(stage,camera);
     const url=partThumbnailRenderer.domElement.toDataURL('image/png');
@@ -231,6 +232,44 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     const arenaPresentationRoot = new THREE.Group();
     arenaPresentationRoot.name = 'arena-presentation';
     scene.add(arenaPresentationRoot);
+    const tacticalSmokeRoot=new THREE.Group();
+    tacticalSmokeRoot.name='tactical-smoke-optical-cover';
+    arenaPresentationRoot.add(tacticalSmokeRoot);
+    const tacticalCloudMeshes=new Map();
+    function updateTacticalSmoke(clouds=[]){
+        const live=new Set(clouds.map(c=>c.id));
+        for(const [id,group] of tacticalCloudMeshes){
+            if(live.has(id))continue;
+            tacticalSmokeRoot.remove(group);
+            group.traverse(node=>{if(node.isMesh){node.geometry.dispose();node.material.dispose();}});
+            tacticalCloudMeshes.delete(id);
+        }
+        for(const cloud of clouds){
+            let group=tacticalCloudMeshes.get(cloud.id);
+            if(!group){
+                group=new THREE.Group();
+                for(let i=0;i<9;i++){
+                    const phi=i*Math.PI*2/9;
+                    const puff=new THREE.Mesh(
+                        new THREE.SphereGeometry(1,7,5),
+                        new THREE.MeshStandardMaterial({
+                            color:i%3===0?0x353b38:0x282e2a,
+                            roughness:1,transparent:true,opacity:.46,
+                            depthWrite:false,side:THREE.DoubleSide,
+                        }));
+                    puff.position.set(Math.cos(phi)*.50,.98+(i%3)*.33,Math.sin(phi)*.50);
+                    puff.scale.set(1.18,.76,1.18);
+                    group.add(puff);
+                }
+                tacticalSmokeRoot.add(group);
+                tacticalCloudMeshes.set(cloud.id,group);
+            }
+            const spread=Math.min(1,Math.max(.12,(cloud.age??0)/.85));
+            const decay=Math.min(1,Math.max(0,(cloud.life??0)/1.5));
+            group.position.set(cloud.x,0,cloud.z);
+            group.scale.setScalar((cloud.radius??3.5)*.72*spread*decay);
+        }
+    }
     const worldSolids = buildArenaWorld(arenaRoot,world,arenaMap,playerSpawn,hostileSpawn);
     const backlotEnvironment=arenaMap.id==='backlot-dustbowl'
         ?scene.getObjectByName('backlot-outdoor-derby-world'):null;
@@ -1777,6 +1816,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     let cockpitRoll = 0;
     let cockpitPitch = 0;
     const gunPivot = cockpit.userData.gunPivot;
+    let pilotWeaponMountX=1.16;
     const flashMesh = cockpit.userData.flashMesh;
     let previewAssembly=initial;
     let animationPreviewMode='off',animationPreviewSpeed=3,previewTime=0,
@@ -1988,7 +2028,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             (pilotStabilityPose?.pitch??0)+reloadView.tilt,
             lookYaw*.85+(pilotStabilityPose?.yaw??0)+reloadView.yaw,
             gunDamageKick*damageWave*.16+pilotHitResponse.roll*.22, 'YXZ');
-        gunPivot.position.x=1.16+gunDamageKick*damageWave*.045+reloadView.x;
+        gunPivot.position.x=pilotWeaponMountX+gunDamageKick*damageWave*.045+reloadView.x;
         const mountWear=Math.pow(1-THREE.MathUtils.clamp(serviceVisual?.weaponHealth??1,0,1),2);
         gunPivot.position.y=2.04+reloadView.y-pilotRecovery.compression*.25-mountWear*.036;
         // Powered breech: open, eject, index from the built-in feed,
@@ -2549,7 +2589,11 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const first = raycaster.intersectObjects([...exterior.pickMeshes,...emptyMountPicks], false)[0];
         return first?.object.userData.slot ?? null;
     }
-    function setPilotWeapon(spec) {
+    function setPilotWeapon(spec,secondary=false) {
+        // Twin-Spar's off-hand shot originates on the left, not the old right
+        // barrel. Inspection and standard single-gun rigs retain the old mount.
+        pilotWeaponMountX=secondary?-.94:1.16;
+        gunPivot.position.x=pilotWeaponMountX;
         const barrel = cockpit.userData.gunBarrel;
         const breech = cockpit.userData.gunBreech;
         gunPivot.visible = !!spec;
@@ -2972,6 +3016,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         const impactDistance = muzzle.distanceTo(point);
         const contact={ actorId: slot ? actorId : null, slot: slot ?? null, blockedBy,
             shieldedSlot: cover ? null : shieldedSlot,
+            equipmentId:cover?null:(actual?.object?.userData?.equipmentId??null),
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             point, normal: surfaceNormal, muzzle, distance: impactDistance,
             // The sight may deliberately end on a wall/floor/rig. Only warn if
@@ -3046,6 +3091,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
             actorId: slot ? actorId : null,
             slot: slot ?? null, blockedBy, shieldedSlot: cover ? null : shieldedSlot,
             point, normal: surfaceNormal, muzzle,
+            equipmentId:cover?null:(actual?.object?.userData?.equipmentId??null),
             surfaceHit:cover?null:surfaceContact(actual,point,surfaceNormal),
             distance: muzzle.distanceTo(point), driveSide,
         };
@@ -3602,7 +3648,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     }
     selectPart(selected);
     return {
-        scene, camera, cockpit, debugColliders,
+        scene, camera, cockpit, debugColliders, updateTacticalSmoke,
         updateRigVisual, updateTargetRigVisual, updateHostileNavigation, setInspection, setSpectatorRig, orbitSpectatorBy, zoomSpectatorBy, resetSpectatorOrbit, setAnimationPreview, rebuildAssembly, recalibratePlayerSoles, selectPart, setPaintSelectedSlots, setPreviewPart, focusPart,
         setPilotingLab, updatePilotingLabRig, pilotingLabFootReadout, recordFootprint, setPilotStabilizer,
         setVendorStock, setVendorMode, selectVendorLot, pickVendorLot,
@@ -4328,6 +4374,9 @@ export function buildExteriorRig(assembly) {
             group.position.set(c[0]-parent[0],c[1]-parent[1],c[2]-parent[2]);
         }
     }
+    // Auxiliary geometry follows the actual owned hull; its meshes are assigned
+    // to existing structural/weapon damage stations, never phantom HP bars.
+    addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes,partGroups.get('combat'));
     return { root, partGroups, partMeshes, pickMeshes };
 }
 /** Chamfered polygon, deliberately low-poly; avoid the cuboid-only silhouette. */

@@ -2,7 +2,8 @@
  * True kW / kJ accounting. No damage, randomness, inventory or special AI laws.
  * The existing fitted power rating remains the continuous, non-negotiable cap.
  */
-import { installedPart } from './components.js';
+import { BY_ID, installedPart } from './components.js';
+import { EQUIPMENT_DEFS, equipmentMounts } from './equipment.js';
 const clamp = (v,a,b) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : a));
 const PROFILE = Object.freeze({
     'power-dynamo': Object.freeze({ label: 'DYNAMO G-2', responseSeconds: .65, fallSeconds: .85,
@@ -30,16 +31,24 @@ export function createPowerSystem(assembly) {
  * and the minimum mechanical/hydraulic circulation of the installed legs.
  * Mobile full-duty draw uses the catalogue's existing kW requirements. */
 export function standbyDemandKw(assembly) {
+    const eq=equipmentMounts(assembly);
+    const equipmentIdleKw=Object.entries(eq).reduce((sum,[mount,id])=>{
+        // Off-hand weapon remains on standby until actively fired; pumps,
+        // smoke controls and stabilizer hydraulics are continuous bus loads.
+        const kw=mount==='secondaryWeapon' ? -Math.min(0,BY_ID.get(id)?.powerKw??0)*.32
+            : -Math.min(0,EQUIPMENT_DEFS[id]?.powerKw??0);
+        return sum+kw;
+    },0);
     return Math.max(0,-rating(assembly,'command')) +
         Math.max(0,-rating(assembly,'combat')) * .32 +
-        Math.max(0,-rating(assembly,'mobility')) * .18;
+        Math.max(0,-rating(assembly,'mobility')) * .18 + equipmentIdleKw;
 }
-export function registerPowerShot(state,assembly) {
+export function registerPowerShot(state,assembly,weaponId=null) {
     if(!state) return;
     // A *successfully consumed* shot requests transient stabilizer/breech current.
     // Max rather than additive stacking: sustained firing maintains a demand
     // while individual magazines still obey their own cooldown authority.
-    const weaponKw = Math.max(0,-rating(assembly,'combat'));
+    const weaponKw = Math.max(0,-(weaponId?BY_ID.get(weaponId)?.powerKw??rating(assembly,'combat'):rating(assembly,'combat')));
     state.shotPulseKw = Math.min(weaponKw * 3.4,
         (state.shotPulseKw ?? 0) + weaponKw * 1.20);
 }

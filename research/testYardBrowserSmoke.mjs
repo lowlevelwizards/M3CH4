@@ -24,12 +24,27 @@ try {
  const bench=await page.evaluate(()=>({
    selects:document.querySelectorAll('.yard-parts .yard-select').length,
    weapons:document.querySelector('.yard-select[aria-label="WEAPON"]')?.options.length,
+   auxiliaryMounts:['UTILITY LEFT','UTILITY RIGHT','FRONT ARMOR','WEAPON CRADLE','SECONDARY GUN'].map(label=>
+     !!document.querySelector('.yard-select[aria-label="'+label+'"]')),
    garage:document.querySelector('.yard-shell')?.classList.contains('garage'),
    map:document.querySelector('#dev-version')?.textContent,
  }));
- if(bench.selects!==5||bench.weapons!==8||!bench.garage||
+ if(bench.selects!==10||bench.auxiliaryMounts.includes(false)||bench.weapons!==8||!bench.garage||
     !bench.map?.includes('TEST YARD'))throw Error('BENCH '+JSON.stringify(bench));
  await page.screenshot({path:'browser-smoke-artifacts/test-yard-bench.png'});
+ // Auxiliary sockets are a genuine part of the same bench, with independent
+ // gun state and no modification to the campaign's five-station save.
+ await page.locator('.yard-select[aria-label="UTILITY LEFT"]').selectOption('cinder-smoke');
+ await page.locator('.yard-select[aria-label="WEAPON CRADLE"]').selectOption('twin-spar');
+ await page.locator('.yard-select[aria-label="SECONDARY GUN"]').selectOption('gun-light');
+ const aux=await page.evaluate(()=>({
+    smoke:JSON.parse(localStorage.getItem('m3ch4-test-yard-loadout-v1')||'{}').equipment?.utilityLeft,
+    cradle:JSON.parse(localStorage.getItem('m3ch4-test-yard-loadout-v1')||'{}').equipment?.combatCradle,
+    secondary:JSON.parse(localStorage.getItem('m3ch4-test-yard-loadout-v1')||'{}').equipment?.secondaryWeapon,
+ }));
+ if(aux.smoke!=='cinder-smoke'||aux.cradle!=='twin-spar'||aux.secondary!=='gun-light')
+    throw Error('AUXILIARY FIT SAVE '+JSON.stringify(aux));
+
  await page.locator('.yard-select[aria-label="WEAPON"]').selectOption('gun-scatter');
  const stored=await page.evaluate(()=>({
    campaign:localStorage.getItem('mech-arena-machine-v8'),
@@ -39,6 +54,21 @@ try {
     !stored.sandbox?.includes('gun-scatter')) throw Error('SANDBOX SAVE '+JSON.stringify(stored));
  await page.locator('.yard-toolbar button').filter({hasText:'DEPLOY'}).click();
  await page.waitForTimeout(600);
+ const swap=page.locator('#weapon-toggle'),smoke=page.locator('#utility-smoke');
+ if(!await swap.isVisible()||!await smoke.isVisible())throw Error('EQUIPMENT CONTROLS NOT VISIBLE');
+ await swap.click();
+ if(!/2 \/ 2/.test(await swap.textContent()))throw Error('SECONDARY WEAPON NOT SELECTED');
+ const secondBefore=await page.locator('#ammo-count').textContent();
+ await page.locator('#fire').click();
+ await page.waitForTimeout(120);
+ const secondAfter=await page.locator('#ammo-count').textContent();
+ if(secondAfter===secondBefore)throw Error('SECOND GUN DID NOT FIRE '+JSON.stringify({secondBefore,secondAfter}));
+ await swap.click();
+ if(!/1 \/ 2/.test(await swap.textContent()))throw Error('PRIMARY WEAPON NOT RESTORED');
+ const primaryAmmo=await page.locator('#ammo-count').textContent();
+ if(primaryAmmo===secondAfter)throw Error('SHARED MAGAZINE ALIAS '+JSON.stringify({primaryAmmo,secondAfter}));
+ await smoke.click();
+ if(!/×1/.test(await smoke.textContent()))throw Error('CINDER SMOKE DID NOT DISCHARGE');
  if(await page.locator('.yard-shell').evaluate(node=>node.classList.contains('garage')))
    throw Error('Deploy did not leave garage');
  await page.screenshot({path:'browser-smoke-artifacts/test-yard-range.png'});

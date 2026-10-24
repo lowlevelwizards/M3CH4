@@ -1,4 +1,6 @@
 import { defaultFrameSockets, ensureAssemblyGraph, graphFromStations, graphMatchesStations, graphWorldPoses, proposeAttachment, proposeRemoval, validateGraph, LEGACY_HIP_ADAPTER, GENERATOR_OFFSET_BRACKET } from './assemblyGraph.js';
+import { checkEquipment, equipmentMounts, normalizeEquipment, setEquipmentMount as fitAuxiliaryEquipment } from './equipment.js';
+export { EQUIPMENT_DEFS, equipmentMounts } from './equipment.js';
 export const SLOTS = ['structure', 'mobility', 'power', 'command', 'combat'];
 export const SLOT_CENTERS = {
     structure: [0, 1.82, 0.13],
@@ -58,7 +60,7 @@ export function makeTestAssembly() {
     }));
     const serialOf = (definitionId) => owned.find(p => p.definitionId === definitionId).serial;
     const assembly = {
-        serial: 'SR-01', name: 'SCRAPYARD RIG', owned,
+        serial: 'SR-01', name: 'SCRAPYARD RIG', owned, equipment: {},
         installed: {
             structure: serialOf('frame-sr'), mobility: serialOf('legs-yard'),
             power: serialOf('power-dynamo'), command: serialOf('cab-cyclops'),
@@ -237,14 +239,29 @@ export function adapterFor(assembly, slot) {
     }
     return null;
 }
+/** Atomically equip auxiliary hardware without bypassing physical mass and power validation. */
+export function equipAuxiliary(assembly,mount,id) {
+    const before={...equipmentMounts(assembly)};
+    const step=fitAuxiliaryEquipment(assembly,mount,id);
+    if(!step.ok)return step;
+    const verdict=inspectAssembly(assembly);
+    if(!verdict.ready){
+        assembly.equipment=before;
+        const problem=verdict.checks.find(check=>!check.passes);
+        return {ok:false,reason:problem?.reason??'Equipment does not fit this rig.'};
+    }
+    return {ok:true,equipment:assembly.equipment};
+}
 export function inspectAssembly(assembly) {
     const fitted = SLOTS.map(slot => installedPart(assembly, slot));
     const adapters = Object.keys(PORTS)
         .map(slot => adapterFor(assembly, slot)).filter((item) => item !== null);
+    const auxiliary=checkEquipment(assembly,(slot,id)=>slot==='secondary'?BY_ID.get(id):installedPart(assembly,slot)?.definition);
     const massKg = fitted.reduce((sum, part) => sum + (part?.definition.massKg ?? 0), 0)
-        + adapters.reduce((sum, adapter) => sum + adapter.massKg, 0);
+        + adapters.reduce((sum, adapter) => sum + adapter.massKg, 0)
+        + auxiliary.massKg;
     const powerAvailableKw = Math.max(0, installedPart(assembly, 'power')?.definition.powerKw ?? 0);
-    const powerUsedKw = fitted.reduce((sum, part) => sum + Math.max(0, -(part?.definition.powerKw ?? 0)), 0);
+    const powerUsedKw = fitted.reduce((sum, part) => sum + Math.max(0, -(part?.definition.powerKw ?? 0)), 0) + auxiliary.powerUsedKw;
     const frame = installedPart(assembly, 'structure')?.definition;
     const mover = installedPart(assembly, 'mobility')?.definition;
     const missing = SLOTS.filter(slot => !installedPart(assembly, slot));
@@ -262,6 +279,8 @@ export function inspectAssembly(assembly) {
     const graph = assemblyGraph(assembly);
     const graphCheck = validateGraph(graph, assembly, BY_ID);
     const checks = [
+        { id:'equipment',label:'Equipment mounts',passes:auxiliary.valid,
+            reason:auxiliary.reason },
         { id: 'structure', label: 'Structure', passes: !!frame && noDuplicateOwnership && invalidSlotReferences.length === 0 && !repeatedInstall && mountErrors.length === 0 && graphCheck.valid && massKg <= (frame?.loadLimitKg ?? 0), reason: !frame ? 'Install a connected frame.' : (!noDuplicateOwnership || invalidSlotReferences.length || repeatedInstall) ? 'Duplicate or invalid component identity.' : mountErrors.length ? `Unresolved mounts: ${mountErrors.join(', ')}.` : !graphCheck.valid ? graphCheck.errors[0] : assembly.mountNotice ? assembly.mountNotice : massKg > (frame.loadLimitKg ?? 0) ? `Frame exceeds ${frame.loadLimitKg} kg rating.` : 'Load-bearing frame and mount interfaces connected.' },
         { id: 'mobility', label: 'Mobility', passes: !!mover?.functionReady && massKg <= (mover?.loadLimitKg ?? 0), reason: !mover ? 'Install a walking or rolling assembly.' : massKg > (mover.loadLimitKg ?? 0) ? `Installed mass exceeds ${mover.loadLimitKg} kg leg rating.` : 'Powered, load-rated locomotion assembly installed.' },
         { id: 'power', label: 'Power', passes: powerAvailableKw >= powerUsedKw && powerAvailableKw > 0, reason: powerAvailableKw === 0 ? 'Install a power unit.' : powerUsedKw > powerAvailableKw ? `Demand ${powerUsedKw} kW exceeds ${powerAvailableKw} kW available.` : `${powerUsedKw}/${powerAvailableKw} kW nominal load.` },
@@ -277,5 +296,5 @@ export function inspectAssembly(assembly) {
         warnings.push(`No adapter available for ${mountErrors.join(', ')}.`);
     warnings.push(...graphCheck.errors);
     if (assembly.mountNotice) warnings.push(assembly.mountNotice);
-    return { ready: checks.every(check => check.passes), checks, warnings, adapters, graphCheck, massKg, powerUsedKw, powerAvailableKw };
+    return { ready: checks.every(check => check.passes), checks, warnings, adapters, graphCheck, auxiliary, massKg, powerUsedKw, powerAvailableKw };
 }

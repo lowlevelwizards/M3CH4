@@ -1,0 +1,30 @@
+/* Optional mechanical fittings: compact, thumb-friendly, no extra knockout bar. */
+.workshop-equipment-panel {
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #64705f;
+  border-radius: 8px;
+  background: rgba(17,26,23,.94);
+  color: #d6dbc7;
+}
+.workshop-equipment-title { cursor: pointer; font-weight: 800; letter-spacing: .055em; font-size: .84rem; color: #e2bf73; }
+.workshop-equipment-hint { margin: 8px 0 12px; color: #b3bcb1; font-size: .75rem; line-height: 1.45; }
+.workshop-equipment-row { display: grid; grid-template-columns: minmax(95px,1fr) minmax(120px,1.5fr); gap: 9px; align-items: center; margin: 7px 0; font-size: .7rem; }
+.workshop-equipment-choice { width: 100%; min-height: 40px; background: #26332e; color: #f3ddad; border: 1px solid #6c796a; padding: 6px; border-radius: 5px; font-size: .75rem; }
+.workshop-equipment-choice:disabled { opacity: .45; }
+.workshop-equipment-summary { display: block; margin: 10px 0 2px; color: #99b6a5; font-size: .7rem; }
+.equipment-smoke-btn { min-width: 74px; min-height: 46px; border: 2px solid #778a80; border-radius: 7px; background: #273630; color: #e6e6d4; font: 800 .7rem/1.1 system-ui,sans-serif; }
+.equipment-smoke-btn:disabled { opacity: .42; }
+.equipment-smoke-btn[hidden] { display: none !important; }
+@media (max-width:550px) {
+  .workshop-equipment-panel { padding: 9px; }
+  .workshop-equipment-row { grid-template-columns: 1fr; gap: 3px; }
+  .equipment-smoke-btn { min-width: 62px; }
+}
+
+.equipment-weapon-toggle {
+ min-width: 74px;min-height:46px;padding:6px 8px;border:2px solid #9a8962;border-radius:7px;
+ background:#3a3325;color:#f1d5a0;font:800 .7rem/1.1 system-ui,sans-serif;
+}
+.equipment-weapon-toggle:disabled{opacity:.45}
+.equipment-weapon-toggle[hidden]{display:none!important}

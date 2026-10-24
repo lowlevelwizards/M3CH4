@@ -1,7 +1,8 @@
 /** Range-only full-catalogue assembly and touch-first bench.
  * Own preset key; never touches the campaign machine/stable/career records.
  */
-import { CATALOG, SLOTS, equip, installedPart, inspectAssembly, makeTestAssembly } from './components.js';
+import { CATALOG, SLOTS, equip, equipAuxiliary, installedPart, inspectAssembly, makeTestAssembly } from './components.js';
+import { EQUIPMENT_DEFS, MOUNT_KEYS, SECONDARY_WEAPONS, equipmentMounts } from './equipment.js';
 export { TEST_YARD } from './maps/testYard.js';
 const PRESET_KEY = 'm3ch4-test-yard-loadout-v1';
 const LABELS = {structure:'FRAME',mobility:'LEGS / DRIVE',power:'GENERATOR',command:'COCKPIT',combat:'WEAPON'};
@@ -23,11 +24,15 @@ export function readTestYardAssembly() {
       try { equip(assembly, slot, id); } catch { /* use the factory-safe fit */ }
     }
   }
+  for(const mount of MOUNT_KEYS) {
+    const id=preset?.equipment?.[mount];
+    if(id) equipAuxiliary(assembly,mount,id);
+  }
   return assembly;
 }
 export function storeTestYardAssembly(assembly) {
   const parts = Object.fromEntries(SLOTS.map(slot => [slot, installedPart(assembly, slot)?.definition.id ?? null]));
-  try { window.localStorage.setItem(PRESET_KEY, JSON.stringify({version:1,parts})); return true; }
+  try { window.localStorage.setItem(PRESET_KEY, JSON.stringify({version:1,parts,equipment:equipmentMounts(assembly)})); return true; }
   catch { return false; }
 }
 export function clearTestYardAssembly() {
@@ -45,7 +50,7 @@ function button(label, action, cls='') {
   el.addEventListener('click',action);
   return el;
 }
-export function createTestYardPanel({assembly,onInstall,onDeploy,onGarage,onTargets,onReset,onMode,onResetLoadout,onCenter,onDamage,onReadDamage,onResetDamage}) {
+export function createTestYardPanel({assembly,onInstall,onEquipment,onDeploy,onGarage,onTargets,onReset,onMode,onResetLoadout,onCenter,onDamage,onReadDamage,onResetDamage}) {
   const shell = element('div','yard-shell');
   shell.id='test-yard-shell';
   const bar = element('nav','yard-toolbar');
@@ -142,6 +147,30 @@ export function createTestYardPanel({assembly,onInstall,onDeploy,onGarage,onTarg
         render();
       });
       item.append(label,select,note);list.append(item);
+    }
+    for(const mount of MOUNT_KEYS) {
+      const names={utilityLeft:'UTILITY LEFT',utilityRight:'UTILITY RIGHT',
+        armorFront:'FRONT ARMOR',combatCradle:'WEAPON CRADLE',secondaryWeapon:'SECONDARY GUN'};
+      const defs=mount==='secondaryWeapon'?SECONDARY_WEAPONS.map(id=>CATALOG.find(x=>x.id===id)).filter(Boolean):
+        Object.values(EQUIPMENT_DEFS).filter(d=>d.mount===(
+          mount.startsWith('utility')?'utility':mount==='armorFront'?'armor':'cradle'));
+      const item=element('label','yard-part yard-equipment');
+      const label=element('span','yard-part-label',names[mount]);
+      const select=element('select','yard-select');
+      select.setAttribute('aria-label',names[mount]);
+      let option=element('option','','NONE');option.value='';select.append(option);
+      for(const def of defs){
+        option=element('option','',def.name+' · '+def.massKg+' kg');
+        option.value=def.id;select.append(option);
+      }
+      select.value=equipmentMounts(assembly)[mount]??'';
+      select.disabled=mount==='secondaryWeapon'&&!equipmentMounts(assembly).combatCradle;
+      select.addEventListener('change',()=>{
+        try {onEquipment(mount,select.value||null);feedback.textContent='EQUIPMENT FITTED · '+names[mount];}
+        catch(error){feedback.textContent='CANNOT FIT · '+(error?.message||'Incompatible hardware');}
+        render();
+      });
+      item.append(label,select);list.append(item);
     }
     const result=inspectAssembly(assembly);
     const failed=result.checks.filter(c=>!c.passes);

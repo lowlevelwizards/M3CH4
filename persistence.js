@@ -4,6 +4,7 @@
  * Older save keys stay untouched so cached/rolled-back builds never read newer data.
  */
 import { BY_ID, installedPart, makeTestAssembly, SLOTS } from './components.js';
+import { normalizeEquipment } from './equipment.js';
 import { normalizePaint, USER_PALETTES_KEY } from './factoryPaint.js';
 import { TEAM_LIVERY_KEY } from './crewLivery.js';
 import { graphFromStations, graphMatchesStations, validateGraph, GRAPH_VERSION } from './assemblyGraph.js';
@@ -167,6 +168,7 @@ export function decodeMachine(json) {
             installed[slot] = serial;
         }
         assembly.installed = installed;
+        assembly.equipment = normalizeEquipment(savedAssembly.equipment ?? {});
 
         if (data.version === 1) {
             assembly.graph = graphFromStations(assembly, BY_ID);
@@ -274,6 +276,7 @@ export function encodeMachine(state) {
             serial: state.assembly.serial,
             owned: state.assembly.owned.map(clonePart),
             installed: { ...state.assembly.installed },
+            equipment: normalizeEquipment(state.assembly.equipment ?? {}),
             graph: state.assembly.graph || graphFromStations(state.assembly, BY_ID),
         },
         drives: Object.fromEntries(Object.entries(state.damage.drives).map(([serial, sides]) => [serial, { left: sides.left, right: sides.right }])),

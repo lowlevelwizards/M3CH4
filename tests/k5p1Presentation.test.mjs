@@ -21,7 +21,7 @@ test('shop purchase cannot recreate the player preview over the sales counter',(
     const scene=source('scene.js');
     assert.match(scene,/exterior\.root\.visible = inspecting && !vendorEnabled/);
     assert.match(scene,/SOLD OUT/);
-    assert.match(scene,/definition\.slot==='combat'\?-radius\*2\.25/);
+    assert.match(scene,/camera\.position\.set\(radius \* 1\.65, radius \* \.92, -radius \* 2\.25\)/);
 });
 test('mobile entry uses separately versioned script and workshop dependencies',()=>{
     const html=source('index.html'), bridge=source('sceneAssembly.js'), mount=source('garageMountUI.js');

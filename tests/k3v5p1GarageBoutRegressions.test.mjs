@@ -112,7 +112,7 @@ test('DEV version comes from the actual page build label, not a stale hardcoded 
     assert.match(html,/<span id="dev-version"><\/span>/);
     assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
     assert.doesNotMatch(html,/RIG DIAGNOSTICS <span>0\.0\.1k\.3u\.7/);
-    assert.match(main,/devVersion\.textContent = document\.title\.split/);
+    assert.match(main,/if \(devVersion\) devVersion\.textContent =\s*\(document\.title\.split/);
     // Cache-busting build tokens advance independently of the DEV title.
     assert.match(html,/main\.js\?v=[a-zA-Z0-9_-]+/);
     assert.match(html,/garageMountUI\.js\?v=k5p8/);

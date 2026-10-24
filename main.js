@@ -10,8 +10,10 @@ import {createReloadCueState,advanceReloadCue} from './reloadMechanism.js';
 import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityShot,resetWeaponStabilizer } from './weaponStability.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
-import { advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
-import { BY_ID, equipSerial, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
+import { WEAPONS, advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
+import { BY_ID, equipSerial, equipAuxiliary, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
+import { equipmentHas, equipmentMounts, servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
+import { createSmokeState, deploySmoke, stepSmoke, smokeObscures } from './tacticalSmoke.js';
 import { bodyFollowSteer, Controls } from './controls.js';
 import { rebuildQuote, repairQuote, settleSortie, totalRepairQuote } from './economy.js';
 import { gestureMetrics } from './inspectionCamera.js';
@@ -64,8 +66,8 @@ import { resetDamageFate } from './damageFate.js';
 import { partCreditValue } from './partEconomy.js';
 import { createPartCard, createPartDetail, installPartGridStyles } from './partGridUI.js';
 import { createModuleIcon } from './moduleIcons.js';
-import { loadStable, serialOwner } from './stable.js';
-import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount } from './garageBay.js';
+import { loadStable, storeStable, rigById, serialOwner } from './stable.js';
+import { changeInactiveBay, serviceInactiveBay, setInactiveBayGeneratorMount, bayAssembly } from './garageBay.js';
 import { buyCounterLot } from './usedPartsCounter.js';
 import { loadCampaign } from './campaign.js';
 import {TEST_YARD,readTestYardAssembly,storeTestYardAssembly,clearTestYardAssembly,createTestYardPanel} from './testYard.js';
@@ -117,6 +119,7 @@ let sortieObjective = createSortieObjective(mappedContract);
 const playerCondition = loadedMachine.playerCondition;
 let weaponSpec = weaponFor(assembly);
 let weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
+let primaryWeaponState=weaponState,secondaryWeaponState=null,selectedWeapon='primary';
 const hostileWeaponSpec = weaponFor(targetAssembly);
 let hostileWeaponState = hostileWeaponSpec ? createWeaponState(hostileWeaponSpec) : null;
 const leadBehavior = weaponDoctrine(activeContract.behavior,hostileWeaponSpec.id);
@@ -138,7 +141,7 @@ const primaryEnemyActor = {
     powerSystem: createPowerSystem(targetAssembly),
     behavior: leadBehavior,
     spawn: hostileSpawn, active: true, targetId: 'player', killReason: null,
-    fieldService: createFieldServiceState(),
+    fieldService: createFieldServiceState(servicePumpRate(targetAssembly)),
     teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
     combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
     wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
@@ -168,7 +171,7 @@ function makeSupportActor(id, team, contractId, spawn, label = null, rosterIndex
         stabilizer:createWeaponStabilizer(),
         powerSystem: createPowerSystem(actorAssembly),
         behavior, spawn, active: true, targetId: null, killReason: null,
-        fieldService: createFieldServiceState(),
+        fieldService: createFieldServiceState(servicePumpRate(actorAssembly)),
         teamIntent: null, brain: createPilotBrain(), executor: createIntentExecutor(),
         combatMemory:{},lastSurvivalCoverCheck:-Infinity,survivalCover:null,
         wreckAge: 0, wreckIntegrity: 1, wreckCleared: false,
@@ -224,7 +227,8 @@ let sortieRoundsFired = 0;
 let sortieAmmoCostCents = 0;
 let sortieProjectiles = 0;
 let sortieConfirmedContacts = 0;
-let fieldService = createFieldServiceState();
+let fieldService = createFieldServiceState(servicePumpRate(assembly));
+let smokeState=createSmokeState();
 const faultSupportState = createFaultSupportState();
 let lastPlayerScreenId = null;
 let servicePointerId = null;
@@ -449,6 +453,18 @@ const sortieOutroReason = required('#sortie-outro-reason');
 const winnerTableau = required('#winner-tableau');
 const fireButton = required('#fire');
 const reloadButton = required('#reload');
+const smokeButton=document.createElement('button');
+smokeButton.id='utility-smoke';smokeButton.type='button';
+smokeButton.className='equipment-smoke-btn';
+smokeButton.setAttribute('aria-label','Deploy Cinder smoke screen');
+smokeButton.textContent='SMOKE ×2';
+reloadButton.parentElement?.append(smokeButton);
+const weaponToggleButton=document.createElement('button');
+weaponToggleButton.id='weapon-toggle';weaponToggleButton.type='button';
+weaponToggleButton.className='equipment-weapon-toggle';
+weaponToggleButton.setAttribute('aria-label','Switch primary or secondary weapon');
+weaponToggleButton.textContent='GUN 1 / 2';
+reloadButton.parentElement?.append(weaponToggleButton);
 const weaponLabel = required('#weapon-label');
 const ammoReadout = required('#ammo-count');
 const shotReport = required('#shot-report');
@@ -983,7 +999,7 @@ function resetAiActor(actor) {
     Object.assign(actor.controller,createHostileController(
         actor.id==='enemy-0'?.45:actor.team===FRIENDLY_TEAM?.38:.52,actor.behavior));
     Object.assign(actor.motion, createEnemyMotion(actor.behavior));
-    actor.fieldService = createFieldServiceState();
+    actor.fieldService = createFieldServiceState(servicePumpRate(actor.assembly));
     actor.active = true;
     actor.targetId = null;
     actor.fireLane = null;
@@ -1374,15 +1390,52 @@ function renderChecks() {
         : 'Direct-mount stations · no adapters';
     renderFieldStatus();
 }
+function togglePilotWeapon(){
+    const secondaryId=equipmentMounts(assembly).secondaryWeapon;
+    const secondarySpec=WEAPONS[secondaryId];
+    const primarySpec=weaponFor(assembly);
+    if(!secondarySpec||!primarySpec||!playerCombatActive||inspecting||testEnded)return false;
+    stopFireInput();
+    if(selectedWeapon==='primary') {
+        primaryWeaponState=weaponState;
+        secondaryWeaponState??=createWeaponState(secondarySpec);
+        weaponState=secondaryWeaponState;
+        weaponSpec=secondarySpec;
+        selectedWeapon='secondary';
+    } else {
+        secondaryWeaponState=weaponState;
+        primaryWeaponState??=createWeaponState(primarySpec);
+        weaponState=primaryWeaponState;
+        weaponSpec=primarySpec;
+        selectedWeapon='primary';
+    }
+    resetWeaponStabilizer(playerMount);
+    arena.setPilotWeapon(weaponSpec,selectedWeapon==='secondary');
+    renderAmmo();
+    return true;
+}
+weaponToggleButton.addEventListener('click',togglePilotWeapon);
+window.addEventListener('keydown',event=>{
+    if(event.code==='KeyQ'&&!event.repeat&&!event.altKey&&!event.ctrlKey&&!event.metaKey&&
+        !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))
+        togglePilotWeapon();
+});
 function refreshAssembly(save = false) {
     inspection = inspectAssembly(assembly);
+    fieldService.rateMultiplier=servicePumpRate(assembly);
+    smokeButton.hidden=!equipmentHas(assembly,'cinder-smoke');
     rigConfig = deriveRigConfig(assembly);
     playerPower = createPowerSystem(assembly);
     updateFunctionalStatus();
     const nextSpec = weaponFor(assembly);
-    if (nextSpec?.id !== weaponSpec?.id)
+    // A new physical fit returns the pilot to gun one. Neither magazine aliases
+    // the other, and the off-hand magazine never inherits the primary ammo count.
+    if (nextSpec?.id !== weaponSpec?.id || selectedWeapon!=='primary')
         weaponState = nextSpec ? createWeaponState(nextSpec) : null;
     weaponSpec = nextSpec;
+    selectedWeapon='primary';
+    primaryWeaponState=weaponState;
+    secondaryWeaponState=null;
     resetWeaponStabilizer(playerMount);
     arena.setPilotWeapon(weaponSpec);
     arena.setPilotStabilizer(playerMount);
@@ -1467,6 +1520,27 @@ document.addEventListener('m3ch4:counter-buy', event => {
         detail:{serial:result.part.serial,definitionId:result.part.definitionId,
             source:'used parts counter'},
     }));
+});
+document.addEventListener('m3ch4:bay-equipment', event => {
+    const request=event.detail;
+    if(!request||!inspecting||testYard){if(request)request.result={ok:false,reason:'GARAGE ONLY'};return;}
+    try {
+        const stable=loadStable(saveStorage).stable;
+        const active=request.rigId===stable.activeRigId;
+        const candidate=active?assembly:bayAssembly(stable,request.rigId);
+        if(!candidate){request.result={ok:false,reason:'UNKNOWN BAY'};return;}
+        const result=equipAuxiliary(candidate,request.mount,request.id);
+        if(!result.ok){request.result=result;return;}
+        if(active){
+            refreshAssembly(true);
+            document.dispatchEvent(new CustomEvent('m3ch4:assembly-mutated'));
+        }else{
+            const rig=rigById(stable,request.rigId);
+            rig.equipment={...candidate.equipment};
+            if(!storeStable(saveStorage,stable)){request.result={ok:false,reason:'SAVE FAILED'};return;}
+        }
+        request.result={ok:true};
+    } catch(error){request.result={ok:false,reason:error?.message||'FITTING REJECTED'};}
 });
 document.addEventListener('m3ch4:bay-generator-mount', event => {
     const request = event.detail;
@@ -1622,8 +1696,12 @@ function toggleInspection(force) {
         boutLedger = createBoutLedger(boutRoster());
         clearBoutResult();
         controls.recenterLook();
-        weaponState = weaponSpec ? createWeaponState(weaponSpec) : null;
-        fieldService = createFieldServiceState();
+        weaponSpec=weaponFor(assembly);
+        weaponState=weaponSpec?createWeaponState(weaponSpec):null;
+        primaryWeaponState=weaponState;secondaryWeaponState=null;selectedWeapon='primary';
+        fieldService = createFieldServiceState(servicePumpRate(assembly));
+        smokeState=createSmokeState();
+        arena.setPilotWeapon(weaponSpec);
         sortieRoundsFired = 0;
         sortieAmmoCostCents = 0;
         sortieProjectiles = 0;
@@ -1840,6 +1918,12 @@ if (testYard) {
             refreshAssembly(false);
             storeTestYardAssembly(assembly);
         },
+        onEquipment:(mount,id)=>{
+            const fit=equipAuxiliary(assembly,mount,id);
+            if(!fit.ok)throw new Error(fit.reason);
+            refreshAssembly(false);
+            storeTestYardAssembly(assembly);
+        },
         onDeploy:()=>{if(inspecting)toggleInspection(false);},
         onGarage:()=>{if(!inspecting)toggleInspection(true);},
         onTargets:()=>resetTarget.click(),
@@ -1870,8 +1954,12 @@ if (testYard) {
             playerCombatActive=true;
             playerMissionKillReason=null;
             testEnded=false;testEndReason=null;
+            weaponSpec=weaponFor(assembly);
             weaponState=weaponSpec?createWeaponState(weaponSpec):null;
-            fieldService=createFieldServiceState();
+            primaryWeaponState=weaponState;secondaryWeaponState=null;selectedWeapon='primary';
+            fieldService=createFieldServiceState(servicePumpRate(assembly));
+            smokeState=createSmokeState();
+            arena.setPilotWeapon(weaponSpec);
             resetWeaponStabilizer(playerMount);
             arena.clearRockets();
             arena.resetCockpitTransientFeedback();
@@ -2003,6 +2091,7 @@ function frame(now) {
     if (!inspecting && (!testEnded || aftermathDriving) && rigConfig && appSheet.classList.contains('hidden') && document.visibilityState !== 'hidden') {
         accumulator += frameDt;
         while (accumulator >= FIXED_DT && steps < 8) {
+            stepSmoke(smokeState,FIXED_DT);
             const followSteer = bodyFollowSteer(input.lookYaw);
             const bodySteer = THREE.MathUtils.clamp(input.steer + followSteer, -1, 1);
             syncMovingObstacles();
@@ -2072,7 +2161,7 @@ function frame(now) {
                 aiClock+=FIXED_DT;
                 aiPlanCooldown-=FIXED_DT;aiPerceptionCooldown-=FIXED_DT;
                 if(aiPerceptionCooldown<=0||!aiSnapshot){
-                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,selectedWorld,aiClock);
+                    aiSnapshot=observeBattlefield(aiMemory,participants,sortieObjective,selectedWorld,aiClock,smokeState.clouds);
                     aiPerceptionCooldown=.15; // fast, bounded LOS; team orders remain slow
                 }
                 if(aiPlanCooldown<=0){
@@ -2285,6 +2374,7 @@ function frame(now) {
                 // An AI holding a firing position plants the same feet through
                 // the same brake input. Do not add a special AI recoil buff.
                 const settledToShoot = !recovery.active && !!target &&
+                    !smokeObscures(actor.rig,target.rig,smokeState.clouds) &&
                     actor.fireLane?.clear===true &&
                     actor.weaponState?.loaded > 0 &&
                     withinFiringArc(actor.rig, target.rig) &&
@@ -2329,7 +2419,8 @@ function frame(now) {
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
                         startReload(actor.weaponState, actor.weaponSpec);
                     soundActualReloadPhases(actor.weaponState,actor.weaponSpec,false,actor.rig);
-                    const ready=actor.powerSystem.weaponReady && actor.weaponState.cooldown<=0 &&
+                    const ready=actor.powerSystem.weaponReady &&
+                        (!target||!smokeObscures(actor.rig,target.rig,smokeState.clouds)) && actor.weaponState.cooldown<=0 &&
                         actor.weaponState.loaded>0&&actor.weaponState.reloadLeft<=0&&
                         !!target&&actor.fireLane?.clear===true&&
                         withinFiringArc(actor.rig,target.rig)&&
@@ -2375,6 +2466,10 @@ function frame(now) {
             }
             if (weaponSpec && weaponState) {
                 advanceWeapon(weaponState, weaponSpec, FIXED_DT);
+                if(selectedWeapon==='primary' && secondaryWeaponState)
+                    advanceWeapon(secondaryWeaponState,WEAPONS[equipmentMounts(assembly).secondaryWeapon],FIXED_DT);
+                else if(selectedWeapon==='secondary' && primaryWeaponState)
+                    advanceWeapon(primaryWeaponState,weaponFor(assembly),FIXED_DT);
                 soundActualReloadPhases(weaponState,weaponSpec,true,rig);
                 const authorized=weaponSpec.fireMode==='charged'
                     ? advanceChargedTrigger(weaponState,weaponSpec,
@@ -2574,6 +2669,7 @@ function frame(now) {
         ].join('\n');
     }
     // World and cockpit telemetry deliberately use separate resolution budgets.
+    arena.updateTacticalSmoke(smokeState.clouds);
     arena.camera.layers.set(0);
     renderer.render(arena.scene, arena.camera);
     hudRenderer.clear();
@@ -2590,6 +2686,14 @@ function frame(now) {
     window.__m3ch4BootOK = true; // first actual 3D + cockpit render completed
     requestAnimationFrame(frame);
 }
+smokeButton.addEventListener('click',()=>{
+    if(inspecting||testEnded||!playerCombatActive||!equipmentHas(assembly,'cinder-smoke'))return;
+    if(deploySmoke(smokeState,rig)){
+        arena.updateTacticalSmoke(smokeState.clouds);
+        showStatus('CINDER DISCHARGED · OPTICAL COVER');
+        renderAmmo();
+    }
+});
 devToggle.addEventListener('click', () => {
     const opening = devPanel.classList.contains('hidden');
     devPanel.classList.toggle('hidden');
@@ -2678,6 +2782,13 @@ function handleFieldServiceInterrupted() {
 }
 function renderAmmo() {
     const failure=weaponFailureState(playerCondition,fieldService);
+    smokeButton.hidden=!equipmentHas(assembly,'cinder-smoke');
+    const dual=!!WEAPONS[equipmentMounts(assembly).secondaryWeapon];
+    weaponToggleButton.hidden=!dual;
+    weaponToggleButton.disabled=inspecting||testEnded||!playerCombatActive;
+    weaponToggleButton.textContent=selectedWeapon==='primary'?'GUN 1 / 2':'GUN 2 / 2';
+    smokeButton.disabled=inspecting||testEnded||!playerCombatActive||smokeState.charges<=0;
+    smokeButton.textContent='SMOKE ×'+smokeState.charges;
     const faults=serviceableSlots(playerCondition);
     const selected=fieldServiceTarget(playerCondition,fieldService);
     const available=playerCombatActive && canFieldService(playerCondition,fieldService);
@@ -2949,6 +3060,15 @@ function finishSortie(victory, reason) {
     renderAmmo();
     syncCockpitInstruments();
 }
+// Plate interception follows the ACTUAL hit mesh. A frontal impact has
+// reduced ballistic energy while structural armor remains; flanks and stripped
+// armor get no bonus. Damage still belongs to the five real core stations.
+function equipmentAdjustedDamage(contact, condition, damage) {
+    if(contact?.equipmentId==='boarhide' &&
+        (condition?.parts?.structure?.armor??0)>.01)
+        return damage*.63;
+    return damage;
+}
 function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage, audible = true) {
     const serviceInterruptedByHit = fieldService.held;
     stopFieldServiceInput();
@@ -2956,7 +3076,7 @@ function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage
     const partBefore = playerCondition.parts[contact.slot];
     const before = partSnapshot(partBefore);
     const beforeIntegrity = partBefore.integrity;
-    const hit = applyTargetHit(playerCondition, contact.slot, shotDamage);
+    const hit = applyTargetHit(playerCondition, contact.slot, equipmentAdjustedDamage(contact,playerCondition,shotDamage));
     if (hit.internalDamage > 0) {
         const amount = hit.internalDamage / Math.max(1, partBefore.maxIntegrity);
         if (contact.slot === 'mobility')
@@ -3073,7 +3193,7 @@ function attemptAiFire(actor, target, shotIndex) {
         cockpit:false,
     });
     const aimX=target.rig.x-actor.rig.x,aimZ=target.rig.z-actor.rig.z;
-    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs);
+    applyRecoil(actor.rig,aiLocomotionConfig(actor),aimX,aimZ,actor.weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(actor.assembly,actor.rig));
     // The shot samples the existing state. Only its NEXT shot inherits kick.
     const mountSpread=actor.weaponSpec.fireMode==='automatic'
         ? weaponActionSpreadRadians(actor.weaponSpec,actor.weaponState,actor.rig.brace??0):0;
@@ -3156,7 +3276,7 @@ function resolveAiShotContact(actor,target,contact,damage) {
     interruptAiFieldService(target);
     const beforePart = partSnapshot(target.condition.parts[contact.slot]);
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
-    const hit = applyTargetHit(target.condition, contact.slot, damage);
+    const hit = applyTargetHit(target.condition, contact.slot, equipmentAdjustedDamage(contact,target.condition,damage));
     const newlyDisabled=beforeIntegrity>0&&target.condition.parts[contact.slot].integrity<=0;
     if(newlyDisabled)noteAiModuleDisabled(target,contact.slot,actor.rig);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
@@ -3210,7 +3330,10 @@ function attemptFire() {
     // Bill the actual consumed discharge, not every pellet, projectile impact,
     // hit, reload, or the holding of the trigger.
     if(!testYard)sortieAmmoCostCents += ammoCostCents(weaponSpec);
-    if(weaponSpec.fireMode!=='continuous')registerPowerShot(playerPower, assembly);
+    if(weaponSpec.fireMode!=='continuous') {
+        if(selectedWeapon==='secondary') registerPowerShot(playerPower,assembly,weaponSpec.id);
+        else registerPowerShot(playerPower, assembly);
+    }
     // One trigger pull consumes exactly one shell; each actual pellet
     // traverses the ordinary camera→muzzle raycaster and first real hit.
     const degradedSpread=weaponSpreadMultiplier(output);
@@ -3221,7 +3344,7 @@ function attemptFire() {
         const aim=arena.traceShot(baseX,baseY,weaponSpec.muzzleZ);
         const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
-        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs);
+        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig),selectedWeapon==='secondary'?-.94:1.17);
         registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         shotsFired++;sortieRoundsFired++;sortieProjectiles++;
         presentPlayerDischarge(aim,shot);
@@ -3261,7 +3384,7 @@ function attemptFire() {
     warnNearbyAiFromShot(FRIENDLY_TEAM,center);
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
-    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs);
+    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig),selectedWeapon==='secondary'?-.94:1.17);
     registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
     shotsFired++;
     sortieRoundsFired++;
@@ -3312,7 +3435,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         // shove it or spend ammunition breaking it down into a much smaller remnant.
         if (!targetActor.active) {
             const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
-            const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
+            const hit = applyTargetHit(targetActor.condition, contact.slot, equipmentAdjustedDamage(contact,targetActor.condition,damage));
             const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
             targetActor.wreckIntegrity = damageWreckIntegrity(targetActor.wreckIntegrity, damage);
             const cleared = targetActor.wreckIntegrity <= .001;
@@ -3348,7 +3471,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         interruptAiFieldService(targetActor);
         const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
-        const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
+        const hit = applyTargetHit(targetActor.condition, contact.slot, equipmentAdjustedDamage(contact,targetActor.condition,damage));
         const newlyDisabled=beforeIntegrity>0&&targetActor.condition.parts[contact.slot].integrity<=0;
         if(newlyDisabled)noteAiModuleDisabled(targetActor,contact.slot,rig);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
