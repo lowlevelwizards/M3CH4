@@ -5,7 +5,7 @@
  * recoverable casualty while the existing locomotion/fire-control systems remain
  * authoritative.
  */
-import { canFieldService } from './fieldService.js';
+import { serviceableSlots } from './fieldService.js';
 import { damagePosture } from './damageBehavior.js';
 
 export const SCREEN_ASSIGN_RANGE_M = 14;
@@ -18,7 +18,8 @@ const rigOf = actor => actor?.rig ?? actor;
 const distance = (a, b) => Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 
 export function needsFaultSupport(actor) {
-    return !!actor && actor.active !== false && canFieldService(actor.condition, actor.fieldService);
+    return !!actor && actor.active !== false && !!actor.fieldService &&
+        serviceableSlots(actor.condition).length>0;
 }
 
 export function canScreenFault(actor) {
