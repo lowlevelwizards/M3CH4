@@ -24,10 +24,12 @@ try {
  const bench=await page.evaluate(()=>({
    selects:document.querySelectorAll('.yard-parts .yard-select').length,
    weapons:document.querySelector('.yard-select[aria-label="WEAPON"]')?.options.length,
+   auxiliaryMounts:['UTILITY LEFT','UTILITY RIGHT','FRONT ARMOR','WEAPON CRADLE','SECONDARY GUN'].map(label=>
+     !!document.querySelector('.yard-select[aria-label="'+label+'"]')),
    garage:document.querySelector('.yard-shell')?.classList.contains('garage'),
    map:document.querySelector('#dev-version')?.textContent,
  }));
- if(bench.selects!==5||bench.weapons!==8||!bench.garage||
+ if(bench.selects!==10||bench.auxiliaryMounts.includes(false)||bench.weapons!==8||!bench.garage||
     !bench.map?.includes('TEST YARD'))throw Error('BENCH '+JSON.stringify(bench));
  await page.screenshot({path:'browser-smoke-artifacts/test-yard-bench.png'});
  await page.locator('.yard-select[aria-label="WEAPON"]').selectOption('gun-scatter');
