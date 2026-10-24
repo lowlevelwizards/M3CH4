@@ -3321,7 +3321,7 @@ function attemptFire() {
     // Bill the actual consumed discharge, not every pellet, projectile impact,
     // hit, reload, or the holding of the trigger.
     if(!testYard)sortieAmmoCostCents += ammoCostCents(weaponSpec);
-    if(weaponSpec.fireMode!=='continuous')registerPowerShot(playerPower, assembly);
+    if(weaponSpec.fireMode!=='continuous')registerPowerShot(playerPower, assembly,weaponSpec?.id);
     // One trigger pull consumes exactly one shell; each actual pellet
     // traverses the ordinary camera→muzzle raycaster and first real hit.
     const degradedSpread=weaponSpreadMultiplier(output);
@@ -3332,7 +3332,7 @@ function attemptFire() {
         const aim=arena.traceShot(baseX,baseY,weaponSpec.muzzleZ);
         const vx=(aim.point.x-aim.muzzle.x)/Math.max(aim.distance,.001);
         const vz=(aim.point.z-aim.muzzle.z)/Math.max(aim.distance,.001);
-        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig));
+        applyRecoil(rig,effectiveConfig,vx,vz,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig),selectedWeapon==='secondary'?-.94:1.17);
         registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
         shotsFired++;sortieRoundsFired++;sortieProjectiles++;
         presentPlayerDischarge(aim,shot);
@@ -3372,7 +3372,7 @@ function attemptFire() {
     warnNearbyAiFromShot(FRIENDLY_TEAM,center);
     const directionX=(center.point.x-center.muzzle.x)/Math.max(center.distance,.001);
     const directionZ=(center.point.z-center.muzzle.z)/Math.max(center.distance,.001);
-    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig));
+    applyRecoil(rig,effectiveConfig,directionX,directionZ,weaponSpec.recoilImpulseNs*stabilizerRecoilMultiplier(assembly,rig),selectedWeapon==='secondary'?-.94:1.17);
     registerWeaponStabilityShot(playerMount,weaponSpec.id,{brace:rig.brace,condition:weaponIntegrityRatio(playerCondition),massKg:rigConfig.massKg});
     shotsFired++;
     sortieRoundsFired++;
