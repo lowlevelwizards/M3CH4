@@ -3,9 +3,9 @@
  *
  * - Tier 0 retains the original exposed anatomy.
  * - Tier 1 Kestrel is the original restrained two-greave prototype.
- * - Tier 2 adds real aligned frontal thigh/knee protection.
- * - Tier 3 grows/thickens the existing plates AND adds flank, ankle and boot
- *   shields or full slanted encasement around the Cyclops optic.
+ * - Tier 2 fits shin and thigh shields, stopping short of the exposed joints.
+ * - Tier 3 thickens these shells and adds outer thigh facets and a split boot.
+ * - Cyclops face mask grows into a front helmet and smaller rear service pods.
  * Every plate is one independently named/destructible mesh.
  */
 import * as THREE from 'three';

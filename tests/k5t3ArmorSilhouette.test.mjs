@@ -36,7 +36,7 @@ test('authored plates follow physically real moving joints and remain independen
   assert.match(src,/\.crossVectors\(long,normal\)/);
   assert.match(src,/sparAxis:long\.toArray\(\)/);
   assert.match(src,/mountParent:parent\.name/);
-  assert.match(src,/if\(tier===1\) return originalShin/);
+  assert.match(src,/if\(tier===1\)\s*return originalShin/);
   assert.match(src,/root\.getObjectByName\(side\+'Foot'\)/);
   assert.match(src,/root\.getObjectByName\(side\+'Ankle'\)/);
   assert.match(src,/geometry:splitBootGuardGeometry\(\)/);
