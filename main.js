@@ -2558,6 +2558,7 @@ function frame(now) {
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
         weaponFault: playerRecoveryState === 'faulted',
         weaponHealth:weaponIntegrityRatio(playerCondition),
+        frameHealth:playerCondition.parts.structure.integrity/Math.max(1,playerCondition.parts.structure.maxIntegrity),
         weaponServicing: fieldService.held && fieldService.activeSlot==='combat',
         serviceSlot: fieldService.held ? fieldService.activeSlot : null,
         recoveryEventId:fieldService.lastServicedSlot?`${fieldService.lastServicedSlot}:${fieldService.attempts[fieldService.lastServicedSlot]}`:null,

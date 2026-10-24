@@ -2,6 +2,7 @@
  * No sensor bonuses, altered physics, new component IDs or information suppression.
  * Positions are combiner-camera local units, not invented physical screen raycasts.
  */
+import {electricalDistress} from './woundResponse.js';
 export const SCREEN_DIMENSIONS = Object.freeze({
     systems: [88, 220],
     weapon: [180, 78],
@@ -87,8 +88,9 @@ export function cockpitFailurePresentation(commandHealth=1,powerHealth=1,busRati
     const command=clamp(commandHealth),power=clamp(powerHealth),bus=clamp(busRatio);
     const policy=CAB_SERVICE_POLICY[commandId]??CAB_SERVICE_POLICY['cab-cyclops'];
     const diagnosticsAvailable=command>=policy.secondaryFloor && bus>=.72;
+    const electrical=electricalDistress(bus,power);
     return { staticStrength:clamp((.76-command)/.76),
-        powerDim:clamp((.95-bus)/.95 + (.38-power)*.20),
+        powerDim:electrical.dim,
         commandSevere:command<.38,
         busSag:bus<.95,
         diagnosticsAvailable,
