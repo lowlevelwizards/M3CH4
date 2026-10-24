@@ -30,14 +30,14 @@ test('comparison renders live source separately from prototype and exposes true 
  assert.match(derby,/buildAnatomicalTractor\(newPart\)/);
  assert.match(derby,/oldTractor\.position\.set/);
  assert.match(derby,/world\.obstacles\.filter\(o=>o\.id\.startsWith\('tractor-'\)\)/);
- assert.match(derby,/o\.maxX-o\.minX,o\.height,o\.maxZ-o\.minZ/);
+ assert.match(derby,/for\(const o of currentTractor\)for\(const part of collisionPieces\(o\)\)/);
  assert.match(derby,/comparison\.add\(newPart,oldPart,collisionOverlay\)/);
  assert.match(gallery,/GREY_MAT/);
  assert.match(gallery,/expState\.view==='both'/);
  assert.match(gallery,/collisionOverlay\.visible=expState\.colliders/);
  assert.match(gallery,/batchBacklotDerbyDecorations\(entry\.experiment\.newPart\)/);
 });
-test('production Backlot collider set remains unchanged until physics review',()=>{
+test('production Backlot preserves its 34 parent IDs while tractor/loader compound fitting is live',()=>{
  assert.equal(BACKLOT.version,3);
  assert.equal(BACKLOT.world.obstacles.length,34);
  const tractor=BACKLOT.world.obstacles.filter(o=>o.id.startsWith('tractor-'));
