@@ -1,4 +1,5 @@
 import { selectedContract } from './contracts.js';
+import { systemMissionKillReason } from './fieldService.js';
 
 const clamp01 = (n) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 const ratio = (condition, slot) => {
@@ -17,7 +18,7 @@ export function hostileOutput(condition, behavior = null) {
     const power = ratio(condition, 'power');
     const command = ratio(condition, 'command');
     const weapon = ratio(condition, 'combat');
-    const operational = structure > .05 && command > .05 && power > .12 && weapon > .12;
+    const operational = structure > 0 && command > 0 && power > 0 && weapon > 0;
     const baseSpread = .010 + (1 - weapon) * .045 + (1 - power) * .020;
     return {
         structure, mobility, power, command, weapon, operational,
@@ -63,28 +64,11 @@ export function hostileAimSlot(index, aimPriority = selectedContract().behavior.
  * Weapon shutdown is handled separately by k.3j field service so a recoverable
  * first fault does not become dead time. */
 export function disabledReason(condition, output) {
-    if (ratio(condition, 'structure') <= .05)
-        return 'FRAME DISABLED';
-    if (ratio(condition, 'command') <= .05)
-        return 'COMMAND COMPARTMENT DISABLED';
-    if (output.power <= .05 || output.powerAvailableKw <= .5)
-        return 'POWER LOST';
-    if (output.left <= .05 && output.right <= .05)
-        return 'MOBILITY LOST';
-    return null;
+    return systemMissionKillReason(condition);
 }
 
 /** Explain why an opponent has lost combat capability. Mobility alone is not a
  * mission kill: an immobilized rig with a working gun can still fight like a turret. */
 export function hostileMissionKillReason(condition, behavior = null) {
-    const output = hostileOutput(condition, behavior);
-    if (output.structure <= .05)
-        return 'FRAME DISABLED';
-    if (output.command <= .05)
-        return 'COMMAND COMPARTMENT DISABLED';
-    if (output.power <= .12)
-        return 'POWER LOST';
-    if (output.weapon <= .12)
-        return 'WEAPON DISABLED';
-    return null;
+    return systemMissionKillReason(condition);
 }

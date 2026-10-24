@@ -83,7 +83,9 @@ test('AI acquisition does not keep restarting an artificial cooldown after shot'
 test('fitted weapon retains magazine, reload and hardware condition constraints',()=>{
  const m=condition();m.parts.combat.integrity=1;
  const c=createHostileController(0);
- assert.equal(advanceHostileController(c,m,1/60,false,true),null);
+ assert.equal(advanceHostileController(c,m,1/60,false,true),1,'damaged but operating gun still fires');
+ m.parts.combat.integrity=0;
+ assert.equal(advanceHostileController(c,m,1/60,false,true),null,'disabled gun cannot fire');
  assert.equal(fireWeapon({...createWeaponState(WEAPONS['gun-short']),loaded:0},WEAPONS['gun-short']),null);
 });
 test('under fire from rear temporarily interrupts an otherwise active team route',()=>{

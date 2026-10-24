@@ -26,8 +26,7 @@ const actor = (id, team, x, z, opts = {}) => ({
     targetId: opts.targetId ?? null,
 });
 const fault = a => {
-    a.condition.parts.combat.integrity = 8;
-    a.fieldService.faultLatched = true;
+    a.condition.parts.combat.integrity = 0;
     return a;
 };
 

@@ -121,7 +121,7 @@ test('there are no new slots/serial IDs and mobile controls still use existing m
     const main = read('../main.js'), scene = read('../scene.js');
     assert.match(html,/<title>MECH ARENA — 0\.0\.1k\.[^<]+<\/title>/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
-    assert.match(html,/audio\.js\?v=k5r1/);
+    assert.match(html,/audio\.js\?v=k5r8/);
     assert.match(controls,/this\.keyboard\.has\('Space'\)/);
     assert.match(html,/id="drive-zone"/);
     assert.match(html,/id="brake"/);

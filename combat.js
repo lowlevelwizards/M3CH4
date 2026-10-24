@@ -137,11 +137,11 @@ export function makeRangeTarget(contractId = selectedContract().id) {
  * making Kestrel meaningfully fragile and Hauler meaningfully stubborn.
  */
 export const TARGET_RESILIENCE = {
-    structure: [260, 250],
-    mobility: [170, 185],
-    power: [110, 190],
-    command: [120, 185],
-    combat: [130, 180],
+    structure: [520, 250],
+    mobility: [340, 185],
+    power: [220, 190],
+    command: [240, 185],
+    combat: [260, 180],
 };
 function targetPartFor(assembly, slot, useOwnedCondition = false) {
     const installed = installedPart(assembly, slot);

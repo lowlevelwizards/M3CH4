@@ -50,6 +50,8 @@ export function functionalOutput(assembly, state) {
     const weaponPart = installedPart(assembly, 'combat');
     const power = clamp01(powerPart?.instance.condition ?? 0);
     const weapon = clamp01(weaponPart?.instance.condition ?? 0);
+    const structure=clamp01(installedPart(assembly,'structure')?.instance.condition??0);
+    const command=clamp01(installedPart(assembly,'command')?.instance.condition??0);
     const nominalDemandKw = inspectAssembly(assembly).powerUsedKw;
     const powerAvailableKw = Math.max(0, powerPart?.definition.powerKw ?? 0) * power;
     const powerFactor = nominalDemandKw > 0 ? Math.min(1, powerAvailableKw / nominalDemandKw) : 0;
@@ -58,9 +60,9 @@ export function functionalOutput(assembly, state) {
     const left = clamp01(sections.left);
     const right = clamp01(sections.right);
     return {
-        left, right, power, powerAvailableKw, nominalDemandKw, powerFactor, weapon,
+        left, right, power, powerAvailableKw, nominalDemandKw, powerFactor, weapon, structure, command,
         drive: (left + right) / 2 * powerFactor,
-        weaponOperational: weapon > .12 && powerAvailableKw >= Math.max(4, Math.abs(weaponPart?.definition.powerKw ?? 0)),
+        weaponOperational: weapon > 0 && structure>0 && command>0 && powerAvailableKw >= Math.max(4, Math.abs(weaponPart?.definition.powerKw ?? 0)),
     };
 }
 /** Translate actual component performance to the *existing* force-based model.
@@ -68,27 +70,46 @@ export function functionalOutput(assembly, state) {
 export function derateRigConfig(base, output) {
     const legMean = (output.left + output.right) / 2;
     const pairedAuthority = Math.sqrt(output.left * output.right);
-    const driveFactor = legMean * output.powerFactor;
+    // Compromised load paths and unreliable controls derate actual actuator
+    // authority instead of changing only warning colors or AI willingness.
+    const frame=Math.max(0,output.structure??1);
+    const control=Math.max(0,output.command??1);
+    const support=frame>0 ? .25+.75*Math.sqrt(frame) : 0;
+    const commands=control>0 ? .35+.65*Math.sqrt(control) : 0;
+    const driveFactor = legMean * output.powerFactor * support * commands;
     return {
         ...base,
         driveForceN: base.driveForceN * driveFactor,
         reverseForceN: base.reverseForceN * driveFactor,
-        lateralDriveForceN: base.lateralDriveForceN * pairedAuthority * output.powerFactor,
-        maxLateralSpeedMps: base.maxLateralSpeedMps * (.2 + .8 * pairedAuthority) * output.powerFactor,
+        lateralDriveForceN: base.lateralDriveForceN * pairedAuthority * output.powerFactor * support * commands,
+        maxLateralSpeedMps: base.maxLateralSpeedMps * (.2 + .8 * pairedAuthority) * output.powerFactor * support,
         turnTorqueNm: base.turnTorqueNm,
         // A right turn leans more heavily on the left drive and vice versa. The
         // opposite drive still contributes, so one bad leg degrades rather than binary-disables yaw.
-        turnRightScale: (.65 * output.left + .35 * output.right) * output.powerFactor,
-        turnLeftScale: (.65 * output.right + .35 * output.left) * output.powerFactor,
-        lateralGripNsPerM: base.lateralGripNsPerM * (.5 + .5 * legMean),
+        turnRightScale: (.65 * output.left + .35 * output.right) * output.powerFactor * support * commands,
+        turnLeftScale: (.65 * output.right + .35 * output.left) * output.powerFactor * support * commands,
+        lateralGripNsPerM: base.lateralGripNsPerM * (.5 + .5 * legMean) * (.45+.55*frame),
         // Positive bias turns right: left drive stronger than right; reversible in reverse.
         driveAsymmetryTorqueNm: (output.left - output.right) * base.driveForceN *
-            Math.max(.45, base.collisionRadiusM) * .7 * output.powerFactor,
+            Math.max(.45, base.collisionRadiusM) * .7 * output.powerFactor * support,
     };
 }
 export function weaponSpreadMultiplier(output) {
-    return 1 + (1 - output.weapon) * 7;
+    return 1 + Math.pow(1 - output.weapon, 1.3) * 2.5;
 }
 export function weaponCycleMultiplier(output) {
-    return 1 + (1 - output.weapon) * 1.2;
+    return 1 + (1 - output.weapon) * .75;
+}
+
+/** Reconcile a legitimate mobility field restart with the two physical drives.
+ * Preserve stronger surviving drive health; never conjure armor or remove wear.
+ */
+export function restoreFieldServicedDrive(assembly,state,ratio) {
+    const sections=driveSections(assembly,state);
+    const installed=installedPart(assembly,'mobility');
+    if(!sections||!installed)return;
+    const floor=clamp01(ratio);
+    sections.left=Math.max(sections.left,floor);
+    sections.right=Math.max(sections.right,floor);
+    installed.instance.condition=(sections.left+sections.right)/2;
 }

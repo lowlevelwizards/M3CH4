@@ -22,10 +22,10 @@ import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {createPhysicalEvidenceCard} from './physicalEvidenceInspector.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import {queueServiceRecord,flushServiceRecords} from './serviceEventRecorder.js';
-import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
+import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, restoreFieldServicedDrive, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot, setActiveWeaponLoad } from './powerDynamics.js';
 import { createThermalCombat, coolThermalCombat, cutContact, moduleHeatKey } from './thermalCombat.js';
-import { FIELD_SERVICE_SECONDS, advanceFieldService, arrestFirstWeaponFailure, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
+import { FIELD_SERVICE_SECONDS, advanceFieldService, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, serviceableSlots, fieldServiceTarget, cycleFieldServiceTarget, countDisabled, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
 import { driveCondition, repairInstalledPart } from './garage.js';
 import { advanceEnemyMotion, createEnemyMotion, withinFiringArc } from './enemyMotion.js';
 import { chooseCoverPoint, noteBlockedFire, noteIncomingFire, recentThreatTargetId } from './tacticalAwareness.js';
@@ -293,20 +293,22 @@ function primeAiWeaponRecovery(actor, threatRig) {
     }
     actor.teamPlanLeft = 0;
 }
-function arrestAiWeaponFailure(actor, beforeIntegrity, threatRig) {
-    if (!actor?.fieldService) return false;
-    const faulted = arrestFirstWeaponFailure(actor.condition, actor.fieldService, beforeIntegrity);
-    if (!faulted) return false;
-    resetDamageFate(actor.condition.parts.combat);
-    primeAiWeaponRecovery(actor, threatRig);
-    return true;
+/** A new disabled subsystem creates an urgent recovery decision, never
+ * erases authentic destruction overflow or invents a second HP pool. */
+function noteAiModuleDisabled(actor,slot,threatRig) {
+    actor.teamPlanLeft=0;
+    if(actor.motion?.awareness)actor.motion.awareness.underFireSeconds=Math.max(1,actor.motion.awareness.underFireSeconds??0);
+    primeAiWeaponRecovery(actor,threatRig);
 }
+
 function interruptAiFieldService(actor) {
     if (!actor?.fieldService?.held) return;
     cancelFieldService(actor.fieldService);
     actor.teamPlanLeft = 0;
 }
-function handleAiFieldServiceCompleted(actor) {
+function handleAiFieldServiceCompleted(actor, serviceStep) {
+    mirrorTargetCondition(actor.assembly, actor.condition);
+    if(serviceStep?.slot === 'combat') actor.weaponState.cooldown=Math.max(actor.weaponState.cooldown,.55);
     actor.controller.triggerLeft = Math.max(actor.controller.triggerLeft ?? 0, .85);
     actor.teamPlanLeft = 0;
     if (actor.motion?.awareness) {
@@ -364,11 +366,12 @@ function updateFunctionalStatus() {
         faults.push(`BUS ${Math.round(playerPower.busRatio * 100)}%`);
     const weaponFailure = weaponFailureState(playerCondition, fieldService);
     if (weaponFailure === 'faulted')
-        faults.push('WEAPON FAULT · FIELD SERVICE AVAILABLE');
+        faults.push('WEAPON DISABLED · FIELD SERVICE');
     else if (weaponFailure === 'destroyed' || weaponFailure === 'unrecoverable')
         faults.push('WEAPON LOST');
     else if (output.weapon < .99)
         faults.push(`WEAPON ${Math.round(output.weapon * 100)}%`);
+    if(countDisabled(playerCondition))faults.unshift(`DISABLED ${countDisabled(playerCondition)}/3`);
     // A disabled pilot has exactly one persistent priority alarm. Ordinary
     // subsystem telemetry cannot overwrite the mission-kill reason.
     if (!playerCombatActive && playerMissionKillReason) {
@@ -1965,7 +1968,7 @@ function frame(now) {
                     input = controls.sample();
                 }
                 const serviceStep = advanceFieldService(playerCondition, fieldService, rig, FIXED_DT);
-                if (serviceStep.event === 'completed') handleFieldServiceCompleted();
+                if (serviceStep.event === 'completed') handleFieldServiceCompleted(serviceStep);
                 else if (serviceStep.event === 'interrupted') handleFieldServiceInterrupted();
             }
             // Score, damage, target choice and opposing locomotion are frozen once the
@@ -2085,8 +2088,8 @@ function frame(now) {
                     actor.fireLaneSearch=null;
                 }
                 const actorOutput=hostileOutput(actor.condition,actor.behavior);
-                const canManeuver=actorOutput.structure>.05&&actorOutput.command>.05&&
-                    actorOutput.power>.12&&actorOutput.mobility>.05;
+                const canManeuver=actorOutput.structure>0&&actorOutput.command>0&&
+                    actorOutput.power>0&&actorOutput.mobility>0;
                 setActiveWeaponLoad(actor.powerSystem,
                     actor.weaponSpec?.fireMode==='continuous'&&actor.active&&target&&
                     (actor.weaponState?.loaded??0)>0&&(actor.weaponState?.reloadLeft??0)<=0&&
@@ -2217,10 +2220,12 @@ function frame(now) {
                 if (recovery.mode === 'SETTLE' && !actor.fieldService.held && fieldServiceStationary(actor.rig))
                     beginFieldService(actor.condition, actor.fieldService, actor.rig);
                 const serviceStep = advanceFieldService(actor.condition, actor.fieldService, actor.rig, FIXED_DT);
-                if (serviceStep.event === 'completed') handleAiFieldServiceCompleted(actor);
+                if (serviceStep.event === 'completed') handleAiFieldServiceCompleted(actor,serviceStep);
                 arena.updateCombatantRig(actor.id, actor.rig, {
                     target: target?.rig ?? null, posture, dt: FIXED_DT,
-                    weaponFault: recovery.active, weaponServicing: actor.fieldService.held,
+                    weaponFault: actor.condition.parts.combat.integrity<=0,
+                    weaponServicing: actor.fieldService.held && actor.fieldService.activeSlot==='combat',
+                    serviceSlot: actor.fieldService.held ? actor.fieldService.activeSlot : null,
                     gait:actor.visualGait,stability:actor.stabilizer,
                     reloadLeft:actor.weaponState?.reloadLeft??0,
                     reloadSeconds:actor.weaponSpec?.reloadSeconds??0,
@@ -2318,7 +2323,8 @@ function frame(now) {
     const playerRecoveryState = weaponFailureState(playerCondition, fieldService);
     arena.updateRigVisual(rig, input.lookYaw, input.lookPitch, frameDt, {
         weaponFault: playerRecoveryState === 'faulted',
-        weaponServicing: fieldService.held,
+        weaponServicing: fieldService.held && fieldService.activeSlot==='combat',
+        serviceSlot: fieldService.held ? fieldService.activeSlot : null,
         gait:movementSoundStates.get(rig),stability:playerMount,
         reloadLeft:weaponState?.reloadLeft??0,
         reloadSeconds:weaponSpec?.reloadSeconds??0,
@@ -2452,7 +2458,7 @@ function frame(now) {
             `LEFT LEG  ${(output.left * 100).toFixed(0)}%`,
             `RIGHT LEG ${(output.right * 100).toFixed(0)}%`,
             `WEAPON    ${(output.weapon * 100).toFixed(0)}%`,
-            `FIELD SVC ${fieldService.used ? 'SPENT' : fieldService.held ? `${Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100)}%` : canFieldService(playerCondition, fieldService) ? 'READY' : '—'}`,
+            `FIELD SVC ${fieldService.held ? `${fieldService.activeSlot} ${Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100)}%` : fieldService.cooldownLeft>0 ? `${fieldService.cooldownLeft.toFixed(1)}s` : canFieldService(playerCondition, fieldService) ? `READY ${fieldServiceTarget(playerCondition,fieldService)}` : '—'} · DISABLES ${countDisabled(playerCondition)}/3`,
             `FIELDED   ${inspection.ready ? 'YES (CONTRACT)' : 'NO'}`,
             `ADAPTERS  ${inspection.adapters.length}`,
             `RENDER    WORLD ${Math.round(renderScale * 100)}% · HUD HI-RES`,
@@ -2539,9 +2545,19 @@ resolutionToggle.addEventListener('click', () => {
 const targetLabels = {
     structure: 'HULL', mobility: 'LEGS', power: 'POWER', command: 'CAB', combat: 'WEAPON',
 };
-function handleFieldServiceCompleted() {
-    syncOwnedWeaponCondition(true);
-    if (weaponState) {
+function handleFieldServiceCompleted(serviceStep) {
+    const slot=serviceStep?.slot;
+    const part=playerCondition.parts[slot];
+    const owned=installedPart(assembly,slot);
+    if(part && owned) {
+        if(slot==='mobility') {
+            restoreFieldServicedDrive(assembly,damage,serviceStep.ratio);
+            part.integrity=Math.max(part.integrity,part.maxIntegrity*owned.instance.condition);
+        } else owned.instance.condition=part.integrity/Math.max(1,part.maxIntegrity);
+        owned.instance.destroyed=!!part.destroyed;
+        owned.instance.wear=Math.min(1,(owned.instance.wear??0)+.08);
+    }
+    if (slot === 'combat' && weaponState) {
         weaponState.reloadLeft = 0;
         weaponState.cooldown = Math.max(weaponState.cooldown, .55);
     }
@@ -2552,7 +2568,7 @@ function handleFieldServiceCompleted() {
     soundReload();
     shotReport.classList.remove('faded', 'disabled-part');
     shotReport.classList.add('penetrated');
-    shotReport.textContent = 'FIELD SERVICE COMPLETE · WEAPON BYPASS ONLINE · 20% CONDITION';
+    shotReport.textContent = `FIELD SERVICE · ${slot?.toUpperCase()??'SYSTEM'} ONLINE · ${Math.round(serviceStep.ratio*100)}% · COOLDOWN 10s`;
     reportFade = 3.2;
     persistMachine();
 }
@@ -2564,47 +2580,49 @@ function handleFieldServiceInterrupted() {
     reportFade = 1.8;
 }
 function renderAmmo() {
-    const failure = weaponFailureState(playerCondition, fieldService);
-    const serviceAvailable = playerCombatActive && canFieldService(playerCondition, fieldService);
-    const stationary = fieldServiceStationary(rig);
-    const suffix = !playerCombatActive ? ' · MISSION KILLED' : testEnded ? ' · SORTIE ENDED' :
-        failure === 'destroyed' ? ' · DESTROYED' :
-        failure === 'unrecoverable' ? ' · FAULT · BYPASS SPENT' :
-        fieldService.held ? ' · FIELD SERVICE' :
-        failure === 'faulted' ? ' · FAULTED' :
-        !playerPower.weaponReady ? ' · PWR SAG' :
-        weaponSpec?.fireMode==='continuous'&&(weaponState?.action?.ventLeft??0)>0 ? ' · VENT' :
-        output.weapon < .95 ? ' · DAMAGED' : '';
-    weaponLabel.textContent = weaponSpec ? `${weaponSpec.label}${suffix}` : 'NO WEAPON';
-    const servicePercent = Math.round(fieldService.progress / FIELD_SERVICE_SECONDS * 100);
-    ammoReadout.textContent = !weaponSpec || !weaponState ? '—' :
-        fieldService.held ? `SERVICE ${servicePercent}%` :
-        serviceAvailable ? `FAULT ${Math.round(weaponIntegrityRatio(playerCondition) * 100)}%` :
-        !playerPower.weaponReady ? 'PWR SAG' :
-        weaponState.reloadLeft > 0 ? `RELOAD ${weaponState.reloadLeft.toFixed(1)}s` :
-            `${weaponState.loaded} / ${weaponState.reserve}`;
-    // The slider fills from the actual weapon timer (or service timer), never
-    // an independent animation clock that can drift from combat state.
-    const isReloading = !!weaponSpec && !!weaponState && weaponState.reloadLeft > 0;
-    const progress = fieldService.held ? fieldService.progress / FIELD_SERVICE_SECONDS :
-        isReloading ? 1 - weaponState.reloadLeft / Math.max(.01, weaponSpec.reloadSeconds) : 0;
-    reloadButton.classList.toggle('reloading', isReloading || fieldService.held);
-    reloadButton.style.setProperty('--reload-progress', `${Math.round(Math.max(0,Math.min(1,progress))*100)}%`);
-    if (serviceAvailable) {
-        reloadButton.textContent = fieldService.held ? `SERVICE ${servicePercent}%` : stationary ? 'HOLD FIELD SERVICE' : 'STOP TO FIELD SERVICE';
-        reloadButton.disabled = inspecting || testEnded || !stationary;
-        reloadButton.classList.toggle('servicing', fieldService.held);
-    }
-    else {
-        reloadButton.textContent = isReloading ? 'RELOADING' : 'RELOAD';
+    const failure=weaponFailureState(playerCondition,fieldService);
+    const faults=serviceableSlots(playerCondition);
+    const selected=fieldServiceTarget(playerCondition,fieldService);
+    const available=playerCombatActive && canFieldService(playerCondition,fieldService);
+    const stationary=fieldServiceStationary(rig);
+    const inService=fieldService.held;
+    const suffix=!playerCombatActive?' · KNOCKED OUT':
+        failure==='destroyed'?' · DESTROYED':
+        failure==='faulted'?' · DISABLED':
+        !playerPower.weaponReady?' · PWR SAG':
+        output.weapon<.95?' · DAMAGED':'';
+    weaponLabel.textContent=weaponSpec?`${weaponSpec.label}${suffix}`:'NO WEAPON';
+    const servicePercent=Math.round(fieldService.progress/FIELD_SERVICE_SECONDS*100);
+    const cooling=(fieldService.cooldownLeft??0)>0;
+    const servicing=faults.length>0 && playerCombatActive;
+    ammoReadout.textContent=inService?`SERVICE ${servicePercent}%`:
+        servicing?`${faults.length} FAULT${faults.length===1?'':'S'} · ${selected?.toUpperCase()??'—'}`:
+        !weaponSpec||!weaponState?'—':
+        !playerPower.weaponReady?'PWR SAG':
+        weaponState.reloadLeft>0?`RELOAD ${weaponState.reloadLeft.toFixed(1)}s`:
+        `${weaponState.loaded} / ${weaponState.reserve}`;
+    const reloading=!!weaponSpec&&!!weaponState&&weaponState.reloadLeft>0;
+    const progress=inService?fieldService.progress/FIELD_SERVICE_SECONDS:
+        reloading?1-weaponState.reloadLeft/Math.max(.01,weaponSpec.reloadSeconds):0;
+    reloadButton.classList.toggle('reloading',reloading||inService);
+    reloadButton.style.setProperty('--reload-progress',`${Math.round(Math.max(0,Math.min(1,progress))*100)}%`);
+    if(servicing){
+        const label=selected?.toUpperCase()??'SYSTEM';
+        reloadButton.textContent=inService?`SERVICE ${label} ${servicePercent}%`:
+            cooling?`${label} · WAIT ${fieldService.cooldownLeft.toFixed(1)}s`:
+            !stationary?`STOP · ${label} SERVICE`:`HOLD ${label} SERVICE`;
+        reloadButton.disabled=inspecting||testEnded;
+        reloadButton.classList.toggle('servicing',inService);
+        reloadButton.title=faults.length>1?'Tap to select another disabled module; hold to service':'Hold still to field-service the disabled module';
+    } else {
+        reloadButton.textContent=reloading?'RELOADING':'RELOAD';
         reloadButton.classList.remove('servicing');
-        reloadButton.disabled = !weaponSpec || !weaponState || weaponState.loaded >= weaponSpec.magazine || weaponState.reserve === 0 || weaponState.reloadLeft > 0;
+        reloadButton.disabled=!weaponSpec||!weaponState||weaponState.loaded>=weaponSpec.magazine||weaponState.reserve===0||weaponState.reloadLeft>0;
+        reloadButton.title='Reload ammunition';
     }
-    // Preserve touch capture if an empty magazine starts reloading during a held
-    // FIRE drag. Aim remains usable; the weapon itself still refuses to fire.
     syncCockpitInstruments();
-    fireButton.disabled = !playerCombatActive || !weaponSpec || !weaponState || !inspection.ready || inspecting || testEnded || !output.weaponOperational ||
-        (weaponState.reloadLeft > 0 && firePointerId === null);
+    fireButton.disabled=!playerCombatActive||!weaponSpec||!weaponState||!inspection.ready||inspecting||testEnded||!output.weaponOperational||
+        (weaponState.reloadLeft>0&&firePointerId===null);
 }
 function renderTarget() {
     targetReadout.replaceChildren();
@@ -2612,18 +2630,18 @@ function renderTarget() {
     behavior.className = 'target-row';
     behavior.textContent = `MOTION: ${hostileMotion.phase} · ${hostileMotion.navigation}`;
     targetReadout.appendChild(behavior);
-    if (canFieldService(targetCondition, primaryEnemyActor.fieldService)) {
+    if (serviceableSlots(targetCondition).length) {
         const recovery = document.createElement('div');
         recovery.className = 'target-row';
         const pct = Math.round(primaryEnemyActor.fieldService.progress / FIELD_SERVICE_SECONDS * 100);
         recovery.textContent = primaryEnemyActor.fieldService.held
-            ? `WEAPON RECOVERY: FIELD SERVICE ${pct}%`
-            : 'WEAPON RECOVERY: FAULTED · SEEKING SAFE SERVICE';
+            ? `SYSTEM RECOVERY: ${primaryEnemyActor.fieldService.activeSlot?.toUpperCase()} ${pct}%`
+            : `SYSTEM RECOVERY: ${fieldServiceTarget(targetCondition,primaryEnemyActor.fieldService)?.toUpperCase()} · ${primaryEnemyActor.fieldService.cooldownLeft>0?'COOLDOWN':'SEEKING COVER'}`;
         targetReadout.appendChild(recovery);
-    } else if (primaryEnemyActor.fieldService.used && hostileOutput(targetCondition, primaryEnemyActor.behavior).weapon > .12) {
+    } else if (primaryEnemyActor.fieldService.used) {
         const recovery = document.createElement('div');
         recovery.className = 'target-row';
-        recovery.textContent = 'WEAPON RECOVERY: EMERGENCY BYPASS SPENT · DEGRADED';
+        recovery.textContent = 'SYSTEM RECOVERY: EMERGENCY RESTART PERFORMED · DEGRADED';
         targetReadout.appendChild(recovery);
     }
     if (devPanel.classList.contains('hidden') && !testYard) {
@@ -2849,14 +2867,8 @@ function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage
         if (installed)
             playerCondition.parts[contact.slot].integrity = playerCondition.parts[contact.slot].maxIntegrity * installed.instance.condition;
     }
-    let weaponFaulted = false;
-    if (contact.slot === 'combat') {
-        weaponFaulted = arrestFirstWeaponFailure(playerCondition, fieldService, beforeIntegrity);
-        if (weaponFaulted) {
-            resetDamageFate(playerCondition.parts.combat);
-            syncOwnedWeaponCondition(false);
-        }
-    }
+    // Zero integrity is a genuine recoverable disable. Never undo real overkill
+    // or inflate the module to a fictional last-hit safety floor.
     syncOwnedPartFate(contact.slot);
     const after = partSnapshot(playerCondition.parts[contact.slot]);
     scoreHit(actor.id, 'player', contact.slot, before, hit, after);
@@ -2874,10 +2886,10 @@ function applyAiHitToPlayer(actor, contact, shotDamage = actor.weaponSpec.damage
     renderPartsList();
     renderPartInfo();
     renderAmmo();
-    if (weaponFaulted) {
-        shotReport.classList.remove('faded', 'penetrated');
+    if(beforeIntegrity>0 && playerCondition.parts[contact.slot].integrity<=0) {
+        shotReport.classList.remove('faded','penetrated');
         shotReport.classList.add('disabled-part');
-        shotReport.textContent = 'WEAPON FAULT · EMERGENCY BYPASS AVAILABLE · STOP BEHIND COVER AND HOLD FIELD SERVICE';
+        shotReport.textContent = `${targetLabels[contact.slot]} DISABLED · ${countDisabled(playerCondition)}/3 SYSTEM FAILURES · FIELD SERVICE AVAILABLE`;
         reportFade = 5.0;
     }
     const failure = currentSortieFailureReason();
@@ -3040,14 +3052,14 @@ function resolveAiShotContact(actor,target,contact,damage) {
     const beforePart = partSnapshot(target.condition.parts[contact.slot]);
     const beforeIntegrity = target.condition.parts[contact.slot].integrity;
     const hit = applyTargetHit(target.condition, contact.slot, damage);
-    const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(target, beforeIntegrity, actor.rig);
-    const weaponRecoverable = contact.slot === 'combat' && canFieldService(target.condition, target.fieldService);
+    const newlyDisabled=beforeIntegrity>0&&target.condition.parts[contact.slot].integrity<=0;
+    if(newlyDisabled)noteAiModuleDisabled(target,contact.slot,actor.rig);
     const afterPart = partSnapshot(target.condition.parts[contact.slot]);
     scoreHit(actor.id, target.id, contact.slot, beforePart, hit, afterPart);
     noteIncomingFire(target.motion, actor.rig, actor.id,
         hit.internalDamage > 0 ? 1.55 : 1.08,target.rig);
     recordSubsystemHit(target.combatMemory,contact.slot,aiClock);
-    const visualHit = physicalHitPresentation({ ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed },actor,target);
+    const visualHit = physicalHitPresentation({ ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed },actor,target);
     if(!actor._scatterImpactAudible){
         soundCombatImpact(visualHit,{slot:contact.slot,shielded:!!shieldImpactLabel(contact),
             distance:Math.hypot(target.rig.x-rig.x,target.rig.z-rig.z)});
@@ -3226,14 +3238,14 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         const beforePart = partSnapshot(targetActor.condition.parts[contact.slot]);
         const beforeIntegrity = targetActor.condition.parts[contact.slot].integrity;
         const hit = applyTargetHit(targetActor.condition, contact.slot, damage);
-        const weaponFaulted = contact.slot === 'combat' && arrestAiWeaponFailure(targetActor, beforeIntegrity, rig);
-        const weaponRecoverable = contact.slot === 'combat' && canFieldService(targetActor.condition, targetActor.fieldService);
+        const newlyDisabled=beforeIntegrity>0&&targetActor.condition.parts[contact.slot].integrity<=0;
+        if(newlyDisabled)noteAiModuleDisabled(targetActor,contact.slot,rig);
         const afterPart = partSnapshot(targetActor.condition.parts[contact.slot]);
         scoreHit('player', targetActor.id, contact.slot, beforePart, hit, afterPart);
         noteIncomingFire(targetActor.motion, rig, 'player',
             hit.internalDamage > 0 ? 1.65 : 1.12,targetActor.rig);
         recordSubsystemHit(targetActor.combatMemory,contact.slot,aiClock);
-        const visualHit = physicalHitPresentation({ ...hit, justDisabled: !weaponRecoverable && beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed },{weaponSpec},targetActor);
+        const visualHit = physicalHitPresentation({ ...hit, justDisabled: beforeIntegrity > 0 && hit.disabled, justDestroyed: !beforePart.destroyed && !!afterPart.destroyed },{weaponSpec},targetActor);
         arena.showShot(contact, visualHit);
         arena.updateCombatantDamage(targetActor.id, targetActor.condition);
         if (targetActor.id === 'enemy-0') {
@@ -3246,7 +3258,7 @@ function resolvePlayerShotContact(contact,damage,audible=true,recordMiss=true) {
         recoilFlash = .19;
         const shieldText = showVerifiedShieldReadout(contact);
         lastHit = `${targetActor.label} · ${shieldText ?? targetLabels[hit.slot]} · ${hit.serial}`;
-        showHitConfirm(visualHit, shieldText ? 'FRAME BLOCK' : weaponRecoverable ? 'WEAPON FAULT' : null);
+        showHitConfirm(visualHit, shieldText ? 'FRAME BLOCK' : newlyDisabled ? `${targetLabels[contact.slot]} DISABLED` : null);
         const kill = aiWeaponMissionKillReason(targetActor.condition, targetActor.behavior, targetActor.fieldService);
         if (kill) missionKillAiActor(targetActor, kill, 'player');
         if (testEnded) return true;
@@ -3307,7 +3319,12 @@ window.addEventListener('keydown', event => {
         attemptFire();
     }
     if (event.code === 'KeyR' && weaponState && weaponSpec && !event.repeat) {
-        if (!inspecting && !testEnded && playerCombatActive && canFieldService(playerCondition, fieldService)) {
+        if (!inspecting && !testEnded && playerCombatActive && serviceableSlots(playerCondition).length) {
+            if(event.shiftKey || fieldService.cooldownLeft>0) {
+                cycleFieldServiceTarget(playerCondition,fieldService);
+                renderAmmo();
+                return;
+            }
             if (beginFieldService(playerCondition, fieldService, rig)) {
                 serviceKeyHeld = true;
                 soundReload();
@@ -3333,40 +3350,51 @@ window.addEventListener('blur', () => {
     stopFireInput();
     stopFieldServiceInput();
 });
+let servicePointerStart=0;
 reloadButton.addEventListener('pointerdown', event => {
-    if (playerCombatActive && canFieldService(playerCondition, fieldService)) {
-        if (!beginFieldService(playerCondition, fieldService, rig)) {
+    if(playerCombatActive && serviceableSlots(playerCondition).length) {
+        event.preventDefault();
+        if(!canFieldService(playerCondition,fieldService)) {
+            cycleFieldServiceTarget(playerCondition,fieldService);
             renderAmmo();
             return;
         }
-        event.preventDefault();
-        servicePointerId = event.pointerId;
+        if(!beginFieldService(playerCondition,fieldService,rig)) {
+            renderAmmo();
+            return;
+        }
+        servicePointerStart=performance.now();
+        servicePointerId=event.pointerId;
         reloadButton.setPointerCapture(event.pointerId);
         soundReload();
-        shotReport.classList.remove('faded', 'penetrated');
+        shotReport.classList.remove('faded','penetrated');
         shotReport.classList.add('disabled-part');
-        shotReport.textContent = 'FIELD SERVICE STARTED · HOLD STILL · RELEASE OR MOVE TO ABORT';
-        reportFade = 5;
+        shotReport.textContent='FIELD SERVICE · HOLD STILL · RELEASE OR MOVE TO ABORT';
+        reportFade=5;
         renderAmmo();
         return;
     }
-    if (weaponState && weaponSpec) startReload(weaponState, weaponSpec);
+    if(weaponState&&weaponSpec)startReload(weaponState,weaponSpec);
     renderAmmo();
 });
-const endServicePointer = event => {
-    if (event.pointerId !== servicePointerId)
-        return;
-    servicePointerId = null;
-    if (fieldService.held)
-        cancelFieldService(fieldService);
+const endServicePointer=event=>{
+    if(event.pointerId!==servicePointerId)return;
+    const quickTap=performance.now()-servicePointerStart<240 &&
+        (fieldService.progress??0)<.30;
+    servicePointerId=null;
+    if(fieldService.held)cancelFieldService(fieldService);
+    if(quickTap && serviceableSlots(playerCondition).length>1)
+        cycleFieldServiceTarget(playerCondition,fieldService);
     renderAmmo();
 };
-reloadButton.addEventListener('pointerup', endServicePointer);
-reloadButton.addEventListener('pointercancel', endServicePointer);
-reloadButton.addEventListener('lostpointercapture', endServicePointer);
-reloadButton.addEventListener('click', event => {
-    if (event.detail === 0 && !canFieldService(playerCondition, fieldService)) {
-        if (weaponState && weaponSpec) startReload(weaponState, weaponSpec);
+reloadButton.addEventListener('pointerup',endServicePointer);
+reloadButton.addEventListener('pointercancel',endServicePointer);
+reloadButton.addEventListener('lostpointercapture',endServicePointer);
+reloadButton.addEventListener('click',event=>{
+    if(event.detail===0) {
+        if(serviceableSlots(playerCondition).length)
+            cycleFieldServiceTarget(playerCondition,fieldService);
+        else if(weaponState&&weaponSpec)startReload(weaponState,weaponSpec);
         renderAmmo();
     }
 });
