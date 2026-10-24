@@ -1,0 +1,44 @@
+name: M3CH4 Physical Armor Lab Browser
+on:
+  pull_request:
+    paths:
+      - 'armor-lab.html'
+      - 'armorLab.js'
+      - 'armorLab.css'
+      - 'armorPlan.js'
+      - 'armorPrototype.js'
+      - 'cyclopsVisual.js'
+      - 'kestrelVisual.js'
+      - 'index.html'
+      - 'research/armorLabBrowserSmoke.mjs'
+      - 'tests/k5t1ArmorLab.test.mjs'
+      - '.github/workflows/armor-lab-ci.yml'
+  workflow_dispatch:
+jobs:
+  physical-armor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Run static build server
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/armor-lab-http.log 2>&1 &
+          sleep 2
+      - name: Validate authored plate budgets and no-save isolation
+        run: node --test tests/k5t1ArmorLab.test.mjs
+      - name: Inspect real production models with Chromium at iPhone resolution
+        run: node research/armorLabBrowserSmoke.mjs
+      - name: Save real rendered armor states
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: armor-lab-iphone-evidence
+          path: armor-lab-artifacts/
+          if-no-files-found: warn
