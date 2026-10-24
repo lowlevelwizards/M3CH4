@@ -79,6 +79,6 @@ test('production code bills consumed discharges once, preserves AI and collision
     for(const html of [index,yard]){
         for(const path of ['combat.js','economy.js','series.js'])
             assert.ok(html.includes(`"./${path}": "./${path}?v=k5s2"`),path);
-        assert.match(html,/main\.js\?v=k5s2/);
+        assert.match(html,/main\.js\?v=k5s3/);
     }
 });
