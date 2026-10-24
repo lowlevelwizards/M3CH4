@@ -107,8 +107,10 @@ export function buildAnatomicalLoader(root){
   cylinder(g,'rear-boom-pivot',.35,.48,rearX,2.04,.69,S,'x',10);
   f(g,'loader-lift-boom',[rearX,2.06,.66],[elbowX,1.70,-1.67],.36,Y);
   cylinder(g,'loader-elbow-pivot',.27,.33,elbowX,1.70,-1.67,S,'x',8);
-  f(g,'loader-boom-drop-link',[elbowX,1.70,-1.67],
+  const link=f(g,'loader-boom-drop-link',[elbowX,1.70,-1.67],
     [lugX,1.30,-2.31],.28,Y);
+  // Maintain inspectable engineering attachment data for the gallery audit.
+  link.userData.rearBucketPin=[lugX,1.30,-2.31];
   metal(g,'bucket-side-external-hinge-bracket',.31,.57,.45,
     side*2.68,1.29,-2.44,R);
   cylinder(g,'bucket-hinge-pin',.27,.39,lugX,1.29,-2.36,S,'x',9);
@@ -335,14 +337,14 @@ export function buildAnatomicalCoupling(root){
  return g;
 }
 export const MACHINE_EXHIBITS=Object.freeze([
- {id:'loader',label:'TRACKED LOADER · SOLID V5',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
+ {id:'loader',label:'TRACKED LOADER · FINISH V6',details:'FULL TRACK LOOP · BOOM · BUCKET · HYDRAULICS',
   match:o=>o.id.startsWith('loader-'),front:'-z',build:buildAnatomicalLoader},
- {id:'combine',label:'COMBINE HARVESTER · SOLID V5',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
+ {id:'combine',label:'COMBINE HARVESTER · FINISH V6',details:'OPEN REEL · CUTTER HEADER · HOPPER · AUGER',
   match:o=>o.artKit==='combine-harvester',front:'-z',build:buildAnatomicalCombine},
- {id:'pickup',label:'PICKUP WRECK · SOLID V5',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
+ {id:'pickup',label:'PICKUP WRECK · FINISH V6',details:'REAL FRAME · HOLLOW CAB · BED · ENGINE',
   match:o=>o.artKit==='pickup-wreck',build:buildAnatomicalPickup},
- {id:'engine',label:'ENGINE BANK · SOLID V5',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
+ {id:'engine',label:'ENGINE BANK · FINISH V6',details:'V8 HEADS · FLYWHEEL · EXHAUST · MOUNTING SLED',
   match:o=>o.id.startsWith('exposed-engine-'),build:buildAnatomicalEngine},
- {id:'coupling',label:'GEAR COUPLING · SOLID V5',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
+ {id:'coupling',label:'GEAR COUPLING · FINISH V6',details:'SHAFTS · RING GEARS · EXPOSED DRIVE',
   match:o=>o.id.startsWith('coupling-'),build:buildAnatomicalCoupling},
 ]);
