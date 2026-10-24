@@ -4374,7 +4374,7 @@ export function buildExteriorRig(assembly) {
     }
     // Auxiliary geometry follows the actual owned hull; its meshes are assigned
     // to existing structural/weapon damage stations, never phantom HP bars.
-    addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes);
+    addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes,partGroups.get('combat'));
     return { root, partGroups, partMeshes, pickMeshes };
 }
 /** Chamfered polygon, deliberately low-poly; avoid the cuboid-only silhouette. */
