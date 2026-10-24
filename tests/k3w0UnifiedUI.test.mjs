@@ -97,7 +97,7 @@ test('bundled entry and mobile versions include exact changed assets and no new 
     assert.match(html,/uiRedesign\.css\?v=k4u/);
     assert.match(html,/main\.js\?v=[\w.-]+/);
     assert.match(html,/garageMountUI\.js\?v=k5p8/);
-    assert.match(html,/cockpitDisplays\.js\?v=k3w0/);
+    assert.match(html,/cockpitDisplays\.js\?v=k5s4/);
     assert.match(html,/cockpitIdentityScene\.js\?v=k3w0/);
     assert.match(html,/uiLanguage\.js\?v=k3w0/);
     assert.match(mount,/unifiedGarageUI\.js\?v=k5p4/);
