@@ -6,6 +6,7 @@
  * global: one serial may be mounted to at most one rig at a time.
  */
 import { BY_ID, SLOTS, equipSerial, inspectAssembly, installedPart, remove } from './components.js';
+import { normalizeEquipment } from './equipment.js';
 import { normalizePaint, validPaint } from './factoryPaint.js';
 import { graphFromStations, graphMatchesStations, validateGraph } from './assemblyGraph.js';
 import { createFunctionalDamage } from './functionalDamage.js';
@@ -70,6 +71,7 @@ function emptyRig(id, index) {
         commissionOrder: null,
         originalConfiguration: null,
         installed: {},
+        equipment: {},
         graph: graphFromStations({ serial: 'SR-01', owned: [], installed: {} }, BY_ID),
         damage: null,
         playerCondition: null,
@@ -95,6 +97,7 @@ function assemblyFor(stable, rig) {
         name: rig.name || `RIG ${String(rig.bay).padStart(2, '0')}`,
         owned: inventoryClone(stable.inventory),
         installed: { ...rig.installed },
+        equipment: normalizeEquipment(rig.equipment ?? {}),
     };
     assembly.graph = rig.graph ? clone(rig.graph) : graphFromStations(assembly, BY_ID);
     if (!graphMatchesStations(assembly, assembly.graph, BY_ID))
@@ -176,6 +179,7 @@ function normalizeStableData(data) {
         rig.commissionOrder = saved.commissionOrder == null ? null : Number(saved.commissionOrder);
         rig.originalConfiguration = saved.originalConfiguration == null ? null : clone(saved.originalConfiguration);
         rig.installed = {};
+        rig.equipment = normalizeEquipment(saved.equipment ?? {});
         if (!object(saved.installed)) throw new Error('Invalid installed map');
         for (const [slot, serial] of Object.entries(saved.installed)) {
             if (!SLOTS.includes(slot) || typeof serial !== 'string') throw new Error('Invalid installed station');
@@ -216,6 +220,7 @@ export function createStableFromMachine(machine, now = new Date().toISOString())
     rig.commissionOrder = 1;
     rig.originalConfiguration = { ...machine.assembly.installed };
     rig.installed = { ...machine.assembly.installed };
+    rig.equipment = normalizeEquipment(machine.assembly.equipment ?? {});
     rig.graph = clone(machine.assembly.graph || graphFromStations(machine.assembly, BY_ID));
     rig.damage = clone(machine.damage);
     rig.playerCondition = clone(machine.playerCondition);
@@ -366,6 +371,7 @@ export function syncActiveMachineIntoStable(stable, machine) {
         }
     }
     activeRig.installed = { ...machine.assembly.installed };
+    activeRig.equipment = normalizeEquipment(machine.assembly.equipment ?? {});
     activeRig.graph = clone(machine.assembly.graph || graphFromStations(machine.assembly, BY_ID));
     activeRig.damage = clone(machine.damage);
     activeRig.playerCondition = clone(machine.playerCondition);
