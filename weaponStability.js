@@ -37,16 +37,18 @@ export function advanceWeaponStabilizer(mount,id,rig={},contacts=null,health={},
  const shift=clamp(legs?.weightShift??0,-1.4,1.4);
  // One planted foot (or a damaged pair of supports) transmits more load.
  const massScale=clamp(Math.sqrt(2600/clamp(health.massKg??2600,900,12000)),.76,1.30);
- const support=(1+.24*(2-stance)+.38*(1-mobility))*massScale;
+ const wound=1-combat;
+ const support=(1+.24*(2-stance)+.38*(1-mobility))*massScale*
+   (1+.52*wound);
  const planted=1-.66*brace;
  const motionX=(accelX*.0028+rate*.0052+shift*.0033)*support*planted;
  const motionY=(-accelZ*.0025+load*.0041+land*.0026)*support*planted;
- const targetYaw=clamp(motionX*profile.move,-.022,.022);
- const targetPitch=clamp(motionY*profile.move,-.022,.022);
+ const targetYaw=clamp(motionX*profile.move*(1+.45*wound),-.026,.026);
+ const targetPitch=clamp(motionY*profile.move*(1+.45*wound),-.026,.026);
  // Mount damage changes how quickly its existing springs damp out; never
  // inject invisible random misses or add an extra lockout timer.
- const omega=profile.response*(.72+.28*combat)*(.86+.14*command);
- const damping=profile.damping*(.87+.13*command);
+ const omega=profile.response*(.38+.62*Math.sqrt(combat))*(.78+.22*command);
+ const damping=profile.damping*(.62+.38*combat)*(.83+.17*command);
  const steps=Math.max(1,Math.ceil(step/(1/120))),h=step/steps;
  for(let i=0;i<steps;i++){
   mount.vYaw+=(omega*omega*(targetYaw-mount.yaw)-2*omega*damping*mount.vYaw)*h;
@@ -66,7 +68,7 @@ export function advanceWeaponStabilizer(mount,id,rig={},contacts=null,health={},
 export function registerWeaponStabilityShot(mount,id,{brace=0,condition=1,massKg=2600}={}){
  if(!mount)return;
  const profile=weaponMountProfile(id);
- const wear=1+.45*(1-clamp(condition,0,1));
+ const wear=1+.85*Math.pow(1-clamp(condition,0,1),1.35);
  const firm=1-.42*clamp(brace,0,1);
  const massScale=clamp(Math.sqrt(2600/clamp(massKg,900,12000)),.76,1.30);
  const kick=profile.kick*wear*firm*massScale;
