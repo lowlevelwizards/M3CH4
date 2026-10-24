@@ -10,7 +10,7 @@ import {createReloadCueState,advanceReloadCue} from './reloadMechanism.js';
 import { createWeaponStabilizer,advanceWeaponStabilizer,registerWeaponStabilityShot,resetWeaponStabilizer } from './weaponStability.js';
 import { resolvePenetratingContacts } from './weaponPenetration.js';
 import { shieldImpactLabel } from './frameShielding.js';
-import { WEAPONS, advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
+import { WEAPONS, advanceWeapon, applyRecoil, applyTargetHit, createTargetCondition, createWeaponState, reloadDuration, ammoCostCents, reserveReadout, makeRangeTarget, fireWeapon, mirrorTargetCondition, reconcileTargetCondition, restoreTargetPart, shotSpread, startReload, weaponFor } from './combat.js';
 import { BY_ID, equipSerial, equipAuxiliary, inspectAssembly, installedPart, remove, SLOTS, equip, generatorMount, setGeneratorMount, } from './components.js';
 import { equipmentHas, equipmentMounts, servicePumpRate, stabilizerRecoilMultiplier } from './equipment.js';
 import { createSmokeState, deploySmoke, stepSmoke, smokeObscures } from './tacticalSmoke.js';
@@ -24,7 +24,8 @@ import {winningMachines,renderWinnerNameplates} from './winnerTableau.js';
 import {createPhysicalEvidenceCard} from './physicalEvidenceInspector.js';
 import {storeSurfaceEvents,readSurfaceEvents} from './partServiceJournal.js';
 import {queueServiceRecord,flushServiceRecords} from './serviceEventRecorder.js';
-import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, restoreFieldServicedDrive, weaponCycleMultiplier, weaponSpreadMultiplier, } from './functionalDamage.js';
+import { damageInstalledPart, derateRigConfig, functionalOutput, resetInstalledDamage, restoreFieldServicedDrive } from './functionalDamage.js';
+import {weaponDamageResponse,electricalDistress,frameDistress} from './woundResponse.js';
 import { advancePowerSystem, createPowerSystem, powerConstrainedOutput, registerPowerShot, setActiveWeaponLoad } from './powerDynamics.js';
 import { createThermalCombat, coolThermalCombat, cutContact, moduleHeatKey } from './thermalCombat.js';
 import { FIELD_SERVICE_SECONDS, advanceFieldService, beginFieldService, cancelFieldService, canFieldService, createFieldServiceState, fieldServiceStationary, serviceableSlots, fieldServiceTarget, cycleFieldServiceTarget, countDisabled, weaponFailureState, weaponIntegrityRatio, weaponMissionKillReason, } from './fieldService.js';
@@ -328,6 +329,7 @@ function handleAiFieldServiceCompleted(actor, serviceStep) {
     if(serviceStep?.slot === 'combat') actor.weaponState.cooldown=Math.max(actor.weaponState.cooldown,.55);
     actor.controller.triggerLeft = Math.max(actor.controller.triggerLeft ?? 0, .85);
     actor.teamPlanLeft = 0;
+    playServiceRestart(serviceStep?.slot,false,actor.rig);
     if (actor.motion?.awareness) {
         actor.motion.awareness.underFireSeconds *= .35;
         actor.motion.awareness.coverTarget = null;
@@ -532,6 +534,43 @@ arena.updateObjectivePresentation?.(objectivePresentation(sortieObjective));
 let rig = createRigState(playerSpawn);
 const playerMount=createWeaponStabilizer();
 let footScraping = false, drivetrainLoaded = false, footingSoundCooldown = 0;
+// Per-rig sound cadence; only real voltage, integrity and physical loading
+// can produce distress. No extra fault roll, HP, or performance multiplier.
+const woundedAcoustics=new WeakMap();
+function emitWoundedHardwareSounds(machineRig,condition,bus,dt,local=false){
+    if(!condition||!Number.isFinite(dt)||dt<=0)return;
+    const distance=local?0:Math.hypot(machineRig.x-rig.x,machineRig.z-rig.z);
+    if(!local&&distance>12)return;
+    let clock=woundedAcoustics.get(machineRig);
+    if(!clock){clock={left:1.2};woundedAcoustics.set(machineRig,clock);}
+    clock.left=Math.max(0,clock.left-dt);
+    if(clock.left>0)return;
+    const health=slot=>{
+        const p=condition.parts?.[slot];
+        return p?Math.max(0,p.integrity/Math.max(1,p.maxIntegrity)):1;
+    };
+    const frame=frameDistress(health('structure'),machineRig.driveLoad??0);
+    const supply=electricalDistress(bus?.busRatio??1,health('power'));
+    const gun=weaponDamageResponse(health('combat'),bus?.busRatio??1);
+    const working=(machineRig.driveLoad??0)>.28||Math.hypot(machineRig.vx??0,machineRig.vz??0)>.85;
+    let id=null,variant=0,strength=0;
+    if(supply.sag>.4&&working){id='zap';variant=2;strength=.12+.18*supply.sag;}
+    else if(frame.creak>.22&&working){id='part';variant=1;strength=.08+.18*frame.creak;}
+    else if(gun.mountStress>.5&&(machineRig.recoilLoad??0)>.09){id='hydraulics';variant=2;strength=.10+.12*gun.mountStress;}
+    else if(supply.loadStrain>.4&&working){id='engine';variant=2;strength=.08+.12*supply.loadStrain;}
+    if(id)soundSystemEvent(id,{cockpit:local,distance,variant,strength});
+    clock.left=1.4+(1-Math.max(frame.creak,supply.loadStrain,gun.mountStress))*1.1;
+}
+function startPlayerReload(state=weaponState,spec=weaponSpec){
+    return !!state&&!!spec&&startReload(state,spec,
+        weaponDamageResponse(weaponIntegrityRatio(playerCondition),playerPower.busRatio).reloadMultiplier);
+}
+function playServiceRestart(slot,local=true,sourceRig=rig){
+    const distance=local?0:Math.hypot((sourceRig?.x??0)-rig.x,(sourceRig?.z??0)-rig.z);
+    if(!local&&distance>18)return;
+    const id=slot==='power'||slot==='command'?'recharge':slot==='mobility'?'hydraulics':slot==='combat'?'reload':'part';
+    soundSystemEvent(id,{cockpit:local,distance,variant:slot==='power'?1:slot==='combat'?2:0,strength:local?.46:.24});
+}
 // The authoritative weapon reload timer is the sole cue clock. Use one
 // independent state per weapon object; switching bays cannot revive old cues.
 const reloadCueStates=new WeakMap();
@@ -539,7 +578,7 @@ function soundActualReloadPhases(state,spec,local=false,sourceRig=null){
     if(!state||!spec)return;
     let cue=reloadCueStates.get(state);
     if(!cue){cue=createReloadCueState();reloadCueStates.set(state,cue);}
-    const stage=advanceReloadCue(cue,state.reloadLeft,spec.reloadSeconds,spec.id);
+    const stage=advanceReloadCue(cue,state.reloadLeft,reloadDuration(state,spec),spec.id);
     if(!stage)return;
     const distance=local?0:Math.hypot((sourceRig?.x??0)-rig.x,
         (sourceRig?.z??0)-rig.z);
@@ -2115,6 +2154,7 @@ function frame(now) {
                 effectiveConfig = derateRigConfig(rigConfig, output);
                 stepRig(rig, { throttle: input.throttle, strafe: input.strafe, steer: bodySteer, brake: input.brake }, FIXED_DT, effectiveConfig, combatWorldFor('player'));
                 emitMachineMotionSound(assembly,rig,FIXED_DT,true,{left:output.left,right:output.right});
+                emitWoundedHardwareSounds(rig,playerCondition,playerPower,FIXED_DT,true);
                 advanceWeaponStabilizer(playerMount,weaponSpec?.id,rig,
                     movementSoundStates.get(rig),{
                         combat:weaponIntegrityRatio(playerCondition),
@@ -2385,7 +2425,10 @@ function frame(now) {
                     Math.abs(maneuver.steer) < .12;
                 if (settledToShoot) maneuver = { ...maneuver, brake: 1 };
                 stepRig(actor.rig, maneuver, FIXED_DT, actorConfig, combatWorldFor(actor.id));
-                if(actor.active)actor.visualGait=emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false,actor.driveDamage.drives[installedPart(actor.assembly,'mobility')?.instance.serial]??null);
+                if(actor.active){
+                    actor.visualGait=emitMachineMotionSound(actor.assembly,actor.rig,FIXED_DT,false,actor.driveDamage.drives[installedPart(actor.assembly,'mobility')?.instance.serial]??null);
+                    emitWoundedHardwareSounds(actor.rig,actor.condition,actor.powerSystem,FIXED_DT,false);
+                }
                 advanceWeaponStabilizer(actor.stabilizer,actor.weaponSpec?.id,actor.rig,
                     actor.visualGait,{
                         combat:actor.condition.parts.combat.integrity/
@@ -2411,13 +2454,14 @@ function frame(now) {
                     driveHealth:actor.driveDamage.drives[installedPart(actor.assembly,'mobility')?.instance.serial]??null,
                     gait:actor.visualGait,stability:actor.stabilizer,
                     reloadLeft:actor.weaponState?.reloadLeft??0,
-                    reloadSeconds:actor.weaponSpec?.reloadSeconds??0,
+                    reloadSeconds:actor.weaponState&&actor.weaponSpec?reloadDuration(actor.weaponState,actor.weaponSpec):0,
                 });
                 if (actor.id === 'enemy-0') arena.updateHostileNavigation(actor.motion.waypoint);
                 if (actor.weaponSpec && actor.weaponState) {
                     advanceWeapon(actor.weaponState, actor.weaponSpec, FIXED_DT);
                     if (actor.weaponState.loaded <= 0 && actor.weaponState.reloadLeft === 0 && actor.weaponState.reserve > 0)
-                        startReload(actor.weaponState, actor.weaponSpec);
+                        startReload(actor.weaponState, actor.weaponSpec,
+                            weaponDamageResponse(actorOutput.weapon,actor.powerSystem.busRatio).reloadMultiplier);
                     soundActualReloadPhases(actor.weaponState,actor.weaponSpec,false,actor.rig);
                     const ready=actor.powerSystem.weaponReady &&
                         (!target||!smokeObscures(actor.rig,target.rig,smokeState.clouds)) && actor.weaponState.cooldown<=0 &&
@@ -2447,7 +2491,8 @@ function frame(now) {
                             brace:actor.rig.brace??0,
                         }).fire;
                     const triggerReady=actor.weaponSpec.fireMode==='charged'
-                        ? advanceChargedTrigger(actor.weaponState,actor.weaponSpec,ready,FIXED_DT) : ready;
+                        ? advanceChargedTrigger(actor.weaponState,actor.weaponSpec,ready,
+                        FIXED_DT*weaponDamageResponse(actorOutput.weapon,actor.powerSystem.busRatio).actionRate) : ready;
                     const shot=advanceHostileController(actor.controller,
                         actor.condition,FIXED_DT,!target,triggerReady);
                     if(shot!==null&&target)attemptAiFire(actor,target,shot);
@@ -2473,7 +2518,8 @@ function frame(now) {
                 soundActualReloadPhases(weaponState,weaponSpec,true,rig);
                 const authorized=weaponSpec.fireMode==='charged'
                     ? advanceChargedTrigger(weaponState,weaponSpec,
-                        fireHeld&&playerCombatActive&&output.weaponOperational&&playerPower.weaponReady,FIXED_DT)
+                        fireHeld&&playerCombatActive&&output.weaponOperational&&playerPower.weaponReady,
+                        FIXED_DT*weaponDamageResponse(weaponIntegrityRatio(playerCondition),playerPower.busRatio).actionRate)
                     : weaponSpec.fireMode==='projectile'
                         ? advanceProjectileTrigger(weaponState,weaponSpec,fireHeld&&playerCombatActive)
                         : fireHeld;
@@ -2519,7 +2565,7 @@ function frame(now) {
         driveHealth:{left:output.left,right:output.right},
         gait:movementSoundStates.get(rig),stability:playerMount,
         reloadLeft:weaponState?.reloadLeft??0,
-        reloadSeconds:weaponSpec?.reloadSeconds??0,
+        reloadSeconds:weaponState&&weaponSpec?reloadDuration(weaponState,weaponSpec):0,
     });
     // Only actual Backlot competition runs the distant yard generator loop.
     // This is a state toggle; AudioContext remains locked until a real tap.
@@ -2760,6 +2806,7 @@ function handleFieldServiceCompleted(serviceStep) {
     }
     if (slot === 'combat' && weaponState) {
         weaponState.reloadLeft = 0;
+        weaponState.reloadDuration=weaponSpec?.reloadSeconds??weaponState.reloadDuration;
         weaponState.cooldown = Math.max(weaponState.cooldown, .55);
     }
     updateFunctionalStatus();
@@ -2767,6 +2814,7 @@ function handleFieldServiceCompleted(serviceStep) {
     renderPartsList();
     renderPartInfo();
     soundReload();
+    playServiceRestart(slot);
     shotReport.classList.remove('faded', 'disabled-part');
     shotReport.classList.add('penetrated');
     shotReport.textContent = `FIELD SERVICE · ${slot?.toUpperCase()??'SYSTEM'} ONLINE · ${Math.round(serviceStep.ratio*100)}% · COOLDOWN 10s`;
@@ -2812,7 +2860,7 @@ function renderAmmo() {
         `${weaponState.loaded} / ${reserveReadout(weaponState)}`;
     const reloading=!!weaponSpec&&!!weaponState&&weaponState.reloadLeft>0;
     const progress=inService?fieldService.progress/FIELD_SERVICE_SECONDS:
-        reloading?1-weaponState.reloadLeft/Math.max(.01,weaponSpec.reloadSeconds):0;
+        reloading?1-weaponState.reloadLeft/Math.max(.01,reloadDuration(weaponState,weaponSpec)):0;
     reloadButton.classList.toggle('reloading',reloading||inService);
     reloadButton.style.setProperty('--reload-progress',`${Math.round(Math.max(0,Math.min(1,progress))*100)}%`);
     if(servicing){
@@ -3181,8 +3229,7 @@ function attemptAiFire(actor, target, shotIndex) {
     });
     // Same physical weapon fire-rate authority as the player; degradation
     // can still slow mechanical cycling, but no arbitrary AI trigger clamp.
-    actor.weaponState.cooldown *= 1+
-        (1-actorOutput.weapon)*.65+(1-actorOutput.power)*.45;
+    actor.weaponState.cooldown *= weaponDamageResponse(actorOutput.weapon,actor.powerSystem.busRatio).cycleMultiplier;
     if(actor.weaponSpec.fireMode!=='continuous')registerPowerShot(actor.powerSystem, actor.assembly);
     // Listen from the player's position, not at the same volume from every
     // opponent across the map. One sound per consumed round, not per pellet.
@@ -3222,7 +3269,7 @@ function attemptAiFire(actor, target, shotIndex) {
     }
     const contacts=actor.weaponSpec.pellets>1
         ? shotContacts(shotIndex,actor.weaponSpec,
-            1+Math.max(0,1-actorOutput.weapon)*.45,
+            weaponDamageResponse(actorOutput.weapon).spreadMultiplier,
             (x,y)=>arena.traceCombatantShot(actor.id,target.id,aimSlot,
                 spreadX+x,spreadY+y)).map(entry=>entry.contact)
         : actor.weaponSpec.fireMode==='charged'
@@ -3318,7 +3365,7 @@ function attemptFire() {
     const shot = fireWeapon(weaponState, weaponSpec);
     if (shot === null) {
         if (weaponState.loaded <= 0 && weaponState.reloadLeft === 0) {
-            if (!startReload(weaponState, weaponSpec)) {
+            if (!startPlayerReload()) {
                 soundEmpty();
                 fireHeld = false;
             }
@@ -3326,7 +3373,7 @@ function attemptFire() {
         renderAmmo();
         return;
     }
-    weaponState.cooldown *= weaponCycleMultiplier(output);
+    weaponState.cooldown *= weaponDamageResponse(weaponIntegrityRatio(playerCondition),playerPower.busRatio).cycleMultiplier;
     // Bill the actual consumed discharge, not every pellet, projectile impact,
     // hit, reload, or the holding of the trigger.
     if(!testYard)sortieAmmoCostCents += ammoCostCents(weaponSpec);
@@ -3336,7 +3383,7 @@ function attemptFire() {
     }
     // One trigger pull consumes exactly one shell; each actual pellet
     // traverses the ordinary camera→muzzle raycaster and first real hit.
-    const degradedSpread=weaponSpreadMultiplier(output);
+    const degradedSpread=weaponDamageResponse(weaponIntegrityRatio(playerCondition),playerPower.busRatio).spreadMultiplier;
     const multi=weaponSpec.pellets>1;
     const [baseX,baseY]=shotSpread(shot,multi ? .004*degradedSpread :
         weaponActionSpreadRadians(weaponSpec,weaponState,rig.brace??0)*degradedSpread);
@@ -3566,7 +3613,7 @@ window.addEventListener('keydown', event => {
                 reportFade = 5;
             }
         }
-        else startReload(weaponState, weaponSpec);
+        else startPlayerReload();
     }
 });
 window.addEventListener('keyup', event => {
@@ -3608,7 +3655,7 @@ reloadButton.addEventListener('pointerdown', event => {
         renderAmmo();
         return;
     }
-    if(weaponState&&weaponSpec)startReload(weaponState,weaponSpec);
+    if(weaponState&&weaponSpec)startPlayerReload();
     renderAmmo();
 });
 const endServicePointer=event=>{
@@ -3628,7 +3675,7 @@ reloadButton.addEventListener('click',event=>{
     if(event.detail===0) {
         if(serviceableSlots(playerCondition).length)
             cycleFieldServiceTarget(playerCondition,fieldService);
-        else if(weaponState&&weaponSpec)startReload(weaponState,weaponSpec);
+        else if(weaponState&&weaponSpec)startPlayerReload();
         renderAmmo();
     }
 });
