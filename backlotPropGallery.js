@@ -156,15 +156,20 @@ function applyExperimentPresentation(e){
  greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
-  new:'FINISH V6 · gallery prototype; live uses certified cover geometry',
-  old:'Unmodified current Backlot production prop · same camera',
+  new:(e.id==='experiment-tractor-anatomy'||e.id==='experiment-loader-anatomy')?
+   'LIVE COMPOUND GEOMETRY · original AABB ghosts removed from gameplay':
+   'DEV PROTOTYPE · pending separate physical integration',
+  old:(e.id==='experiment-tractor-anatomy'||e.id==='experiment-loader-anatomy')?
+   'LEGACY PRE-COMPOUND AABBs · no longer live':
+   'Current Backlot production reference · same camera',
   both:'New at LEFT · original at RIGHT',
  }[expState.view]+' · '+(e.experiment.audit?.pass?'STRUCTURAL JOINS VERIFIED':'REVIEW STRUCTURAL JOINS')+' · collider wireframes = CURRENT LIVE MAP AABBs';
 }
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
  if(!e.experiment)return;
- $('gallery-experiment-title').textContent=e.label.replace(/ · (CHUNK V4|SOLID V5|FINISH V6|EXPERIMENT)/g,'')+' · DEV PROTOTYPE ONLY';
+ $('gallery-experiment-title').textContent=e.label.replace(/ · (CHUNK V4|SOLID V5|FINISH V6|EXPERIMENT)/g,'')+
+  ((e.id==='experiment-tractor-anatomy'||e.id==='experiment-loader-anatomy')?' · LIVE COMPOUND':' · DEV PROTOTYPE');
  applyExperimentPresentation(e);
 }
 compareBtn.addEventListener('click',()=>{
