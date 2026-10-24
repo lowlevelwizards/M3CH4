@@ -46,6 +46,10 @@ try{
   const audit=stats.assemblyAudits.find(x=>x.id==='experiment-'+family+'-anatomy');
   if(!audit||audit.checked<3)throw Error('Missing anchored '+family+' audit');
  }
+ if(!stats.secondaryCollisionClearance?.pass||
+   stats.secondaryCollisionClearance.count!==18)
+  throw Error('Rebuilt offsite assets too close to gameplay bounds: '+
+    JSON.stringify(stats.secondaryCollisionClearance));
  if(!Array.isArray(stats.secondaryAssemblyIds)||stats.secondaryAssemblyIds.length!==8)
   throw Error('Eight secondary prop assemblies missing: '+JSON.stringify(stats.secondaryAssemblyIds));
  for(const id of ['secondary-farm-wagon','secondary-salvage-flatbed',
