@@ -59,6 +59,16 @@ test('live and DEV gallery use exactly the same scenery builder',()=>{
  assert.match(world,/batch-completed-secondary-scenery/);
  assert.match(world,/secondaryInstances-secondaryBatches/);
 });
+test('four in-play floodlight pylons receive real hardware on the correct render path',()=>{
+ const idx=world.indexOf('if(pillar){');
+ assert.ok(idx>0);
+ const rendering=world.slice(idx,idx+1500);
+ assert.match(rendering,/arena-light-structural-mast-collar/);
+ assert.match(rendering,/arena-light-maintenance-junction-box/);
+ assert.match(rendering,/arena-light-outboard-brace/);
+ assert.match(rendering,/welded-lamp-mast/);
+ assert.equal(BACKLOT.world.obstacles.filter(o=>o.kind==='pillar').length,4);
+});
 test('secondary updates do not alter the certified obstacle ID or geometry',()=>{
  for(const id of ['tractor-','loader-'])
   assert.ok(BACKLOT.world.obstacles.some(o=>o.id.startsWith(id)));
