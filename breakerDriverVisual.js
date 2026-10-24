@@ -17,7 +17,7 @@ export function buildBreakerDriverVisual(fixture) {
  block(r,'BD / hardpoint foot',[-.35,-.55,.22],[.35,.08,.40],'steel');
  const carriage=group(r,'BD / hydraulic sliding breech',[0,.46,.30]);
  const bolt=group(carriage,'BD / enormous steel breech block');
- block(bolt,'BD / reciprocating breech',[0,0,0],[.41,.20,.32],'machined');
- block(carriage,'BD / piston track',[0,-.12,-.02],[.46,.09,.51],'steel');
+ block(bolt,'BD / reciprocating breech',[0,0,0],[.54,.25,.39],'machined');
+ block(carriage,'BD / piston track',[0,-.12,-.02],[.53,.11,.53],'steel');
  return finishWeapon(r,{carriage,bolt});
 }
