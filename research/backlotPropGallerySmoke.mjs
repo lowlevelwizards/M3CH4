@@ -30,6 +30,11 @@ try{
   const audit=stats.assemblyAudits.find(x=>x.id==='experiment-'+family+'-anatomy');
   if(!audit||audit.checked<3)throw Error('Missing anchored '+family+' audit');
  }
+ if(!Array.isArray(stats.styledCoverFamilies)||
+  stats.styledCoverFamilies.length!==11||
+  !stats.styledCoverFamilies.includes('concrete-barrier')||
+  !stats.styledCoverFamilies.includes('tire-stack'))
+  throw Error('Missing polished live cover families '+JSON.stringify(stats.styledCoverFamilies));
  if(stats.experimentalIds?.length!==14||
   !stats.experimentalIds.includes('experiment-loader-anatomy')||
   !stats.experimentalIds.includes('experiment-combine-anatomy')||
@@ -70,7 +75,12 @@ try{
  await page.locator('#gallery-select').selectOption('1');
  if(!(await page.locator('#gallery-current').textContent()).includes('LOADER'))
   throw Error('Loader experiment absent at expected gallery index');
- await page.screenshot({path:'gallery-smoke-artifacts/loader-new.png'});
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-new-v6.png'});
+ // The side elevation must show both side-mounted bucket hinges rather than
+ // rods entering the working scoop.
+ await page.locator('#gallery-angle-cycle').click();
+ await page.locator('#gallery-angle-cycle').click();
+ await page.screenshot({path:'gallery-smoke-artifacts/loader-side-mount-v6.png'});
  await page.locator('#gallery-before-after').click();
  await page.screenshot({path:'gallery-smoke-artifacts/loader-old.png'});
  await page.locator('#gallery-before-after').click();
@@ -90,9 +100,10 @@ try{
   await page.locator('#gallery-ui-toggle').click().catch(()=>{});
  }
  await page.screenshot({path:'gallery-smoke-artifacts/pickup-chunk-v4.png'});
- for(const [idx,name] of [[8,'tyre-stack'],[10,'flatbed'],[12,'container']]){
+ for(const [idx,name] of [[8,'tyre-stack'],[9,'barrel-pallet'],[10,'flatbed'],
+  [11,'scrap-wall'],[12,'container'],[13,'concrete-barrier']]){
   await page.locator('#gallery-select').selectOption(String(idx));
-  await page.screenshot({path:'gallery-smoke-artifacts/'+name+'-chunk-v4.png'});
+  await page.screenshot({path:'gallery-smoke-artifacts/'+name+'-finish-v6.png'});
  }
  await page.locator('#gallery-select').selectOption(String(stats.coverCount+stats.showcaseCount+stats.experimentCount));
  await page.screenshot({path:'gallery-smoke-artifacts/scenery-sample.png'});
