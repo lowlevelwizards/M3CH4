@@ -19,6 +19,7 @@ import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './b
 import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironmentPass.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
+import { addEquipmentVisuals } from './equipmentVisuals.js';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import {attachReloadHardware,poseReloadHardware,poseExistingReloadMagazine} from './weaponVisualKit.js';
 import {reloadMechanism,reloadCockpitPresentation} from './reloadMechanism.js';
@@ -4328,6 +4329,9 @@ export function buildExteriorRig(assembly) {
             group.position.set(c[0]-parent[0],c[1]-parent[1],c[2]-parent[2]);
         }
     }
+    // Auxiliary geometry follows the actual owned hull; its meshes are assigned
+    // to existing structural/weapon damage stations, never phantom HP bars.
+    addEquipmentVisuals(assembly,hull,partMeshes,pickMeshes);
     return { root, partGroups, partMeshes, pickMeshes };
 }
 /** Chamfered polygon, deliberately low-poly; avoid the cuboid-only silhouette. */
