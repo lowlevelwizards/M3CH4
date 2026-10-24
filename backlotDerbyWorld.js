@@ -137,26 +137,6 @@ function physicalScrapPart(root,o,solids){
       x,h-.14,front-.09,P.rust2,.31);
    block(root,'bucket-shadow',w*.84,h*.32,.03,
       x,h*.43,front,P.steel,.49);
- }else if(o.kind==='pillar'){
-   // Four IN-ARENA lamp pylons used to be featureless 7.5m box poles.
-   // Their opaque core remains the certified AABB. Decorative lamps sit
-   // high overhead where their protrusion cannot imply false ground cover.
-   block(root,'arena-light-mast-heavy-shaft',w*.62,h*.90,d*.62,
-      x,h*.51,z,P.iron,.42);
-   for(const yy of [h*.29,h*.63,h*.87])
-    block(root,'arena-light-mast-stiffening-collar',w*.96,.19,d*.96,
-      x,yy,z,P.rust2,.35);
-   block(root,'arena-light-maintenance-junction-box',w*.74,.78,d*.81,
-      x,1.51,z+d*.37,P.steel,.28);
-   block(root,'arena-light-structural-crossarm',Math.min(2.5,w+1.80),
-      .25,.31,x,h-.31,z,P.iron,.44);
-   for(const dx of [-.82,.82]){
-    const lamp=block(root,'arena-light-recessed-floodlight',.70,.50,.37,
-      x+dx,h+.02,z-.22,P.rust2,.37);
-    lamp.rotation.x=-.18;
-    block(root,'arena-light-amber-reflector',.56,.34,.04,
-      x+dx,h+.04,z-.45,P.cream,.12);
-   }
  }else if(mechanical){
    block(root,'engine-joint-head',w*.70,.14,d*.62,
      x,h-.11,z,P.rust2,.38);
@@ -250,6 +230,19 @@ function createWreck(parent,o,solids){
 
 
  if(pillar){
+   // Four actual in-arena collision columns: preserve their opaque AABBs.
+   // Compose believable floodlight towers on those certified columns, not
+   // on the o.art-only machine path (the pillars do not carry art tags).
+   for(const yy of [h*.29,h*.63,h*.87])
+    block(parent,'arena-light-structural-mast-collar',w*.91,.19,d*.91,
+      x,yy,z,P.rust2,.36);
+   block(parent,'arena-light-maintenance-junction-box',w*.72,.75,d*.70,
+      x,1.45,z+d*.39,P.steel,.29);
+   for(const dx of [-.72,.72]){
+    const strut=block(parent,'arena-light-outboard-brace',.16,1.12,.20,
+      x+dx*.71,h-.34,z,P.rust,.35);
+    strut.rotation.z=dx>0?-.38:.38;
+   }
    block(parent,'welded-lamp-mast',w*.48,h*.95,d*.48,x,h*.51,z,P.iron,.54);
    block(parent,'lamp-head',2.05,.25,.45,x,h+.30,z,P.steel,.42);
    for(const dx of [-.69,0,.69])
