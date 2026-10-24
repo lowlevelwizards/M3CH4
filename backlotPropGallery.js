@@ -4,7 +4,8 @@
  */
 import * as THREE from 'three';
 import {BACKLOT} from './maps/backlot.js';
-import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r7';
+import {buildBacklotPropCatalog,batchBacklotDerbyDecorations} from './backlotDerbyWorld.js?v=k5r9';
+import {BACKLOT_COVER_KITS} from './backlotObstacleKits.js';
 const $=id=>{const node=document.getElementById(id);if(!node)throw Error('Missing #'+id);return node;};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const stage=$('stage'),speed=$('gallery-speed'),selectEl=$('gallery-select');
@@ -107,7 +108,7 @@ function buildGrid(){
  floor.rotation.x=-Math.PI/2;
  floor.position.set(0,-.065,-(totalRows-1)*ROW_SPACE*.5);
  floor.receiveShadow=true;scene.add(floor);
- $('gallery-description').textContent=coverCount+' individual live cover pieces · '+
+ $('gallery-description').textContent=coverCount+' individual live cover pieces in '+BACKLOT_COVER_KITS.length+' visually completed cover families · '+
    catalog.sceneryArchetypes+' distinct live scenery/detail types. '+
    'Tap objects or select by name; send screenshots with their IDs.';
  const optgroup1=document.createElement('optgroup');optgroup1.label='EXPERIMENT + ASSEMBLIES + COVER · '+coverBlock;
@@ -119,7 +120,8 @@ function buildGrid(){
  });
  selectEl.append(optgroup1,optgroup2);
  return {coverCount,experimentCount:catalog.experimentCount,showcaseCount:catalog.showcaseCount,
-  sceneryArchetypes:catalog.sceneryArchetypes,total:entries.length};
+  sceneryArchetypes:catalog.sceneryArchetypes,total:entries.length,
+  styledCoverFamilies:BACKLOT_COVER_KITS};
 }
 let yaw=0,pitch=0,active=0,drag=null,joystickPointer=null;
 const axes={x:0,y:0,up:0,down:0};
@@ -152,7 +154,7 @@ function applyExperimentPresentation(e){
  greyBtn.textContent=expState.grey?'RESTORE COLORS':'GREY SILHOUETTE';
  colliderBtn.textContent=expState.colliders?'COLLIDERS ON':'COLLIDERS OFF';
  $('gallery-experiment-caption').textContent={
-  new:'SOLID V5 · structural anatomy prototype · not in combat',
+  new:'FINISH V6 · gallery prototype; live uses certified cover geometry',
   old:'Unmodified current Backlot production prop · same camera',
   both:'New at LEFT · original at RIGHT',
  }[expState.view]+' · '+(e.experiment.audit?.pass?'STRUCTURAL JOINS VERIFIED':'REVIEW STRUCTURAL JOINS')+' · collider wireframes = CURRENT LIVE MAP AABBs';
@@ -160,7 +162,7 @@ function applyExperimentPresentation(e){
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
  if(!e.experiment)return;
- $('gallery-experiment-title').textContent=e.label.replace(/ · (CHUNK V4|EXPERIMENT)/g,'')+' · DEV PROTOTYPE ONLY';
+ $('gallery-experiment-title').textContent=e.label.replace(/ · (CHUNK V4|SOLID V5|FINISH V6|EXPERIMENT)/g,'')+' · DEV PROTOTYPE ONLY';
  applyExperimentPresentation(e);
 }
 compareBtn.addEventListener('click',()=>{
