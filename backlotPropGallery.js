@@ -144,7 +144,10 @@ function applyExperimentPresentation(e){
  const spread=clamp(Math.max(e.width*.70,4),4,8);
  newPart.position.x=both?-spread:0;
  oldPart.position.x=both?spread:0;
- collisionOverlay.position.x=both?spread:0;
+ const liveCompound=e.id==='experiment-tractor-anatomy'||e.id==='experiment-loader-anatomy';
+ // Those wireframes are the PRESENT LIVE physical shape; follow the rebuilt
+ // model on the left, not the obsolete pre-promotion AABB on the right.
+ collisionOverlay.position.x=both?(liveCompound?-spread:spread):0;
  collisionOverlay.visible=expState.colliders;
  for(const root of [newPart,oldPart])root.traverse(obj=>{
   if(!obj.isMesh)return;
@@ -163,7 +166,8 @@ function applyExperimentPresentation(e){
    'LEGACY PRE-COMPOUND AABBs · no longer live':
    'Current Backlot production reference · same camera',
   both:'New at LEFT · original at RIGHT',
- }[expState.view]+' · '+(e.experiment.audit?.pass?'STRUCTURAL JOINS VERIFIED':'REVIEW STRUCTURAL JOINS')+' · collider wireframes = CURRENT LIVE MAP AABBs';
+ }[expState.view]+' · '+(e.experiment.audit?.pass?'STRUCTURAL JOINS VERIFIED':'REVIEW STRUCTURAL JOINS')+
+  ' · collider wireframes = '+(liveCompound?'CURRENT LIVE COMPOUND STEEL':'CURRENT LIVE MAP AABBs');
 }
 function updateExperimentControls(e){
  expUI.hidden=!e.experiment;
