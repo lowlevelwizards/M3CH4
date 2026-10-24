@@ -51,11 +51,11 @@ function bleachers(root,cx,z){
  for(let tier=0;tier<4;tier++){
   const bz=-tier*1.09,y=1.04+tier*.70;
   b(g,'individual-wooden-bleacher-bench',10.8,.13,.92,0,y,bz,W);
-  b(g,'bleacher-narrow-footwell',10.6,.09,.31,0,y-.42,bz+.60,I);
+  b(g,'bleacher-narrow-footwell',10.6,.16,.42,0,y-.42,bz+.60,I);
   for(const xx of [-4.72,0,4.72]){
-   f(g,'bleacher-leg-to-ground',[xx,.10,bz-.42],[xx,y-.06,bz-.42],.10,S);
+   f(g,'bleacher-leg-to-ground',[xx,.10,bz-.42],[xx,y-.06,bz-.42],.15,S);
    f(g,'diagonal-stadium-raker',[xx,.13,bz+.48],
-      [xx,y-.11,bz-.42],.10,R);
+      [xx,y-.11,bz-.42],.16,R);
   }
  }
  for(const side of [-1,1]){
@@ -98,9 +98,9 @@ function announcer(root,z){
  }
  b(g,'announcer-low-front-wall',8.35,1.14,.13,0,4.76,1.91,R);
  b(g,'announcer-low-rear-wall',8.37,1.58,.14,0,4.99,-1.91,W);
- for(const xx of [-4.19,-2.1,0,2.1,4.19]){
+ for(const xx of [-4.19,0,4.19]){
   f(g,'real-booth-window-mullion',[xx,5.32,1.90],
-    [xx,7.29,1.90],.075,I);
+    [xx,7.29,1.90],.13,I);
  }
  for(const z0 of [-1.97,1.95])
   f(g,'station-roof-sill',[-4.39,7.29,z0],
@@ -137,12 +137,12 @@ function crane(root,x,z){
  }
  for(const zz of [-.45,.45]){
   f(g,'crane-horizontal-jib',[0,13.75,zz],[12.9,13.75,zz],.19,R);
-  for(let i=0;i<7;i++){
-   const xx=i*1.8;
+  for(let i=0;i<5;i++){
+   const xx=i*2.4;
    f(g,'jib-truss-angled-brace',[xx,13.74,zz],
-     [xx+.92,14.64,zz],.075,I);
-   f(g,'jib-truss-return-brace',[xx+.92,14.64,zz],
-     [xx+1.8,13.74,zz],.075,I);
+     [xx+1.20,14.64,zz],.13,I);
+   f(g,'jib-truss-return-brace',[xx+1.20,14.64,zz],
+     [xx+2.40,13.74,zz],.13,I);
   }
  }
  f(g,'crane-gantry-tie',[0,14.55,0],[12.91,14.55,0],.07,S);
