@@ -14,7 +14,7 @@ import {addRigCrewPlate} from './rigCrewVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import {lightingProfile} from './visualLightingLanguage.js';
-import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './backlotDerbyWorld.js?v=k5s0';
+import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './backlotDerbyWorld.js?v=k5s2';
 import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironmentPass.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
