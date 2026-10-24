@@ -18,7 +18,7 @@ test('authored obstacle groups stay 34; physical steel volumes are 57',()=>{
  assert.equal(BACKLOT.world.obstacles.length,34);
  assert.equal(new Set(BACKLOT.world.obstacles.map(o=>o.id)).size,34);
  assert.equal(COMPOUND_FAMILY_IDS.length,12);
- assert.equal(allCollisionPieces(BACKLOT.world.obstacles).length,57);
+ assert.equal(allCollisionPieces(BACKLOT.world.obstacles).length,59);
  assert.equal(BACKLOT.world.obstacles.filter(o=>o.id.startsWith('tractor-')).length,7);
  assert.equal(BACKLOT.world.obstacles.filter(o=>o.id.startsWith('loader-')).length,5);
  const pieces=allCollisionPieces(BACKLOT.world.obstacles);
@@ -46,8 +46,8 @@ test('loader working scoop is open above its floor, solid at back and cheeks',()
  const shot=firstCoverHit([x,1.09,scoop.minZ+.04],[0,0,1],[scoop],2,0);
  assert.ok(shot,'bucket backplate must stop a shot');
  assert.ok(shot.distance>.78,'shot must enter empty scoop, not strike air at the mouth');
- assert.ok(!positionHitsCover({x,z:scoop.minZ+.32},[scoop],0),
-  'bucket mouth is open for movement at the chosen inside point');
+ assert.ok(positionHitsCover({x,z:scoop.minZ+.32},[scoop],0),
+  'the grounded metal floor still stops a mech from walking through the bucket');
  const cheek=firstCoverHit([scoop.minX+.05,1.04,scoop.minZ+.04],
   [0,0,1],[scoop],2,0);
  assert.ok(cheek&&cheek.distance<.1,'bucket side cheek must still stop fire');
