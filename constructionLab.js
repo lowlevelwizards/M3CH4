@@ -187,6 +187,7 @@ function clearGeometry(parent){
 }
 function buildModels(){
   clearGeometry(partGroup);clearGeometry(markerGroup);
+  partGroup.position.set(0,0,0);
   partRoots.clear();rayTargets=[];sockets=[];
   const inspection=labInspection(machine),graph=inspection.graph;
   const frame=own(graph.root),frameDef=BY_ID.get(frame?.definitionId);
@@ -228,13 +229,13 @@ function buildModels(){
 }
 function applyExplode(){
   const fraction=Number(explode.value)/100;
-  const rootPart=partRoots.get(machine.graph.root);
+  const rootPart=partRoots.get(labInspection(machine).graph.root);
   const center=rootPart?rootPart.position:new THREE.Vector3();
   for(const [serial,model] of partRoots){
     const pose=nodeWorldPoses.get(serial);
     if(!pose)continue;
     model.position.set(...pose.position);
-    if(serial===machine.graph.root)continue;
+    if(serial===labInspection(machine).graph.root)continue;
     const vector=model.position.clone().sub(center);
     if(vector.length()<.12)vector.set(serial.includes('AD-')?0:-1,1,.3);
     vector.normalize();
