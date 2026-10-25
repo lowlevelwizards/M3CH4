@@ -3,6 +3,7 @@
  */
 import { CATALOG, SLOTS, equip, equipAuxiliary, installedPart, inspectAssembly, makeTestAssembly } from './components.js';
 import { EQUIPMENT_DEFS, MOUNT_KEYS, SECONDARY_WEAPONS, equipmentMounts } from './equipment.js';
+import {graphFromStations} from './assemblyGraph.js';
 export { TEST_YARD } from './maps/testYard.js';
 const PRESET_KEY = 'm3ch4-test-yard-loadout-v1';
 const LABELS = {structure:'FRAME',mobility:'LEGS / DRIVE',power:'GENERATOR',command:'COCKPIT',combat:'WEAPON'};
@@ -16,6 +17,27 @@ export function readTestYardAssembly() {
   const assembly = makeTestAssembly();
   assembly.name = 'TEST YARD RIG';
   const preset = storedPreset();
+  if (preset?.source === 'm3ch4ex') {
+    // Constructor deployments are an ATOMIC assembly; serial-by-serial
+    // re-equips can transiently exceed the factory frame limit and silently
+    // leave unrelated default modules installed.
+    try {
+      for (const slot of SLOTS) {
+        const id = preset.parts?.[slot];
+        const definition=CATALOG.find(part=>part.id===id&&part.slot===slot);
+        const owned=assembly.owned.find(part=>part.definitionId===id);
+        if (!definition||!owned)throw Error('Unsupported station '+slot);
+        assembly.installed[slot]=owned.serial;
+      }
+      assembly.graph=graphFromStations(assembly,new Map(CATALOG.map(p=>[p.id,p])));
+      const report=inspectAssembly(assembly);
+      if (report.checks.every(check=>check.passes))return assembly;
+      throw Error(report.checks.filter(c=>!c.passes).map(c=>c.reason).join('; '));
+    } catch(error) {
+      console.warn('Constructor loadout was rejected; reverting to safe Test Yard rig:',error);
+      return Object.assign(makeTestAssembly(),{name:'TEST YARD RIG'});
+    }
+  }
   if (preset) {
     // Frame first. A failed/obsolete saved choice cannot strand the entire range.
     for (const slot of SLOTS) {
