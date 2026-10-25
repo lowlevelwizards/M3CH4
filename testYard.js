@@ -3,6 +3,7 @@
  */
 import { CATALOG, SLOTS, equip, equipAuxiliary, installedPart, inspectAssembly, makeTestAssembly } from './components.js';
 import { EQUIPMENT_DEFS, MOUNT_KEYS, SECONDARY_WEAPONS, equipmentMounts } from './equipment.js';
+import {graphFromStations} from './assemblyGraph.js';
 export { TEST_YARD } from './maps/testYard.js';
 const PRESET_KEY = 'm3ch4-test-yard-loadout-v1';
 const LABELS = {structure:'FRAME',mobility:'LEGS / DRIVE',power:'GENERATOR',command:'COCKPIT',combat:'WEAPON'};
@@ -16,6 +17,27 @@ export function readTestYardAssembly() {
   const assembly = makeTestAssembly();
   assembly.name = 'TEST YARD RIG';
   const preset = storedPreset();
+  if (preset?.source === 'm3ch4ex') {
+    // Constructor deployments are an ATOMIC assembly; serial-by-serial
+    // re-equips can transiently exceed the factory frame limit and silently
+    // leave unrelated default modules installed.
+    try {
+      for (const slot of SLOTS) {
+        const id = preset.parts?.[slot];
+        const definition=CATALOG.find(part=>part.id===id&&part.slot===slot);
+        const owned=assembly.owned.find(part=>part.definitionId===id);
+        if (!definition||!owned)throw Error('Unsupported station '+slot);
+        assembly.installed[slot]=owned.serial;
+      }
+      assembly.graph=graphFromStations(assembly,new Map(CATALOG.map(p=>[p.id,p])));
+      const report=inspectAssembly(assembly);
+      if (report.checks.every(check=>check.passes))return assembly;
+      throw Error(report.checks.filter(c=>!c.passes).map(c=>c.reason).join('; '));
+    } catch(error) {
+      console.warn('Constructor loadout was rejected; reverting to safe Test Yard rig:',error);
+      return Object.assign(makeTestAssembly(),{name:'TEST YARD RIG'});
+    }
+  }
   if (preset) {
     // Frame first. A failed/obsolete saved choice cannot strand the entire range.
     for (const slot of SLOTS) {
@@ -57,7 +79,10 @@ export function createTestYardPanel({assembly,onInstall,onEquipment,onDeploy,onG
   bar.setAttribute('aria-label','Test yard controls');
   const tag=element('strong','yard-tag','▣ TEST YARD');
   const back=element('a','yard-link','CAMPAIGN');
-  back.href='./index.html';back.title='Exit the sandbox; your campaign was not changed';
+  const fromConstructor=new URLSearchParams(window.location.search).get('from')==='m3ch4ex';
+  back.href=fromConstructor?'/M3CH4Ex/graybox.html':'./index.html';
+  back.textContent=fromConstructor?'CONSTRUCTOR':'CAMPAIGN';
+  back.title=fromConstructor?'Return to your saved experimental machine':'Exit the sandbox; your campaign was not changed';
   const benchButton=button('BENCH',()=>{panel.classList.toggle('collapsed');benchButton.setAttribute('aria-expanded',String(!panel.classList.contains('collapsed')));});
   benchButton.setAttribute('aria-expanded','true');
   const changeButton=button('DEPLOY',()=>{ if(inspecting) onDeploy(); else onGarage(); });
