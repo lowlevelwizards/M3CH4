@@ -57,7 +57,10 @@ export function createTestYardPanel({assembly,onInstall,onEquipment,onDeploy,onG
   bar.setAttribute('aria-label','Test yard controls');
   const tag=element('strong','yard-tag','▣ TEST YARD');
   const back=element('a','yard-link','CAMPAIGN');
-  back.href='./index.html';back.title='Exit the sandbox; your campaign was not changed';
+  const fromConstructor=new URLSearchParams(window.location.search).get('from')==='m3ch4ex';
+  back.href=fromConstructor?'/M3CH4Ex/graybox.html':'./index.html';
+  back.textContent=fromConstructor?'CONSTRUCTOR':'CAMPAIGN';
+  back.title=fromConstructor?'Return to your saved experimental machine':'Exit the sandbox; your campaign was not changed';
   const benchButton=button('BENCH',()=>{panel.classList.toggle('collapsed');benchButton.setAttribute('aria-expanded',String(!panel.classList.contains('collapsed')));});
   benchButton.setAttribute('aria-expanded','true');
   const changeButton=button('DEPLOY',()=>{ if(inspecting) onDeploy(); else onGarage(); });
