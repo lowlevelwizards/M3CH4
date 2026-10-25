@@ -29,29 +29,24 @@ export function labEquip(assembly,slot,definitionId){
   const def=BY_ID.get(definitionId);
   if(!def || def.slot!==slot) return {ok:false,reason:'Part cannot occupy this station.'};
   const prior=generatorMount(assembly);
+  // Snapshot must precede *all* mutations, including moving the outrigger.
+  const snapshot=structuredClone(assembly);
   try {
-    // A special generator bracket is graph-real but the legacy station bridge
-    // deliberately refuses changing unrelated stations around a custom graph.
     if(prior==='offset') {
       const reset=setGeneratorMount(assembly,'standard');
       if(!reset.ok) throw new Error(reset.reason);
     }
-    const snapshot=structuredClone(assembly);
-    try {
-      equip(assembly,slot,definitionId);
-      const verdict=labInspection(assembly);
-      if(!verdict.valid) throw new Error(verdict.graphCheck.errors.join(' '));
-      if(prior==='offset' && slot!=='power') {
-        const restore=setGeneratorMount(assembly,'offset');
-        if(!restore.ok) throw new Error(restore.reason);
-      }
-      return {ok:true,assembly};
-    } catch(error) {
-      Object.keys(assembly).forEach(key=>delete assembly[key]);
-      Object.assign(assembly,snapshot);
-      return {ok:false,reason:error.message};
+    equip(assembly,slot,definitionId);
+    const verdict=labInspection(assembly);
+    if(!verdict.valid) throw new Error(verdict.graphCheck.errors.join(' '));
+    if(prior==='offset' && slot!=='power') {
+      const restore=setGeneratorMount(assembly,'offset');
+      if(!restore.ok) throw new Error(restore.reason);
     }
+    return {ok:true,assembly};
   }catch(error){
+    Object.keys(assembly).forEach(key=>delete assembly[key]);
+    Object.assign(assembly,snapshot);
     return {ok:false,reason:error.message};
   }
 }
