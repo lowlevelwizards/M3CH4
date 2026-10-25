@@ -83,7 +83,7 @@ function showTree(){
   tree.replaceChildren();
   labNodeList(machine).forEach(node=>{
     const row=button('',()=>{
-      selectedSerial=node.serial;refreshSelection();renderTree();renderInspection();switchTab('inspect');
+      selectedSerial=node.serial;refreshSelection();showTree();renderInspection();switchTab('inspect');
     },'tree-row tree-depth-'+Math.min(2,node.depth));
     row.setAttribute('aria-pressed',String(selectedSerial===node.serial));
     const content=document.createElement('span');content.className='tree-label';
