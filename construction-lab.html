@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="theme-color" content="#f4f5f2"/>
+  <title>M3CH4 / Universal Construction Lab</title>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+  <link rel="stylesheet" href="./constructionLab.css"/>
+</head>
+<body>
+  <header class="topbar">
+    <div><div class="eyebrow">M3CH4 / EXPERIMENT</div><h1>CONSTRUCTION LAB <span>01—05</span></h1></div>
+    <div class="top-actions">
+      <button id="reset" type="button" title="Restore a stock test rig">Reset rig</button>
+      <a href="./index.html" title="Leave laboratory">Main game ↗</a>
+    </div>
+  </header>
+  <main>
+    <section id="stage" aria-label="White 3D construction workspace">
+      <div class="stage-label">WHITE ROOM <span id="stageMode">STOCK RIG</span></div>
+      <div id="viewport" aria-label="Mech preview; drag to orbit, pinch to zoom, tap a part to inspect" tabindex="0"></div>
+      <div class="stage-tools">
+        <button id="view-reset" type="button">3/4 VIEW</button>
+        <button id="view-front" type="button">FRONT</button>
+        <button id="view-side" type="button">SIDE</button>
+        <button id="view-top" type="button">TOP</button>
+        <button id="isolate" type="button" aria-pressed="false">ISOLATE</button>
+      </div>
+      <div class="stage-foot">
+        <label><input id="socket-toggle" type="checkbox"/> Sockets</label>
+        <label><input id="grid-toggle" type="checkbox"/> Grid</label>
+        <label class="explode-control">Explode <input id="explode" type="range" min="0" max="100" value="0" aria-label="Exploded assembly separation"/></label>
+      </div>
+    </section>
+    <aside aria-label="Construction controls">
+      <div class="tabbar">
+        <button data-tab="catalog" aria-pressed="true">CATALOGUE</button>
+        <button data-tab="tree" aria-pressed="false">ASSEMBLY</button>
+        <button data-tab="inspect" aria-pressed="false">INSPECT</button>
+      </div>
+      <section id="catalog-panel" class="panel">
+        <p class="explain">Select a station, then install an existing part. No money or campaign inventory restrictions in this laboratory.</p>
+        <div id="slots" class="slot-row" aria-label="Assembly type"></div>
+        <div id="catalog" class="catalog-list"></div>
+      </section>
+      <section id="tree-panel" class="panel" hidden>
+        <p class="explain">Real graph nodes and parent sockets. A selected entry focuses the actual geometry, including nested adapters.</p>
+        <div id="tree"></div>
+        <div id="mount-control"></div>
+      </section>
+      <section id="inspect-panel" class="panel" hidden>
+        <div id="inspection"></div>
+      </section>
+      <footer class="sidebar-foot">
+        <div id="stats"></div>
+        <div id="verdict" role="status" aria-live="polite"></div>
+        <div class="io-row"><button id="export" type="button">EXPORT JSON</button><button id="import" type="button">IMPORT JSON</button></div>
+        <input id="import-file" type="file" accept=".json,application/json" hidden/>
+      </footer>
+    </aside>
+  </main>
+  <script type="module" src="./constructionLab.js"></script>
+</body>
+</html>
