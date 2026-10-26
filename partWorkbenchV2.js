@@ -4,6 +4,7 @@ import {FORMAT,VERSION,clone,createDocument,newShape,addNode,updateNode,removeNo
  duplicateNode,mirrorNode,groupNodes,makeAsset,insertAsset,validateDocument,validateGeometry,migrateCalfRecipe,identity} from './workbench/blueprint.js';
 import {compileBlueprint,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
 import * as db from './workbench/storage.js';
+import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
 
@@ -309,6 +310,15 @@ for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
 };
 $('context-toggle').onclick=()=>{showContext=!showContext;buildContext();refresh();
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
+$('test-in-yard').onclick=async()=>{
+ try{
+  const raw=packagePrototype(doc);
+  // A standalone blueprint overlays only the left Yardwalker knee in the real range.
+  sessionStorage.setItem(PROTOTYPE_KEY,raw);
+  await db.saveProject(doc);
+  window.location.assign('./test-yard.html?wb-prototype=1');
+ }catch(e){message('Test Yard handoff failed: '+e.message,true);}
+};
 $('undo').onclick=()=>undo(-1);$('redo').onclick=()=>undo(1);
 document.addEventListener('keydown',e=>{
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
