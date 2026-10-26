@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {FORMAT,VERSION,clone,createDocument,newShape,addNode,updateNode,removeNode,
  duplicateNode,mirrorNode,groupNodes,makeAsset,insertAsset,validateDocument,validateGeometry,migrateCalfRecipe,identity} from './workbench/blueprint.js';
-import {compileBlueprint,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
+import {compileBlueprint,compileGeometry,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
 import * as db from './workbench/storage.js';
 import {orbitAfterDrag,cameraPose,cameraFacing} from './workbench/orbitCamera.js?v=orbit360';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
@@ -685,7 +685,7 @@ function applyGizmoDrag(e){
  if(!drag||drag.mode!=='gizmo'||drag.pointerId!==e.pointerId)return;
  const deltaX=e.clientX-drag.start.x,deltaY=e.clientY-drag.start.y;
  const signedPx=deltaX*drag.projectedAxis.x+deltaY*drag.projectedAxis.y;
- const next=clone(doc),target=next.nodes.find(n=>n.id===drag.nodeId);
+ const target=doc.nodes.find(n=>n.id===drag.nodeId);
  if(!target||target.locked)return;
  const i=drag.axis;
  if(drag.tool==='move'){
@@ -703,8 +703,17 @@ function applyGizmoDrag(e){
  }else if(drag.tool==='rotate'){
   target.transform.rotation[i]=drag.base.rotation[i]+signedPx*.012;
  }
- try{doc=validateDocument(next);rebuild();}
- catch{/* Invalid intermediate drag ignored. */}
+ try{
+  const visual=compiled?.objects.get(target.id);
+  if(visual){
+   visual.position.set(...target.transform.position);
+   visual.rotation.set(...target.transform.rotation,'XYZ');
+   visual.scale.set(...target.transform.scale);
+   if(target.mirrorOf)visual.scale.x*=-1;
+   visual.updateMatrixWorld(true);
+  }
+  requestDraw();
+ }catch{/* Invalid intermediate drag ignored. */}
 }
 function finishGizmoDrag(e){
  if(!drag||drag.mode!=='gizmo'||drag.pointerId!==e.pointerId)return;
@@ -794,8 +803,10 @@ function applyPoint(e){
  const target=compiled?.objects.get(drag.nodeId);if(!target)return;
  const hit=pointPlane(e,drag.anchor);if(!hit)return;
  const local=target.worldToLocal(hit);
- const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
- const g=n.geometry,i=drag.index;
+ const n=doc.nodes.find(n=>n.id===drag.nodeId);
+ const source=drag.previous.nodes.find(n=>n.id===drag.nodeId);
+ if(!n||!source||n.locked)return;
+ const g=clone(source.geometry),i=drag.index;
  if(g.type==='mesh'){
   const original=meshPointGroups(g)[i]?.position;
   if(!original)return;
@@ -818,8 +829,18 @@ function applyPoint(e){
   if(kind==='back'||kind==='topBack')section.back=Math.max(section.front+.02,snapValue(local.z));
   if(kind==='front'||kind==='back'||kind==='width')section.y=Math.max(0,snapValue(local.y));
  }
- try{doc=validateDocument(next);rebuild();}
- catch{ /* invalid in-between drag poses remain uncommitted */ }
+ try{
+  if(g.type!=='mesh'){validateGeometry(g);n.geometry=g;}
+  const visual=compiled?.objects.get(n.id);
+  if(visual?.isMesh){
+   const oldGeometry=visual.geometry;
+   visual.geometry=compileGeometry(n.geometry);
+   oldGeometry.dispose();
+  }
+  requestDraw();
+ }catch{
+  n.geometry=clone(source.geometry);
+ }
 }
 svg.addEventListener('pointermove',e=>{
  if(drag?.mode==='point'&&drag.pointerId===e.pointerId){applyPoint(e);e.preventDefault();}
@@ -862,7 +883,7 @@ canvas.addEventListener('pointerdown',e=>{
     start:{x:e.clientX,y:e.clientY},base:clone(n.transform)};
   }
  }else if(tool==='select'){
-  selected='root';selectedIds.clear();renderTree();renderInspector();requestDraw();
+  selected='root';selectedIds.clear();renderTree();renderInspector();selectedFeedback();requestDraw();
  }
 });
 canvas.addEventListener('pointermove',e=>{
@@ -883,7 +904,7 @@ canvas.addEventListener('pointermove',e=>{
   requestDraw();return;
  }
  if(!drag||drag.pointerId!==e.pointerId)return;
- const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
+ const n=doc.nodes.find(n=>n.id===drag.nodeId);
  if(!n||n.locked)return;
  if(drag.mode==='move'){
   const hit=pointPlane(e,drag.anchor);
@@ -899,13 +920,22 @@ canvas.addEventListener('pointermove',e=>{
   const factor=Math.max(.1,1+(e.clientX-drag.start.x)/190);
   n.transform.scale=drag.base.scale.map(v=>Math.max(.01,Number((v*factor).toFixed(3))));
  }
- try{doc=validateDocument(next);rebuild();}
- catch{/* Drag stays on last valid snapshot. */}
+ try{
+  const visual=compiled?.objects.get(n.id);
+  if(visual){
+   visual.position.set(...n.transform.position);
+   visual.rotation.set(...n.transform.rotation,'XYZ');
+   visual.scale.set(...n.transform.scale);
+   if(n.mirrorOf)visual.scale.x*=-1;
+   visual.updateMatrixWorld(true);
+  }
+  requestDraw();
+ }catch{/* Drag stays on last valid snapshot. */}
 });
 function finishCanvas(e){
  pointers.delete(e.pointerId);touchSpan=null;
  if(!drag||drag.pointerId!==e.pointerId)return;
- if(drag.mode==='orbit'&&!drag.moved&&tool==='select'){
+ if(drag.mode==='orbit'&&!drag.moved&&['select','points'].includes(tool)){
   selected=drag.hitId||'root';meshPointPageIndex=0;
   selectedIds=drag.hitId?new Set([selected]):new Set();
   renderTree();renderInspector();requestDraw();
