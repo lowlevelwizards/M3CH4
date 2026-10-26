@@ -59,6 +59,23 @@ try{
  assert.ok(await page.locator('.tree-item').count()>=4,'IndexedDB reloaded shape hierarchy');
  await page.locator('[data-tab="reference"]').click();
  assert.equal(await page.locator('#reference-items .tree-item').count(),1,'reference images persist');
+ // The exact same editable document must survive the handoff to the REAL
+ // Test Yard. Its sandbox meshes attach to the player knee, never enemy rigs.
+ await page.setViewportSize({width:844,height:390});
+ await page.locator('#test-in-yard').click();
+ await page.waitForURL(/test-yard\\.html\\?wb-prototype=1/,{timeout:15000});
+ await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:60000});
+ const sandbox=await page.evaluate(async()=>{
+  const {activePlayerArena}=await import('./scene.js');
+  let count=0;let name=null;
+  activePlayerArena()?.arena?.scene?.traverse(n=>{
+   if(n.name==='WORKBENCH V2 / LEFT KNEE SANDBOX PROTOTYPE'){name=n.name;count=n.children.length;}
+  });
+  return {name,count};
+ });
+ assert.equal(sandbox.name,'WORKBENCH V2 / LEFT KNEE SANDBOX PROTOTYPE');
+ assert.ok(sandbox.count>=1,'Actual player knee contains editable blueprint geometry');
+ await page.screenshot({path:'part-workbench-v2-artifacts/04-real-test-yard-prototype.png'});
  if(errors.length)throw Error('Browser errors: '+errors.join('\\n'));
  console.log('WORKBENCH V2 PASS · real Three.js mobile, profile edit, mirror, library, IndexedDB and ortho references');
 }finally{await browser.close();}
