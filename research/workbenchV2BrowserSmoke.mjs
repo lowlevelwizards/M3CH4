@@ -67,6 +67,8 @@ try{
  await page.locator('#module-manifest').fill('[{"name":"Knee hub","geometry":"cylinder"},{"name":"Shin casing","geometry":"loft"}]');
  await page.locator('#apply-manifest').click();
  await page.screenshot({path:'part-workbench-v2-artifacts/03-reference.png'});
+ await page.locator('#save-project').click();
+ await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('Project saved'),undefined,{timeout:10000});
  await page.reload({waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:35000});
  assert.ok(await page.locator('.tree-item').count()>=4,'IndexedDB reloaded shape hierarchy');
