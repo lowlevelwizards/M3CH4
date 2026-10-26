@@ -112,3 +112,11 @@ input[type=range]{width:100%}
  .tool-strip small{font-size:8px}
  #stage-hint{font-size:8px}
 }
+
+/* Saved tile action controls stay beneath the real thumbnail preview. */
+.part-tile.asset-item{cursor:pointer}
+.asset-actions{display:flex;gap:3px;padding:3px 0 0;width:100%;margin-top:auto}
+.asset-actions button{flex:0 0 25px;min-width:0;height:31px;padding:0;border:1px solid #6f856e;border-radius:4px;background:#364c3d;color:#e5dcbc;font-weight:800}
+.asset-actions button:first-child{flex:1;background:#b89a63;color:#17271d;font-size:9px}
+#tab-reference .tree-item{display:block;width:100%;min-height:38px;text-align:left;border:1px solid #668069;color:#dde9d8;background:#2c4333;border-radius:4px;margin-bottom:4px;padding:7px}
+#tab-reference .tree-item.active{border-color:#e0b76c}
