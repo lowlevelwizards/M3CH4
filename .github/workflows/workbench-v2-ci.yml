@@ -10,6 +10,8 @@ on:
       - 'tests/workbenchOrbitCamera.test.mjs'
       - 'research/workbenchV2BrowserSmoke.mjs'
       - 'research/workbenchCameraBrowserSmoke.mjs'
+      - 'research/workbenchVisualFirstBrowserSmoke.mjs'
+      - 'workbench/thumbnail.js'
       - 'index.html'
       - 'test-yard.html'
       - '.github/workflows/workbench-v2-ci.yml'
@@ -29,6 +31,7 @@ jobs:
       - name: Verify pure blueprint and existing visual tests
         run: |
           node --check partWorkbenchV2.js
+          node --check workbench/thumbnail.js
           node --check workbench/orbitCamera.js
           node --check workbench/blueprint.js
           node --check workbench/geometry.js
@@ -46,6 +49,8 @@ jobs:
         run: node research/workbenchV2BrowserSmoke.mjs
       - name: Verify live garage and Test Yard links, machine-facing camera and touch orbit
         run: node research/workbenchCameraBrowserSmoke.mjs
+      - name: Verify mobile visual-first interface and actual 3D editing
+        run: node research/workbenchVisualFirstBrowserSmoke.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -54,4 +59,5 @@ jobs:
           path: |
             part-workbench-v2-artifacts/
             workbench-camera-artifacts/
+            workbench-visual-artifacts/
           if-no-files-found: warn
