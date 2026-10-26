@@ -8,6 +8,8 @@ import {orbitAfterDrag} from './workbench/orbitCamera.js';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
+import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly} from './workbench/factoryImport.js';
+import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
 let doc=createDocument('Untitled assembly'),current=null,history=[],step=0,selected='root',selectedIds=new Set();
@@ -15,6 +17,7 @@ let view='quarter',tool='select',showContext=false,context=null,compiled=null;
 let camera,renderer,scene,grid,raycaster=new THREE.Raycaster(),orthoScale=2.7;
 let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touchSpan=null;
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
+let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let saveTimer=null,savePromise=Promise.resolve(),drawPending=false,ready=false;
 const canvas=$('stage-canvas'),stage=$('stage'),svg=$('edit-overlay'),NS='http://www.w3.org/2000/svg';
 const snap=()=>Number($('snap').value)||0;
@@ -49,6 +52,76 @@ function undo(offset){
  if(!doc.nodes.some(n=>n.id===selected))selected='root';
  queueSave();refresh();
 }
+function replaceProjectWithFactory(result){
+ const imported=result.document;
+ const next=clone(imported);
+ // A factory model is an editable COPIED project. Keep previous projects in
+ // the IndexedDB library, and never mutate source engine geometry.
+ doc=validateDocument(next);
+ meshPointPageIndex=0;meshPointSelectedIndex=0;startHistory();
+ const importedBounds=compileBlueprint(doc);
+ const bounds=measureBlueprint(importedBounds.root);
+ disposeBlueprint(importedBounds.root);
+ if(!bounds.empty){
+  const max=Math.max(...bounds.size);
+  orbit.distance=Math.max(1.8,Math.min(18,max*2.5));
+  orthoScale=Math.max(.42,Math.min(10,max*.9));
+  setCamera();
+ }
+ queueSave();refresh();
+ selected=doc.nodes.find(n=>n.kind==='shape')?.id||'root';
+ renderTree();renderInspector();requestDraw();
+ message('Opened '+result.meshCount+' authentic editable game meshes and '+result.groupCount+' named groups. Original game parts remain unchanged.');
+}
+function remapImportedNodes(target,source){
+ const next=clone(target),map=new Map();
+ const unique=()=>('factory-insert-'+(crypto.randomUUID?.()||Math.random().toString(36).slice(2)));
+ for(const n of source.nodes)if(n.id!=='root')map.set(n.id,unique());
+ for(const n of source.nodes){
+  if(n.id==='root')continue;
+  const copy=clone(n);copy.id=map.get(n.id);
+  copy.parentId=map.get(n.parentId)||'root';
+  copy.mirrorOf=map.get(n.mirrorOf)||null;
+  next.nodes.push(copy);
+ }
+ const top=source.nodes.find(n=>n.parentId==='root');
+ return {document:validateDocument(next),selectedId:map.get(top?.id)||'root'};
+}
+async function openFactoryPart(insert=false){
+ const id=$('factory-part-select').value;
+ if(!id)return message('Select a game component.',true);
+ try{
+  const result=importFactoryPart(id);
+  if(insert){
+   const {document,selectedId}=remapImportedNodes(doc,result.document);
+   commit(document,selectedId,'Inserted authentic '+id+' factory geometry into this project.');
+   return;
+  }
+  await savePromise;await db.saveProject(doc);
+  replaceProjectWithFactory(result);
+ }catch(e){message('Could not import game part: '+e.message,true);console.error(e);}
+}
+async function openFactoryRig(kind){
+ try{
+  const result=importFactoryAssembly(kind);
+  await savePromise;await db.saveProject(doc);
+  replaceProjectWithFactory(result);
+ }catch(e){message('Could not open game assembly: '+e.message,true);console.error(e);}
+}
+function setupFactoryPicker(){
+ const picker=$('factory-part-select');
+ const groups=new Map();
+ for(const def of factoryCatalogueOptions()){
+  let group=groups.get(def.slot);
+  if(!group){group=document.createElement('optgroup');group.label=def.slot.toUpperCase();picker.append(group);groups.set(def.slot,group);}
+  const option=document.createElement('option');option.value=def.id;option.textContent=def.name;group.append(option);
+ }
+ $('open-factory-part').onclick=()=>openFactoryPart(false);
+ $('insert-factory-part').onclick=()=>openFactoryPart(true);
+ $('open-factory-rig').onclick=()=>openFactoryRig('default');
+ $('open-yard-rig').onclick=()=>openFactoryRig('yard');
+}
+
 function sceneSetup(){
  scene=new THREE.Scene();scene.background=new THREE.Color(0x344039);
  scene.add(new THREE.HemisphereLight(0xe8e9db,0x30392d,1.75));
@@ -686,6 +759,7 @@ window.addEventListener('error',e=>message('Editor runtime error: '+e.message,tr
 window.addEventListener('unhandledrejection',e=>message('Editor error: '+(e.reason?.message||e.reason),true));
 async function initialize(){
  sceneSetup();
+ setupFactoryPicker();
  try{
   const loaded=await db.lastProject();
   if(loaded)doc=validateDocument(loaded);
