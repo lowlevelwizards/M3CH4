@@ -7,6 +7,8 @@ import {CATALOG,makeTestAssembly} from '../components.js';
 import {buildPartVisual} from '../partVisuals.js';
 import {buildExteriorRig} from '../scene.js';
 import {readTestYardAssembly} from '../testYard.js';
+import {loadStable} from '../stable.js';
+import {bayAssembly,BAY_IDS} from '../garageBay.js';
 import {clone,createDocument,validateDocument,identity} from './blueprint.js';
 
 const MAX_NODES=900;
@@ -113,6 +115,29 @@ export function importFactoryAssembly(kind='yard'){
  );
  return result;
 }
+/** Snapshot of one of the real player's saved career rigs. This is read-only:
+ * never writes to the stable or career machine persistence keys.
+ */
+export function importSavedGarageBay(index){
+ if(!Number.isInteger(index)||index<0||index>=BAY_IDS.length)
+  throw Error('Invalid garage bay index');
+ const stable=loadStable(window.localStorage).stable;
+ const assembly=bayAssembly(stable,BAY_IDS[index]);
+ if(!assembly)throw Error('Garage bay not present in saved stable');
+ if(!Object.values(assembly.installed||{}).some(Boolean))
+  throw Error('This garage bay has no installed parts yet.');
+ const result=captureFactoryVisual(buildExteriorRig(assembly).root,{
+  name:'GARAGE BAY '+(index+1)+' / '+assembly.name,
+  kind:'saved-garage-bay'
+ });
+ result.document.metadata.source.bay=BAY_IDS[index];
+ result.document.metadata.source.slots=Object.fromEntries(
+  Object.entries(assembly.installed||{}).map(([slot,serial])=>
+   [slot,assembly.owned.find(p=>p.serial===serial)?.definitionId||null])
+ );
+ return result;
+}
+
 export function factoryCatalogueOptions(){
  return CATALOG.map(c=>({id:c.id,name:c.name,slot:c.slot}));
 }
