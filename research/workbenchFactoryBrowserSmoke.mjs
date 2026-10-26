@@ -67,6 +67,7 @@ try{
  await page.locator('#save-part').click();
  await page.waitForFunction(()=>document.querySelectorAll('#library-items .asset-item').length>0,
    undefined,{timeout:8000});
+ await page.locator('[data-tab="objects"]').click();
  await page.locator('#open-factory-rig').click();
  await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('authentic editable'),
    undefined,{timeout:10000});
