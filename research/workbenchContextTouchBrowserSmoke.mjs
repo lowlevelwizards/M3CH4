@@ -28,8 +28,19 @@ try{
  const dot=page.locator('#edit-overlay .point-handle').first();
  await dot.waitFor({state:'attached',timeout:10000});
  const b=await dot.boundingBox();assert.ok(b);
- await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.up();
- await page.locator('#point-controls').waitFor({state:'visible',timeout:10000});
+ await dot.click();
+ await page.locator('#point-controls').waitFor({state:'visible',timeout:10000}).catch(async()=>{
+  const detail=await page.evaluate(()=>({
+   selection:document.querySelector('#selection-name')?.textContent,
+   title:document.querySelector('#context-title')?.textContent,
+   contextHidden:document.querySelector('#context-edit')?.hidden,
+   pointHidden:document.querySelector('#point-controls')?.hidden,
+   tool:document.querySelector('#mode-status')?.textContent,
+   dots:document.querySelectorAll('#edit-overlay .point-handle').length,
+   active:document.activeElement?.outerHTML.slice(0,200)
+  }));
+  throw Error('Tapped point without contextual controls: '+JSON.stringify(detail));
+ });
  assert.equal(await page.locator('#point-axis-controls input[type="range"]').count(),2);
  const before=await page.locator('#geometry-fields input').evaluateAll(els=>els.map(e=>e.value));
  const slider=page.locator('#point-axis-controls input[data-axis="0"]');
