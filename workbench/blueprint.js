@@ -144,7 +144,13 @@ export function updateNode(document,id,change){
 export function duplicateNode(document,id){
  const doc=clone(document),src=doc.nodes.find(n=>n.id===id);assert(src&&id!=='root','Invalid duplicate');
  const ids=new Map();const descendants=doc.nodes.filter(n=>{
-  let cur=n;while(cur?.parentId){if(cur.parentId===id)return true;cur=doc.nodes.find(p=>p.id===cur.parentId);}return n.id===id;
+  if(n.id===id)return false;
+  let cur=n;
+  while(cur?.parentId){
+   if(cur.parentId===id)return true;
+   cur=doc.nodes.find(p=>p.id===cur.parentId);
+  }
+  return false;
  });
  for(const n of [src,...descendants])ids.set(n.id,uuid());
  for(const n of [src,...descendants]){
