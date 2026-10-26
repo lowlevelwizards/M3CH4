@@ -26,7 +26,7 @@ try{
  await page.mouse.move(x+160,y+35,{steps:10});await page.mouse.up();
  const after=await page.locator('#camera-azimuth').textContent();
  assert.notEqual(after,initial,'One-finger drag over model genuinely changes camera');
- assert.equal(await page.locator('#camera-bearing').textContent(),'REAR  +Z','right drag turns past RIGHT toward rear');
+ assert.equal(await page.locator('#camera-bearing').textContent(),'RIGHT  +X','right drag reveals the actual right side of mech');
  assert.ok(await page.locator('#object-tree .tree-item').count()===1,'Orbit does not corrupt edited shapes');
  await page.screenshot({path:'workbench-camera-artifacts/01-orbit-over-model.png'});
  for(const [view,facing] of [['front','FRONT  -Z'],['side','RIGHT  +X'],['rear','REAR  +Z'],['left','LEFT  -X'],['top','TOP  +Y']]){
