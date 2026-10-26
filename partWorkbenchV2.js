@@ -107,7 +107,7 @@ function updateContextPanel(){
  const n=node(),active=n&&selected!=='root',point=activePoint?.nodeId===selected?pointCoordinates():null;
  $('context-edit').hidden=!active;
  $('selection-actions').hidden=!active;
- if(!active)return;
+ if(!active){visibilityMode='all';applyVisibility();return;}
  $('context-title').textContent=point?'POINT '+(activePoint.index+1):'SELECTED · '+n.name;
  $('context-value').textContent=point?point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join('  ·  '):n.kind.toUpperCase();
  $('point-controls').hidden=!point;
@@ -449,7 +449,7 @@ function renderTree(){
  const target=$('object-tree');target.replaceChildren();
  target.classList.toggle('list-mode',browseListMode);
  const search=$('object-search').value.trim().toLowerCase();
- const candidates=doc.nodes.filter(n=>n.id!=='root'&&n.visible!==false&&(
+ const candidates=doc.nodes.filter(n=>n.id!=='root'&&(
   !search||n.name.toLowerCase().includes(search)));
  let count=0;
  for(const n of candidates.slice(0,170)){
@@ -461,7 +461,11 @@ function renderTree(){
   if(selected===n.id)b.classList.add('active');
   b.dataset.kind=n.kind;
   b.dataset.nodeId=n.id;
-  if(n.locked){const flag=document.createElement('small');flag.className='tile-flag';flag.textContent='LOCK';b.append(flag);}
+  if(n.visible===false)b.classList.add('is-hidden');
+  if(n.locked||n.visible===false){
+   const flag=document.createElement('small');flag.className='tile-flag';
+   flag.textContent=n.visible===false?'HIDDEN':'LOCK';b.append(flag);
+  }
   b.onclick=e=>{
    clearPoint();
    if(e.shiftKey||e.ctrlKey||e.metaKey){
