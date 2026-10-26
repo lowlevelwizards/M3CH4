@@ -15,6 +15,15 @@ try{
  assert.ok(await page.locator('#stage-canvas').isVisible(),'Actual Three.js viewport renders');
  assert.ok(await page.locator('#primitive-grid .part-tile').count()>=8,'Eight shape types have visual tiles');
  await page.locator('#show-shapes-panel').click();
+ const thumbs=await page.evaluate(async()=>{
+  try{
+   const {newShape}=await import('./workbench/blueprint.js');
+   const {thumbnailForPrimitive}=await import('./workbench/thumbnail.js');
+   const picture=thumbnailForPrimitive(newShape('box').geometry);
+   return {prefix:picture.slice(0,48),count:document.querySelectorAll('#primitive-grid img[src]').length};
+  }catch(e){return {error:e.stack||String(e),tiles:[...document.querySelectorAll('#primitive-grid .part-tile')].map(el=>el.outerHTML.slice(0,240))};}
+ });
+ assert.ok(thumbs.prefix?.startsWith('data:image/png'),'Primitive thumbnail renderer: '+JSON.stringify(thumbs));
  await page.locator('#primitive-grid img[src^="data:image/png"]').first().waitFor({state:'attached',timeout:12000});
  await page.screenshot({path:'workbench-visual-artifacts/01-visual-workspace.png'});
  await page.locator('#shape-type').selectOption('plate');
