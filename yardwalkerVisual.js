@@ -3,6 +3,8 @@
  * anatomy and Hauler's fixed-pod load suspension rather than sharing either.
  */
 import * as THREE from 'three';
+import {addYardwalkerCalf} from './partWorkbenchGeometry.js';
+import {MOBILITY_MATERIALS} from './mobilityVisualKit.js?v=k3a8';
 import {YARDWALKER_LAYOUT,validateYardwalkerLayout} from './mobilityDefinitions.js?v=k3a8';
 import {groupAt,block,disk,bearing,link,actuator,chamferBlock,taperedLink,
     wedgeSole,finishMobilityVisual} from './mobilityVisualKit.js?v=k3a8';
@@ -52,10 +54,10 @@ export function buildYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT){
             .30,.215,.24,'iron');
         // k.3a.8: the calf owns the Yardwalker silhouette. It is full around the
         // upper/mid shin, then visibly pinches toward the serviceable ankle.
-        taperedLink(knee,`Y7-${word}-shaped-olive-calf`,
+        addYardwalkerCalf(knee,`Y7-${word}-shaped-olive-calf`,
             [side*.10,-.035,-.005],
             [ankleOffset[0]+side*.06,ankleOffset[1]+.065,ankleOffset[2]-.005],
-            .29,.155,.17,'olive');
+            MOBILITY_MATERIALS.olive);
         taperedLink(knee,`Y7-${word}-cream-front-load-face`,
             [0,-.075,-.135],
             [ankleOffset[0],ankleOffset[1]+.07,ankleOffset[2]-.095],

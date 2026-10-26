@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#202825">
+<title>M3CH4 / Part Workbench</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./partWorkbench.css">
+</head>
+<body>
+<header class="top">
+ <div><small>M3CH4 / PRODUCTION ART TOOLS</small><h1>PART WORKBENCH <span>V1</span></h1></div>
+ <a href="./art-lab.html">← ART LAB</a>
+</header>
+<main>
+<section class="stage-panel">
+ <div class="section-label"><strong>ACTUAL LIVE-GAME GEOMETRY</strong><span id="view-label">ASSEMBLED / CANDIDATE</span></div>
+ <div id="part-stage">
+  <canvas id="preview" aria-label="Interactive Three.js preview of production model"></canvas>
+  <div class="stage-overlay">YARDWALKER <span>·</span> L + R CALF CASINGS</div>
+ </div>
+ <div class="buttons camera-row" role="group" aria-label="3D camera angles">
+  <button type="button" data-camera="quarter" class="active">3/4</button>
+  <button type="button" data-camera="front">FRONT</button>
+  <button type="button" data-camera="side">SIDE</button>
+  <button id="rig-toggle" type="button">ISOLATE LEGS</button>
+  <button id="compare-toggle" type="button">VIEW ORIGINAL</button>
+ </div>
+</section>
+<section class="editor-panel">
+ <div class="section-label"><strong>SHIN CASING / PROFILE</strong><span>5 FIXED HEIGHTS</span></div>
+ <p class="hint">Drag the amber dots sideways to change the casing. The knee, ankle, structure and mounts stay fixed.</p>
+ <div class="buttons modes" role="group" aria-label="Profile view">
+  <button type="button" id="front-mode" class="active">FRONT WIDTH</button>
+  <button type="button" id="side-mode">SIDE DEPTH</button>
+ </div>
+ <div class="outline-wrapper">
+  <svg id="outline" viewBox="0 0 320 244" aria-label="Editable casing outline. Drag a handle sideways." role="img"></svg>
+ </div>
+ <div class="selection"><span id="selected-label">STATION 3 / MID-CALF</span><output id="measure">SELECT A HANDLE</output></div>
+ <div class="reference-row">
+  <label class="file-button">+ REFERENCE IMAGE<input id="reference-file" type="file" accept="image/*"></label>
+  <button id="clear-reference" type="button">CLEAR REFERENCE</button>
+  <span>Overlay only · not uploaded</span>
+ </div>
+ <div class="buttons actions">
+  <button id="undo" type="button">↶ UNDO</button>
+  <button id="redo" type="button">↷ REDO</button>
+  <button id="reset" type="button">RESTORE SHAPE</button>
+ </div>
+ <div class="buttons actions">
+  <button id="save" type="button" class="primary">SAVE LOCAL DRAFT</button>
+  <button id="export" type="button">EXPORT JSON</button>
+  <button id="import" type="button">IMPORT JSON</button>
+ </div>
+ <div id="json-box" hidden><label for="recipe-json">SHAPE RECIPE · COPY / PASTE</label>
+  <textarea id="recipe-json" spellcheck="false" rows="7"></textarea>
+  <div class="buttons"><button id="json-copy" type="button">COPY</button><button id="json-apply" type="button">APPLY IMPORT</button><button id="json-close" type="button">CLOSE</button></div>
+ </div>
+ <p id="feedback" role="status" aria-live="polite">Ready. Drafts are isolated from career saves and the main game.</p>
+</section>
+<footer><strong>SAFE DEVELOPMENT WORKSPACE.</strong> Saved recipes stay in this browser until explicitly adopted into game assets. No player inventory, combat stats, or campaign save is changed.</footer>
+</main>
+<script type="module" src="./partWorkbench.js"></script>
+</body></html>
