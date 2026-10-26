@@ -121,7 +121,16 @@ export function importFactoryAssembly(kind='yard'){
 export function importSavedGarageBay(index){
  if(!Number.isInteger(index)||index<0||index>=BAY_IDS.length)
   throw Error('Invalid garage bay index');
- const stable=loadStable(window.localStorage).stable;
+ // loadStable normalizes/synchronizes records and calls setItem during
+ // recovery. Route these writes to an ephemeral snapshot; importing a visual
+ // must NEVER rewrite the player's real career inventory or stable.
+ const shadow=new Map();
+ const readOnlySnapshot={
+  getItem:key=>shadow.has(key)?shadow.get(key):window.localStorage.getItem(key),
+  setItem:(key,value)=>shadow.set(key,String(value)),
+  removeItem:key=>shadow.set(key,null)
+ };
+ const stable=loadStable(readOnlySnapshot).stable;
  const assembly=bayAssembly(stable,BAY_IDS[index]);
  if(!assembly)throw Error('Garage bay not present in saved stable');
  if(!Object.values(assembly.installed||{}).some(Boolean))
