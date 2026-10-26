@@ -13,7 +13,9 @@ const fromPalette=(node)=>{
  return material;
 };
 const transforms=new Map();
-function draw(doc,rootId,width,height){
+function draw(doc,rootId,width=140,height=100){
+ width=Math.max(24,Math.min(512,Math.round(width)||140));
+ height=Math.max(24,Math.min(512,Math.round(height)||100));
  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
  const ctx=canvas.getContext('2d',{alpha:false});ctx.fillStyle='#293a30';ctx.fillRect(0,0,width,height);
  const byId=new Map(doc.nodes.map(n=>[n.id,n]));
