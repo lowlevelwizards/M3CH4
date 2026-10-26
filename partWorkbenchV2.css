@@ -120,3 +120,28 @@ input[type=range]{width:100%}
 .asset-actions button:first-child{flex:1;background:#b89a63;color:#17271d;font-size:9px}
 #tab-reference .tree-item{display:block;width:100%;min-height:38px;text-align:left;border:1px solid #668069;color:#dde9d8;background:#2c4333;border-radius:4px;margin-bottom:4px;padding:7px}
 #tab-reference .tree-item.active{border-color:#e0b76c}
+
+/* On phones, the model and the drawer are separate panes. Never let the
+ * sticky model overlap interactive drawer controls or force a page-long scroll.
+ * Only the parts drawer scrolls; the 3D canvas remains available in place.
+ */
+@media(max-width:849px){
+ html,body{height:100%;overflow:hidden}
+ main{height:calc(100dvh - 57px);max-height:calc(100dvh - 57px);
+  display:flex;flex-direction:column;overflow:hidden;min-height:0;gap:6px;padding:6px}
+ .view-panel{position:relative;top:auto;flex:0 0 auto;z-index:1;box-shadow:none}
+ #stage{height:clamp(210px,46dvh,520px)}
+ .edit-panel{flex:1 1 0;min-height:100px;overflow-y:auto;overscroll-behavior:contain}
+ .tabs{position:sticky;top:0;z-index:3}
+ #drawer-content{min-height:0}
+ #stage-canvas{touch-action:none}
+}
+@media(max-width:849px) and (orientation:landscape){
+ #stage{height:clamp(130px,37dvh,280px)}
+ .tool-strip{padding:2px 4px}
+ .tool-strip button{min-height:35px;flex-direction:row;justify-content:center}
+ .tool-strip span{font-size:17px;line-height:18px}
+ .tool-strip small{font-size:8px}
+ .selection-actions{padding-bottom:2px}
+ .selection-actions button{height:24px}
+}
