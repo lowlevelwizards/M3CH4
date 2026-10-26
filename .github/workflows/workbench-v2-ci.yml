@@ -10,6 +10,9 @@ on:
       - 'research/workbenchV2BrowserSmoke.mjs'
       - '.github/workflows/workbench-v2-ci.yml'
   workflow_dispatch:
+concurrency:
+  group: workbench-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   blueprint-and-browser:
     runs-on: ubuntu-latest
