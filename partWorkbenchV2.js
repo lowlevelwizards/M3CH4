@@ -356,7 +356,9 @@ $('show-shapes-panel').onclick=()=>{
  const details=$('shape-maker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
 };
 $('show-factory-panel').onclick=()=>{
- const details=$('factory-picker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
+ const details=$('factory-picker');details.open=true;
+ if(!$('factory-grid').children.length)showFactoryGrid();
+ details.scrollIntoView({block:'nearest',behavior:'smooth'});
 };
 $('show-details-panel').onclick=()=>{
  const details=$('inspector-details');details.open=!details.open;
@@ -387,6 +389,7 @@ function showPrimitiveGrid(){
 }
 function showFactoryGrid(){
  const target=$('factory-grid');target.replaceChildren();
+ let shown=0;
  for(const def of factoryCatalogueOptions()){
   const tile=makeTile(def,null,'factory',def.name,def.slot.toUpperCase());
   tile.onclick=()=>{
@@ -395,6 +398,10 @@ function showFactoryGrid(){
    $('factory-picker').open=false;
   };
   target.append(tile);
+  // Seed first visible row. Remaining real meshes render as their tiles
+  // enter the scroll area, avoiding extra WebGL contexts or load spikes.
+  const preview=tile.querySelector('img');
+  if(preview&&shown++<3)renderThumb(preview);
  }
 }
 $('factory-picker').addEventListener('toggle',()=>{

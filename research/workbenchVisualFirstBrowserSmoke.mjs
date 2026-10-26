@@ -46,11 +46,12 @@ try{
  const point=page.locator('#edit-overlay .point-handle').first();
  await point.waitFor({state:'attached',timeout:10000});
  const loc=await point.boundingBox();assert.ok(loc);
- const pointBefore=await page.locator('#geometry-fields input').first().inputValue();
+ const pointBefore=await page.locator('#geometry-fields input').evaluateAll(inputs=>inputs.map(x=>x.value));
  await page.mouse.move(loc.x+loc.width/2,loc.y+loc.height/2);await page.mouse.down();
  await page.mouse.move(loc.x+loc.width/2+25,loc.y+loc.height/2+4,{steps:5});await page.mouse.up();
- const pointAfter=await page.locator('#geometry-fields input').first().inputValue();
- assert.notEqual(pointAfter,pointBefore,'Dragging direct 3D point updates plate geometry, not just the preview');
+ const pointAfter=await page.locator('#geometry-fields input').evaluateAll(inputs=>inputs.map(x=>x.value));
+ assert.notDeepEqual(pointAfter.slice(1),pointBefore.slice(1),
+  'Dragging a 3D plate point must change its profile XY coordinates, not its depth');
  await page.screenshot({path:'workbench-visual-artifacts/03-direct-3d-points.png'});
  page.once('dialog',d=>d.accept('Visual test plate'));
  await page.locator('#save-part').click();
@@ -59,7 +60,8 @@ try{
  await page.screenshot({path:'workbench-visual-artifacts/04-saved-part-grid.png'});
  await page.locator('[data-tab="objects"]').click();
  await page.locator('#show-factory-panel').click();
- assert.ok(await page.locator('#factory-grid .part-tile').count()>=15,'Game catalogue is visually browsable');
+ await page.waitForFunction(()=>document.querySelectorAll('#factory-grid .part-tile').length>=15,
+  undefined,{timeout:9000});
  await page.locator('#factory-grid img').first().scrollIntoViewIfNeeded();
  await page.locator('#factory-grid img[src^="data:image/png"]').first().waitFor({state:'attached',timeout:20000});
  assert.equal(errors.length,0,'No browser runtime errors: '+errors.join(' | '));
