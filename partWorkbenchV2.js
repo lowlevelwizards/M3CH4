@@ -8,7 +8,7 @@ import {orbitAfterDrag} from './workbench/orbitCamera.js';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
-import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly} from './workbench/factoryImport.js';
+import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly,importSavedGarageBay} from './workbench/factoryImport.js';
 import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
@@ -112,6 +112,14 @@ async function openFactoryRig(kind){
   replaceProjectWithFactory(result);
  }catch(e){message('Could not open game assembly: '+e.message,true);console.error(e);}
 }
+async function openCareerBay(){
+ try{
+  const result=importSavedGarageBay(Number($('garage-bay-select').value));
+  await savePromise;await db.saveProject(doc);
+  replaceProjectWithFactory(result);
+ }catch(e){message('Could not open career bay: '+e.message,true);console.error(e);}
+}
+
 function setupFactoryPicker(){
  const picker=$('factory-part-select');
  const groups=new Map();
@@ -124,6 +132,7 @@ function setupFactoryPicker(){
  $('insert-factory-part').onclick=()=>openFactoryPart(true);
  $('open-factory-rig').onclick=()=>openFactoryRig('default');
  $('open-yard-rig').onclick=()=>openFactoryRig('yard');
+ $('open-garage-bay').onclick=openCareerBay;
 }
 
 function sceneSetup(){
