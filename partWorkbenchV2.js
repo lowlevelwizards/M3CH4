@@ -69,9 +69,10 @@ function replaceProjectWithFactory(result){
   setCamera();
  }
  queueSave();refresh();
- selected=doc.nodes.find(n=>n.kind==='shape')?.id||'root';
+ selected=doc.nodes.find(n=>n.parentId==='root')?.id||'root';
  renderTree();renderInspector();requestDraw();
- message('Opened '+result.meshCount+' authentic editable game meshes and '+result.groupCount+' named groups. Original game parts remain unchanged.');
+ message('Opened '+result.meshCount+' authentic game meshes and '+result.groupCount+
+  ' named groups. Select a MESH in the hierarchy to edit points; select the top group to SAVE the complete part or assembly.');
 }
 function remapImportedNodes(target,source){
  const next=clone(target),map=new Map();
@@ -235,6 +236,7 @@ function renderTree(){
  const traverse=(parent,depth)=>{
   for(const n of doc.nodes.filter(n=>n.parentId===parent)){
    const b=document.createElement('button');b.type='button';b.className='tree-item'+(selected===n.id?' active':'');
+   b.dataset.kind=n.kind;
    const type=document.createElement('small');type.textContent=n.kind==='shape'?n.geometry.type.toUpperCase():n.kind.toUpperCase();
    const label=document.createElement('span');label.className='tree-name';label.textContent=('  '.repeat(depth))+n.name;
    const flags=document.createElement('small');flags.textContent=(n.visible?'':'HIDDEN ')+(n.locked?'LOCKED ':'')+(n.mirrorOf?'LINKED':'');
