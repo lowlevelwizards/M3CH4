@@ -24,10 +24,10 @@ try{
  assert.match(await page.locator('#visibility-isolate').getAttribute('class')||'',/active/);
  await page.locator('#visibility-normal').click();
  await page.locator('[data-tool="points"]').click();
- await page.locator('[data-view="front"]').click();
+ // Contextual sliders must work from the 3D editor, not just a flat numeric inspector.
+ await page.locator('[data-view="quarter"]').click();
  const dot=page.locator('#edit-overlay .point-handle').first();
- await dot.waitFor({state:'attached',timeout:10000});
- const b=await dot.boundingBox();assert.ok(b);
+ await dot.waitFor({state:'visible',timeout:10000});
  await dot.click();
  await page.locator('#point-controls').waitFor({state:'visible',timeout:10000}).catch(async()=>{
   const detail=await page.evaluate(()=>({
