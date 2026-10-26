@@ -14,8 +14,8 @@ try{
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:60000});
  await page.setViewportSize({width:390,height:844});
  assert.equal(await page.locator('#return-to-game').getAttribute('href'),'./index.html');
- await page.locator('#shape-type').selectOption('box');
- await page.locator('#add-shape').click();
+ await page.locator('#show-shapes-panel').click();
+ await page.locator('#primitive-grid .part-tile').filter({hasText:'BOX'}).first().click();
  const canvas=page.locator('#stage-canvas');
  const bounds=await canvas.boundingBox();assert.ok(bounds);
  const x=bounds.x+bounds.width/2,y=bounds.y+bounds.height/2;
