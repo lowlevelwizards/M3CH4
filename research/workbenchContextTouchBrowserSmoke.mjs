@@ -34,9 +34,10 @@ try{
  const before=await page.locator('#geometry-fields input').evaluateAll(els=>els.map(e=>e.value));
  const slider=page.locator('#point-axis-controls input[data-axis="0"]');
  const start=Number(await slider.inputValue());
- await slider.fill(String(start+.15));
- await slider.dispatchEvent('input');
- await slider.dispatchEvent('change');
+ await slider.evaluate((el,value)=>{
+  el.value=String(value);el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+ },start+.15);
  const after=await page.locator('#geometry-fields input').evaluateAll(els=>els.map(e=>e.value));
  assert.notDeepEqual(after,before,'Contextual slider changed real polygon coordinates');
  await page.screenshot({path:'workbench-context-artifacts/01-point-slider-portrait.png'});
