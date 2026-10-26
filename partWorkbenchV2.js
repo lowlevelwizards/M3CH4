@@ -4,6 +4,7 @@ import {FORMAT,VERSION,clone,createDocument,newShape,addNode,updateNode,removeNo
  duplicateNode,mirrorNode,groupNodes,makeAsset,insertAsset,validateDocument,validateGeometry,migrateCalfRecipe,identity} from './workbench/blueprint.js';
 import {compileBlueprint,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
 import * as db from './workbench/storage.js';
+import {orbitAfterDrag} from './workbench/orbitCamera.js';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
@@ -483,7 +484,7 @@ canvas.addEventListener('pointermove',e=>{
   touchSpan=distance;requestDraw();return;
  }
  if(drag?.mode==='orbit'&&view==='quarter'){
-  orbit.yaw+=dx*.009;orbit.pitch=THREE.MathUtils.clamp(orbit.pitch-dy*.007,-1.3,1.3);requestDraw();return;
+  orbit=orbitAfterDrag(orbit,dx,dy);requestDraw();return;
  }
  if(!drag||drag.pointerId!==e.pointerId)return;
  const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
