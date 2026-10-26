@@ -83,7 +83,7 @@ try{
    undefined,{timeout:8000});
  await page.locator('[data-tab="objects"]').click();
  await page.locator('#open-factory-rig').click();
- await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('authentic editable'),
+ await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('authentic game meshes'),
    undefined,{timeout:10000});
  assert.ok(await page.locator('#object-tree .tree-item').count()>30,'Whole rig hierarchy retained');
  await page.screenshot({path:'workbench-factory-artifacts/03-full-game-mech.png'});
