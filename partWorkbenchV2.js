@@ -4,7 +4,7 @@ import {FORMAT,VERSION,clone,createDocument,newShape,addNode,updateNode,removeNo
  duplicateNode,mirrorNode,groupNodes,makeAsset,insertAsset,validateDocument,validateGeometry,migrateCalfRecipe,identity} from './workbench/blueprint.js';
 import {compileBlueprint,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
 import * as db from './workbench/storage.js';
-import {orbitAfterDrag,cameraPose,cameraFacing} from './workbench/orbitCamera.js';
+import {orbitAfterDrag,cameraPose,cameraFacing} from './workbench/orbitCamera.js?v=orbit360';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
@@ -240,6 +240,9 @@ function refresh(){
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
+ $('stage-hint').textContent=['select','points'].includes(tool)
+  ?'SELECT · DRAG ON MODEL TO ORBIT 360° · TAP TO SELECT · PINCH TO ZOOM'
+  :tool.toUpperCase()+' · DRAG MESH TO EDIT · DRAG EMPTY SPACE TO ORBIT';
  rebuild();
 }
 function renderTree(){
