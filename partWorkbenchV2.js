@@ -95,7 +95,7 @@ function applyVisibility(){
    };
    const base=m.userData.workbenchBase;
    const ghost=visibilityMode==='ghost'&&!isSelected;
-   m.opacity=ghost?.14:base.opacity;
+   m.opacity=ghost ? .14 : base.opacity;
    m.transparent=ghost||base.transparent;
    m.depthWrite=ghost?false:base.depthWrite;
    m.needsUpdate=true;
@@ -463,11 +463,12 @@ function renderTree(){
   b.dataset.nodeId=n.id;
   if(n.locked){const flag=document.createElement('small');flag.className='tile-flag';flag.textContent='LOCK';b.append(flag);}
   b.onclick=e=>{
+   clearPoint();
    if(e.shiftKey||e.ctrlKey||e.metaKey){
     selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
    }else{selectedIds.clear();selectedIds.add(n.id);}
    selected=n.id;meshPointPageIndex=0;
-   renderTree();renderInspector();selectedFeedback();requestDraw();
+   renderTree();renderInspector();selectedFeedback();applyVisibility();requestDraw();
   };
   target.append(b);count++;
  }
@@ -505,7 +506,13 @@ $('dock-collapse').onclick=()=>{
  $('dock-collapse').textContent=content.hidden?'⌃':'⌄';
 };
 $('focus-selected').onclick=()=>fitSelected();
-$('quick-hide').onclick=()=>$('hide-object').click();
+$('context-close').onclick=()=>clearPoint();
+for(const [mode,id] of [['all','visibility-normal'],['ghost','visibility-ghost'],['isolate','visibility-isolate']]){
+ $(id).onclick=()=>{
+  visibilityMode=mode;applyVisibility();updateContextPanel();
+  message(mode==='all'?'Showing full assembly.':mode==='ghost'?'Background geometry transparent.':'Only selected part visible.');
+ };
+}
 
 function showPrimitiveGrid(){
  const target=$('primitive-grid');target.replaceChildren();
@@ -710,7 +717,7 @@ $('delete-object').onclick=()=>{
  try{commit(removeNode(doc,selected),'root','Deleted selected object/subtree.');}
  catch(e){message(e.message,true);}
 };
-$('hide-object').onclick=()=>changeSelected({visible:!node().visible});
+$('hide-object').onclick=()=>{const n=node();if(n)changeSelected({visible:!n.visible});};
 $('lock-object').onclick=()=>{
  const n=node();
  if(n&&n.id!=='root'){
@@ -745,7 +752,8 @@ $('new-project').onclick=()=>{
  doc=createDocument('Untitled assembly');startHistory();queueSave();refresh();message('New assembly created.');
 };
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{
- tool=b.dataset.tool;refresh();
+ tool=b.dataset.tool;
+ if(tool!=='points')clearPoint();refresh();
 };
 for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
  view=b.dataset.view;setCamera();refresh();
@@ -929,6 +937,7 @@ function drawOverlay(){
   const core=svgNode('circle',{cx:p.x,cy:p.y,r:5.5,fill:'#ffcc71','pointer-events':'none'});
   circle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
+   selectPoint({nodeId:selected,index:entry.index,kind:entry.kind});
    const target=compiled.objects.get(selected);
    const anchor=target.localToWorld(entry.pos.clone());
    drag={mode:'point',nodeId:selected,index:entry.index,kind:entry.kind,
@@ -983,9 +992,21 @@ function applyPoint(e){
    visual.geometry=compileGeometry(n.geometry);
    oldGeometry.dispose();
   }
+  updatePointValueWithoutRebuildingControls();
   requestDraw();
  }catch{
   n.geometry=clone(source.geometry);
+ }
+}
+function updatePointValueWithoutRebuildingControls(){
+ if(!activePoint)return;
+ const point=pointCoordinates();
+ if(!point)return;
+ $('context-value').textContent=point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join(' · ');
+ for(const row of $('point-axis-controls').querySelectorAll('.axis-row')){
+  const slider=row.querySelector('input'),read=row.querySelector('output');
+  const axis=Number(slider.dataset.axis);
+  slider.value=String(point[axis]);read.textContent=point[axis].toFixed(3);
  }
 }
 svg.addEventListener('pointermove',e=>{
@@ -995,7 +1016,9 @@ svg.addEventListener('pointermove',e=>{
 const finishPoint=e=>{
  if(drag?.mode!=='point'||drag.pointerId!==e.pointerId)return;
  const after=clone(doc),before=drag.previous;drag=null;
- doc=before;commit(after,selected,'Edited profile control point.');
+ if(e.type==='pointercancel'){doc=before;rebuild();updateContextPanel();return;}
+ doc=before;commit(after,selected,'Edited selected point.');
+ updateContextPanel();
 };
 svg.addEventListener('pointerup',finishPoint);svg.addEventListener('pointercancel',finishPoint);
 svg.addEventListener('pointerup',finishGizmoDrag);svg.addEventListener('pointercancel',finishGizmoDrag);
@@ -1020,8 +1043,8 @@ canvas.addEventListener('pointerdown',e=>{
   return;
  }
  if(found){
-  selected=hitId;selectedIds=new Set([selected]);
-  renderTree();renderInspector();requestDraw();
+  selected=hitId;selectedIds=new Set([selected]);clearPoint();
+  renderTree();renderInspector();applyVisibility();requestDraw();
   const n=node();
   if(['move','scale','rotate'].includes(tool)&&n&&!n.locked){
    const anchor=found.object.getWorldPosition(new THREE.Vector3());
@@ -1029,7 +1052,7 @@ canvas.addEventListener('pointerdown',e=>{
     start:{x:e.clientX,y:e.clientY},base:clone(n.transform)};
   }
  }else if(tool==='select'){
-  selected='root';selectedIds.clear();renderTree();renderInspector();selectedFeedback();requestDraw();
+  selected='root';selectedIds.clear();clearPoint();renderTree();renderInspector();selectedFeedback();applyVisibility();requestDraw();
  }
 });
 canvas.addEventListener('pointermove',e=>{
@@ -1084,7 +1107,7 @@ function finishCanvas(e){
  if(drag.mode==='orbit'&&!drag.moved&&['select','points'].includes(tool)){
   selected=drag.hitId||'root';meshPointPageIndex=0;
   selectedIds=drag.hitId?new Set([selected]):new Set();
-  renderTree();renderInspector();requestDraw();
+  clearPoint();renderTree();renderInspector();applyVisibility();requestDraw();
  }
  if(['move','rotate','scale'].includes(drag.mode)){
   const after=clone(doc),before=drag.previous;drag=null;doc=before;
@@ -1092,6 +1115,12 @@ function finishCanvas(e){
  }else drag=null;
 }
 canvas.addEventListener('pointerup',finishCanvas);canvas.addEventListener('pointercancel',finishCanvas);
+// Explicitly suppress iOS Safari touch-and-hold text selection, callout and
+// its context menu only on modeling controls. Inputs keep native edit affordances.
+for(const el of [canvas,svg,stage,$('selection-actions'),$('object-tree')]){
+ el.addEventListener('contextmenu',e=>e.preventDefault());
+ el.addEventListener('selectstart',e=>e.preventDefault());
+}
 canvas.addEventListener('wheel',e=>{
  e.preventDefault();
  if(view==='quarter')orbit.distance=Math.max(1,Math.min(35,orbit.distance*Math.exp(e.deltaY*.001)));
