@@ -73,7 +73,9 @@ function applyShell() {
   const response=applyYardwalkerCalfRecipe(rigRoot,
     showOriginal?DEFAULT_CALF_RECIPE:recipe);
   if(!response.ok)feedback(response.reason||'Calf shell is missing.',true);
+  window.__m3ch4PartWorkbenchReady=!!response.ok;
   requestDraw();
+  return response;
 }
 function disposeModel() {
   if(!rigRoot)return;
