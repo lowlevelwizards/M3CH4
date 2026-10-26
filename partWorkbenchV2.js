@@ -860,60 +860,58 @@ $('save-shape').onclick=()=>saveSelected('shape');
 $('save-part').onclick=()=>saveSelected('part');
 $('save-assembly').onclick=()=>saveSelected('assembly');
 async function renderLibrary(){
- const box=$('library-items');if(!ready)return;
+ if(!ready)return;
+ const box=$('library-items'),projectsBox=$('project-items');
  try{
   const [assets,projects]=await Promise.all([db.all('assets'),db.all('projects')]);
-  const projectsBox=$('project-items');projectsBox.replaceChildren();
-  for(const project of projects.filter(p=>p?.format===FORMAT).sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0))){
-   const item=document.createElement('div');item.className='asset-item';
-   const title=document.createElement('span'),name=document.createElement('strong'),btn=document.createElement('button');
-   name.textContent=project.name;title.append(name);
-   const sub=document.createElement('small');
-   sub.textContent=project.id===doc.id?'CURRENT PROJECT':((project.nodes?.length||1)-1)+' NODES';
-   title.append(sub);btn.textContent=project.id===doc.id?'OPEN':'OPEN PROJECT';
-   btn.onclick=async()=>{
+  projectsBox.replaceChildren();box.replaceChildren();
+  for(const project of projects.filter(p=>p?.format===FORMAT)
+   .sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0)).slice(0,30)){
+   const tile=makeTile({id:project.id},project,'project',project.name,
+    project.id===doc.id?'CURRENT':(project.nodes?.length-1||0)+' PIECES');
+   tile.classList.add('asset-item');
+   tile.onclick=async()=>{
     if(project.id===doc.id)return switchTab('objects');
-    if(!confirm('Open '+project.name+'? Unsaved edits should be saved or exported first.'))return;
+    if(!confirm('Open '+project.name+'? Your current project will be saved.'))return;
     try{
-     await savePromise;
-     await db.saveProject(doc);
-     doc=validateDocument(project);
-     startHistory();await loadReferences();refresh();switchTab('objects');
-     message('Opened '+doc.name+' from project library.');
-    }catch(e){message('Project could not open: '+e.message,true);}
+     await savePromise;await db.saveProject(doc);
+     doc=validateDocument(project);startHistory();thumbEpoch++;thumbCache.clear();
+     await loadReferences();refresh();switchTab('objects');fitSelected();
+     message('Opened '+doc.name+'.');
+    }catch(e){message('Could not open project: '+e.message,true);}
    };
-   item.append(title,btn);projectsBox.append(item);
+   projectsBox.append(tile);
   }
-  const search=$('library-search').value.toLowerCase();
-  box.replaceChildren();
-  for(const asset of assets.filter(a=>a.format==='m3ch4.workbench.asset'&&a.name.toLowerCase().includes(search))){
-   const el=document.createElement('div');el.className='asset-item';
-   const label=document.createElement('span'),actions=document.createElement('span');
-   const title=document.createElement('strong');title.textContent=asset.name;
-   const meta=document.createElement('small');meta.textContent=asset.type.toUpperCase()+' · REV '+asset.revision;
-   label.append(title,meta);
-   const btn=document.createElement('button');btn.textContent='INSERT';
-   btn.onclick=()=>{
-    try{const out=insertAsset(doc,asset);commit(out.document,out.selectedId,'Inserted '+asset.name+'.');switchTab('objects');}
+  const search=$('library-search').value.trim().toLowerCase();
+  for(const asset of assets.filter(a=>a?.format==='m3ch4.workbench.asset'&&a.name.toLowerCase().includes(search))){
+   const tile=makeTile({id:asset.id},asset,'asset',asset.name,asset.type.toUpperCase());
+   tile.classList.add('asset-item');
+   const insert=()=>{
+    try{const result=insertAsset(doc,asset);commit(result.document,result.selectedId,'Inserted '+asset.name);
+     switchTab('objects');}
     catch(e){message('Insert rejected: '+e.message,true);}
    };
-   const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename asset';
-   rename.onclick=async()=>{
-    const next=prompt('Rename asset',asset.name);
+   tile.onclick=insert;
+   const actions=document.createElement('div');actions.className='asset-actions';
+   const add=document.createElement('button');add.textContent='＋ INSERT';add.title='Insert into assembly';
+   add.onclick=e=>{e.stopPropagation();insert();};
+   const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename';
+   rename.onclick=async e=>{e.stopPropagation();const next=prompt('Rename asset',asset.name);
     if(!next?.trim())return;
-    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();message('Asset renamed.');}
-    catch(e){message('Rename failed: '+e.message,true);}
+    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();}
+    catch(err){message(err.message,true);}
    };
-   const del=document.createElement('button');del.textContent='×';del.title='Delete asset';
-   del.onclick=async()=>{
-    if(!confirm('Delete '+asset.name+' from this browser library? Export a backup first.'))return;
-    try{await db.remove('assets',asset.id);renderLibrary();message('Deleted saved library asset.');}
-    catch(e){message('Delete failed: '+e.message,true);}
+   const remove=document.createElement('button');remove.textContent='×';remove.title='Delete';
+   remove.onclick=async e=>{e.stopPropagation();
+    if(!confirm('Delete '+asset.name+' from the Workbench library?'))return;
+    try{await db.remove('assets',asset.id);renderLibrary();}
+    catch(err){message(err.message,true);}
    };
-   actions.style.cssText='display:flex;flex-wrap:wrap;gap:4px';
-   actions.append(btn,rename,del);el.append(label,actions);box.append(el);
+   actions.append(add,rename,remove);tile.append(actions);box.append(tile);
   }
-  if(!box.children.length)box.textContent='Library empty. Save a shape or part from OBJECTS.';
+  if(!box.children.length){const p=document.createElement('p');p.className='hint';
+    p.textContent='No saved parts yet. Select a piece and tap SAVE AS PART.';
+    box.append(p);}
  }catch(e){box.textContent='Library unavailable: '+e.message;}
 }
 
