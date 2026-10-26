@@ -1,0 +1,45 @@
+name: M3CH4 Workbench V2 Validation
+on:
+  pull_request:
+    paths:
+      - 'workbench/**'
+      - 'partWorkbenchV2.js'
+      - 'partWorkbenchV2.css'
+      - 'part-workbench-v2.html'
+      - 'tests/workbenchV2.test.mjs'
+      - 'research/workbenchV2BrowserSmoke.mjs'
+      - '.github/workflows/workbench-v2-ci.yml'
+  workflow_dispatch:
+jobs:
+  blueprint-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify pure blueprint and existing visual tests
+        run: |
+          node --check partWorkbenchV2.js
+          node --check workbench/blueprint.js
+          node --check workbench/geometry.js
+          node --check workbench/storage.js
+          node --test tests/workbenchV2.test.mjs tests/partWorkbenchRecipe.test.mjs tests/partVisuals.test.mjs
+      - name: Install real browser
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve live repository
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/m3ch4-workbench-v2.log 2>&1 &
+          sleep 2
+      - name: Test phone viewport and editable geometry
+        run: node research/workbenchV2BrowserSmoke.mjs
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3ch4-workbench-v2-renders
+          path: part-workbench-v2-artifacts/
+          if-no-files-found: warn
