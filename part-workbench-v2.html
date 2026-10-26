@@ -6,14 +6,16 @@
 <link rel="stylesheet" href="./partWorkbenchV2.css"></head>
 <body>
 <header><div><small>M3CH4 · PRODUCTION ART / BLUEPRINT EDITOR</small><h1>PART WORKBENCH <em>V2</em></h1></div>
-<div class="head-actions"><button id="new-project">NEW</button><button id="save-project" class="gold">SAVE</button><a href="./art-lab.html">BACK</a></div></header>
+<div class="head-actions"><button id="new-project">NEW</button><button id="save-project" class="gold">SAVE</button><a href="./index.html" aria-label="Return to live game">LIVE GAME</a></div></header>
 <main>
 <section class="view-panel">
  <div class="line"><input id="project-name" aria-label="Project name" value="Untitled assembly" maxlength="100"><span id="mode-status">3D VIEW</span></div>
- <div id="stage"><canvas id="stage-canvas" aria-label="Live Three.js blueprint inspection"></canvas><svg id="edit-overlay" aria-label="Orthographic editing handles" role="img"></svg><div id="stage-hint">Tap a shape to select · drag to orbit</div></div>
- <div class="toolbar views"><button data-view="quarter" class="active">3D</button><button data-view="front">FRONT</button><button data-view="side">SIDE</button><button data-view="top">TOP</button><button id="context-toggle">SHOW YARDWALKER</button></div>
+ <div id="stage"><canvas id="stage-canvas" aria-label="Live Three.js blueprint inspection"></canvas><svg id="edit-overlay" aria-label="Orthographic editing handles" role="img"></svg><div id="stage-hint">DRAG ANYWHERE · ORBIT 360° &nbsp; TAP · SELECT &nbsp; PINCH · ZOOM</div><div id="camera-compass" aria-label="Actual machine camera orientation"><strong id="camera-bearing">FRONT -Z</strong><span id="camera-azimuth">0° / 360°</span><small>FRONT −Z · RIGHT +X · UP +Y</small></div></div>
+ <div class="toolbar views"><button data-view="quarter" class="active">3D / ORBIT</button><button data-view="front">FRONT</button><button data-view="side">RIGHT</button><button data-view="rear">REAR</button><button data-view="left">LEFT</button><button data-view="top">TOP</button></div>
+ <div class="toolbar"><button id="reset-camera">RESET CAMERA</button><button id="context-toggle">SHOW YARDWALKER</button></div>
  <div class="toolbar tools"><button data-tool="select" class="active">SELECT</button><button data-tool="move">MOVE</button><button data-tool="rotate">ROTATE</button><button data-tool="scale">SCALE</button><button data-tool="points">POINTS</button></div>
- <div class="toolbar"><button id="test-in-yard" class="gold">TEST PROTOTYPE IN REAL YARD ↗</button></div>\n <div class="toolbar actions"><button id="undo">↶ UNDO</button><button id="redo">↷ REDO</button><button id="duplicate">DUPLICATE</button><button id="mirror">MIRROR</button><button id="unlink">UNLINK</button></div>
+ <div class="toolbar"><button id="test-in-yard" class="gold">TEST PROTOTYPE IN REAL YARD ↗</button></div>
+ <div class="toolbar actions"><button id="undo">↶ UNDO</button><button id="redo">↷ REDO</button><button id="duplicate">DUPLICATE</button><button id="mirror">MIRROR</button><button id="unlink">UNLINK</button></div>
 </section>
 <section class="edit-panel">
  <div class="tabs"><button class="active" data-tab="objects">OBJECTS</button><button data-tab="library">LIBRARY</button><button data-tab="reference">REFERENCES</button></div>
