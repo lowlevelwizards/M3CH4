@@ -235,7 +235,7 @@ function selectedFeedback(){
   $('selection-name').textContent=n.name;
   $('selection-actions').hidden=false;
   $('focus-selected').disabled=!compiled?.objects.get(selected);
-  
+
  }
 }
 function fitSelected(){
