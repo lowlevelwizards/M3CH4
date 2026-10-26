@@ -14,7 +14,7 @@ let view='quarter',tool='select',showContext=false,context=null,compiled=null;
 let camera,renderer,scene,grid,raycaster=new THREE.Raycaster(),orthoScale=2.7;
 let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touchSpan=null;
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
-let saveTimer=null,drawPending=false,ready=false;
+let saveTimer=null,savePromise=Promise.resolve(),drawPending=false,ready=false;
 const canvas=$('stage-canvas'),stage=$('stage'),svg=$('edit-overlay'),NS='http://www.w3.org/2000/svg';
 const snap=()=>Number($('snap').value)||0;
 const snapValue=v=>snap()?Math.round(v/snap())*snap():v;
@@ -35,8 +35,12 @@ function commit(next,selection=selected,notify){
  }catch(e){message(e.message,true);}
 }
 function queueSave(){
- clearTimeout(saveTimer);
- saveTimer=setTimeout(()=>db.saveProject(doc).catch(e=>message('Storage unavailable: '+e.message+'. Export a bundle.',true)),450);
+ // One commit = one ordered IndexedDB write; no debounce window that can lose
+ // the final edit when Safari reloads or the user leaves immediately.
+ const snapshot=clone(doc);
+ savePromise=savePromise.catch(()=>{}).then(()=>db.saveProject(snapshot)).catch(
+  e=>message('Storage unavailable: '+e.message+'. Export a bundle.',true));
+ return savePromise;
 }
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
@@ -310,7 +314,7 @@ $('ungroup').onclick=()=>{
  }catch(e){message(e.message,true);}
 };
 $('save-project').onclick=async()=>{
- try{await db.saveProject(doc);message('Project saved to this browser. Export a bundle for backup.');}
+ try{await savePromise;await db.saveProject(doc);message('Project saved to this browser. Export a bundle for backup.');}
  catch(e){message('Save failed: '+e.message,true);}
 };
 $('new-project').onclick=()=>{
@@ -550,7 +554,7 @@ async function renderLibrary(){
     if(project.id===doc.id)return switchTab('objects');
     if(!confirm('Open '+project.name+'? Unsaved edits should be saved or exported first.'))return;
     try{
-     clearTimeout(saveTimer);
+     await savePromise;
      await db.saveProject(doc);
      doc=validateDocument(project);
      startHistory();await loadReferences();refresh();switchTab('objects');
