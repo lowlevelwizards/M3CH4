@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#202b25"><title>M3CH4 / Part Workbench V2</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
-<link rel="stylesheet" href="./partWorkbenchV2.css?v=visual-first"></head>
+<link rel="stylesheet" href="./partWorkbenchV2.css?v=context-v3"></head>
 <body>
 <header class="workbench-head">
  <a id="return-to-game" class="icon-button" href="./index.html" aria-label="Back to live game" title="Back to game">←</a>
@@ -25,7 +25,7 @@
    </div>
   </div>
   <div class="viewport-bottom">
-   <div id="selection-chip" hidden><span id="selection-name">No selection</span><button id="focus-selected" title="Focus selected part" aria-label="Focus selection">◎</button><button id="quick-hide" title="Hide selected object" aria-label="Hide selection">◉</button></div>
+   <div id="selection-chip" hidden><span id="selection-name">No selection</span><button id="focus-selected" title="Frame selected part" aria-label="Frame selected part">◎</button></div>
    <div id="stage-hint">DRAG · ORBIT &nbsp; TAP · SELECT &nbsp; PINCH · ZOOM</div>
   </div>
  </div>
@@ -39,15 +39,34 @@
   <button data-tool="scale" title="Scale directly in 3D" aria-label="Scale tool"><span>⤡</span><small>SCALE</small></button>
   <button data-tool="points" title="Edit shape control points in 3D or orthographic views" aria-label="Edit points"><span>⬡</span><small>POINTS</small></button>
  </nav>
- <div class="selection-actions" id="selection-actions">
-  <button id="duplicate" title="Duplicate" aria-label="Duplicate selected">⧉</button>
-  <button id="mirror" title="Mirror" aria-label="Mirror selected">⇆</button>
-  <button id="unlink" title="Unlink mirror" aria-label="Unlink mirrored part">⛓</button>
-  <button id="hide-object" title="Hide/show selected" aria-label="Toggle visibility">◉</button>
-  <button id="lock-object" title="Lock selected" aria-label="Lock or unlock">♧</button>
-  <button id="delete-object" title="Delete selected" aria-label="Delete selected">✕</button>
-  <button id="group-objects" title="Group selected" aria-label="Group selected">⊞</button>
-  <button id="ungroup" title="Ungroup" aria-label="Ungroup selected">⊟</button>
+ <nav class="selection-actions" id="selection-actions" aria-label="Selected object actions" hidden>
+  <button id="duplicate" title="Make a duplicate"><span>⧉</span><small>COPY</small></button>
+  <button id="mirror" title="Create a mirrored copy"><span>⇆</span><small>MIRROR</small></button>
+  <button id="hide-object" title="Hide or show this shape"><span>◉</span><small>HIDE</small></button>
+  <button id="delete-object" title="Delete this shape"><span>×</span><small>DELETE</small></button>
+  <details id="more-actions"><summary aria-label="More selected-object actions">••• <small>MORE</small></summary>
+   <div class="more-menu">
+    <button id="unlink" title="Disconnect from mirrored source">⛓ UNLINK</button>
+    <button id="lock-object" title="Lock/unlock this object">♧ LOCK</button>
+    <button id="group-objects" title="Group selection">⊞ GROUP</button>
+    <button id="ungroup" title="Ungroup selection">⊟ UNGROUP</button>
+   </div>
+  </details>
+ </nav>
+ <div id="context-edit" hidden>
+  <div class="context-head"><strong id="context-title">SELECTED POINT</strong>
+   <span id="context-value">X 0 · Y 0 · Z 0</span>
+   <button id="context-close" aria-label="Close point controls" title="Close point controls">×</button>
+  </div>
+  <div class="visibility-actions" role="group" aria-label="Edit selection visibility">
+   <button id="visibility-normal" class="active">ALL</button>
+   <button id="visibility-ghost">GHOST</button>
+   <button id="visibility-isolate">ISOLATE</button>
+  </div>
+  <div id="point-controls" hidden>
+   <div id="point-axis-controls"></div>
+   <small class="point-guide">Drag the amber point, or slide X / Y / Z. Values are in metres.</small>
+  </div>
  </div>
 </section>
 <section class="edit-panel" id="dock-panel">
@@ -133,5 +152,5 @@
  </div>
 </section>
 </main>
-<script type="module" src="./partWorkbenchV2.js?v=visual-first"></script>
+<script type="module" src="./partWorkbenchV2.js?v=context-v3"></script>
 </body></html>
