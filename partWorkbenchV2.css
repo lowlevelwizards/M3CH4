@@ -251,3 +251,12 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
  #stage{height:clamp(145px,34dvh,340px)}
  .selection-actions small{font-size:7px}
 }
+
+/* The More menu opens upward inside the clipped workspace, not underneath it. */
+#more-actions>.more-menu{top:auto;bottom:100%;margin-bottom:3px}
+.part-tile.is-hidden{opacity:.57}
+.part-tile.is-hidden.active{opacity:1}
+@media(max-width:849px) and (orientation:portrait){
+ /* Allow short phones to retain a meaningful parts drawer below the model. */
+ #stage{height:clamp(155px,36dvh,425px)}
+}
