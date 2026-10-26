@@ -656,11 +656,14 @@ function drawOverlay(){
   }
  }
  const n=node(),obj=compiled?.objects.get(selected);
- if(!n||n.kind!=='shape'||!obj||!n.visible)return;
+ if(!n||!obj||!n.visible||selected==='root')return;
+ obj.updateMatrixWorld(true);
+ drawSelectionAndGizmos(obj,n);
+ if(n.kind!=='shape')return;
  const g=n.mirrorOf?doc.nodes.find(s=>s.id===n.mirrorOf).geometry:n.geometry;
  const handles=[];
- if(tool==='points'&&view!=='quarter'&&!n.locked&&!n.mirrorOf){
-  if(g.profile&&view==='front')
+ if(tool==='points'&&!n.locked&&!n.mirrorOf){
+  if(g.profile&&(view==='front'||view==='quarter'))
    g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
   if(g.type==='mesh'){
    const page=meshPointPage(g,meshPointPageIndex);
@@ -670,7 +673,11 @@ function drawOverlay(){
   }
   if(g.sections){
    g.sections.forEach((s,i)=>{
-    if(view==='front'){
+    if(view==='quarter'){
+     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,s.front),kind:'width',index:i});
+     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.front),kind:'front',index:i});
+     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.back),kind:'back',index:i});
+    }else if(view==='front'){
      handles.push({pos:new THREE.Vector3(-s.width/2,s.y,0),kind:'width',index:i});
      handles.push({pos:new THREE.Vector3(s.width/2,s.y,0),kind:'width',index:i});
     }else if(view==='side'){
@@ -686,10 +693,10 @@ function drawOverlay(){
  for(const entry of handles){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
   if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
-  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?9:13,fill:'#edb15d','fill-opacity':'.15',
+  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?10:14,fill:'#edb15d','fill-opacity':'.15',
    stroke:'#e7ae57','stroke-width':1.5,class:'point-handle',
    'data-index':entry.index,'data-kind':entry.kind});
-  const core=svgNode('circle',{cx:p.x,cy:p.y,r:4.5,fill:'#ffcc71','pointer-events':'none'});
+  const core=svgNode('circle',{cx:p.x,cy:p.y,r:5.5,fill:'#ffcc71','pointer-events':'none'});
   circle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
    const target=compiled.objects.get(selected);
@@ -721,12 +728,13 @@ function applyPoint(e){
   if(view==='front'){pos[0]=snapValue(local.x);pos[1]=snapValue(local.y);}
   if(view==='side'){pos[2]=snapValue(local.z);pos[1]=snapValue(local.y);}
   if(view==='top'){pos[0]=snapValue(local.x);pos[2]=snapValue(local.z);}
+  if(view==='quarter'){pos[0]=snapValue(local.x);pos[1]=snapValue(local.y);pos[2]=snapValue(local.z);}
   meshPointSelectedIndex=i;
   try{n.geometry=updateMeshPoint(g,i,pos);}
   catch{return;}
  }
  if(g.profile){
-  if(view!=='front')return;
+  if(view!=='front'&&view!=='quarter')return;
   g.profile[i]=[snapValue(local.x),snapValue(local.y)];
  }else if(g.sections){
   const section=g.sections[i],kind=drag.kind;
@@ -735,7 +743,7 @@ function applyPoint(e){
   if(kind==='back'||kind==='topBack')section.back=Math.max(section.front+.02,snapValue(local.z));
   if(kind==='front'||kind==='back'||kind==='width')section.y=Math.max(0,snapValue(local.y));
  }
- try{doc=validateDocument(next);rebuild();renderInspector();}
+ try{doc=validateDocument(next);rebuild();}
  catch{ /* invalid in-between drag poses remain uncommitted */ }
 }
 svg.addEventListener('pointermove',e=>{
