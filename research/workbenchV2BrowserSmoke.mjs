@@ -76,7 +76,7 @@ try{
  // Test Yard. Its sandbox meshes attach to the player knee, never enemy rigs.
  await page.setViewportSize({width:844,height:390});
  await page.locator('#test-in-yard').click();
- await page.waitForURL(/test-yard\\.html\\?wb-prototype=1/,{timeout:15000});
+ await page.waitForURL(/test-yard\.html\?wb-prototype=1/,{timeout:15000});
  await page.waitForFunction(()=>window.__m3ch4BootOK===true,undefined,{timeout:60000});
  const sandbox=await page.evaluate(async()=>{
   const {activePlayerArena}=await import('./scene.js');
