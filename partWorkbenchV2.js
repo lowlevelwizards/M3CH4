@@ -10,6 +10,7 @@ import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
 import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly,importSavedGarageBay} from './workbench/factoryImport.js';
 import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
+import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
 let doc=createDocument('Untitled assembly'),current=null,history=[],step=0,selected='root',selectedIds=new Set();
@@ -18,6 +19,7 @@ let camera,renderer,scene,grid,raycaster=new THREE.Raycaster(),orthoScale=2.7;
 let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touchSpan=null;
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
 let meshPointPageIndex=0,meshPointSelectedIndex=0;
+let thumbEpoch=0,browseListMode=false,browseFilter='',thumbCache=new Map(),thumbObserver=null;
 let saveTimer=null,savePromise=Promise.resolve(),drawPending=false,ready=false;
 const canvas=$('stage-canvas'),stage=$('stage'),svg=$('edit-overlay'),NS='http://www.w3.org/2000/svg';
 const snap=()=>Number($('snap').value)||0;
@@ -48,10 +50,75 @@ function queueSave(){
 }
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
- step=next;doc=clone(history[step]);
+ step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
  if(!doc.nodes.some(n=>n.id===selected))selected='root';
  queueSave();refresh();
 }
+const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
+function makeTile(nodeData,docOrAsset,type='shape',name=nodeData?.name||'',meta=''){
+ const tile=document.createElement('button');
+ tile.type='button';tile.className='part-tile';tile.title=name;
+ const img=document.createElement('img');img.alt='Preview of '+name;
+ img.loading='lazy';img.dataset.thumbtype=type;img.dataset.thumbid=nodeData?.id||'root';
+ const label=document.createElement('span');label.className='tile-title';label.textContent=name;
+ const note=document.createElement('span');note.className='tile-meta';note.textContent=meta;
+ tile.append(img,label,note);
+ // Thumbnails use real authored mesh triangles, not generic decorative icons.
+ if(type==='node')img._renderPreview=()=>thumbnailForDocument(doc,nodeData.id,140,100);
+ else if(type==='asset')img._renderPreview=()=>thumbnailForAsset(docOrAsset);
+ else if(type==='project')img._renderPreview=()=>thumbnailForDocument(docOrAsset,'root',140,100);
+ else if(type==='primitive')img._renderPreview=()=>thumbnailForPrimitive(nodeData);
+ else if(type==='factory')img._renderPreview=()=>{
+  const model=importFactoryPart(nodeData.id);
+  return thumbnailForDocument(model.document,'root',140,100);
+ };
+ if(thumbObserver)thumbObserver.observe(img);else renderThumb(img);
+ return tile;
+}
+function renderThumb(img){
+ if(!img.isConnected)return;
+ const key=img.dataset.thumbtype+'/'+img.dataset.thumbid+
+  (img.dataset.thumbtype==='node'?'/'+thumbnailKey(img.dataset.thumbid):'');
+ let result=thumbCache.get(key);
+ if(!result){try{result=img._renderPreview?.()||'';if(result)thumbCache.set(key,result);}
+  catch(e){console.warn('Workbench preview unavailable',img.dataset.thumbid,e.message);}
+ }
+ if(result)img.src=result;
+ else{img.style.display='none';const fallback=document.createElement('span');
+  fallback.className='tile-thumb';fallback.textContent='◇';img.parentElement?.insertBefore(fallback,img);}
+ thumbObserver?.unobserve(img);
+}
+function setupThumbnails(){
+ if(typeof IntersectionObserver==='function'){
+  thumbObserver=new IntersectionObserver(entries=>{
+   for(const entry of entries)if(entry.isIntersecting)renderThumb(entry.target);
+  },{rootMargin:'80px'});
+ }
+}
+function selectedFeedback(){
+ const n=node(),active=n&&n.id!=='root';
+ $('selection-chip').hidden=!active;
+ if(active){
+  $('selection-name').textContent=n.name;
+  $('focus-selected').disabled=!compiled?.objects.get(selected);
+  $('quick-hide').textContent=n.visible?'◉':'◎';
+ }
+}
+function fitSelected(){
+ const obj=compiled?.objects.get(selected==='root'?'root':selected);
+ if(!obj)return;
+ const bounds=new THREE.Box3().setFromObject(obj);
+ if(bounds.isEmpty())return;
+ const size=bounds.getSize(new THREE.Vector3());
+ focus.copy(bounds.getCenter(new THREE.Vector3()));
+ const h=Math.max(.08,size.y),w=Math.max(.08,size.x,size.z);
+ const aspect=Math.max(.45,stage.clientWidth/Math.max(1,stage.clientHeight));
+ const halfFov=Math.PI*38/360;
+ orbit.distance=Math.max(.33,Math.min(40,Math.max(h/(2*Math.tan(halfFov)),w/(2*Math.tan(halfFov)*aspect))*1.52));
+ orthoScale=Math.max(.12,Math.min(20,Math.max(h/2,w/(2*aspect))*.95));
+ updateCamera();requestDraw();
+}
+
 function replaceProjectWithFactory(result){
  const imported=result.document;
  const next=clone(imported);
@@ -67,13 +134,13 @@ function replaceProjectWithFactory(result){
  disposeBlueprint(importedBounds.root);
  if(!bounds.empty){
   const max=Math.max(...bounds.size);
-  orbit.distance=Math.max(1.8,Math.min(18,max*2.5));
+  orbit.distance=Math.max(.45,Math.min(25,max*1.6));
   orthoScale=Math.max(.42,Math.min(10,max*.9));
   setCamera();
  }
  queueSave();refresh();
  selected=doc.nodes.find(n=>n.parentId==='root')?.id||'root';
- renderTree();renderInspector();requestDraw();
+ renderTree();renderInspector();selectedFeedback();fitSelected();requestDraw();
  message('Opened '+result.meshCount+' authentic game meshes and '+result.groupCount+
   ' named groups. Select a MESH in the hierarchy to edit points; select the top group to SAVE the complete part or assembly.');
 }
@@ -232,11 +299,11 @@ function rebuild(){
  }catch(e){message('Geometry rejected: '+e.message,true);console.error(e);}
 }
 function refresh(){
- $('project-name').value=doc.name;renderTree();renderInspector();renderLibrary();renderReferences();
+ $('project-name').value=doc.name;renderTree();renderInspector();renderLibrary();renderReferences();selectedFeedback();
  for(const b of document.querySelectorAll('[data-view]'))b.classList.toggle('active',b.dataset.view===view);
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===tool);
  $('undo').disabled=step===0;$('redo').disabled=step===history.length-1;
- $('node-count').textContent=doc.nodes.length-1+' NODES';
+ $('node-count').textContent=doc.nodes.filter(n=>n.kind==='shape').length+' SHAPES';
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
