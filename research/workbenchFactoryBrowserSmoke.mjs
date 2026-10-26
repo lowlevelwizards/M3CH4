@@ -69,7 +69,8 @@ try{
  await page.screenshot({path:'workbench-factory-artifacts/01-imported-yardwalker.png'});
  await page.locator('[data-view="front"]').click();
  await page.locator('[data-tool="points"]').click();
- await page.locator('#mesh-point-panel').waitFor({state:'visible',timeout:9000});
+ // Point editing happens on the model; the optional numeric panel is intentionally collapsed.
+ assert.equal(await page.locator('#mesh-point-panel').getAttribute('hidden'),null);
  const controls=await page.locator('#mesh-point-select option').count();
  assert.ok(controls>=3,'Factory mesh exposes vertex groups');
  // Points are manipulated in the actual viewport; numeric inputs are optional.
