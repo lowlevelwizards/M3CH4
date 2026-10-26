@@ -314,26 +314,92 @@ function refresh(){
 }
 function renderTree(){
  const target=$('object-tree');target.replaceChildren();
- const traverse=(parent,depth)=>{
-  for(const n of doc.nodes.filter(n=>n.parentId===parent)){
-   const b=document.createElement('button');b.type='button';b.className='tree-item'+(selected===n.id?' active':'');
-   b.dataset.kind=n.kind;
-   const type=document.createElement('small');type.textContent=n.kind==='shape'?n.geometry.type.toUpperCase():n.kind.toUpperCase();
-   const label=document.createElement('span');label.className='tree-name';label.textContent=('  '.repeat(depth))+n.name;
-   const flags=document.createElement('small');flags.textContent=(n.visible?'':'HIDDEN ')+(n.locked?'LOCKED ':'')+(n.mirrorOf?'LINKED':'');
-   b.append(label,type,flags);
-   b.onclick=e=>{
-    if(e.shiftKey||e.ctrlKey||e.metaKey){selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);}
-    else{selectedIds.clear();selectedIds.add(n.id);}
-    selected=n.id;renderTree();renderInspector();requestDraw();
-   };
-   target.append(b);traverse(n.id,depth+1);
-  }
- };
- traverse('root',0);
- const root=doc.nodes.find(n=>n.id==='root');
- if(!target.children.length){const p=document.createElement('p');p.className='hint';p.textContent='Choose ADD to create your first editable shape.';target.append(p);}
+ target.classList.toggle('list-mode',browseListMode);
+ const search=$('object-search').value.trim().toLowerCase();
+ const candidates=doc.nodes.filter(n=>n.id!=='root'&&n.visible!==false&&(
+  !search||n.name.toLowerCase().includes(search)));
+ let count=0;
+ for(const n of candidates.slice(0,170)){
+  const label=n.name||'Unnamed piece';
+  const b=makeTile(n,doc,'node',label,n.kind==='shape'?
+   n.geometry.type.toUpperCase():'ASSEMBLY / GROUP');
+  b.classList.add('tree-item');
+  if(n.kind!=='shape')b.classList.add('is-group');
+  if(selected===n.id)b.classList.add('active');
+  b.dataset.kind=n.kind;
+  b.dataset.nodeId=n.id;
+  if(n.locked){const flag=document.createElement('small');flag.className='tile-flag';flag.textContent='LOCK';b.append(flag);}
+  b.onclick=e=>{
+   if(e.shiftKey||e.ctrlKey||e.metaKey){
+    selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
+   }else{selectedIds.clear();selectedIds.add(n.id);}
+   selected=n.id;meshPointPageIndex=0;
+   renderTree();renderInspector();selectedFeedback();requestDraw();
+  };
+  target.append(b);count++;
+ }
+ if(candidates.length>170){
+  const more=document.createElement('p');more.className='hint';
+  more.textContent='Showing first 170 pieces. Search to find others.';
+  target.append(more);
+ }
+ if(count===0){
+  const p=document.createElement('p');p.className='hint';
+  p.textContent=search?'No matching model pieces.':'Your canvas is empty. Choose + SHAPE or GAME PART.';
+  target.append(p);
+ }
 }
+$('object-search').oninput=()=>renderTree();
+$('tree-list-toggle').onclick=()=>{
+ browseListMode=!browseListMode;renderTree();
+ $('tree-list-toggle').textContent=browseListMode?'▦':'☷';
+};
+$('show-shapes-panel').onclick=()=>{
+ const details=$('shape-maker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+$('show-factory-panel').onclick=()=>{
+ const details=$('factory-picker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+$('show-details-panel').onclick=()=>{
+ const details=$('inspector-details');details.open=!details.open;
+ if(details.open)details.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+$('dock-collapse').onclick=()=>{
+ const content=$('drawer-content');content.hidden=!content.hidden;
+ $('dock-collapse').setAttribute('aria-expanded',String(!content.hidden));
+ $('dock-collapse').textContent=content.hidden?'⌃':'⌄';
+};
+$('focus-selected').onclick=()=>fitSelected();
+$('quick-hide').onclick=()=>$('hide-object').click();
+
+function showPrimitiveGrid(){
+ const target=$('primitive-grid');target.replaceChildren();
+ for(const type of ['box','chamfer','cylinder','tube','wedge','plate','taper','loft']){
+  const primitive=newShape(type,{name:type});
+  const tile=makeTile(primitive.geometry,null,'primitive',type.toUpperCase(),'ADD '+type.toUpperCase());
+  tile.dataset.thumbid=type;
+  tile.onclick=()=>{
+   $('shape-type').value=type;$('add-shape').click();
+   $('shape-maker').open=false;
+  };
+  target.append(tile);
+ }
+}
+function showFactoryGrid(){
+ const target=$('factory-grid');target.replaceChildren();
+ for(const def of factoryCatalogueOptions()){
+  const tile=makeTile(def,null,'factory',def.name,def.slot.toUpperCase());
+  tile.onclick=()=>{
+   $('factory-part-select').value=def.id;
+   openFactoryPart(false);
+   $('factory-picker').open=false;
+  };
+  target.append(tile);
+ }
+}
+$('factory-picker').addEventListener('toggle',()=>{
+ if($('factory-picker').open&&$('factory-grid').children.length===0)showFactoryGrid();
+});
 const inputNumber=(value,callback,{step=.01,label='',min=-100,max=100}={})=>{
  const wrap=document.createElement('label');wrap.textContent=label;
  const input=document.createElement('input');input.type='number';input.value=Number(value.toFixed?.(4)??value);
@@ -949,6 +1015,7 @@ async function initialize(){
   returnLink.textContent='LIVE GAME';
  }
  sceneSetup();
+ setupThumbnails();showPrimitiveGrid();
  setupFactoryPicker();
  try{
   const loaded=await db.lastProject();
