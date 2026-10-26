@@ -47,9 +47,10 @@ try{
  assert.equal(failed.length,0,'All factory parts and complete rigs must import: '+JSON.stringify(failed));
  await page.locator('#factory-part-select').selectOption('legs-yard');
  await page.locator('#open-factory-part').click();
- await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('authentic editable'),
+ await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('authentic game meshes'),
    undefined,{timeout:10000});
  assert.ok(await page.locator('#object-tree .tree-item').count()>15,'Real hierarchy visible');
+ await page.locator('#object-tree .tree-item[data-kind="shape"]').first().click();
  await page.screenshot({path:'workbench-factory-artifacts/01-imported-yardwalker.png'});
  await page.locator('[data-view="front"]').click();
  await page.locator('[data-tool="points"]').click();
