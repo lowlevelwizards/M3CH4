@@ -356,7 +356,9 @@ $('show-shapes-panel').onclick=()=>{
  const details=$('shape-maker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
 };
 $('show-factory-panel').onclick=()=>{
- const details=$('factory-picker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
+ const details=$('factory-picker');details.open=true;
+ if(!$('factory-grid').children.length)showFactoryGrid();
+ details.scrollIntoView({block:'nearest',behavior:'smooth'});
 };
 $('show-details-panel').onclick=()=>{
  const details=$('inspector-details');details.open=!details.open;
