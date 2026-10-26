@@ -513,6 +513,12 @@ function drawOverlay(){
  if(tool==='points'&&view!=='quarter'&&!n.locked&&!n.mirrorOf){
   if(g.profile&&view==='front')
    g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
+  if(g.type==='mesh'){
+   const page=meshPointPage(g,meshPointPageIndex);
+   page.points.forEach(point=>handles.push({
+    pos:new THREE.Vector3(...point.position),kind:'factory-mesh',index:point.index
+   }));
+  }
   if(g.sections){
    g.sections.forEach((s,i)=>{
     if(view==='front'){
@@ -531,7 +537,7 @@ function drawOverlay(){
  for(const entry of handles){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
   if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
-  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:13,fill:'#edb15d','fill-opacity':'.15',
+  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?9:13,fill:'#edb15d','fill-opacity':'.15',
    stroke:'#e7ae57','stroke-width':1.5,class:'point-handle',
    'data-index':entry.index,'data-kind':entry.kind});
   const core=svgNode('circle',{cx:p.x,cy:p.y,r:4.5,fill:'#ffcc71','pointer-events':'none'});
@@ -559,6 +565,17 @@ function applyPoint(e){
  const local=target.worldToLocal(hit);
  const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
  const g=n.geometry,i=drag.index;
+ if(g.type==='mesh'){
+  const original=meshPointGroups(g)[i]?.position;
+  if(!original)return;
+  const pos=original.slice();
+  if(view==='front'){pos[0]=snapValue(local.x);pos[1]=snapValue(local.y);}
+  if(view==='side'){pos[2]=snapValue(local.z);pos[1]=snapValue(local.y);}
+  if(view==='top'){pos[0]=snapValue(local.x);pos[2]=snapValue(local.z);}
+  meshPointSelectedIndex=i;
+  try{n.geometry=updateMeshPoint(g,i,pos);}
+  catch{return;}
+ }
  if(g.profile){
   if(view!=='front')return;
   g.profile[i]=[snapValue(local.x),snapValue(local.y)];
