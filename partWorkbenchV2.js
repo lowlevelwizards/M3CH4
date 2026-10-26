@@ -513,6 +513,14 @@ $('dock-collapse').onclick=()=>{
 };
 $('focus-selected').onclick=()=>fitSelected();
 $('context-close').onclick=()=>clearPoint();
+const moreActions=$('more-actions');
+moreActions.addEventListener('click',e=>{
+ if(e.target.closest('button'))moreActions.open=false;
+});
+document.addEventListener('pointerdown',e=>{
+ if(moreActions.open&&!moreActions.contains(e.target))moreActions.open=false;
+},{capture:true});
+
 for(const [mode,id] of [['all','visibility-normal'],['ghost','visibility-ghost'],['isolate','visibility-isolate']]){
  $(id).onclick=()=>{
   visibilityMode=mode;applyVisibility();updateContextPanel();
