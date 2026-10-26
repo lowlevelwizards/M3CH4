@@ -16,11 +16,11 @@ try{
  const w=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
  assert.ok(w<=3,'Portrait should not overflow: '+w);
  await page.screenshot({path:'part-workbench-v2-artifacts/01-mobile-start.png'});
- await page.locator('#shape-type').selectOption('plate');await page.locator('#add-shape').click();
- assert.equal(await page.locator('.tree-item').count(),1,'First primitive is in hierarchy');
- await page.locator('#object-name').fill('Custom armor');await page.locator('#object-name').dispatchEvent('change');
- await page.locator('#position-fields input').first().fill('0.32');
- await page.locator('#position-fields input').first().dispatchEvent('change');
+ await page.locator('#show-shapes-panel').click();
+ await page.locator('#primitive-grid .part-tile').filter({hasText:'PLATE'}).click();
+ assert.equal(await page.locator('.tree-item').count(),1,'Visual selection created a real primitive');
+ // Precision inputs remain available, but are not part of the primary workflow.
+ assert.ok(await page.locator('#inspector-details').evaluate(x=>!x.open));
  await page.locator('#duplicate').click();
  assert.equal(await page.locator('.tree-item').count(),2);
  await page.locator('.tree-item').first().click();
@@ -78,6 +78,7 @@ try{
   }))));
  });
  await page.locator('#reference-width').fill('1.4');await page.locator('#reference-width').dispatchEvent('change');
+ await page.locator('#tab-reference details').first().evaluate(el=>el.open=true);
  await page.locator('#module-manifest').fill('[{"name":"Knee hub","geometry":"cylinder"},{"name":"Shin casing","geometry":"loft"}]');
  await page.locator('#apply-manifest').click();
  await page.screenshot({path:'part-workbench-v2-artifacts/03-reference.png'});

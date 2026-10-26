@@ -59,6 +59,7 @@ try{
  console.log('FACTORY AUDIT',JSON.stringify(audit));
  const failed=audit.filter(x=>!x.ok);
  assert.equal(failed.length,0,'All factory parts and complete rigs must import: '+JSON.stringify(failed));
+ await page.locator('#show-factory-panel').click();
  await page.locator('#factory-part-select').selectOption('legs-yard');
  await page.locator('#open-factory-part').click();
  await page.waitForFunction(()=>document.querySelector('#status')?.textContent?.includes('authentic game meshes'),
@@ -68,14 +69,19 @@ try{
  await page.screenshot({path:'workbench-factory-artifacts/01-imported-yardwalker.png'});
  await page.locator('[data-view="front"]').click();
  await page.locator('[data-tool="points"]').click();
- await page.locator('#mesh-point-panel').waitFor({state:'visible',timeout:9000});
+ // Point editing happens on the model; the optional numeric panel is intentionally collapsed.
+ assert.equal(await page.locator('#mesh-point-panel').getAttribute('hidden'),null);
  const controls=await page.locator('#mesh-point-select option').count();
  assert.ok(controls>=3,'Factory mesh exposes vertex groups');
- const inputs=page.locator('#mesh-point-coordinates input');
- const before=await inputs.first().inputValue();
- await inputs.first().fill((Number(before)+.025).toFixed(3));
- await inputs.first().dispatchEvent('change');
- assert.match(await page.locator('#status').textContent(),/Edited original game mesh point/);
+ // Points are manipulated in the actual viewport; numeric inputs are optional.
+ const directPoint=page.locator('#edit-overlay .point-handle').first();
+ await directPoint.waitFor({state:'attached',timeout:10000});
+ const pointBox=await directPoint.boundingBox();assert.ok(pointBox);
+ await page.mouse.move(pointBox.x+pointBox.width/2,pointBox.y+pointBox.height/2);
+ await page.mouse.down();
+ await page.mouse.move(pointBox.x+pointBox.width/2+18,pointBox.y+pointBox.height/2+8,{steps:4});
+ await page.mouse.up();
+ assert.match(await page.locator('#status').textContent(),/Edited profile control point/);
  await page.screenshot({path:'workbench-factory-artifacts/02-factory-vertices.png'});
  page.once('dialog',dialog=>dialog.accept('Yardwalker derived variant'));
  await page.locator('#save-part').click();

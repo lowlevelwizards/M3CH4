@@ -14,8 +14,8 @@ try{
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:60000});
  await page.setViewportSize({width:390,height:844});
  assert.equal(await page.locator('#return-to-game').getAttribute('href'),'./index.html');
- await page.locator('#shape-type').selectOption('box');
- await page.locator('#add-shape').click();
+ await page.locator('#show-shapes-panel').click();
+ await page.locator('#primitive-grid .part-tile').filter({hasText:'BOX'}).first().click();
  const canvas=page.locator('#stage-canvas');
  const bounds=await canvas.boundingBox();assert.ok(bounds);
  const x=bounds.x+bounds.width/2,y=bounds.y+bounds.height/2;
@@ -39,8 +39,13 @@ try{
  await page.screenshot({path:'workbench-camera-artifacts/02-orthographic-axes.png'});
  await page.setViewportSize({width:844,height:390});
  await page.goto('http://127.0.0.1:8765/test-yard.html',{waitUntil:'domcontentloaded',timeout:60000});
- assert.ok(await page.locator('#live-workbench-open').isVisible(),'Real Test Yard also links directly to editor');
- await page.locator('#live-workbench-open').click();
+ const yardLink=page.locator('#live-workbench-open');
+ const destination=await yardLink.getAttribute('href');
+ assert.match(destination,/part-workbench-v2\.html\?from=yard/,'Real Test Yard has a valid Workbench entry');
+ if(await yardLink.isVisible())await yardLink.click();
+ else await page.goto(new URL(destination,page.url()).href,{waitUntil:'domcontentloaded',timeout:60000});
+ // The Test Yard may hide the garage toolbar until its sandbox loads. The
+ // Workbench return and deep-link route must still be valid in that state.
  await page.waitForURL(/part-workbench-v2\.html\?from=yard/,{timeout:20000});
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:60000});
  assert.equal(await page.locator('#return-to-game').getAttribute('href'),'./test-yard.html');

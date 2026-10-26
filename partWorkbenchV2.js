@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {FORMAT,VERSION,clone,createDocument,newShape,addNode,updateNode,removeNode,
  duplicateNode,mirrorNode,groupNodes,makeAsset,insertAsset,validateDocument,validateGeometry,migrateCalfRecipe,identity} from './workbench/blueprint.js';
-import {compileBlueprint,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
+import {compileBlueprint,compileGeometry,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
 import * as db from './workbench/storage.js';
 import {orbitAfterDrag,cameraPose,cameraFacing} from './workbench/orbitCamera.js?v=orbit360';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
@@ -10,6 +10,7 @@ import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
 import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly,importSavedGarageBay} from './workbench/factoryImport.js';
 import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
+import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
 let doc=createDocument('Untitled assembly'),current=null,history=[],step=0,selected='root',selectedIds=new Set();
@@ -18,6 +19,7 @@ let camera,renderer,scene,grid,raycaster=new THREE.Raycaster(),orthoScale=2.7;
 let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touchSpan=null;
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
 let meshPointPageIndex=0,meshPointSelectedIndex=0;
+let thumbEpoch=0,browseListMode=false,browseFilter='',thumbCache=new Map(),thumbObserver=null;
 let saveTimer=null,savePromise=Promise.resolve(),drawPending=false,ready=false;
 const canvas=$('stage-canvas'),stage=$('stage'),svg=$('edit-overlay'),NS='http://www.w3.org/2000/svg';
 const snap=()=>Number($('snap').value)||0;
@@ -48,10 +50,75 @@ function queueSave(){
 }
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
- step=next;doc=clone(history[step]);
+ step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
  if(!doc.nodes.some(n=>n.id===selected))selected='root';
  queueSave();refresh();
 }
+const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
+function makeTile(nodeData,docOrAsset,type='shape',name=nodeData?.name||'',meta=''){
+ const tile=document.createElement('button');
+ tile.type='button';tile.className='part-tile';tile.title=name;
+ const img=document.createElement('img');img.alt='Preview of '+name;
+ img.loading='lazy';img.dataset.thumbtype=type;img.dataset.thumbid=nodeData?.id||'root';
+ const label=document.createElement('span');label.className='tile-title';label.textContent=name;
+ const note=document.createElement('span');note.className='tile-meta';note.textContent=meta;
+ tile.append(img,label,note);
+ // Thumbnails use real authored mesh triangles, not generic decorative icons.
+ if(type==='node')img._renderPreview=()=>thumbnailForDocument(doc,nodeData.id,140,100);
+ else if(type==='asset')img._renderPreview=()=>thumbnailForAsset(docOrAsset);
+ else if(type==='project')img._renderPreview=()=>thumbnailForDocument(docOrAsset,'root',140,100);
+ else if(type==='primitive')img._renderPreview=()=>thumbnailForPrimitive(nodeData);
+ else if(type==='factory')img._renderPreview=()=>{
+  const model=importFactoryPart(nodeData.id);
+  return thumbnailForDocument(model.document,'root',140,100);
+ };
+ if(thumbObserver)thumbObserver.observe(img);else renderThumb(img);
+ return tile;
+}
+function renderThumb(img){
+ if(!img.isConnected)return;
+ const key=img.dataset.thumbtype+'/'+img.dataset.thumbid+
+  (img.dataset.thumbtype==='node'?'/'+thumbnailKey(img.dataset.thumbid):'');
+ let result=thumbCache.get(key);
+ if(!result){try{result=img._renderPreview?.()||'';if(result)thumbCache.set(key,result);}
+  catch(e){console.warn('Workbench preview unavailable',img.dataset.thumbid,e.message);}
+ }
+ if(result)img.src=result;
+ else{img.style.display='none';const fallback=document.createElement('span');
+  fallback.className='tile-thumb';fallback.textContent='◇';img.parentElement?.insertBefore(fallback,img);}
+ thumbObserver?.unobserve(img);
+}
+function setupThumbnails(){
+ if(typeof IntersectionObserver==='function'){
+  thumbObserver=new IntersectionObserver(entries=>{
+   for(const entry of entries)if(entry.isIntersecting)renderThumb(entry.target);
+  },{rootMargin:'80px'});
+ }
+}
+function selectedFeedback(){
+ const n=node(),active=n&&n.id!=='root';
+ $('selection-chip').hidden=!active;
+ if(active){
+  $('selection-name').textContent=n.name;
+  $('focus-selected').disabled=!compiled?.objects.get(selected);
+  $('quick-hide').textContent=n.visible?'◉':'◎';
+ }
+}
+function fitSelected(){
+ const obj=compiled?.objects.get(selected==='root'?'root':selected);
+ if(!obj)return;
+ const bounds=new THREE.Box3().setFromObject(obj);
+ if(bounds.isEmpty())return;
+ const size=bounds.getSize(new THREE.Vector3());
+ focus.copy(bounds.getCenter(new THREE.Vector3()));
+ const h=Math.max(.08,size.y),w=Math.max(.08,size.x,size.z);
+ const aspect=Math.max(.45,stage.clientWidth/Math.max(1,stage.clientHeight));
+ const halfFov=Math.PI*38/360;
+ orbit.distance=Math.max(.33,Math.min(40,Math.max(h/(2*Math.tan(halfFov)),w/(2*Math.tan(halfFov)*aspect))*1.52));
+ orthoScale=Math.max(.12,Math.min(20,Math.max(h/2,w/(2*aspect))*.95));
+ updateCamera();requestDraw();
+}
+
 function replaceProjectWithFactory(result){
  const imported=result.document;
  const next=clone(imported);
@@ -67,13 +134,13 @@ function replaceProjectWithFactory(result){
  disposeBlueprint(importedBounds.root);
  if(!bounds.empty){
   const max=Math.max(...bounds.size);
-  orbit.distance=Math.max(1.8,Math.min(18,max*2.5));
+  orbit.distance=Math.max(.45,Math.min(25,max*1.6));
   orthoScale=Math.max(.42,Math.min(10,max*.9));
   setCamera();
  }
  queueSave();refresh();
  selected=doc.nodes.find(n=>n.parentId==='root')?.id||'root';
- renderTree();renderInspector();requestDraw();
+ renderTree();renderInspector();selectedFeedback();fitSelected();requestDraw();
  message('Opened '+result.meshCount+' authentic game meshes and '+result.groupCount+
   ' named groups. Select a MESH in the hierarchy to edit points; select the top group to SAVE the complete part or assembly.');
 }
@@ -221,52 +288,118 @@ function rebuild(){
    orbit.distance=Math.max(orbit.distance,3.4);
   }else{
    scene.add(compiled.root);
-   const bounds=measureBlueprint(compiled.root);
-   if(!bounds.empty){
-    const target=new THREE.Vector3(...bounds.min).add(new THREE.Vector3(...bounds.max)).multiplyScalar(.5);
-    if(target.length()<8)focus.copy(target);else focus.set(0,0,0);
-   }else focus.set(0,0,0);
+   // Camera focus stays fixed while sculpting; use the FIT control deliberately.
   }
   grid.visible=!showContext;
   requestDraw();
  }catch(e){message('Geometry rejected: '+e.message,true);console.error(e);}
 }
 function refresh(){
- $('project-name').value=doc.name;renderTree();renderInspector();renderLibrary();renderReferences();
+ $('project-name').value=doc.name;renderTree();renderInspector();renderLibrary();renderReferences();selectedFeedback();
  for(const b of document.querySelectorAll('[data-view]'))b.classList.toggle('active',b.dataset.view===view);
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===tool);
  $('undo').disabled=step===0;$('redo').disabled=step===history.length-1;
- $('node-count').textContent=doc.nodes.length-1+' NODES';
+ $('node-count').textContent=doc.nodes.filter(n=>n.kind==='shape').length+' SHAPES';
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
- $('stage-hint').textContent=['select','points'].includes(tool)
-  ?'SELECT · DRAG ON MODEL TO ORBIT 360° · TAP TO SELECT · PINCH TO ZOOM'
-  :tool.toUpperCase()+' · DRAG MESH TO EDIT · DRAG EMPTY SPACE TO ORBIT';
+ $('stage-hint').textContent=tool==='points'
+  ?'POINTS · DRAG AMBER DOTS · TAP A MESH TO SWITCH · PINCH TO ZOOM'
+  :tool==='select'
+   ?'TAP A PIECE · SELECT · DRAG TO ORBIT · PINCH TO ZOOM'
+   :tool.toUpperCase()+' · DRAG COLORED XYZ HANDLES OR THE PIECE';
  rebuild();
 }
 function renderTree(){
  const target=$('object-tree');target.replaceChildren();
- const traverse=(parent,depth)=>{
-  for(const n of doc.nodes.filter(n=>n.parentId===parent)){
-   const b=document.createElement('button');b.type='button';b.className='tree-item'+(selected===n.id?' active':'');
-   b.dataset.kind=n.kind;
-   const type=document.createElement('small');type.textContent=n.kind==='shape'?n.geometry.type.toUpperCase():n.kind.toUpperCase();
-   const label=document.createElement('span');label.className='tree-name';label.textContent=('  '.repeat(depth))+n.name;
-   const flags=document.createElement('small');flags.textContent=(n.visible?'':'HIDDEN ')+(n.locked?'LOCKED ':'')+(n.mirrorOf?'LINKED':'');
-   b.append(label,type,flags);
-   b.onclick=e=>{
-    if(e.shiftKey||e.ctrlKey||e.metaKey){selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);}
-    else{selectedIds.clear();selectedIds.add(n.id);}
-    selected=n.id;renderTree();renderInspector();requestDraw();
-   };
-   target.append(b);traverse(n.id,depth+1);
-  }
- };
- traverse('root',0);
- const root=doc.nodes.find(n=>n.id==='root');
- if(!target.children.length){const p=document.createElement('p');p.className='hint';p.textContent='Choose ADD to create your first editable shape.';target.append(p);}
+ target.classList.toggle('list-mode',browseListMode);
+ const search=$('object-search').value.trim().toLowerCase();
+ const candidates=doc.nodes.filter(n=>n.id!=='root'&&n.visible!==false&&(
+  !search||n.name.toLowerCase().includes(search)));
+ let count=0;
+ for(const n of candidates.slice(0,170)){
+  const label=n.name||'Unnamed piece';
+  const b=makeTile(n,doc,'node',label,n.kind==='shape'?
+   n.geometry.type.toUpperCase():'ASSEMBLY / GROUP');
+  b.classList.add('tree-item');
+  if(n.kind!=='shape')b.classList.add('is-group');
+  if(selected===n.id)b.classList.add('active');
+  b.dataset.kind=n.kind;
+  b.dataset.nodeId=n.id;
+  if(n.locked){const flag=document.createElement('small');flag.className='tile-flag';flag.textContent='LOCK';b.append(flag);}
+  b.onclick=e=>{
+   if(e.shiftKey||e.ctrlKey||e.metaKey){
+    selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
+   }else{selectedIds.clear();selectedIds.add(n.id);}
+   selected=n.id;meshPointPageIndex=0;
+   renderTree();renderInspector();selectedFeedback();requestDraw();
+  };
+  target.append(b);count++;
+ }
+ if(candidates.length>170){
+  const more=document.createElement('p');more.className='hint';
+  more.textContent='Showing first 170 pieces. Search to find others.';
+  target.append(more);
+ }
+ if(count===0){
+  const p=document.createElement('p');p.className='hint';
+  p.textContent=search?'No matching model pieces.':'Your canvas is empty. Choose + SHAPE or GAME PART.';
+  target.append(p);
+ }
 }
+$('object-search').oninput=()=>renderTree();
+$('tree-list-toggle').onclick=()=>{
+ browseListMode=!browseListMode;renderTree();
+ $('tree-list-toggle').textContent=browseListMode?'▦':'☷';
+};
+$('show-shapes-panel').onclick=()=>{
+ const details=$('shape-maker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+$('show-factory-panel').onclick=()=>{
+ const details=$('factory-picker');details.open=true;details.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+$('show-details-panel').onclick=()=>{
+ const details=$('inspector-details');details.open=!details.open;
+ if(details.open)details.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+$('dock-collapse').onclick=()=>{
+ const content=$('drawer-content');content.hidden=!content.hidden;
+ $('dock-collapse').setAttribute('aria-expanded',String(!content.hidden));
+ $('dock-collapse').textContent=content.hidden?'⌃':'⌄';
+};
+$('focus-selected').onclick=()=>fitSelected();
+$('quick-hide').onclick=()=>$('hide-object').click();
+
+function showPrimitiveGrid(){
+ const target=$('primitive-grid');target.replaceChildren();
+ for(const type of ['box','chamfer','cylinder','tube','wedge','plate','taper','loft']){
+  const primitive=newShape(type,{name:type});
+  const tile=makeTile(primitive.geometry,null,'primitive',type.toUpperCase(),'ADD '+type.toUpperCase());
+  tile.dataset.thumbid=type;
+  tile.onclick=()=>{
+   $('shape-type').value=type;$('add-shape').click();
+   $('shape-maker').open=false;
+  };
+  target.append(tile);
+  const image=tile.querySelector('img');
+  if(image)renderThumb(image); // The eight primitives are cheap: draw immediately.
+ }
+}
+function showFactoryGrid(){
+ const target=$('factory-grid');target.replaceChildren();
+ for(const def of factoryCatalogueOptions()){
+  const tile=makeTile(def,null,'factory',def.name,def.slot.toUpperCase());
+  tile.onclick=()=>{
+   $('factory-part-select').value=def.id;
+   openFactoryPart(false);
+   $('factory-picker').open=false;
+  };
+  target.append(tile);
+ }
+}
+$('factory-picker').addEventListener('toggle',()=>{
+ if($('factory-picker').open&&$('factory-grid').children.length===0)showFactoryGrid();
+});
 const inputNumber=(value,callback,{step=.01,label='',min=-100,max=100}={})=>{
  const wrap=document.createElement('label');wrap.textContent=label;
  const input=document.createElement('input');input.type='number';input.value=Number(value.toFixed?.(4)??value);
@@ -414,7 +547,7 @@ $('project-name').onchange=()=>{
 $('add-shape').onclick=()=>{
  const type=$('shape-type').value,shape=newShape(type,{parentId:'root'});
  // A new shape appears in front of the camera but preserves predictable local coordinates.
- try{commit(addNode(doc,shape),shape.id,'Added '+type+'. Select MOVE or POINTS to edit.');}
+ try{commit(addNode(doc,shape),shape.id,'Added '+type+'. Drag the selected shape or handles to edit.');fitSelected();}
  catch(e){message(e.message,true);}
 };
 $('duplicate').onclick=()=>{
@@ -508,6 +641,90 @@ function projected(world){
 }
 function refWorld(a,b,plane){return plane==='front'?new THREE.Vector3(a,b,0):
  plane==='side'?new THREE.Vector3(0,b,a):new THREE.Vector3(a,0,b);}
+const worldAxes=[new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)];
+const axisColors=['#ed7770','#8cdd94','#78aaff'];
+function drawSelectionAndGizmos(object,n){
+ const box=new THREE.Box3().setFromObject(object);
+ if(box.isEmpty())return;
+ const corners=[];
+ for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+  const p=projected(new THREE.Vector3(x,y,z));if(Number.isFinite(p.x)&&Number.isFinite(p.y))corners.push(p);
+ }
+ if(corners.length){
+  const minX=Math.min(...corners.map(p=>p.x)),maxX=Math.max(...corners.map(p=>p.x));
+  const minY=Math.min(...corners.map(p=>p.y)),maxY=Math.max(...corners.map(p=>p.y));
+  svgNode('rect',{x:minX-3,y:minY-3,width:Math.max(1,maxX-minX+6),height:Math.max(1,maxY-minY+6),
+   fill:'none',stroke:'#efd49a','stroke-opacity':.8,'stroke-width':1.4,'stroke-dasharray':'5 4','pointer-events':'none'});
+ }
+ if(n.locked||!['move','rotate','scale'].includes(tool))return;
+ const anchor=box.getCenter(new THREE.Vector3()),start=projected(anchor);
+ const pixelScale=camera.isPerspectiveCamera?
+  camera.position.distanceTo(anchor)*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2)*2/Math.max(1,stage.clientHeight):
+  orthoScale*2/Math.max(1,stage.clientHeight);
+ const worldDistance=52*pixelScale;
+ const orientation=object.getWorldQuaternion(new THREE.Quaternion());
+ for(let i=0;i<3;i++){
+  const axis=worldAxes[i].clone().applyQuaternion(orientation).normalize();
+  const end=projected(anchor.clone().addScaledVector(axis,worldDistance));
+  const dx=end.x-start.x,dy=end.y-start.y,len=Math.hypot(dx,dy);
+  if(!Number.isFinite(len)||len<15)continue;
+  svgNode('line',{x1:start.x,y1:start.y,x2:end.x,y2:end.y,
+   stroke:axisColors[i],'stroke-width':3,'stroke-linecap':'round','pointer-events':'none'});
+  const hit=svgNode('circle',{cx:end.x,cy:end.y,r:16,fill:axisColors[i],'fill-opacity':.23,
+   stroke:axisColors[i],'stroke-width':2,class:'gizmo-hit','data-axis':['x','y','z'][i],
+   'aria-label':['X','Y','Z'][i]+' axis drag handle'});
+  svgNode('text',{x:end.x,y:end.y+4,'text-anchor':'middle','font-size':10,'font-weight':800,
+   fill:'#f5efe2','pointer-events':'none'}).textContent=['X','Y','Z'][i];
+  hit.addEventListener('pointerdown',e=>{
+   e.preventDefault();e.stopPropagation();
+   drag={mode:'gizmo',tool,nodeId:selected,axis:i,worldAxis:axis,anchor:anchor.clone(),
+    projectedAxis:{x:dx/len,y:dy/len},worldDistance,pixelLength:len,
+    pointerId:e.pointerId,previous:clone(doc),base:clone(n.transform),
+    start:{x:e.clientX,y:e.clientY}};
+   svg.setPointerCapture(e.pointerId);
+  });
+ }
+}
+function applyGizmoDrag(e){
+ if(!drag||drag.mode!=='gizmo'||drag.pointerId!==e.pointerId)return;
+ const deltaX=e.clientX-drag.start.x,deltaY=e.clientY-drag.start.y;
+ const signedPx=deltaX*drag.projectedAxis.x+deltaY*drag.projectedAxis.y;
+ const target=doc.nodes.find(n=>n.id===drag.nodeId);
+ if(!target||target.locked)return;
+ const i=drag.axis;
+ if(drag.tool==='move'){
+  const parent=compiled?.objects.get(target.parentId);
+  if(!parent)return;
+  parent.updateMatrixWorld(true);
+  const worldDelta=drag.worldAxis.clone().multiplyScalar(signedPx/drag.pixelLength*drag.worldDistance);
+  const localStart=parent.worldToLocal(drag.anchor.clone());
+  const localEnd=parent.worldToLocal(drag.anchor.clone().add(worldDelta));
+  const localDelta=localEnd.sub(localStart);
+  target.transform.position=drag.base.position.map((v,j)=>snapValue(v+localDelta.getComponent(j)));
+ }else if(drag.tool==='scale'){
+  const factor=Math.max(.02,1+signedPx/85);
+  target.transform.scale[i]=Math.max(.005,Number((drag.base.scale[i]*factor).toFixed(4)));
+ }else if(drag.tool==='rotate'){
+  target.transform.rotation[i]=drag.base.rotation[i]+signedPx*.012;
+ }
+ try{
+  const visual=compiled?.objects.get(target.id);
+  if(visual){
+   visual.position.set(...target.transform.position);
+   visual.rotation.set(...target.transform.rotation,'XYZ');
+   visual.scale.set(...target.transform.scale);
+   if(target.mirrorOf)visual.scale.x*=-1;
+   visual.updateMatrixWorld(true);
+  }
+  requestDraw();
+ }catch{/* Invalid intermediate drag ignored. */}
+}
+function finishGizmoDrag(e){
+ if(!drag||drag.mode!=='gizmo'||drag.pointerId!==e.pointerId)return;
+ const before=drag.previous,after=clone(doc),selection=drag.nodeId;
+ drag=null;doc=before;commit(after,selection,'Updated part directly on the model.');
+}
+
 function drawOverlay(){
  if(!camera)return;
  const w=stage.clientWidth,h=stage.clientHeight;
@@ -527,11 +744,14 @@ function drawOverlay(){
   }
  }
  const n=node(),obj=compiled?.objects.get(selected);
- if(!n||n.kind!=='shape'||!obj||!n.visible)return;
+ if(!n||!obj||!n.visible||selected==='root')return;
+ obj.updateMatrixWorld(true);
+ drawSelectionAndGizmos(obj,n);
+ if(n.kind!=='shape')return;
  const g=n.mirrorOf?doc.nodes.find(s=>s.id===n.mirrorOf).geometry:n.geometry;
  const handles=[];
- if(tool==='points'&&view!=='quarter'&&!n.locked&&!n.mirrorOf){
-  if(g.profile&&view==='front')
+ if(tool==='points'&&!n.locked&&!n.mirrorOf){
+  if(g.profile&&(view==='front'||view==='quarter'))
    g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
   if(g.type==='mesh'){
    const page=meshPointPage(g,meshPointPageIndex);
@@ -541,7 +761,11 @@ function drawOverlay(){
   }
   if(g.sections){
    g.sections.forEach((s,i)=>{
-    if(view==='front'){
+    if(view==='quarter'){
+     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,s.front),kind:'width',index:i});
+     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.front),kind:'front',index:i});
+     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.back),kind:'back',index:i});
+    }else if(view==='front'){
      handles.push({pos:new THREE.Vector3(-s.width/2,s.y,0),kind:'width',index:i});
      handles.push({pos:new THREE.Vector3(s.width/2,s.y,0),kind:'width',index:i});
     }else if(view==='side'){
@@ -557,10 +781,10 @@ function drawOverlay(){
  for(const entry of handles){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
   if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
-  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?9:13,fill:'#edb15d','fill-opacity':'.15',
+  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?10:14,fill:'#edb15d','fill-opacity':'.15',
    stroke:'#e7ae57','stroke-width':1.5,class:'point-handle',
    'data-index':entry.index,'data-kind':entry.kind});
-  const core=svgNode('circle',{cx:p.x,cy:p.y,r:4.5,fill:'#ffcc71','pointer-events':'none'});
+  const core=svgNode('circle',{cx:p.x,cy:p.y,r:5.5,fill:'#ffcc71','pointer-events':'none'});
   circle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
    const target=compiled.objects.get(selected);
@@ -583,8 +807,10 @@ function applyPoint(e){
  const target=compiled?.objects.get(drag.nodeId);if(!target)return;
  const hit=pointPlane(e,drag.anchor);if(!hit)return;
  const local=target.worldToLocal(hit);
- const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
- const g=n.geometry,i=drag.index;
+ const n=doc.nodes.find(n=>n.id===drag.nodeId);
+ const source=drag.previous.nodes.find(n=>n.id===drag.nodeId);
+ if(!n||!source||n.locked)return;
+ const g=clone(source.geometry),i=drag.index;
  if(g.type==='mesh'){
   const original=meshPointGroups(g)[i]?.position;
   if(!original)return;
@@ -592,12 +818,13 @@ function applyPoint(e){
   if(view==='front'){pos[0]=snapValue(local.x);pos[1]=snapValue(local.y);}
   if(view==='side'){pos[2]=snapValue(local.z);pos[1]=snapValue(local.y);}
   if(view==='top'){pos[0]=snapValue(local.x);pos[2]=snapValue(local.z);}
+  if(view==='quarter'){pos[0]=snapValue(local.x);pos[1]=snapValue(local.y);pos[2]=snapValue(local.z);}
   meshPointSelectedIndex=i;
   try{n.geometry=updateMeshPoint(g,i,pos);}
   catch{return;}
  }
  if(g.profile){
-  if(view!=='front')return;
+  if(view!=='front'&&view!=='quarter')return;
   g.profile[i]=[snapValue(local.x),snapValue(local.y)];
  }else if(g.sections){
   const section=g.sections[i],kind=drag.kind;
@@ -606,11 +833,22 @@ function applyPoint(e){
   if(kind==='back'||kind==='topBack')section.back=Math.max(section.front+.02,snapValue(local.z));
   if(kind==='front'||kind==='back'||kind==='width')section.y=Math.max(0,snapValue(local.y));
  }
- try{doc=validateDocument(next);rebuild();renderInspector();}
- catch{ /* invalid in-between drag poses remain uncommitted */ }
+ try{
+  if(g.type!=='mesh'){validateGeometry(g);n.geometry=g;}
+  const visual=compiled?.objects.get(n.id);
+  if(visual?.isMesh){
+   const oldGeometry=visual.geometry;
+   visual.geometry=compileGeometry(n.geometry);
+   oldGeometry.dispose();
+  }
+  requestDraw();
+ }catch{
+  n.geometry=clone(source.geometry);
+ }
 }
 svg.addEventListener('pointermove',e=>{
  if(drag?.mode==='point'&&drag.pointerId===e.pointerId){applyPoint(e);e.preventDefault();}
+ if(drag?.mode==='gizmo'&&drag.pointerId===e.pointerId){applyGizmoDrag(e);e.preventDefault();}
 });
 const finishPoint=e=>{
  if(drag?.mode!=='point'||drag.pointerId!==e.pointerId)return;
@@ -618,6 +856,7 @@ const finishPoint=e=>{
  doc=before;commit(after,selected,'Edited profile control point.');
 };
 svg.addEventListener('pointerup',finishPoint);svg.addEventListener('pointercancel',finishPoint);
+svg.addEventListener('pointerup',finishGizmoDrag);svg.addEventListener('pointercancel',finishGizmoDrag);
 function screenNDC(e){
  const b=stage.getBoundingClientRect();
  return {x:(e.clientX-b.left)/b.width*2-1,y:1-(e.clientY-b.top)/b.height*2};
@@ -648,7 +887,7 @@ canvas.addEventListener('pointerdown',e=>{
     start:{x:e.clientX,y:e.clientY},base:clone(n.transform)};
   }
  }else if(tool==='select'){
-  selected='root';selectedIds.clear();renderTree();renderInspector();requestDraw();
+  selected='root';selectedIds.clear();renderTree();renderInspector();selectedFeedback();requestDraw();
  }
 });
 canvas.addEventListener('pointermove',e=>{
@@ -669,7 +908,7 @@ canvas.addEventListener('pointermove',e=>{
   requestDraw();return;
  }
  if(!drag||drag.pointerId!==e.pointerId)return;
- const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
+ const n=doc.nodes.find(n=>n.id===drag.nodeId);
  if(!n||n.locked)return;
  if(drag.mode==='move'){
   const hit=pointPlane(e,drag.anchor);
@@ -685,14 +924,23 @@ canvas.addEventListener('pointermove',e=>{
   const factor=Math.max(.1,1+(e.clientX-drag.start.x)/190);
   n.transform.scale=drag.base.scale.map(v=>Math.max(.01,Number((v*factor).toFixed(3))));
  }
- try{doc=validateDocument(next);rebuild();}
- catch{/* Drag stays on last valid snapshot. */}
+ try{
+  const visual=compiled?.objects.get(n.id);
+  if(visual){
+   visual.position.set(...n.transform.position);
+   visual.rotation.set(...n.transform.rotation,'XYZ');
+   visual.scale.set(...n.transform.scale);
+   if(n.mirrorOf)visual.scale.x*=-1;
+   visual.updateMatrixWorld(true);
+  }
+  requestDraw();
+ }catch{/* Drag stays on last valid snapshot. */}
 });
 function finishCanvas(e){
  pointers.delete(e.pointerId);touchSpan=null;
  if(!drag||drag.pointerId!==e.pointerId)return;
- if(drag.mode==='orbit'&&!drag.moved&&tool==='select'){
-  selected=drag.hitId||'root';
+ if(drag.mode==='orbit'&&!drag.moved&&['select','points'].includes(tool)){
+  selected=drag.hitId||'root';meshPointPageIndex=0;
   selectedIds=drag.hitId?new Set([selected]):new Set();
   renderTree();renderInspector();requestDraw();
  }
@@ -727,60 +975,58 @@ $('save-shape').onclick=()=>saveSelected('shape');
 $('save-part').onclick=()=>saveSelected('part');
 $('save-assembly').onclick=()=>saveSelected('assembly');
 async function renderLibrary(){
- const box=$('library-items');if(!ready)return;
+ if(!ready)return;
+ const box=$('library-items'),projectsBox=$('project-items');
  try{
   const [assets,projects]=await Promise.all([db.all('assets'),db.all('projects')]);
-  const projectsBox=$('project-items');projectsBox.replaceChildren();
-  for(const project of projects.filter(p=>p?.format===FORMAT).sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0))){
-   const item=document.createElement('div');item.className='asset-item';
-   const title=document.createElement('span'),name=document.createElement('strong'),btn=document.createElement('button');
-   name.textContent=project.name;title.append(name);
-   const sub=document.createElement('small');
-   sub.textContent=project.id===doc.id?'CURRENT PROJECT':((project.nodes?.length||1)-1)+' NODES';
-   title.append(sub);btn.textContent=project.id===doc.id?'OPEN':'OPEN PROJECT';
-   btn.onclick=async()=>{
+  projectsBox.replaceChildren();box.replaceChildren();
+  for(const project of projects.filter(p=>p?.format===FORMAT)
+   .sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0)).slice(0,30)){
+   const tile=makeTile({id:project.id},project,'project',project.name,
+    project.id===doc.id?'CURRENT':(project.nodes?.length-1||0)+' PIECES');
+   tile.classList.add('asset-item');
+   tile.onclick=async()=>{
     if(project.id===doc.id)return switchTab('objects');
-    if(!confirm('Open '+project.name+'? Unsaved edits should be saved or exported first.'))return;
+    if(!confirm('Open '+project.name+'? Your current project will be saved.'))return;
     try{
-     await savePromise;
-     await db.saveProject(doc);
-     doc=validateDocument(project);
-     startHistory();await loadReferences();refresh();switchTab('objects');
-     message('Opened '+doc.name+' from project library.');
-    }catch(e){message('Project could not open: '+e.message,true);}
+     await savePromise;await db.saveProject(doc);
+     doc=validateDocument(project);startHistory();thumbEpoch++;thumbCache.clear();
+     await loadReferences();refresh();switchTab('objects');fitSelected();
+     message('Opened '+doc.name+'.');
+    }catch(e){message('Could not open project: '+e.message,true);}
    };
-   item.append(title,btn);projectsBox.append(item);
+   projectsBox.append(tile);
   }
-  const search=$('library-search').value.toLowerCase();
-  box.replaceChildren();
-  for(const asset of assets.filter(a=>a.format==='m3ch4.workbench.asset'&&a.name.toLowerCase().includes(search))){
-   const el=document.createElement('div');el.className='asset-item';
-   const label=document.createElement('span'),actions=document.createElement('span');
-   const title=document.createElement('strong');title.textContent=asset.name;
-   const meta=document.createElement('small');meta.textContent=asset.type.toUpperCase()+' · REV '+asset.revision;
-   label.append(title,meta);
-   const btn=document.createElement('button');btn.textContent='INSERT';
-   btn.onclick=()=>{
-    try{const out=insertAsset(doc,asset);commit(out.document,out.selectedId,'Inserted '+asset.name+'.');switchTab('objects');}
+  const search=$('library-search').value.trim().toLowerCase();
+  for(const asset of assets.filter(a=>a?.format==='m3ch4.workbench.asset'&&a.name.toLowerCase().includes(search))){
+   const tile=makeTile({id:asset.id},asset,'asset',asset.name,asset.type.toUpperCase());
+   tile.classList.add('asset-item');
+   const insert=()=>{
+    try{const result=insertAsset(doc,asset);commit(result.document,result.selectedId,'Inserted '+asset.name);
+     switchTab('objects');}
     catch(e){message('Insert rejected: '+e.message,true);}
    };
-   const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename asset';
-   rename.onclick=async()=>{
-    const next=prompt('Rename asset',asset.name);
+   tile.onclick=insert;
+   const actions=document.createElement('div');actions.className='asset-actions';
+   const add=document.createElement('button');add.textContent='＋ INSERT';add.title='Insert into assembly';
+   add.onclick=e=>{e.stopPropagation();insert();};
+   const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename';
+   rename.onclick=async e=>{e.stopPropagation();const next=prompt('Rename asset',asset.name);
     if(!next?.trim())return;
-    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();message('Asset renamed.');}
-    catch(e){message('Rename failed: '+e.message,true);}
+    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();}
+    catch(err){message(err.message,true);}
    };
-   const del=document.createElement('button');del.textContent='×';del.title='Delete asset';
-   del.onclick=async()=>{
-    if(!confirm('Delete '+asset.name+' from this browser library? Export a backup first.'))return;
-    try{await db.remove('assets',asset.id);renderLibrary();message('Deleted saved library asset.');}
-    catch(e){message('Delete failed: '+e.message,true);}
+   const remove=document.createElement('button');remove.textContent='×';remove.title='Delete';
+   remove.onclick=async e=>{e.stopPropagation();
+    if(!confirm('Delete '+asset.name+' from the Workbench library?'))return;
+    try{await db.remove('assets',asset.id);renderLibrary();}
+    catch(err){message(err.message,true);}
    };
-   actions.style.cssText='display:flex;flex-wrap:wrap;gap:4px';
-   actions.append(btn,rename,del);el.append(label,actions);box.append(el);
+   actions.append(add,rename,remove);tile.append(actions);box.append(tile);
   }
-  if(!box.children.length)box.textContent='Library empty. Save a shape or part from OBJECTS.';
+  if(!box.children.length){const p=document.createElement('p');p.className='hint';
+    p.textContent='No saved parts yet. Select a piece and tap SAVE AS PART.';
+    box.append(p);}
  }catch(e){box.textContent='Library unavailable: '+e.message;}
 }
 
@@ -882,6 +1128,7 @@ async function initialize(){
   returnLink.textContent='LIVE GAME';
  }
  sceneSetup();
+ setupThumbnails();showPrimitiveGrid();
  setupFactoryPicker();
  try{
   const loaded=await db.lastProject();
@@ -893,10 +1140,10 @@ async function initialize(){
    await db.saveProject(doc);
   }
   await loadReferences();
-  startHistory();ready=true;refresh();message(loaded?'Opened saved Workbench project.':'Ready. Add geometry or edit your imported V1 calf.');
+  startHistory();ready=true;refresh();if(doc.nodes.length>1)fitSelected();message(loaded?'Opened saved Workbench project.':'Ready. Choose + SHAPE or GAME PART.');
   window.__m3ch4WorkbenchV2Ready=true;
  }catch(e){
-  ready=true;startHistory();refresh();
+  ready=true;startHistory();refresh();if(doc.nodes.length>1)fitSelected();
   message('IndexedDB unavailable ('+e.message+'). Geometry editing works; export for backup.',true);
   window.__m3ch4WorkbenchV2Ready=true;
  }
