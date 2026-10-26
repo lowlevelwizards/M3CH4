@@ -20,6 +20,7 @@ import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './b
 import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironmentPass.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
+import { attachPrototypeToPlayerExterior } from './workbench/prototypeBridge.js';
 import { addEquipmentVisuals } from './equipmentVisuals.js';
 import {footTrajectory,legPose,familyAnimation,aimArticulation,reloadArticulation} from './articulationMotion.js';
 import {attachReloadHardware,poseReloadHardware,poseExistingReloadMagazine} from './weaponVisualKit.js';
@@ -1687,6 +1688,8 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
     let pilotWeaponRecoveryKick = 0, pilotRecoveryBurstPending = false;
     let exterior = buildExteriorRig(initial);
     calibrateExteriorSoles(exterior);
+    // Test Yard only: developer-authored cosmetic shapes follow the real player knee.
+    attachPrototypeToPlayerExterior(exterior,installedPart(initial,'mobility')?.definition?.id);
     for (const mesh of exterior.pickMeshes)
         mesh.userData.actorId = 'player';
     scene.add(exterior.root);
@@ -2438,6 +2441,7 @@ export function createArenaScene(initial, targetAssembly, arenaMap=BACKLOT) {
         inspectionBaseParts=capturePartTransforms(exterior);
         inspectionJoints=captureArticulation(exterior).joints;
         calibrateExteriorSoles(exterior);
+        attachPrototypeToPlayerExterior(exterior,installedPart(assembly,'mobility')?.definition?.id);
         updateGarageFixtures(assembly);
         for (const mesh of exterior.pickMeshes)
             mesh.userData.actorId = 'player';

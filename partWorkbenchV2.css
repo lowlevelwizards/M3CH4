@@ -1,0 +1,54 @@
+:root{font-family:system-ui,-apple-system,sans-serif;color-scheme:dark;background:#17211b;color:#e4e6d8}
+*{box-sizing:border-box}body{margin:0}button,select,input,textarea{font:inherit}button{cursor:pointer;touch-action:manipulation}
+header{display:flex;justify-content:space-between;align-items:center;padding:11px max(10px,env(safe-area-inset-right)) 11px max(10px,env(safe-area-inset-left));background:#253329;border-bottom:1px solid #586756;gap:10px}
+header small{font-size:9px;letter-spacing:.1em;color:#b7bb9f}h1{font-size:17px;letter-spacing:.06em;margin:2px 0 0;line-height:1.1}h1 em{font-style:normal;color:#deb77c;font-size:11px}
+.head-actions{display:flex;align-items:center;gap:5px}.head-actions button,.head-actions a{font-size:10px;padding:9px;color:#e3e5d6;background:#38483b;border:1px solid #677465;border-radius:4px;text-decoration:none}
+button.gold,.head-actions .gold{background:#c79b57;color:#152015;border-color:#e1b979;font-weight:800}
+button.danger{color:#ecc5b5}button.active{background:#d1a866;color:#152319;border-color:#ffca7d}
+button:disabled,input:disabled{opacity:.42}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #e9bc72;outline-offset:2px}
+main{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:auto;padding:8px max(8px,env(safe-area-inset-left)) 15px;max-width:1400px}
+.view-panel,.edit-panel{min-width:0;background:#27352b;border:1px solid #506250;border-radius:7px;overflow:hidden}
+.line{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 9px;background:#354337}
+.line input{max-width:65%;font-weight:700;background:transparent;border:0;color:#f0e9d8;outline:none;font-size:13px}
+.line span{font-size:10px;letter-spacing:.05em;color:#b5c9bd;text-align:right}
+#stage{height:clamp(245px,43dvh,470px);position:relative;overflow:hidden;background:#334138}
+#stage-canvas{width:100%;height:100%;display:block;touch-action:none}
+#edit-overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;pointer-events:none}
+#edit-overlay .point-handle{pointer-events:all;cursor:grab}
+#stage-hint{position:absolute;bottom:8px;left:8px;background:#16241cbb;padding:6px;border-radius:3px;font-size:10px;color:#dfddb7;pointer-events:none}
+.toolbar{display:flex;gap:5px;align-items:stretch;padding:6px}
+.toolbar button{font-size:10px;font-weight:750;min-height:39px;padding:5px 8px;flex:1;background:#3a4a3d;color:#e1e6d7;border:1px solid #677968;border-radius:4px;white-space:nowrap}
+.toolbar button.gold{background:#c79b57;color:#172119;border-color:#e7bb74}
+.toolbar button.active{background:#cba366;color:#152118;border-color:#e9c078}
+.toolbar select{min-height:41px;flex:2;min-width:0;background:#1f2e25;color:#e8e5d6;border:1px solid #687d6c;padding:6px;border-radius:4px;font-size:12px}
+.views button:last-child{flex:1.8}
+.tabs{display:flex;background:#18261e;border-bottom:1px solid #657766;gap:2px;padding:5px}
+.tabs button{flex:1;min-height:38px;background:transparent;color:#c3ccbd;border:1px solid transparent;border-radius:3px;font-weight:750;font-size:11px}
+.tabs button.active{background:#b59a60;color:#122117}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:7px;color:#efd8a6;background:#344439;font-size:10px;font-weight:800;letter-spacing:.08em;padding:9px 11px;margin-top:8px}
+.section-title span{color:#b3c2b3;font-size:9px;font-weight:400}
+.edit-panel>div:not(.tabs){padding-bottom:7px}
+#object-tree,#library-items,#reference-items{padding:6px 10px;min-height:55px;max-height:220px;overflow:auto}
+.tree-item,.asset-item{display:flex;gap:7px;align-items:center;justify-content:space-between;width:100%;background:#1d2a21;border:1px solid #4c6354;color:#e4e8db;border-radius:4px;padding:7px 8px;margin-bottom:4px;min-height:35px;text-align:left;font-size:11px}
+.tree-item{cursor:pointer}.tree-item.active{border-color:#efba68;background:#445541}.tree-item small{color:#b0c4b7;font-size:9px}.tree-item .tree-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asset-item{align-items:flex-start}.asset-item strong{font-size:11px}.asset-item small{display:block;font-size:9px;color:#afc5b4;margin-top:2px}
+.asset-item button{background:#b89e63;color:#19261c;border:0;border-radius:3px;padding:9px;font-size:10px;font-weight:800}
+.edit-panel label{display:flex;flex-direction:column;font-size:10px;font-weight:700;color:#c4d0bb;gap:4px;margin:9px 10px}
+.edit-panel input:not([type=range]):not([type=file]),.edit-panel select,.edit-panel textarea{width:100%;min-height:35px;background:#19271f;border:1px solid #71836f;color:#e5e5d6;padding:7px 8px;border-radius:4px;font-size:12px}
+.edit-panel textarea{line-height:1.4;resize:vertical}
+.small-label{display:flex;justify-content:space-between;padding:7px 11px 2px;font-size:9px;color:#d6c29d;letter-spacing:.07em;font-weight:700}
+.small-label span{letter-spacing:0;font-weight:400;color:#a5bbaa}
+.num-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:5px 10px}
+.num-grid label{margin:0;font-size:9px}.num-grid input{min-width:0}
+#geometry-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;padding:0 5px}
+#geometry-fields label{margin:5px;font-size:9px}
+#geometry-fields .wide{grid-column:1/-1}
+.upload{min-height:48px;justify-content:center;align-items:center;color:#efddbb!important;border:1px dashed #8a9879;border-radius:5px;background:#354236;cursor:pointer}
+.upload input{display:none}
+.hint{color:#acc2b0;font-size:11px;line-height:1.5;margin:9px}
+#status{margin:11px;border-top:1px solid #536657;padding-top:9px;font-size:11px;color:#e1ba7b;min-height:35px;line-height:1.4}
+footer{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:1400px;margin:auto;padding:0 14px 25px;font-size:10px;color:#aabcac}
+footer a{color:#e9c58f;text-decoration:none}
+#library-search{margin:9px 10px;width:calc(100% - 20px)!important}
+@media(min-width:820px){main{grid-template-columns:minmax(0,1.3fr) minmax(360px,.9fr);align-items:start}.view-panel{position:sticky;top:12px}#stage{height:clamp(390px,62vh,780px)}}
+@media(max-width:410px){.toolbar{gap:3px;padding:4px}.toolbar button{font-size:9px;padding:5px 3px}.head-actions button,.head-actions a{padding:8px 5px;font-size:9px}h1{font-size:15px}}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#202b25"><title>M3CH4 / Part Workbench V2</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./partWorkbenchV2.css"></head>
+<body>
+<header><div><small>M3CH4 · PRODUCTION ART / BLUEPRINT EDITOR</small><h1>PART WORKBENCH <em>V2</em></h1></div>
+<div class="head-actions"><button id="new-project">NEW</button><button id="save-project" class="gold">SAVE</button><a href="./art-lab.html">BACK</a></div></header>
+<main>
+<section class="view-panel">
+ <div class="line"><input id="project-name" aria-label="Project name" value="Untitled assembly" maxlength="100"><span id="mode-status">3D VIEW</span></div>
+ <div id="stage"><canvas id="stage-canvas" aria-label="Live Three.js blueprint inspection"></canvas><svg id="edit-overlay" aria-label="Orthographic editing handles" role="img"></svg><div id="stage-hint">Tap a shape to select · drag to orbit</div></div>
+ <div class="toolbar views"><button data-view="quarter" class="active">3D</button><button data-view="front">FRONT</button><button data-view="side">SIDE</button><button data-view="top">TOP</button><button id="context-toggle">SHOW YARDWALKER</button></div>
+ <div class="toolbar tools"><button data-tool="select" class="active">SELECT</button><button data-tool="move">MOVE</button><button data-tool="rotate">ROTATE</button><button data-tool="scale">SCALE</button><button data-tool="points">POINTS</button></div>
+ <div class="toolbar"><button id="test-in-yard" class="gold">TEST PROTOTYPE IN REAL YARD ↗</button></div>\n <div class="toolbar actions"><button id="undo">↶ UNDO</button><button id="redo">↷ REDO</button><button id="duplicate">DUPLICATE</button><button id="mirror">MIRROR</button><button id="unlink">UNLINK</button></div>
+</section>
+<section class="edit-panel">
+ <div class="tabs"><button class="active" data-tab="objects">OBJECTS</button><button data-tab="library">LIBRARY</button><button data-tab="reference">REFERENCES</button></div>
+ <div id="tab-objects">
+  <div class="section-title">ADD SHAPE <span>8 LOW-POLY FAMILIES</span></div>
+  <div class="toolbar"><select id="shape-type"><option value="box">BOX</option><option value="chamfer">CHAMFER BOX</option><option value="cylinder">CYLINDER / BEARING</option><option value="tube">TUBE</option><option value="wedge">WEDGE</option><option value="plate">EXTRUDED PLATE</option><option value="taper">TAPERED BEAM</option><option value="loft">PROFILE LOFT</option></select><button id="add-shape" class="gold">+ ADD</button></div>
+  <div class="section-title">OBJECT HIERARCHY <span id="node-count"></span></div>
+  <div id="object-tree" role="listbox" aria-label="Blueprint objects"></div>
+  <div class="toolbar"><button id="group-objects">GROUP</button><button id="ungroup">UNGROUP</button><button id="hide-object">HIDE / SHOW</button><button id="lock-object">LOCK</button><button id="delete-object" class="danger">DELETE</button></div>
+  <div class="section-title">SELECTED OBJECT <span id="selected-id">—</span></div>
+  <label>NAME <input id="object-name" placeholder="Select an object"></label>
+  <div class="small-label">POSITION (M) <span>relative to parent</span></div>
+  <div class="num-grid" id="position-fields"></div>
+  <div class="small-label">ROTATION (DEGREES)</div><div class="num-grid" id="rotation-fields"></div>
+  <div class="small-label">SCALE</div><div class="num-grid" id="scale-fields"></div>
+  <div class="small-label">GEOMETRY PARAMETERS</div><div id="geometry-fields"></div>
+  <label>MATERIAL <select id="material-role"><option value="olive">OLIVE</option><option value="ochre">MUSTARD</option><option value="cream">CREAM</option><option value="iron">IRON</option><option value="teal">TEAL</option><option value="orange">ORANGE</option><option value="dark">DARK</option><option value="bright">MACHINED</option><option value="armor">ARMOR</option></select></label>
+  <div class="small-label">SNAP / METRES</div><div class="toolbar"><select id="snap"><option value="0">OFF</option><option value=".005">5 MM</option><option value=".01" selected>10 MM</option><option value=".025">25 MM</option><option value=".05">50 MM</option><option value=".1">100 MM</option></select><button id="reset-selected">RESET TRANSFORM</button></div>
+  <div class="section-title">SAVE SELECTED AS</div>
+  <div class="toolbar"><button id="save-shape">SHAPE</button><button id="save-part">PART</button><button id="save-assembly" class="gold">ASSEMBLY</button></div>
+ </div>
+ <div id="tab-library" hidden>
+  <div class="section-title">SAVED PROJECTS <span>REOPEN TO CONTINUE EDITING</span></div>
+  <div id="project-items"></div>
+  <div class="section-title">REUSABLE ASSETS</div>
+  <input id="library-search" placeholder="Search shapes, parts, assemblies">
+  <div id="library-items"></div>
+  <p class="hint">Save a shape, part, or assembly in Objects. Tap INSERT to reuse it. DRAFT assets do not become career equipment automatically.</p>
+  <div class="toolbar"><button id="export-bundle">EXPORT PROJECT + LIBRARY</button><button id="import-bundle">IMPORT BUNDLE</button></div>
+  <input type="file" id="bundle-file" accept="application/json,.json" hidden>
+ </div>
+ <div id="tab-reference" hidden>
+  <div class="section-title">ORTHOGRAPHIC REFERENCE GUIDES</div>
+  <label>VIEW <select id="reference-view"><option value="front">FRONT</option><option value="side">SIDE</option><option value="top">TOP</option><option value="concept">CONCEPT</option><option value="modules">MODULE SHEET</option></select></label>
+  <label class="upload">+ IMPORT IMAGE <input type="file" accept="image/*" id="reference-file"></label>
+  <div id="reference-items"></div>
+  <label>OPACITY <input id="reference-opacity" type="range" min="0" max="1" step=".05" value=".35"></label>
+  <label>IMAGE WIDTH (METRES) <input id="reference-width" type="number" min=".02" max="20" step=".01" value="1"></label>
+  <div class="num-grid"><label>OFFSET X (M)<input id="reference-x" type="number" step=".01" value="0"></label><label>OFFSET Y (M)<input id="reference-y" type="number" step=".01" value="0"></label></div>
+  <p class="hint">Images are editable, calibrated overlays only. The same 3D blueprint is edited in every view. Generated orthographic art is a guide, not exact CAD reconstruction.</p>
+  <label>MODULE MANIFEST (JSON)<textarea id="module-manifest" rows="4" placeholder="Paste an AI-authored module breakdown"></textarea></label>
+  <button id="apply-manifest">VALIDATE + SAVE MODULE NOTES</button>
+ </div>
+ <p id="status" role="status" aria-live="polite">Loading Workbench...</p>
+</section>
+</main>
+<footer><a href="./part-workbench.html">OPEN ORIGINAL V1 CALF EDITOR</a><span>Blueprint drafts remain separate from career saves · Export to back up your work</span></footer>
+<script type="module" src="./partWorkbenchV2.js"></script>
+</body></html>
