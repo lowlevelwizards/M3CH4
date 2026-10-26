@@ -18,6 +18,12 @@
 <section class="edit-panel">
  <div class="tabs"><button class="active" data-tab="objects">OBJECTS</button><button data-tab="library">LIBRARY</button><button data-tab="reference">REFERENCES</button></div>
  <div id="tab-objects">
+  <div class="section-title">OPEN EXISTING GAME CONTENT <span>FACTORY GEOMETRY, NOT PLACEHOLDERS</span></div>
+  <label for="factory-part-select">GAME CATALOGUE PART</label>
+  <div class="toolbar"><select id="factory-part-select" aria-label="Select an existing game component"></select><button id="open-factory-part" class="gold">OPEN / EDIT</button><button id="insert-factory-part">INSERT</button></div>
+  <div class="toolbar"><button id="open-factory-rig">OPEN FACTORY MECH</button><button id="open-yard-rig">OPEN TEST YARD LOADOUT</button></div>
+  <div class="toolbar"><select id="garage-bay-select" aria-label="Select saved career rig"><option value="0">CAREER BAY 1</option><option value="1">CAREER BAY 2</option><option value="2">CAREER BAY 3</option></select><button id="open-garage-bay">OPEN SAVED MECH</button></div>
+  <p class="hint">Imports a separate editable copy of the actual game model, including its internal pieces and joint groups. Your original catalogue and saves are not changed.</p>
   <div class="section-title">ADD SHAPE <span>8 LOW-POLY FAMILIES</span></div>
   <div class="toolbar"><select id="shape-type"><option value="box">BOX</option><option value="chamfer">CHAMFER BOX</option><option value="cylinder">CYLINDER / BEARING</option><option value="tube">TUBE</option><option value="wedge">WEDGE</option><option value="plate">EXTRUDED PLATE</option><option value="taper">TAPERED BEAM</option><option value="loft">PROFILE LOFT</option></select><button id="add-shape" class="gold">+ ADD</button></div>
   <div class="section-title">OBJECT HIERARCHY <span id="node-count"></span></div>
@@ -30,6 +36,13 @@
   <div class="small-label">ROTATION (DEGREES)</div><div class="num-grid" id="rotation-fields"></div>
   <div class="small-label">SCALE</div><div class="num-grid" id="scale-fields"></div>
   <div class="small-label">GEOMETRY PARAMETERS</div><div id="geometry-fields"></div>
+  <div id="mesh-point-panel" hidden>
+   <div class="section-title">IMPORTED MESH POINTS <span id="mesh-points-label">SELECT A POINT</span></div>
+   <div class="toolbar"><button id="mesh-points-prev">◀ PREVIOUS POINTS</button><button id="mesh-points-next">NEXT POINTS ▶</button></div>
+   <p class="hint">Choose POINTS, then FRONT / SIDE / TOP. Touch an amber dot or select its number to edit the original production mesh. Identical seam vertices move together.</p>
+   <label>CONTROL POINT <select id="mesh-point-select"></select></label>
+   <div class="num-grid" id="mesh-point-coordinates"></div>
+  </div>
   <label>MATERIAL <select id="material-role"><option value="olive">OLIVE</option><option value="ochre">MUSTARD</option><option value="cream">CREAM</option><option value="iron">IRON</option><option value="teal">TEAL</option><option value="orange">ORANGE</option><option value="dark">DARK</option><option value="bright">MACHINED</option><option value="armor">ARMOR</option></select></label>
   <div class="small-label">SNAP / METRES</div><div class="toolbar"><select id="snap"><option value="0">OFF</option><option value=".005">5 MM</option><option value=".01" selected>10 MM</option><option value=".025">25 MM</option><option value=".05">50 MM</option><option value=".1">100 MM</option></select><button id="reset-selected">RESET TRANSFORM</button></div>
   <div class="section-title">SAVE SELECTED AS</div>

@@ -8,6 +8,8 @@ import {orbitAfterDrag} from './workbench/orbitCamera.js';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
+import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly,importSavedGarageBay} from './workbench/factoryImport.js';
+import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
 let doc=createDocument('Untitled assembly'),current=null,history=[],step=0,selected='root',selectedIds=new Set();
@@ -15,6 +17,7 @@ let view='quarter',tool='select',showContext=false,context=null,compiled=null;
 let camera,renderer,scene,grid,raycaster=new THREE.Raycaster(),orthoScale=2.7;
 let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touchSpan=null;
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
+let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let saveTimer=null,savePromise=Promise.resolve(),drawPending=false,ready=false;
 const canvas=$('stage-canvas'),stage=$('stage'),svg=$('edit-overlay'),NS='http://www.w3.org/2000/svg';
 const snap=()=>Number($('snap').value)||0;
@@ -49,6 +52,89 @@ function undo(offset){
  if(!doc.nodes.some(n=>n.id===selected))selected='root';
  queueSave();refresh();
 }
+function replaceProjectWithFactory(result){
+ const imported=result.document;
+ const next=clone(imported);
+ // A factory model is an editable COPIED project. Keep previous projects in
+ // the IndexedDB library, and never mutate source engine geometry.
+ doc=validateDocument(next);
+ // An entire imported factory rig must never accidentally be parented inside
+ // the previous project's Yardwalker knee context.
+ showContext=false;buildContext();
+ meshPointPageIndex=0;meshPointSelectedIndex=0;startHistory();
+ const importedBounds=compileBlueprint(doc);
+ const bounds=measureBlueprint(importedBounds.root);
+ disposeBlueprint(importedBounds.root);
+ if(!bounds.empty){
+  const max=Math.max(...bounds.size);
+  orbit.distance=Math.max(1.8,Math.min(18,max*2.5));
+  orthoScale=Math.max(.42,Math.min(10,max*.9));
+  setCamera();
+ }
+ queueSave();refresh();
+ selected=doc.nodes.find(n=>n.parentId==='root')?.id||'root';
+ renderTree();renderInspector();requestDraw();
+ message('Opened '+result.meshCount+' authentic game meshes and '+result.groupCount+
+  ' named groups. Select a MESH in the hierarchy to edit points; select the top group to SAVE the complete part or assembly.');
+}
+function remapImportedNodes(target,source){
+ const next=clone(target),map=new Map();
+ const unique=()=>('factory-insert-'+(crypto.randomUUID?.()||Math.random().toString(36).slice(2)));
+ for(const n of source.nodes)if(n.id!=='root')map.set(n.id,unique());
+ for(const n of source.nodes){
+  if(n.id==='root')continue;
+  const copy=clone(n);copy.id=map.get(n.id);
+  copy.parentId=map.get(n.parentId)||'root';
+  copy.mirrorOf=map.get(n.mirrorOf)||null;
+  next.nodes.push(copy);
+ }
+ const top=source.nodes.find(n=>n.parentId==='root');
+ return {document:validateDocument(next),selectedId:map.get(top?.id)||'root'};
+}
+async function openFactoryPart(insert=false){
+ const id=$('factory-part-select').value;
+ if(!id)return message('Select a game component.',true);
+ try{
+  const result=importFactoryPart(id);
+  if(insert){
+   const {document,selectedId}=remapImportedNodes(doc,result.document);
+   commit(document,selectedId,'Inserted authentic '+id+' factory geometry into this project.');
+   return;
+  }
+  await savePromise;await db.saveProject(doc);
+  replaceProjectWithFactory(result);
+ }catch(e){message('Could not import game part: '+e.message,true);console.error(e);}
+}
+async function openFactoryRig(kind){
+ try{
+  const result=importFactoryAssembly(kind);
+  await savePromise;await db.saveProject(doc);
+  replaceProjectWithFactory(result);
+ }catch(e){message('Could not open game assembly: '+e.message,true);console.error(e);}
+}
+async function openCareerBay(){
+ try{
+  const result=importSavedGarageBay(Number($('garage-bay-select').value));
+  await savePromise;await db.saveProject(doc);
+  replaceProjectWithFactory(result);
+ }catch(e){message('Could not open career bay: '+e.message,true);console.error(e);}
+}
+
+function setupFactoryPicker(){
+ const picker=$('factory-part-select');
+ const groups=new Map();
+ for(const def of factoryCatalogueOptions()){
+  let group=groups.get(def.slot);
+  if(!group){group=document.createElement('optgroup');group.label=def.slot.toUpperCase();picker.append(group);groups.set(def.slot,group);}
+  const option=document.createElement('option');option.value=def.id;option.textContent=def.name;group.append(option);
+ }
+ $('open-factory-part').onclick=()=>openFactoryPart(false);
+ $('insert-factory-part').onclick=()=>openFactoryPart(true);
+ $('open-factory-rig').onclick=()=>openFactoryRig('default');
+ $('open-yard-rig').onclick=()=>openFactoryRig('yard');
+ $('open-garage-bay').onclick=openCareerBay;
+}
+
 function sceneSetup(){
  scene=new THREE.Scene();scene.background=new THREE.Color(0x344039);
  scene.add(new THREE.HemisphereLight(0xe8e9db,0x30392d,1.75));
@@ -162,6 +248,7 @@ function renderTree(){
  const traverse=(parent,depth)=>{
   for(const n of doc.nodes.filter(n=>n.parentId===parent)){
    const b=document.createElement('button');b.type='button';b.className='tree-item'+(selected===n.id?' active':'');
+   b.dataset.kind=n.kind;
    const type=document.createElement('small');type.textContent=n.kind==='shape'?n.geometry.type.toUpperCase():n.kind.toUpperCase();
    const label=document.createElement('span');label.className='tree-name';label.textContent=('  '.repeat(depth))+n.name;
    const flags=document.createElement('small');flags.textContent=(n.visible?'':'HIDDEN ')+(n.locked?'LOCKED ':'')+(n.mirrorOf?'LINKED':'');
@@ -191,6 +278,50 @@ function changeTransform(field,i,value){
  try{commit(updateNode(doc,selected,{transform:change}));}
  catch(e){message(e.message,true);}
 }
+function renderImportedMeshControls(n,active){
+ const panel=$('mesh-point-panel');
+ const mesh=n?.kind==='shape'&&n?.geometry?.type==='mesh'&&!n?.mirrorOf;
+ panel.hidden=!mesh;
+ if(!mesh)return;
+ const info=meshPointPage(n.geometry,meshPointPageIndex);
+ meshPointPageIndex=info.page;
+ meshPointSelectedIndex=Math.max(0,Math.min(info.count-1,meshPointSelectedIndex));
+ $('mesh-points-label').textContent=info.count+' POINTS / PAGE '+(info.page+1)+' OF '+info.pages;
+ $('mesh-points-prev').disabled=info.page<=0;
+ $('mesh-points-next').disabled=info.page>=info.pages-1;
+ const picker=$('mesh-point-select');picker.replaceChildren();
+ for(const group of info.points){
+  const option=document.createElement('option');option.value=group.index;
+  option.textContent='POINT '+(group.index+1)+' — '+group.position.map(v=>v.toFixed(3)).join(' / ');
+  picker.append(option);
+ }
+ // Select the first visible point when paging to another group.
+ if(!info.points.some(x=>x.index===meshPointSelectedIndex))
+  meshPointSelectedIndex=info.points[0]?.index||0;
+ picker.value=String(meshPointSelectedIndex);
+ picker.disabled=!active;
+ const coord=$('mesh-point-coordinates');coord.replaceChildren();
+ const point=meshPointGroups(n.geometry)[meshPointSelectedIndex]?.position;
+ if(!point)return;
+ for(let axis=0;axis<3;axis++){
+  const field=inputNumber(point[axis],value=>{
+   const current=node();
+   if(!current||current.kind!=='shape'||current.geometry.type!=='mesh')return;
+   try{
+    const updated=updateMeshPoint(current.geometry,meshPointSelectedIndex,
+      point.map((v,j)=>j===axis?value:v));
+    commit(updateNode(doc,selected,{geometry:updated}),selected,'Edited original game mesh point.');
+   }catch(e){message('Point rejected: '+e.message,true);}
+  },{label:['X (M)','Y (M)','Z (M)'][axis],min:-100,max:100,step:.01});
+  field.querySelector('input').disabled=!active;coord.append(field);
+ }
+}
+$('mesh-points-prev').onclick=()=>{meshPointPageIndex--;renderInspector();requestDraw();};
+$('mesh-points-next').onclick=()=>{meshPointPageIndex++;renderInspector();requestDraw();};
+$('mesh-point-select').onchange=e=>{
+ meshPointSelectedIndex=Number(e.target.value);renderInspector();requestDraw();
+};
+
 function renderInspector(){
  const n=node(),active=!!n&&!n.locked&&n.id!=='root';
  $('object-name').value=n?.name||'';$('object-name').disabled=!active;
@@ -205,6 +336,7 @@ function renderInspector(){
    input.querySelector('input').disabled=!active;target.append(input);
   }
  }
+ renderImportedMeshControls(n,active);
  const target=$('geometry-fields');target.replaceChildren();
  if(!active||n.kind!=='shape'){target.textContent='Select an editable shape.';return;}
  const g=n.mirrorOf?doc.nodes.find(x=>x.id===n.mirrorOf).geometry:n.geometry;
@@ -228,6 +360,7 @@ function renderInspector(){
  if(g.sections)for(let i=0;i<g.sections.length;i++)
   for(const key of ['y','width','front','back'])field('SECTION '+(i+1)+' '+key.toUpperCase(),
     ['sections',i,key],g.sections[i][key],key==='width'?.005:key==='y'?0:-6,8);
+ if(g.type==='mesh')target.textContent='Imported factory triangles are editable in the POINTS controls below and in FRONT / SIDE / TOP views. All three coordinates can be edited numerically.';
  if(g.profile)for(let i=0;i<g.profile.length;i++)for(let axis=0;axis<2;axis++)
   field('POINT '+(i+1)+' '+(axis?'Y':'X'),['profile',i,axis],g.profile[i][axis],-6,6);
  const actions=document.createElement('div');actions.className='toolbar';
@@ -260,7 +393,19 @@ const changeSelected=(change,msg)=>{
  try{commit(updateNode(doc,selected,change),selected,msg);}catch(e){message(e.message,true);}
 };
 $('object-name').onchange=()=>changeSelected({name:$('object-name').value.trim()||'Unnamed'});
-$('material-role').onchange=()=>changeSelected({materialRole:$('material-role').value});
+$('material-role').onchange=()=>{
+ const n=node();if(!n||n.kind!=='shape')return;
+ const role=$('material-role').value;
+ const change={materialRole:role};
+ if(n.geometry.type==='mesh'){
+  // Palette selection is an explicit repaint of imported authored colors.
+  const palette={olive:0x849275,ochre:0xb48c37,cream:0xcac4ae,iron:0x4c5a56,
+   teal:0x468786,orange:0xc07852,dark:0x293431,bright:0x9ba6a3,armor:0xbbb49c};
+  change.materialColor=palette[role];
+  if(n.materialColors)change.materialColors=n.materialColors.map(()=>palette[role]);
+ }
+ changeSelected(change,'Updated selected shape finish.');
+};
 $('project-name').onchange=()=>{
  const next=clone(doc);next.name=$('project-name').value.trim()||'Untitled assembly';commit(next);
 };
@@ -382,6 +527,12 @@ function drawOverlay(){
  if(tool==='points'&&view!=='quarter'&&!n.locked&&!n.mirrorOf){
   if(g.profile&&view==='front')
    g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
+  if(g.type==='mesh'){
+   const page=meshPointPage(g,meshPointPageIndex);
+   page.points.forEach(point=>handles.push({
+    pos:new THREE.Vector3(...point.position),kind:'factory-mesh',index:point.index
+   }));
+  }
   if(g.sections){
    g.sections.forEach((s,i)=>{
     if(view==='front'){
@@ -400,7 +551,7 @@ function drawOverlay(){
  for(const entry of handles){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
   if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
-  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:13,fill:'#edb15d','fill-opacity':'.15',
+  const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?9:13,fill:'#edb15d','fill-opacity':'.15',
    stroke:'#e7ae57','stroke-width':1.5,class:'point-handle',
    'data-index':entry.index,'data-kind':entry.kind});
   const core=svgNode('circle',{cx:p.x,cy:p.y,r:4.5,fill:'#ffcc71','pointer-events':'none'});
@@ -428,6 +579,17 @@ function applyPoint(e){
  const local=target.worldToLocal(hit);
  const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
  const g=n.geometry,i=drag.index;
+ if(g.type==='mesh'){
+  const original=meshPointGroups(g)[i]?.position;
+  if(!original)return;
+  const pos=original.slice();
+  if(view==='front'){pos[0]=snapValue(local.x);pos[1]=snapValue(local.y);}
+  if(view==='side'){pos[2]=snapValue(local.z);pos[1]=snapValue(local.y);}
+  if(view==='top'){pos[0]=snapValue(local.x);pos[2]=snapValue(local.z);}
+  meshPointSelectedIndex=i;
+  try{n.geometry=updateMeshPoint(g,i,pos);}
+  catch{return;}
+ }
  if(g.profile){
   if(view!=='front')return;
   g.profile[i]=[snapValue(local.x),snapValue(local.y)];
@@ -686,6 +848,7 @@ window.addEventListener('error',e=>message('Editor runtime error: '+e.message,tr
 window.addEventListener('unhandledrejection',e=>message('Editor error: '+(e.reason?.message||e.reason),true));
 async function initialize(){
  sceneSetup();
+ setupFactoryPicker();
  try{
   const loaded=await db.lastProject();
   if(loaded)doc=validateDocument(loaded);

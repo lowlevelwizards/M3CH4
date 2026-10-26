@@ -40,6 +40,15 @@ export function compileGeometry(input){
  const g=validateGeometry(clone(input));
  let geo;
  switch(g.type){
+ case 'mesh': {
+  geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(g.positions,3));
+  geo.setIndex(g.indices);
+  if(g.normals)geo.setAttribute('normal',new THREE.Float32BufferAttribute(g.normals,3));
+  else geo.computeVertexNormals();
+  for(const group of(g.groups||[]))geo.addGroup(group.start,group.count,group.materialIndex);
+  break;
+ }
  case 'box':geo=new THREE.BoxGeometry(...g.size);break;
  case 'chamfer':{
   const [w,h,d]=g.size,b=g.bevel,s=new THREE.Shape();
@@ -81,8 +90,14 @@ export function compileBlueprint(input,{materials=null}={}){
   let object;
   if(node.kind==='shape'){
    const source=node.mirrorOf?doc.nodes.find(n=>n.id===node.mirrorOf):node;
+   const materialColors=node.materialColors||(
+    node.materialColor!==undefined?[node.materialColor]:null);
+   const meshMaterials=materialColors?.length?
+    materialColors.map(hex=>new THREE.MeshStandardMaterial({color:hex,roughness:.83,metalness:.18,
+      flatShading:!source.geometry.normals,side:THREE.DoubleSide})):
+    [materials?.[node.materialRole]||material(node.materialRole)];
    object=new THREE.Mesh(compileGeometry(source.geometry),
-     materials?.[node.materialRole]||material(node.materialRole));
+      meshMaterials.length>1?meshMaterials:meshMaterials[0]);
    object.castShadow=true;object.receiveShadow=true;
    object.userData.workbenchSelectable=true;
   }else object=new THREE.Group();

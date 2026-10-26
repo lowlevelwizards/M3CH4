@@ -1,7 +1,7 @@
 /** M3CH4 Workbench V2: pure, versioned editable blueprint model. */
 export const FORMAT='m3ch4.workbench';
 export const VERSION=2;
-export const SHAPES=['box','chamfer','cylinder','tube','wedge','plate','taper','loft'];
+export const SHAPES=['box','chamfer','cylinder','tube','wedge','plate','taper','loft','mesh'];
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const vec=(v,n)=>Array.isArray(v)&&v.length===n&&v.every(finite);
 const uuid=()=>('wb-'+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36)));
@@ -70,6 +70,16 @@ export function validateGeometry(g){
  case 'tube':assert(pos(g.outerRadius)&&finite(g.innerRadius)&&g.innerRadius>0&&g.innerRadius<g.outerRadius-.005&&pos(g.length),'Invalid tube');break;
  case 'wedge':case 'plate':polygonOK(g.profile);assert(pos(g.depth),'Invalid extrusion depth');break;
  case 'taper':assert(vec(g.from,2)&&vec(g.to,2)&&[...g.from,...g.to].every(pos)&&pos(g.length),'Invalid taper');break;
+ case 'mesh': {
+  assert(Array.isArray(g.positions)&&g.positions.length>=9&&g.positions.length<=36000&&g.positions.length%3===0&&g.positions.every(n=>finite(n)&&Math.abs(n)<=100),'Invalid imported mesh positions');
+  const count=g.positions.length/3;
+  assert(Array.isArray(g.indices)&&g.indices.length>=3&&g.indices.length<=90000&&g.indices.length%3===0&&g.indices.every(n=>Number.isInteger(n)&&n>=0&&n<count),'Invalid imported mesh triangles');
+  if(g.normals!==undefined)assert(Array.isArray(g.normals)&&g.normals.length===g.positions.length&&g.normals.every(n=>finite(n)&&Math.abs(n)<=1.01),'Invalid mesh normals');
+  if(g.groups!==undefined){
+   assert(Array.isArray(g.groups)&&g.groups.length<=128&&g.groups.every(x=>Number.isInteger(x.start)&&Number.isInteger(x.count)&&Number.isInteger(x.materialIndex)&&x.start>=0&&x.count>=0&&x.start+x.count<=g.indices.length&&x.materialIndex>=0&&x.materialIndex<16),'Invalid material groups');
+  }
+  break;
+ }
  case 'loft':
   assert(Array.isArray(g.sections)&&g.sections.length>=2&&g.sections.length<=24,'Loft needs 2–24 sections');
   let prev=-Infinity;
@@ -88,7 +98,7 @@ export function validateDocument(input){
  assert(input?.format===FORMAT&&input.version===VERSION,'Unsupported Workbench document');
  assert(typeof input.id==='string'&&input.id.length<128,'Invalid document ID');
  assert(typeof input.name==='string'&&input.name.length<=100,'Invalid document name');
- assert(Array.isArray(input.nodes)&&input.nodes.length>=1&&input.nodes.length<=250,'Invalid node count');
+ assert(Array.isArray(input.nodes)&&input.nodes.length>=1&&input.nodes.length<=1000,'Invalid node count');
  const ids=new Set(),map=new Map();
  for(const n of input.nodes){
   assert(typeof n.id==='string'&&n.id.length>0&&n.id.length<=128&&!ids.has(n.id),'Duplicate or invalid node ID');
@@ -100,6 +110,8 @@ export function validateDocument(input){
    [...t.position,...t.rotation].every(x=>Math.abs(x)<100),'Invalid transform');
   assert(typeof n.visible==='boolean'&&typeof n.locked==='boolean','Invalid flags');
   if(n.kind==='shape')validateGeometry(n.geometry);
+  if(n.materialColor!==undefined)assert(Number.isInteger(n.materialColor)&&n.materialColor>=0&&n.materialColor<=0xffffff,'Invalid authored surface color');
+  if(n.materialColors!==undefined)assert(Array.isArray(n.materialColors)&&n.materialColors.length<=16&&n.materialColors.every(v=>Number.isInteger(v)&&v>=0&&v<=0xffffff),'Invalid authored material colors');
   if(n.kind==='instance')assert(typeof n.assetId==='string'&&n.assetId.length<128,'Invalid asset reference');
  }
  assert(map.has('root')&&map.get('root').kind==='group'&&map.get('root').parentId===null,'Invalid root node');

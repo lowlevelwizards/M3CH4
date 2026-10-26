@@ -58,7 +58,13 @@ try{
    }))));
  });
  await page.locator('[data-tab="reference"]').click();
- const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Ykzo4wAAAAASUVORK5CYII=','base64');
+ // Generate a real browser-encoded PNG. Some older tiny base64 fixtures
+ // decode inconsistently in headless mobile Chromium.
+ const tinyPng=Buffer.from((await page.evaluate(()=>{
+  const canvas=document.createElement('canvas');canvas.width=40;canvas.height=40;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#c3aa67';ctx.fillRect(0,0,40,40);
+  return canvas.toDataURL('image/png').split(',')[1];
+ })),'base64');
  await page.locator('#reference-view').selectOption('front');
  await page.locator('#reference-file').setInputFiles({name:'front.png',mimeType:'image/png',buffer:tinyPng});
  await page.waitForTimeout(180);
