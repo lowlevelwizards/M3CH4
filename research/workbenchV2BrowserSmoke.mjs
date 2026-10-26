@@ -50,7 +50,13 @@ try{
  await page.locator('#group-objects').click();
  page.once('dialog',dialog=>dialog.accept('One-piece test assembly'));
  await page.locator('#save-assembly').click();
- assert.ok(await page.locator('#library-items .asset-item').count()>=2,'Saved assembly appears in library');
+ await page.waitForFunction(()=>document.querySelectorAll('#library-items .asset-item').length>=2,undefined,{timeout:8000}).catch(async()=>{
+   throw Error('Saved assembly missing: '+JSON.stringify(await page.evaluate(()=>({
+    status:document.querySelector('#status')?.textContent,
+    library:document.querySelector('#library-items')?.textContent?.slice(0,900),
+    selected:document.querySelector('#selected-id')?.textContent
+   }))));
+ });
  await page.locator('[data-tab="reference"]').click();
  const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Ykzo4wAAAAASUVORK5CYII=','base64');
  await page.locator('#reference-view').selectOption('front');
