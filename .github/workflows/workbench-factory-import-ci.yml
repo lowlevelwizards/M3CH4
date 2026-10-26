@@ -1,0 +1,46 @@
+name: M3CH4 Factory Workbench Import
+on:
+  pull_request:
+    paths:
+      - 'workbench/**'
+      - 'partWorkbenchV2.js'
+      - 'part-workbench-v2.html'
+      - 'tests/workbenchFactoryMesh.test.mjs'
+      - 'research/workbenchFactoryBrowserSmoke.mjs'
+      - '.github/workflows/workbench-factory-import-ci.yml'
+  workflow_dispatch:
+concurrency:
+  group: wb-factory-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  factory-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run blueprint and imported-mesh unit tests
+        run: |
+          node --check partWorkbenchV2.js
+          node --check workbench/factoryImport.js
+          node --check workbench/editableMesh.js
+          node --test tests/workbenchFactoryMesh.test.mjs tests/workbenchV2.test.mjs
+      - name: Install browser
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve full production game
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/m3ch4-factory.log 2>&1 &
+          sleep 2
+      - name: Audit every game part and assembled rig in real Chromium
+        run: node research/workbenchFactoryBrowserSmoke.mjs
+      - name: Upload factory import phone screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-workbench-import
+          path: workbench-factory-artifacts/
+          if-no-files-found: warn
