@@ -18,7 +18,7 @@ try{
  // Actually exercise EVERY current game catalogue definition, not a hand-built fake.
  const audit=await page.evaluate(async()=>{
   const {CATALOG}=await import('./components.js');
-  const {importFactoryPart,importFactoryAssembly}=await import('./workbench/factoryImport.js');
+  const {importFactoryPart,importFactoryAssembly,importSavedGarageBay}=await import('./workbench/factoryImport.js');
   const {compileBlueprint,disposeBlueprint}=await import('./workbench/geometry.js');
   const results=[];
   for(const part of CATALOG){
@@ -40,6 +40,20 @@ try{
     results.push({id:'assembly-'+kind,meshes:a.meshCount,groups:a.groupCount,ok:true});
    }catch(e){results.push({id:'assembly-'+kind,ok:false,error:e.message});}
   }
+  const oldValues=Object.fromEntries([...Array(localStorage.length)].map((_,i)=>{
+   const key=localStorage.key(i);return [key,localStorage.getItem(key)];
+  }));
+  try{
+   const saved=importSavedGarageBay(0);
+   if(saved.meshCount<1)throw Error('Empty career bay default');
+   if(saved.document.metadata.source.bay!=='rig-01')throw Error('Career source identity lost');
+   const newValues=Object.fromEntries([...Array(localStorage.length)].map((_,i)=>{
+    const key=localStorage.key(i);return [key,localStorage.getItem(key)];
+   }));
+   if(JSON.stringify(oldValues)!==JSON.stringify(newValues))
+    throw Error('Import mutated actual career storage');
+   results.push({id:'career-bay-1',meshes:saved.meshCount,ok:true});
+  }catch(e){results.push({id:'career-bay-1',ok:false,error:e.message});}
   return results;
  });
  console.log('FACTORY AUDIT',JSON.stringify(audit));
