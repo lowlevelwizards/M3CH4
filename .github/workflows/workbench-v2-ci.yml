@@ -11,6 +11,7 @@ on:
       - 'research/workbenchV2BrowserSmoke.mjs'
       - 'research/workbenchCameraBrowserSmoke.mjs'
       - 'research/workbenchVisualFirstBrowserSmoke.mjs'
+      - 'research/workbenchContextTouchBrowserSmoke.mjs'
       - 'workbench/thumbnail.js'
       - 'index.html'
       - 'test-yard.html'
@@ -51,6 +52,8 @@ jobs:
         run: node research/workbenchCameraBrowserSmoke.mjs
       - name: Verify mobile visual-first interface and actual 3D editing
         run: node research/workbenchVisualFirstBrowserSmoke.mjs
+      - name: Verify contextual point sliders, focus modes and device fit
+        run: node research/workbenchContextTouchBrowserSmoke.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,4 +63,5 @@ jobs:
             part-workbench-v2-artifacts/
             workbench-camera-artifacts/
             workbench-visual-artifacts/
+            workbench-context-artifacts/
           if-no-files-found: warn
