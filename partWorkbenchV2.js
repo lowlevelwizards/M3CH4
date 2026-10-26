@@ -869,6 +869,15 @@ $('apply-manifest').onclick=()=>{
 window.addEventListener('error',e=>message('Editor runtime error: '+e.message,true));
 window.addEventListener('unhandledrejection',e=>message('Editor error: '+(e.reason?.message||e.reason),true));
 async function initialize(){
+ const caller=new URLSearchParams(window.location.search).get('from');
+ const returnLink=$('return-to-game');
+ if(caller==='yard'){
+  returnLink.href='./test-yard.html';
+  returnLink.textContent='TEST YARD';
+ }else{
+  returnLink.href='./index.html';
+  returnLink.textContent='LIVE GAME';
+ }
  sceneSetup();
  setupFactoryPicker();
  try{
