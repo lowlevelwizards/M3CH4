@@ -94,7 +94,17 @@ function requestDraw(){
  });
 }
 function buildContext(){
- if(context){scene.remove(context.root);context.root.traverse(n=>{if(n.isMesh)n.geometry?.dispose?.();});context=null;}
+ if(context){
+  scene.remove(context.root);
+  const materials=new Set();
+  context.root.traverse(n=>{
+   if(!n.isMesh)return;
+   n.geometry?.dispose?.();
+   for(const m of(Array.isArray(n.material)?n.material:[n.material]))materials.add(m);
+  });
+  for(const m of materials)m.dispose?.();
+  context=null;
+ }
  if(!showContext)return;
  const rig=buildExteriorRig(makeTestAssembly()).root;
  const bbox=new THREE.Box3().setFromObject(rig),c=bbox.getCenter(new THREE.Vector3());
@@ -269,12 +279,17 @@ $('unlink').onclick=()=>{
  changeSelected({geometry:clone(source.geometry),mirrorOf:null},'Independent mirrored shape created.');
 };
 $('delete-object').onclick=()=>{
+ if(node()?.locked)return message('Unlock this object before deleting it.',true);
  try{commit(removeNode(doc,selected),'root','Deleted selected object/subtree.');}
  catch(e){message(e.message,true);}
 };
 $('hide-object').onclick=()=>changeSelected({visible:!node().visible});
 $('lock-object').onclick=()=>{
- const n=node();if(n&&n.id!=='root')changeSelected({locked:!n.locked});
+ const n=node();
+ if(n&&n.id!=='root'){
+  try{commit(updateNode(doc,selected,{locked:!n.locked}),selected,n.locked?'Object unlocked.':'Object locked.');}
+  catch(e){message(e.message,true);}
+ }
 };
 $('reset-selected').onclick=()=>changeSelected({transform:identity()});
 $('group-objects').onclick=()=>{
