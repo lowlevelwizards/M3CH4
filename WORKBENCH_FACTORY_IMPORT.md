@@ -28,6 +28,10 @@ Workbench document without abandoning the project.
 - **OPEN FACTORY MECH** loads a clean default game rig built by the real engine.
 - **OPEN TEST YARD LOADOUT** opens the actual parts fitted to your existing
   Test Yard loadout in this browser (read-only from the Test Yard save).
+- **OPEN SAVED MECH** plus CAREER BAY 1/2/3 opens the actual locally saved
+  garage mech assemblies (including current paint and condition) without
+  writing back to your stable or career save. An empty bay is reported instead
+  of fabricating an arbitrary rig.
 
 You can select the structural frame, mobility, pilot cab, power pack, weapon,
 and each imported subassembly via the same hierarchy. Save any suitable group
