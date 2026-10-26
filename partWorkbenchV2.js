@@ -288,11 +288,7 @@ function rebuild(){
    orbit.distance=Math.max(orbit.distance,3.4);
   }else{
    scene.add(compiled.root);
-   const bounds=measureBlueprint(compiled.root);
-   if(!bounds.empty){
-    const target=new THREE.Vector3(...bounds.min).add(new THREE.Vector3(...bounds.max)).multiplyScalar(.5);
-    if(target.length()<8)focus.copy(target);else focus.set(0,0,0);
-   }else focus.set(0,0,0);
+   // Camera focus stays fixed while sculpting; use the FIT control deliberately.
   }
   grid.visible=!showContext;
   requestDraw();
@@ -547,7 +543,7 @@ $('project-name').onchange=()=>{
 $('add-shape').onclick=()=>{
  const type=$('shape-type').value,shape=newShape(type,{parentId:'root'});
  // A new shape appears in front of the camera but preserves predictable local coordinates.
- try{commit(addNode(doc,shape),shape.id,'Added '+type+'. Select MOVE or POINTS to edit.');}
+ try{commit(addNode(doc,shape),shape.id,'Added '+type+'. Drag the selected shape or handles to edit.');fitSelected();}
  catch(e){message(e.message,true);}
 };
 $('duplicate').onclick=()=>{
@@ -825,7 +821,7 @@ function finishCanvas(e){
  pointers.delete(e.pointerId);touchSpan=null;
  if(!drag||drag.pointerId!==e.pointerId)return;
  if(drag.mode==='orbit'&&!drag.moved&&tool==='select'){
-  selected=drag.hitId||'root';
+  selected=drag.hitId||'root';meshPointPageIndex=0;
   selectedIds=drag.hitId?new Set([selected]):new Set();
   renderTree();renderInspector();requestDraw();
  }
@@ -1025,10 +1021,10 @@ async function initialize(){
    await db.saveProject(doc);
   }
   await loadReferences();
-  startHistory();ready=true;refresh();message(loaded?'Opened saved Workbench project.':'Ready. Add geometry or edit your imported V1 calf.');
+  startHistory();ready=true;refresh();if(doc.nodes.length>1)fitSelected();message(loaded?'Opened saved Workbench project.':'Ready. Choose + SHAPE or GAME PART.');
   window.__m3ch4WorkbenchV2Ready=true;
  }catch(e){
-  ready=true;startHistory();refresh();
+  ready=true;startHistory();refresh();if(doc.nodes.length>1)fitSelected();
   message('IndexedDB unavailable ('+e.message+'). Geometry editing works; export for backup.',true);
   window.__m3ch4WorkbenchV2Ready=true;
  }
