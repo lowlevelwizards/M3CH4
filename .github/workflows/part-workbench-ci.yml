@@ -1,0 +1,44 @@
+name: M3CH4 Part Workbench Browser
+on:
+  pull_request:
+    paths:
+      - 'part-workbench.html'
+      - 'partWorkbench.js'
+      - 'partWorkbench.css'
+      - 'partWorkbenchRecipe.js'
+      - 'partWorkbenchGeometry.js'
+      - 'yardwalkerVisual.js'
+      - 'art-lab.html'
+      - 'artLab.css'
+      - 'research/partWorkbenchBrowserSmoke.mjs'
+      - 'tests/partWorkbenchRecipe.test.mjs'
+      - '.github/workflows/part-workbench-ci.yml'
+  workflow_dispatch:
+jobs:
+  mobile-workbench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pure geometry tests
+        run: node --test tests/partWorkbenchRecipe.test.mjs tests/partVisuals.test.mjs
+      - name: Install real browser
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve same static app as GitHub Pages
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/m3ch4-part-workbench.log 2>&1 &
+          sleep 2
+      - name: Phone-shaped WebGL interaction smoke
+        run: node research/partWorkbenchBrowserSmoke.mjs
+      - name: Preserve review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3ch4-part-workbench-review
+          path: part-workbench-artifacts/
+          if-no-files-found: warn
