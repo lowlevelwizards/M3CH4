@@ -81,7 +81,7 @@ try{
  await page.mouse.down();
  await page.mouse.move(pointBox.x+pointBox.width/2+18,pointBox.y+pointBox.height/2+8,{steps:4});
  await page.mouse.up();
- assert.match(await page.locator('#status').textContent(),/Edited profile control point/);
+ assert.match(await page.locator('#status').textContent(),/Edited selected point/);
  await page.screenshot({path:'workbench-factory-artifacts/02-factory-vertices.png'});
  page.once('dialog',dialog=>dialog.accept('Yardwalker derived variant'));
  await page.locator('#save-part').click();

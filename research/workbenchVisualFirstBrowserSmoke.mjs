@@ -10,7 +10,7 @@ try{
  await page.goto('http://127.0.0.1:8765/part-workbench-v2.html',{waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:45000});
  const stage=page.locator('#stage'),view=await stage.boundingBox();
- assert.ok(view.height>350,'The live 3D editor should occupy most of the phone screen');
+ assert.ok(view.height>240,'The 3D viewport must remain usable while leaving a contextual parts drawer visible');
  assert.ok(await page.locator('#inspector-details').evaluate(x=>!x.open),'Numeric inspector starts collapsed');
  assert.ok(await page.locator('#stage-canvas').isVisible(),'Actual Three.js viewport renders');
  assert.ok(await page.locator('#primitive-grid .part-tile').count()>=8,'Eight shape types have visual tiles');
