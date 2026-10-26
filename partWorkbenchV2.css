@@ -260,3 +260,26 @@ input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:tex
  /* Allow short phones to retain a meaningful parts drawer below the model. */
  #stage{height:clamp(155px,36dvh,425px)}
 }
+
+/* iPhone webviews using viewport-fit=cover can expose the system status bar.
+   Reserve the hardware safe area instead of drawing Save/Back underneath it. */
+:root{--workbench-header-height:calc(57px + env(safe-area-inset-top, 0px))}
+header.workbench-head{height:var(--workbench-header-height);
+ padding-top:calc(6px + env(safe-area-inset-top, 0px))}
+main{padding-bottom:max(6px,env(safe-area-inset-bottom, 0px))}
+@media(min-width:850px){
+ :root{--workbench-header-height:calc(48px + env(safe-area-inset-top, 0px))}
+ main{height:calc(100dvh - var(--workbench-header-height));
+ max-height:calc(100dvh - var(--workbench-header-height))}
+}
+@media(max-width:849px){
+ main{height:calc(100dvh - var(--workbench-header-height));
+ max-height:calc(100dvh - var(--workbench-header-height))}
+}
+@media(orientation:landscape) and (max-height:520px){
+ :root{--workbench-header-height:calc(38px + env(safe-area-inset-top, 0px))}
+ header.workbench-head{height:var(--workbench-header-height);
+ padding-top:calc(2px + env(safe-area-inset-top, 0px))}
+ main{height:calc(100dvh - var(--workbench-header-height));
+ max-height:calc(100dvh - var(--workbench-header-height))}
+}
