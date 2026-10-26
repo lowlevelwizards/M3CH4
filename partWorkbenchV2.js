@@ -4,7 +4,7 @@ import {FORMAT,VERSION,clone,createDocument,newShape,addNode,updateNode,removeNo
  duplicateNode,mirrorNode,groupNodes,makeAsset,insertAsset,validateDocument,validateGeometry,migrateCalfRecipe,identity} from './workbench/blueprint.js';
 import {compileBlueprint,disposeBlueprint,measureBlueprint} from './workbench/geometry.js';
 import * as db from './workbench/storage.js';
-import {orbitAfterDrag} from './workbench/orbitCamera.js';
+import {orbitAfterDrag,cameraPose,cameraFacing} from './workbench/orbitCamera.js?v=orbit360';
 import {packagePrototype,PROTOTYPE_KEY} from './workbench/prototypeBridge.js';
 import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
@@ -157,17 +157,16 @@ function setCamera(){
 }
 function updateCamera(){
  if(!camera)return;
- const p=focus.clone();
- if(view==='quarter'){
-  camera.position.set(p.x+Math.sin(orbit.yaw)*Math.cos(orbit.pitch)*orbit.distance,
-    p.y+Math.sin(orbit.pitch)*orbit.distance,
-    p.z-Math.cos(orbit.yaw)*Math.cos(orbit.pitch)*orbit.distance);
- }else if(view==='front')camera.position.copy(p).add(new THREE.Vector3(0,0,-20));
- else if(view==='side')camera.position.copy(p).add(new THREE.Vector3(20,0,0));
- else camera.position.copy(p).add(new THREE.Vector3(0,20,0));
- camera.up.set(0,view==='top'?0:1,view==='top'?-1:0);
- camera.lookAt(p);
+ const pose=cameraPose(view,orbit,20);
+ camera.position.copy(focus).add(new THREE.Vector3(...pose.position));
+ camera.up.set(...pose.up);
+ camera.lookAt(focus);
  camera.updateMatrixWorld(true);
+ const bearing=$('camera-bearing');
+ if(bearing)bearing.textContent=cameraFacing(view,orbit.yaw);
+ const azimuth=$('camera-azimuth');
+ if(azimuth)azimuth.textContent=view==='quarter'?
+  Math.round(orbit.yaw*180/Math.PI)+'° / 360°':'ORTHOGRAPHIC';
 }
 function requestDraw(){
  if(drawPending)return;
@@ -241,6 +240,9 @@ function refresh(){
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
+ $('stage-hint').textContent=['select','points'].includes(tool)
+  ?'SELECT · DRAG ON MODEL TO ORBIT 360° · TAP TO SELECT · PINCH TO ZOOM'
+  :tool.toUpperCase()+' · DRAG MESH TO EDIT · DRAG EMPTY SPACE TO ORBIT';
  rebuild();
 }
 function renderTree(){
@@ -473,6 +475,10 @@ for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{
 for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
  view=b.dataset.view;setCamera();refresh();
 };
+$('reset-camera').onclick=()=>{
+ orbit={yaw:.62,pitch:.22,distance:Math.max(1.8,orbit.distance)};
+ view='quarter';setCamera();refresh();message('Camera reset · FRONT -Z / RIGHT +X / UP +Y.');
+};
 $('context-toggle').onclick=()=>{showContext=!showContext;buildContext();refresh();
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
 $('test-in-yard').onclick=async()=>{
@@ -619,12 +625,21 @@ function screenNDC(e){
 canvas.addEventListener('pointerdown',e=>{
  canvas.setPointerCapture(e.pointerId);
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
- if(pointers.size!==1)return;
+ // A second finger is always a viewport gesture, never an object edit.
+ if(pointers.size!==1){drag=null;touchSpan=null;return;}
  raycaster.setFromCamera(screenNDC(e),camera);
  const hits=raycaster.intersectObjects([...compiled?.objects.values()||[]].filter(x=>x.isMesh),false);
  const found=hits.find(h=>h.object.userData.workbenchSelectable);
+ const hitId=found?.object.userData.workbenchNodeId||null;
+ // Critical: tapping a mesh selects it, DRAGGING ON THE SAME MESH ORBITS.
+ // Previously any mesh hit consumed the gesture, so a full mech would barely rotate.
+ if(view==='quarter'&&(tool==='select'||tool==='points'||!found)){
+  drag={mode:'orbit',pointerId:e.pointerId,hitId,moved:false,
+   start:{x:e.clientX,y:e.clientY}};
+  return;
+ }
  if(found){
-  selected=found.object.userData.workbenchNodeId;selectedIds=new Set([selected]);
+  selected=hitId;selectedIds=new Set([selected]);
   renderTree();renderInspector();requestDraw();
   const n=node();
   if(['move','scale','rotate'].includes(tool)&&n&&!n.locked){
@@ -632,7 +647,9 @@ canvas.addEventListener('pointerdown',e=>{
    drag={mode:tool,nodeId:selected,pointerId:e.pointerId,anchor,previous:clone(doc),
     start:{x:e.clientX,y:e.clientY},base:clone(n.transform)};
   }
- }else if(view==='quarter')drag={mode:'orbit',pointerId:e.pointerId};
+ }else if(tool==='select'){
+  selected='root';selectedIds.clear();renderTree();renderInspector();requestDraw();
+ }
 });
 canvas.addEventListener('pointermove',e=>{
  const prev=pointers.get(e.pointerId);if(!prev)return;
@@ -646,7 +663,10 @@ canvas.addEventListener('pointermove',e=>{
   touchSpan=distance;requestDraw();return;
  }
  if(drag?.mode==='orbit'&&view==='quarter'){
-  orbit=orbitAfterDrag(orbit,dx,dy);requestDraw();return;
+  const traveled=Math.hypot(e.clientX-drag.start.x,e.clientY-drag.start.y);
+  if(traveled>3)drag.moved=true;
+  if(drag.moved)orbit=orbitAfterDrag(orbit,dx,dy);
+  requestDraw();return;
  }
  if(!drag||drag.pointerId!==e.pointerId)return;
  const next=clone(doc),n=next.nodes.find(n=>n.id===drag.nodeId);
@@ -671,6 +691,11 @@ canvas.addEventListener('pointermove',e=>{
 function finishCanvas(e){
  pointers.delete(e.pointerId);touchSpan=null;
  if(!drag||drag.pointerId!==e.pointerId)return;
+ if(drag.mode==='orbit'&&!drag.moved&&tool==='select'){
+  selected=drag.hitId||'root';
+  selectedIds=drag.hitId?new Set([selected]):new Set();
+  renderTree();renderInspector();requestDraw();
+ }
  if(['move','rotate','scale'].includes(drag.mode)){
   const after=clone(doc),before=drag.previous;drag=null;doc=before;
   commit(after,selected,'Updated selected shape transform.');
@@ -847,6 +872,15 @@ $('apply-manifest').onclick=()=>{
 window.addEventListener('error',e=>message('Editor runtime error: '+e.message,true));
 window.addEventListener('unhandledrejection',e=>message('Editor error: '+(e.reason?.message||e.reason),true));
 async function initialize(){
+ const caller=new URLSearchParams(window.location.search).get('from');
+ const returnLink=$('return-to-game');
+ if(caller==='yard'){
+  returnLink.href='./test-yard.html';
+  returnLink.textContent='TEST YARD';
+ }else{
+  returnLink.href='./index.html';
+  returnLink.textContent='LIVE GAME';
+ }
  sceneSetup();
  setupFactoryPicker();
  try{

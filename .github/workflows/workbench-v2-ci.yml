@@ -9,6 +9,9 @@ on:
       - 'tests/workbenchV2.test.mjs'
       - 'tests/workbenchOrbitCamera.test.mjs'
       - 'research/workbenchV2BrowserSmoke.mjs'
+      - 'research/workbenchCameraBrowserSmoke.mjs'
+      - 'index.html'
+      - 'test-yard.html'
       - '.github/workflows/workbench-v2-ci.yml'
   workflow_dispatch:
 concurrency:
@@ -41,10 +44,14 @@ jobs:
           sleep 2
       - name: Test phone viewport and editable geometry
         run: node research/workbenchV2BrowserSmoke.mjs
+      - name: Verify live garage and Test Yard links, machine-facing camera and touch orbit
+        run: node research/workbenchCameraBrowserSmoke.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: m3ch4-workbench-v2-renders
-          path: part-workbench-v2-artifacts/
+          path: |
+            part-workbench-v2-artifacts/
+            workbench-camera-artifacts/
           if-no-files-found: warn

@@ -67,8 +67,16 @@ try{
  })),'base64');
  await page.locator('#reference-view').selectOption('front');
  await page.locator('#reference-file').setInputFiles({name:'front.png',mimeType:'image/png',buffer:tinyPng});
- await page.waitForTimeout(180);
- assert.equal(await page.locator('#reference-items .tree-item').count(),1);
+ await page.waitForFunction(
+  ()=>document.querySelectorAll('#reference-items .tree-item').length===1,
+  undefined,{timeout:10000}
+ ).catch(async()=>{
+  throw Error('Reference image was not imported: '+JSON.stringify(await page.evaluate(()=>({
+   status:document.querySelector('#status')?.textContent,
+   input:document.querySelector('#reference-file')?.value,
+   references:document.querySelector('#reference-items')?.textContent
+  }))));
+ });
  await page.locator('#reference-width').fill('1.4');await page.locator('#reference-width').dispatchEvent('change');
  await page.locator('#module-manifest').fill('[{"name":"Knee hub","geometry":"cylinder"},{"name":"Shin casing","geometry":"loft"}]');
  await page.locator('#apply-manifest').click();

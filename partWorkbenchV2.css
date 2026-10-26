@@ -52,3 +52,18 @@ footer a{color:#e9c58f;text-decoration:none}
 #library-search{margin:9px 10px;width:calc(100% - 20px)!important}
 @media(min-width:820px){main{grid-template-columns:minmax(0,1.3fr) minmax(360px,.9fr);align-items:start}.view-panel{position:sticky;top:12px}#stage{height:clamp(390px,62vh,780px)}}
 @media(max-width:410px){.toolbar{gap:3px;padding:4px}.toolbar button{font-size:9px;padding:5px 3px}.head-actions button,.head-actions a{padding:8px 5px;font-size:9px}h1{font-size:15px}}
+
+/* Camera orientation is part of the modeling contract, not a hidden debug value. */
+#stage-hint{top:7px;bottom:auto;right:7px;left:7px;width:fit-content;max-width:calc(100% - 14px);pointer-events:none;line-height:1.45}
+#camera-compass{position:absolute;right:8px;bottom:8px;pointer-events:none;
+ display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:7px 9px;
+ border:1px solid #849f8a;background:#14241bdc;border-radius:5px;line-height:1.2}
+#camera-compass strong{font-size:12px;letter-spacing:.09em;color:#ffd17d}
+#camera-compass span{font-size:10px;color:#e7e1c9}
+#camera-compass small{font-size:9px;color:#bad1c1}
+.toolbar.views{flex-wrap:wrap}
+.toolbar.views button,.toolbar.views button:last-child{flex:1 1 24%;min-height:39px}
+@media(max-width:410px){
+ #stage-hint{font-size:9px}
+ .toolbar.views button,.toolbar.views button:last-child{flex-basis:30%;font-size:10px}
+}
