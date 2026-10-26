@@ -60,7 +60,8 @@ try{
  await page.screenshot({path:'workbench-visual-artifacts/04-saved-part-grid.png'});
  await page.locator('[data-tab="objects"]').click();
  await page.locator('#show-factory-panel').click();
- assert.ok(await page.locator('#factory-grid .part-tile').count()>=15,'Game catalogue is visually browsable');
+ await page.waitForFunction(()=>document.querySelectorAll('#factory-grid .part-tile').length>=15,
+  undefined,{timeout:9000});
  await page.locator('#factory-grid img').first().scrollIntoViewIfNeeded();
  await page.locator('#factory-grid img[src^="data:image/png"]').first().waitFor({state:'attached',timeout:20000});
  assert.equal(errors.length,0,'No browser runtime errors: '+errors.join(' | '));
