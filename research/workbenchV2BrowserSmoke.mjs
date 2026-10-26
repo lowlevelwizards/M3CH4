@@ -26,6 +26,7 @@ try{
  await page.locator('.tree-item').first().click();
  await page.locator('#mirror').click();
  assert.equal(await page.locator('.tree-item').count(),3);
+ await page.locator('#more-actions').evaluate(el=>el.open=true);
  await page.locator('#unlink').click();
  await page.locator('[data-view="front"]').click();await page.locator('[data-tool="points"]').click();
  await page.locator('#edit-overlay .point-handle').first().waitFor({state:'attached',timeout:8000}).catch(async()=>{
@@ -47,6 +48,7 @@ try{
  assert.ok(await page.locator('#library-items .asset-item').count()>=1,'Saved shape appears in library');
  await page.locator('#library-items .asset-item button').first().click();
  assert.equal(await page.locator('.tree-item').count(),4,'Reusable asset inserted into project');
+ await page.locator('#more-actions').evaluate(el=>el.open=true);
  await page.locator('#group-objects').click();
  page.once('dialog',dialog=>dialog.accept('One-piece test assembly'));
  await page.locator('#save-assembly').click();
