@@ -78,6 +78,7 @@ try{
   }))));
  });
  await page.locator('#reference-width').fill('1.4');await page.locator('#reference-width').dispatchEvent('change');
+ await page.locator('#tab-reference details').first().evaluate(el=>el.open=true);
  await page.locator('#module-manifest').fill('[{"name":"Knee hub","geometry":"cylinder"},{"name":"Shin casing","geometry":"loft"}]');
  await page.locator('#apply-manifest').click();
  await page.screenshot({path:'part-workbench-v2-artifacts/03-reference.png'});
