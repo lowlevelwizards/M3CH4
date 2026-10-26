@@ -58,6 +58,9 @@ function replaceProjectWithFactory(result){
  // A factory model is an editable COPIED project. Keep previous projects in
  // the IndexedDB library, and never mutate source engine geometry.
  doc=validateDocument(next);
+ // An entire imported factory rig must never accidentally be parented inside
+ // the previous project's Yardwalker knee context.
+ showContext=false;buildContext();
  meshPointPageIndex=0;meshPointSelectedIndex=0;startHistory();
  const importedBounds=compileBlueprint(doc);
  const bounds=measureBlueprint(importedBounds.root);
