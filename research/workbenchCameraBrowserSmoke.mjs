@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdirSync} from 'node:fs';
 mkdirSync('workbench-camera-artifacts',{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader']});
-const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:2});
+const page=await browser.newPage({viewport:{width:844,height:390},hasTouch:true,isMobile:true,deviceScaleFactor:2});
 try{
  await page.goto('http://127.0.0.1:8765/index.html',{waitUntil:'domcontentloaded',timeout:60000});
  const link=page.locator('#live-workbench-open');
@@ -12,6 +12,7 @@ try{
  await link.click();
  await page.waitForURL(/part-workbench-v2\.html\?from=game/,{timeout:20000});
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:60000});
+ await page.setViewportSize({width:390,height:844});
  assert.equal(await page.locator('#return-to-game').getAttribute('href'),'./index.html');
  await page.locator('#shape-type').selectOption('box');
  await page.locator('#add-shape').click();
@@ -36,6 +37,7 @@ try{
  await page.locator('#reset-camera').click();
  assert.equal(await page.locator('#camera-bearing').textContent(),'FRONT  -Z');
  await page.screenshot({path:'workbench-camera-artifacts/02-orthographic-axes.png'});
+ await page.setViewportSize({width:844,height:390});
  await page.goto('http://127.0.0.1:8765/test-yard.html',{waitUntil:'domcontentloaded',timeout:60000});
  assert.ok(await page.locator('#live-workbench-open').isVisible(),'Real Test Yard also links directly to editor');
  await page.locator('#live-workbench-open').click();
