@@ -522,24 +522,61 @@ $('save-assembly').onclick=()=>saveSelected('assembly');
 async function renderLibrary(){
  const box=$('library-items');if(!ready)return;
  try{
-  const assets=(await db.all('assets')).filter(a=>a.format==='m3ch4.workbench.asset');
+  const [assets,projects]=await Promise.all([db.all('assets'),db.all('projects')]);
+  const projectsBox=$('project-items');projectsBox.replaceChildren();
+  for(const project of projects.filter(p=>p?.format===FORMAT).sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0))){
+   const item=document.createElement('div');item.className='asset-item';
+   const title=document.createElement('span'),name=document.createElement('strong'),btn=document.createElement('button');
+   name.textContent=project.name;title.append(name);
+   const sub=document.createElement('small');
+   sub.textContent=project.id===doc.id?'CURRENT PROJECT':((project.nodes?.length||1)-1)+' NODES';
+   title.append(sub);btn.textContent=project.id===doc.id?'OPEN':'OPEN PROJECT';
+   btn.onclick=async()=>{
+    if(project.id===doc.id)return switchTab('objects');
+    if(!confirm('Open '+project.name+'? Unsaved edits should be saved or exported first.'))return;
+    try{
+     clearTimeout(saveTimer);
+     await db.saveProject(doc);
+     doc=validateDocument(project);
+     startHistory();await loadReferences();refresh();switchTab('objects');
+     message('Opened '+doc.name+' from project library.');
+    }catch(e){message('Project could not open: '+e.message,true);}
+   };
+   item.append(title,btn);projectsBox.append(item);
+  }
   const search=$('library-search').value.toLowerCase();
   box.replaceChildren();
-  for(const asset of assets.filter(a=>a.name.toLowerCase().includes(search))){
+  for(const asset of assets.filter(a=>a.format==='m3ch4.workbench.asset'&&a.name.toLowerCase().includes(search))){
    const el=document.createElement('div');el.className='asset-item';
-   const label=document.createElement('span'),btn=document.createElement('button');
-   label.innerHTML='';const title=document.createElement('strong');title.textContent=asset.name;
+   const label=document.createElement('span'),actions=document.createElement('span');
+   const title=document.createElement('strong');title.textContent=asset.name;
    const meta=document.createElement('small');meta.textContent=asset.type.toUpperCase()+' · REV '+asset.revision;
-   label.append(title,meta);btn.textContent='INSERT';
+   label.append(title,meta);
+   const btn=document.createElement('button');btn.textContent='INSERT';
    btn.onclick=()=>{
     try{const out=insertAsset(doc,asset);commit(out.document,out.selectedId,'Inserted '+asset.name+'.');switchTab('objects');}
     catch(e){message('Insert rejected: '+e.message,true);}
    };
-   el.append(label,btn);box.append(el);
+   const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename asset';
+   rename.onclick=async()=>{
+    const next=prompt('Rename asset',asset.name);
+    if(!next?.trim())return;
+    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();message('Asset renamed.');}
+    catch(e){message('Rename failed: '+e.message,true);}
+   };
+   const del=document.createElement('button');del.textContent='×';del.title='Delete asset';
+   del.onclick=async()=>{
+    if(!confirm('Delete '+asset.name+' from this browser library? Export a backup first.'))return;
+    try{await db.remove('assets',asset.id);renderLibrary();message('Deleted saved library asset.');}
+    catch(e){message('Delete failed: '+e.message,true);}
+   };
+   actions.style.cssText='display:flex;flex-wrap:wrap;gap:4px';
+   actions.append(btn,rename,del);el.append(label,actions);box.append(el);
   }
   if(!box.children.length)box.textContent='Library empty. Save a shape or part from OBJECTS.';
  }catch(e){box.textContent='Library unavailable: '+e.message;}
 }
+
 $('library-search').oninput=()=>renderLibrary();
 const download=(name,value)=>{
  const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'});
