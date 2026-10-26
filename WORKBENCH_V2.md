@@ -1,3 +1,17 @@
+## Visual-first editor (current)
+The **3D model is the workspace**. On a phone, the viewport and icon tool strip stay visible as you browse a grid of actual-shape thumbnails below. You no longer need to scroll down to enter XYZ numbers for routine modeling.
+
+1. **Tap a mesh on the model** to select that exact component (or tap its thumbnail in PARTS). Its name appears in the viewport.
+2. Tap **✥ MOVE**, **⟳ ROTATE**, or **⤡ SCALE** and drag the colored XYZ gizmos on the model. You can also drag directly on a selected shape.
+3. Tap **⬡ POINTS** and drag amber control points *in the 3D view*, or use Front/Right/Top for constrained axes. Production imported triangle vertices and supported parametric profile/loft points update live.
+4. Use **＋ SHAPE** to open the eight visual primitive cards, or **▦ GAME PART** to browse actual in-game parts with geometric thumbnail previews.
+5. Save your selection as SHAPE / PART / ASSEMBLY. The LIBRARY displays image-backed tiles for re-insertion. The precision inspector, hierarchy options and reference calibration are collapsible.
+6. Use **◎** beside the selection name to focus the camera on it. Tap 3D/F/R/B/L/T to switch views. In Select mode, dragging over any model piece orbits and tapping selects.
+
+Point sculpting updates the selected mesh in place during a gesture, committing one undoable change when the drag finishes. Existing Workbench V2 IndexedDB projects and exported blueprints remain compatible. Imported game joints stay locked by default. The older V1 editor source is retained only for legacy migration; the visible UI no longer directs the user back to it.
+
+**Performance:** Thumbnails are made from actual triangle geometry in a CPU-backed 2D canvas instead of opening another WebGL context. Factory gallery cards are rendered lazily as they become visible, important for iPhone WebGL limits.
+
 # M3CH4 Workbench V2 — Shapes, Parts, Assemblies, Orthos
 Branch: feature/part-workbench-v2-shapes-assemblies-reference
 Status: staged prototype pending real-browser smoke. Not a new constructor, and no career part migration.
