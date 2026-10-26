@@ -83,6 +83,8 @@ function selectedIsDescendant(id){
 }
 function applyVisibility(){
  if(!compiled)return;
+ // When isolating, the optional reference rig must not obscure the part.
+ if(context?.root)context.root.visible=visibilityMode!=='isolate';
  for(const n of doc.nodes){
   const obj=compiled.objects.get(n.id);
   if(!obj||!obj.isMesh)continue;
