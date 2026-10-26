@@ -303,9 +303,11 @@ function refresh(){
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
- $('stage-hint').textContent=['select','points'].includes(tool)
-  ?'SELECT · DRAG ON MODEL TO ORBIT 360° · TAP TO SELECT · PINCH TO ZOOM'
-  :tool.toUpperCase()+' · DRAG MESH TO EDIT · DRAG EMPTY SPACE TO ORBIT';
+ $('stage-hint').textContent=tool==='points'
+  ?'POINTS · DRAG AMBER DOTS · TAP A MESH TO SWITCH · PINCH TO ZOOM'
+  :tool==='select'
+   ?'TAP A PIECE · SELECT · DRAG TO ORBIT · PINCH TO ZOOM'
+   :tool.toUpperCase()+' · DRAG COLORED XYZ HANDLES OR THE PIECE';
  rebuild();
 }
 function renderTree(){
