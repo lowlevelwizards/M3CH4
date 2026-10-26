@@ -264,6 +264,50 @@ function changeTransform(field,i,value){
  try{commit(updateNode(doc,selected,{transform:change}));}
  catch(e){message(e.message,true);}
 }
+function renderImportedMeshControls(n,active){
+ const panel=$('mesh-point-panel');
+ const mesh=n?.kind==='shape'&&n?.geometry?.type==='mesh'&&!n?.mirrorOf;
+ panel.hidden=!mesh;
+ if(!mesh)return;
+ const info=meshPointPage(n.geometry,meshPointPageIndex);
+ meshPointPageIndex=info.page;
+ meshPointSelectedIndex=Math.max(0,Math.min(info.count-1,meshPointSelectedIndex));
+ $('mesh-points-label').textContent=info.count+' POINTS / PAGE '+(info.page+1)+' OF '+info.pages;
+ $('mesh-points-prev').disabled=info.page<=0;
+ $('mesh-points-next').disabled=info.page>=info.pages-1;
+ const picker=$('mesh-point-select');picker.replaceChildren();
+ for(const group of info.points){
+  const option=document.createElement('option');option.value=group.index;
+  option.textContent='POINT '+(group.index+1)+' — '+group.position.map(v=>v.toFixed(3)).join(' / ');
+  picker.append(option);
+ }
+ // Select the first visible point when paging to another group.
+ if(!info.points.some(x=>x.index===meshPointSelectedIndex))
+  meshPointSelectedIndex=info.points[0]?.index||0;
+ picker.value=String(meshPointSelectedIndex);
+ picker.disabled=!active;
+ const coord=$('mesh-point-coordinates');coord.replaceChildren();
+ const point=meshPointGroups(n.geometry)[meshPointSelectedIndex]?.position;
+ if(!point)return;
+ for(let axis=0;axis<3;axis++){
+  const field=inputNumber(point[axis],value=>{
+   const current=node();
+   if(!current||current.kind!=='shape'||current.geometry.type!=='mesh')return;
+   try{
+    const updated=updateMeshPoint(current.geometry,meshPointSelectedIndex,
+      point.map((v,j)=>j===axis?value:v));
+    commit(updateNode(doc,selected,{geometry:updated}),selected,'Edited original game mesh point.');
+   }catch(e){message('Point rejected: '+e.message,true);}
+  },{label:['X (M)','Y (M)','Z (M)'][axis],min:-100,max:100,step:.01});
+  field.querySelector('input').disabled=!active;coord.append(field);
+ }
+}
+$('mesh-points-prev').onclick=()=>{meshPointPageIndex--;renderInspector();requestDraw();};
+$('mesh-points-next').onclick=()=>{meshPointPageIndex++;renderInspector();requestDraw();};
+$('mesh-point-select').onchange=e=>{
+ meshPointSelectedIndex=Number(e.target.value);renderInspector();requestDraw();
+};
+
 function renderInspector(){
  const n=node(),active=!!n&&!n.locked&&n.id!=='root';
  $('object-name').value=n?.name||'';$('object-name').disabled=!active;
@@ -278,6 +322,7 @@ function renderInspector(){
    input.querySelector('input').disabled=!active;target.append(input);
   }
  }
+ renderImportedMeshControls(n,active);
  const target=$('geometry-fields');target.replaceChildren();
  if(!active||n.kind!=='shape'){target.textContent='Select an editable shape.';return;}
  const g=n.mirrorOf?doc.nodes.find(x=>x.id===n.mirrorOf).geometry:n.geometry;
@@ -301,6 +346,7 @@ function renderInspector(){
  if(g.sections)for(let i=0;i<g.sections.length;i++)
   for(const key of ['y','width','front','back'])field('SECTION '+(i+1)+' '+key.toUpperCase(),
     ['sections',i,key],g.sections[i][key],key==='width'?.005:key==='y'?0:-6,8);
+ if(g.type==='mesh')target.textContent='Imported factory triangles are editable in the POINTS controls below and in FRONT / SIDE / TOP views. All three coordinates can be edited numerically.';
  if(g.profile)for(let i=0;i<g.profile.length;i++)for(let axis=0;axis<2;axis++)
   field('POINT '+(i+1)+' '+(axis?'Y':'X'),['profile',i,axis],g.profile[i][axis],-6,6);
  const actions=document.createElement('div');actions.className='toolbar';
@@ -333,7 +379,19 @@ const changeSelected=(change,msg)=>{
  try{commit(updateNode(doc,selected,change),selected,msg);}catch(e){message(e.message,true);}
 };
 $('object-name').onchange=()=>changeSelected({name:$('object-name').value.trim()||'Unnamed'});
-$('material-role').onchange=()=>changeSelected({materialRole:$('material-role').value});
+$('material-role').onchange=()=>{
+ const n=node();if(!n||n.kind!=='shape')return;
+ const role=$('material-role').value;
+ const change={materialRole:role};
+ if(n.geometry.type==='mesh'){
+  // Palette selection is an explicit repaint of imported authored colors.
+  const palette={olive:0x849275,ochre:0xb48c37,cream:0xcac4ae,iron:0x4c5a56,
+   teal:0x468786,orange:0xc07852,dark:0x293431,bright:0x9ba6a3,armor:0xbbb49c};
+  change.materialColor=palette[role];
+  if(n.materialColors)change.materialColors=n.materialColors.map(()=>palette[role]);
+ }
+ changeSelected(change,'Updated selected shape finish.');
+};
 $('project-name').onchange=()=>{
  const next=clone(doc);next.name=$('project-name').value.trim()||'Untitled assembly';commit(next);
 };
