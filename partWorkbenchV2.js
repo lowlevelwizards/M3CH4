@@ -381,6 +381,8 @@ function showPrimitiveGrid(){
    $('shape-maker').open=false;
   };
   target.append(tile);
+  const image=tile.querySelector('img');
+  if(image)renderThumb(image); // The eight primitives are cheap: draw immediately.
  }
 }
 function showFactoryGrid(){
