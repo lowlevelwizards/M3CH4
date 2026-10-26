@@ -34,9 +34,32 @@ try{
  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
  await page.mouse.move(box.x+box.width/2+16,box.y+box.height/2+6,{steps:4});await page.mouse.up();
  await page.screenshot({path:'part-workbench-v2-artifacts/02-ortho-edit.png'});
- await page.locator('#save-shape').click();
- // Save prompt with source name.
  page.once('dialog',dialog=>dialog.accept('Plate preset A'));
- // Listener needs to exist before click; previous click opens prompt. Kept separate below.
+ await page.locator('#save-shape').click();
+ await page.waitForTimeout(180);
+ assert.ok(await page.locator('#library-items .asset-item').count()>=1,'Saved shape appears in library');
+ await page.locator('#library-items .asset-item button').first().click();
+ assert.equal(await page.locator('.tree-item').count(),4,'Reusable asset inserted into project');
+ await page.locator('#group-objects').click();
+ page.once('dialog',dialog=>dialog.accept('One-piece test assembly'));
+ await page.locator('#save-assembly').click();
+ assert.ok(await page.locator('#library-items .asset-item').count()>=2,'Saved assembly appears in library');
+ await page.locator('[data-tab="reference"]').click();
+ const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Ykzo4wAAAAASUVORK5CYII=','base64');
+ await page.locator('#reference-view').selectOption('front');
+ await page.locator('#reference-file').setInputFiles({name:'front.png',mimeType:'image/png',buffer:tinyPng});
+ await page.waitForTimeout(180);
+ assert.equal(await page.locator('#reference-items .tree-item').count(),1);
+ await page.locator('#reference-width').fill('1.4');await page.locator('#reference-width').dispatchEvent('change');
+ await page.locator('#module-manifest').fill('[{"name":"Knee hub","geometry":"cylinder"},{"name":"Shin casing","geometry":"loft"}]');
+ await page.locator('#apply-manifest').click();
+ await page.screenshot({path:'part-workbench-v2-artifacts/03-reference.png'});
+ await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+ await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:35000});
+ assert.ok(await page.locator('.tree-item').count()>=4,'IndexedDB reloaded shape hierarchy');
+ await page.locator('[data-tab="reference"]').click();
+ assert.equal(await page.locator('#reference-items .tree-item').count(),1,'reference images persist');
+ if(errors.length)throw Error('Browser errors: '+errors.join('\\n'));
+ console.log('WORKBENCH V2 PASS · real Three.js mobile, profile edit, mirror, library, IndexedDB and ortho references');
 }finally{await browser.close();}
 if(errors.length)throw Error(errors.join('\n'));
