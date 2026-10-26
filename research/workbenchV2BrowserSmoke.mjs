@@ -28,7 +28,14 @@ try{
  assert.equal(await page.locator('.tree-item').count(),3);
  await page.locator('#unlink').click();
  await page.locator('[data-view="front"]').click();await page.locator('[data-tool="points"]').click();
- assert.ok(await page.locator('#edit-overlay .point-handle').count()>0,'Profile handles in true orthographic projection');
+ await page.locator('#edit-overlay .point-handle').first().waitFor({state:'attached',timeout:8000}).catch(async()=>{
+   throw Error('Profile handles missing: '+JSON.stringify(await page.evaluate(()=>({
+    status:document.querySelector('#status')?.textContent,
+    view:document.querySelector('#mode-status')?.textContent,
+    selected:document.querySelector('#selected-id')?.textContent,
+    svg:document.querySelector('#edit-overlay')?.innerHTML.slice(0,800)
+   }))));
+ });
  const handle=page.locator('#edit-overlay .point-handle').first();
  const box=await handle.boundingBox();assert.ok(box,'visible point handle');
  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
