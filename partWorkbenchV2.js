@@ -19,6 +19,138 @@ let camera,renderer,scene,grid,raycaster=new THREE.Raycaster(),orthoScale=2.7;
 let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touchSpan=null;
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
 let meshPointPageIndex=0,meshPointSelectedIndex=0;
+let activePoint=null,visibilityMode='all',pointSliderStart=null;
+const axisKeys=['X','Y','Z'];
+const findNode=id=>doc.nodes.find(n=>n.id===id);
+function pointCoordinates(which=activePoint,document=doc){
+ if(!which)return null;
+ const n=document.nodes.find(n=>n.id===which.nodeId),g=n?.geometry;
+ if(!g||n.locked||n.mirrorOf||n.kind!=='shape')return null;
+ if(g.type==='mesh')return meshPointGroups(g)[which.index]?.position.slice()||null;
+ if(g.profile&&which.kind==='profile'){
+  const p=g.profile[which.index];return p?[p[0],p[1],0]:null;
+ }
+ if(g.sections){
+  const p=g.sections[which.index];if(!p)return null;
+  return [which.kind==='width'||which.kind==='topWidth'?-p.width/2:p.width/2,
+   p.y,which.kind==='back'||which.kind==='topBack'?p.back:p.front];
+ }
+ return null;
+}
+function setPointCoordinates(nextPos,which=activePoint,original=doc){
+ const n=original.nodes.find(n=>n.id===which?.nodeId);
+ if(!n||n.locked||n.mirrorOf||n.kind!=='shape')throw Error('Select an editable point');
+ const geometry=clone(n.geometry);
+ if(geometry.type==='mesh')return updateMeshPoint(geometry,which.index,nextPos);
+ if(geometry.profile&&which.kind==='profile'){
+  geometry.profile[which.index]=nextPos.slice(0,2);
+ }else if(geometry.sections){
+  const entry=geometry.sections[which.index];
+  if(['width','topWidth'].includes(which.kind))
+   entry.width=Math.max(.02,Math.abs(nextPos[0])*2);
+  if(which.kind==='front')entry.front=Math.min(entry.back-.02,nextPos[2]);
+  if(['back','topBack'].includes(which.kind))entry.back=Math.max(entry.front+.02,nextPos[2]);
+  entry.y=nextPos[1];
+ }else throw Error('This geometry has no control points');
+ return validateGeometry(geometry);
+}
+function previewPointGeometry(geometry,which=activePoint){
+ const n=findNode(which.nodeId);if(!n)return;
+ n.geometry=geometry;
+ const visual=compiled?.objects.get(n.id);
+ if(visual?.isMesh){
+  const previous=visual.geometry;
+  visual.geometry=compileGeometry(geometry);
+  previous.dispose();
+ }
+ requestDraw();
+}
+function selectPoint(which){
+ activePoint={nodeId:which.nodeId,kind:which.kind,index:which.index};
+ if(which.kind==='factory-mesh')meshPointSelectedIndex=which.index;
+ updateContextPanel();requestDraw();
+}
+function clearPoint(){activePoint=null;pointSliderStart=null;updateContextPanel();}
+function selectedIsDescendant(id){
+ if(!selected||selected==='root')return false;
+ let key=id;
+ const visited=new Set();
+ while(key&&!visited.has(key)){
+  if(key===selected)return true;
+  visited.add(key);key=findNode(key)?.parentId;
+ }
+ return false;
+}
+function applyVisibility(){
+ if(!compiled)return;
+ for(const n of doc.nodes){
+  const obj=compiled.objects.get(n.id);
+  if(!obj||!obj.isMesh)continue;
+  const isSelected=selectedIsDescendant(n.id);
+  obj.visible=n.visible!==false&&(visibilityMode!=='isolate'||isSelected);
+  const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+  for(const m of mats){
+   if(!m.userData.workbenchBase)m.userData.workbenchBase={
+    opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite
+   };
+   const base=m.userData.workbenchBase;
+   const ghost=visibilityMode==='ghost'&&!isSelected;
+   m.opacity=ghost?.14:base.opacity;
+   m.transparent=ghost||base.transparent;
+   m.depthWrite=ghost?false:base.depthWrite;
+   m.needsUpdate=true;
+  }
+ }
+ requestDraw();
+}
+function updateContextPanel(){
+ const n=node(),active=n&&selected!=='root',point=activePoint?.nodeId===selected?pointCoordinates():null;
+ $('context-edit').hidden=!active;
+ $('selection-actions').hidden=!active;
+ if(!active)return;
+ $('context-title').textContent=point?'POINT '+(activePoint.index+1):'SELECTED · '+n.name;
+ $('context-value').textContent=point?point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join('  ·  '):n.kind.toUpperCase();
+ $('point-controls').hidden=!point;
+ for(const m of ['all','ghost','isolate'])
+  $('visibility-'+(m==='all'?'normal':m)).classList.toggle('active',visibilityMode===m);
+ const b=$('point-axis-controls');b.replaceChildren();
+ if(!point)return;
+ const editable=n.geometry.type==='mesh'?[0,1,2]:
+  n.geometry.profile?[0,1]:n.geometry.sections?
+   activePoint.kind==='width'||activePoint.kind==='topWidth'?[0,1]:
+    [1,2]:[];
+ for(const axis of editable){
+  const row=document.createElement('label');row.className='axis-row';
+  const title=document.createElement('strong');title.textContent=axisKeys[axis];
+  const range=document.createElement('input');range.type='range';range.step='.005';
+  range.min=String(Math.max(-100,point[axis]-.6));
+  range.max=String(Math.min(100,point[axis]+.6));
+  range.value=String(point[axis]);range.dataset.axis=String(axis);
+  range.setAttribute('aria-label',axisKeys[axis]+' point coordinate in metres');
+  const read=document.createElement('output');read.textContent=point[axis].toFixed(3);
+  range.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
+  range.addEventListener('input',()=>{
+   if(!pointSliderStart)pointSliderStart=clone(doc);
+   const original=pointCoordinates(activePoint,pointSliderStart);if(!original)return;
+   const next=original.slice();next[axis]=snapValue(Number(range.value));
+   try{
+    previewPointGeometry(setPointCoordinates(next,activePoint,pointSliderStart));
+    read.textContent=next[axis].toFixed(3);
+    $('context-value').textContent=next.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join(' · ');
+   }catch(e){message(e.message,true);}
+  });
+  const finish=()=>{
+   if(!pointSliderStart)return;
+   const before=pointSliderStart,after=clone(doc);pointSliderStart=null;doc=before;
+   commit(after,selected,'Adjusted point '+axisKeys[axis]+'.');
+   updateContextPanel();
+  };
+  range.addEventListener('change',finish);
+  range.addEventListener('pointercancel',finish);
+  row.append(title,range,read);b.append(row);
+ }
+}
+
 let thumbEpoch=0,browseListMode=false,browseFilter='',thumbCache=new Map(),thumbObserver=null;
 let saveTimer=null,savePromise=Promise.resolve(),drawPending=false,ready=false;
 const canvas=$('stage-canvas'),stage=$('stage'),svg=$('edit-overlay'),NS='http://www.w3.org/2000/svg';
@@ -34,6 +166,7 @@ function commit(next,selection=selected,notify){
   const valid=validateDocument(next);
   if(JSON.stringify(valid)===JSON.stringify(doc))return;
   doc=valid;selected=selection;
+ if(activePoint?.nodeId!==selected)activePoint=null;
   history=history.slice(0,step+1);history.push(clone(doc));
   if(history.length>60)history.shift();step=history.length-1;
   queueSave();refresh();
@@ -51,7 +184,7 @@ function queueSave(){
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
  step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
- if(!doc.nodes.some(n=>n.id===selected))selected='root';
+ if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;
  queueSave();refresh();
 }
 const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
@@ -100,8 +233,9 @@ function selectedFeedback(){
  $('selection-chip').hidden=!active;
  if(active){
   $('selection-name').textContent=n.name;
+  $('selection-actions').hidden=false;
   $('focus-selected').disabled=!compiled?.objects.get(selected);
-  $('quick-hide').textContent=n.visible?'◉':'◎';
+  
  }
 }
 function fitSelected(){
@@ -291,7 +425,7 @@ function rebuild(){
    // Camera focus stays fixed while sculpting; use the FIT control deliberately.
   }
   grid.visible=!showContext;
-  requestDraw();
+  applyVisibility();requestDraw();
  }catch(e){message('Geometry rejected: '+e.message,true);console.error(e);}
 }
 function refresh(){
@@ -303,6 +437,7 @@ function refresh(){
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
+ updateContextPanel();
  $('stage-hint').textContent=tool==='points'
   ?'POINTS · DRAG AMBER DOTS · TAP A MESH TO SWITCH · PINCH TO ZOOM'
   :tool==='select'
