@@ -64,6 +64,25 @@ const FITS=Object.freeze({
  ],
 });
 const CACHE=new WeakMap();
+// Live gameplay derives collision from the transformed, visible machines.
+// The deterministic FITS provide a fallback for browser-free AI/map tests.
+const LIVE_PARTS=new WeakMap();
+export function registerLiveCompoundPieces(obstacle,visualBoxes){
+ if(!Object.hasOwn(FITS,obstacle?.id))throw Error('Unknown machinery '+obstacle?.id);
+ if(!visualBoxes?.length)throw Error('No visible steel for '+obstacle.id);
+ const parts=visualBoxes.map((b,index)=>Object.freeze({
+  id:obstacle.id,parentId:obstacle.id,partId:obstacle.id+'::'+index,
+  kind:obstacle.kind,art:obstacle.art,source:b.source,
+  minX:round(b.minX),maxX:round(b.maxX),minY:round(b.minY),
+  maxY:round(b.maxY),height:round(b.maxY),
+  minZ:round(b.minZ),maxZ:round(b.maxZ),
+ }));
+ for(const p of parts)if(!(p.minX<p.maxX&&p.minY<p.maxY&&p.minZ<p.maxZ))
+  throw Error('Invalid model-derived physical volume '+p.partId);
+ LIVE_PARTS.set(obstacle,Object.freeze(parts));
+ return parts;
+}
+export function hasLiveCompoundPieces(obstacle){return LIVE_PARTS.has(obstacle);}
 const round=n=>Math.round(n*10000)/10000;
 export const COMPOUND_FAMILY_IDS=Object.freeze(Object.keys(FITS));
 export const COMPOUND_FAMILIES=Object.freeze(['tractor','loader']);
@@ -75,6 +94,8 @@ export const COMPOUND_HULL_CLEARANCE=Object.freeze({bodyTop:2.8});
 export function collisionPieces(obstacle){
  if(!obstacle || typeof obstacle!=='object')return [];
  if(obstacle.partId)return [obstacle];
+ const live=LIVE_PARTS.get(obstacle);
+ if(live)return live;
  const fit=FITS[obstacle.id];
  if(!fit || obstacle.dynamic)return [obstacle];
  let cached=CACHE.get(obstacle);
