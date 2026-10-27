@@ -1394,6 +1394,19 @@ async function renderLibrary(){
  }catch(e){box.textContent='Library unavailable: '+e.message;}
 }
 
+$('import-part').onclick=()=>$('part-json-file').click();
+$('part-json-file').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>2e6)throw Error('Single asset exceeds 2 MB; use a smaller design or import a project bundle.');
+  const validated=validateStandaloneAsset(JSON.parse(await file.text()));
+  const asset={...validated,id:'wb-'+crypto.randomUUID(),created:Date.now(),updated:Date.now(),revision:1,
+   name:validated.name.trim()};
+  await db.saveAsset(asset);await renderLibrary();
+  message('Imported editable design "'+asset.name+'". Tap its thumbnail to insert.');
+ }catch(error){message('Part import rejected: '+error.message,true);}
+ e.target.value='';
+};
 $('library-search').oninput=()=>renderLibrary();
 const download=(name,value)=>{
  const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'});
