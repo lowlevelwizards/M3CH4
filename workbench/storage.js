@@ -104,7 +104,8 @@ export async function exportBundle(doc){
  const references=await Promise.all(doc.references.map(r=>get('images',r.imageId)));
  return {format:'m3ch4.workbench.bundle',version:1,project:structuredClone(doc),
   assets:assets.filter(a=>a.format==='m3ch4.workbench.asset'),
-  images:references.filter(Boolean),revisions,checkpoints};
+  images:references.filter(Boolean),
+  revisions:revisions.filter(item=>assets.some(asset=>asset.id===item.assetId)),checkpoints};
 }
 
 export async function importBundle(bundle){
