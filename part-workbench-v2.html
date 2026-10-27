@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#202b25"><title>M3CH4 / Part Workbench V2</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
-<link rel="stylesheet" href="./partWorkbenchV2.css?v=workbench31e"></head>
+<link rel="stylesheet" href="./partWorkbenchV2.css?v=workbench31f"></head>
 <body>
 <header class="workbench-head">
  <a id="return-to-game" class="icon-button" href="./index.html" aria-label="Back to live game" title="Back to game">←</a>
@@ -136,7 +136,7 @@
      </select></label>
      <label>SNAP <select id="snap"><option value="0">OFF</option><option value=".005">5 MM</option><option value=".01" selected>10 MM</option><option value=".025">25 MM</option><option value=".05">50 MM</option><option value=".1">100 MM</option></select></label>
      <button id="reset-selected">RESET TRANSFORM</button>
-     <button id="context-toggle">SHOW YARDWALKER REFERENCE</button>
+     <button id="context-toggle">SHOW YARDWALKER REFERENCE</button><button id="compare-original" title="Cycle original/overlay/side-by-side factory design">COMPARE ORIGINAL: OFF</button>
     </div>
    </details>
    <div class="save-asset-strip"><span>SAVE SELECTED AS</span><button id="save-shape">SHAPE</button><button id="save-part">PART</button><button id="save-assembly">ASSEMBLY</button></div>
@@ -171,5 +171,5 @@
  </div>
 </section>
 </main>
-<script type="module" src="./partWorkbenchV2.js?v=workbench31e"></script>
+<script type="module" src="./partWorkbenchV2.js?v=workbench31f"></script>
 </body></html>
