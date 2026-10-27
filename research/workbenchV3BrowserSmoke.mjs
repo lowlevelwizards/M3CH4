@@ -9,6 +9,7 @@ try{
  await page.waitForFunction(()=>window.__m3ch4WorkbenchV2Ready===true,undefined,{timeout:45000});
  assert.ok(await page.locator('#zoom-in').isVisible());
  await page.locator('#zoom-in').click();await page.locator('#zoom-out').click();
+ await page.locator('#show-shapes-panel').click();
  await page.locator('#shape-type').selectOption('plate');
  await page.locator('#add-shape').click();
  await page.locator('[data-tool="points"]').click();
