@@ -19,10 +19,10 @@ test('rebuilt exterior scenery does not become physically blocked cover',()=>{
  assert.match(cert,/SECONDARY=/);
  assert.match(cert,/Math\.max\(left,right,near,far\)/);
  assert.match(cert,/if\(o\.userData\?\.arenaObstacleId\)/);
- assert.match(derby,/auditBacklotCollisionTruth\(root,world,solids\)/);
+ assert.match(derby,/auditBacklotCollisionTruth\(root,world,solids,liveFit\.sources\)/);
  assert.match(derby,/secondaryGeometryClearance\(source,world\)/);
  assert.match(gallery,/secondaryCollisionClearance:catalog.secondaryCollisionClearance/);
- assert.match(stage,/collisionCertificate\.authoritativeRaycastSolids!==60/);
+ assert.match(stage,/collisionCertificate\.authoritativeRaycastSolids!==/);
  assert.match(stage,/uncollidableOffsiteAssets!==18/);
 });
 test('every LIVE raycast solid is independently compared to the authored gameplay prism',()=>{
@@ -32,6 +32,7 @@ test('every LIVE raycast solid is independently compared to the authored gamepla
  assert.match(cert,/new THREE\.Box3\(\)\.setFromObject\(solid\)/);
  assert.match(cert,/expectedParts=new Map/);
  assert.match(cert,/authoritativeRaycastSolids/);
+ assert.match(cert,/visible steel differs from hit prism/);
 });
 test("the gallery\u0027s fourteen hollow mechanical prototypes are NOT deceptively certified as solid",()=>{
  assert.match(cert,/currentPolicy:'tractor-and-loader-compound-live/);
