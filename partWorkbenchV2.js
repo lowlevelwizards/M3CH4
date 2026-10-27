@@ -13,7 +13,7 @@ import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editabl
 import {rectFromPoints,selectedInRectangle} from './workbench/selectionGeometry.js';
 import {transformMeshGroups,transformProfilePoints} from './workbench/vertexTransforms.js';
 import {validateStandaloneAsset} from './workbench/assetImport.js';
-import {inspectBlueprint} from './workbench/geometryAudit.js';
+import {inspectBlueprint,deepMeshAudit} from './workbench/geometryAudit.js';
 import {moveLoftControls} from './workbench/loftTransforms.js';
 import {insertProfilePoint,insertLoftSection} from './workbench/meshTopology.js';
 import {bakeXReflection} from './workbench/mirrorGeometry.js';
@@ -776,6 +776,17 @@ $('dock-collapse').onclick=()=>{
 };
 $('focus-selected').onclick=()=>fitSelected();
 $('context-close').onclick=()=>clearPoint();
+$('run-geometry-audit').onclick=()=>{
+ const n=node();if(n?.kind!=='shape'||n.geometry?.type!=='mesh')
+  return message('Select an imported triangle mesh for its topology report.',true);
+ try{
+  const audit=deepMeshAudit(n.geometry);
+  $('geometry-audit').textContent='MESH CHECK · '+audit.triangles+' triangles · '+
+   audit.degenerateTriangles+' degenerate · '+audit.boundaryEdges+' boundary edges · '+
+   audit.nonManifoldEdges+' non-manifold edges · '+audit.renderIslands+' render islands. '+audit.note;
+  message('Mesh topology inspected; original geometry unchanged.');
+ }catch(e){message('Mesh inspection failed: '+e.message,true);}
+};
 const moreActions=$('more-actions');
 moreActions.addEventListener('click',e=>{
  if(e.target.closest('button'))moreActions.open=false;
