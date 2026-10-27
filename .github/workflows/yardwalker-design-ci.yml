@@ -1,0 +1,50 @@
+name: Yardwalker Clean Anatomy and Armor
+on:
+  pull_request:
+    paths:
+      - 'yardwalker-design/**'
+      - 'yardwalkerDesignData.js'
+      - 'yardwalkerWorkbenchExport.js'
+      - 'yardwalkerVisual.js'
+      - 'workbench-assets/yardwalker/**'
+      - 'armorPlan.js'
+      - 'armorPrototype.js'
+      - 'armorLab.js'
+      - 'armor-lab.html'
+      - 'partWorkbench.js'
+      - 'part-workbench.html'
+      - 'tests/yardwalkerRedesign.test.mjs'
+      - 'tests/partWorkbenchRecipe.test.mjs'
+      - 'research/exportYardwalkerDesign.mjs'
+      - 'research/yardwalkerBrowserAudit.mjs'
+      - '.github/workflows/yardwalker-design-ci.yml'
+  workflow_dispatch:
+jobs:
+  yardwalker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate canonical source and existing mobility + armor regression tests
+        run: |
+          node research/exportYardwalkerDesign.mjs --check
+          node --test tests/yardwalkerRedesign.test.mjs tests/k5t1ArmorLab.test.mjs tests/k5t3ArmorSilhouette.test.mjs tests/k5t4ArmorDesign.test.mjs tests/partWorkbenchRecipe.test.mjs tests/k3v2Mobility.test.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve live code
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/yw-http.log 2>&1 &
+          sleep 2
+      - name: Verify real tier models, IK and motion in browser
+        run: node research/yardwalkerBrowserAudit.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yardwalker-four-tier-render-audit
+          path: yardwalker-artifacts/
+          if-no-files-found: warn
