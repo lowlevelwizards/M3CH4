@@ -19,6 +19,7 @@ try{
  assert.ok(await page.locator('#edit-overlay polygon').count()>0,'Face mode renders editable polygons');
  await page.locator('#edit-level-point').click();
  await page.locator('#point-box').click();
+ await page.locator('#edit-overlay .point-indicator').first().waitFor({state:'visible',timeout:10000});
  assert.ok(await page.locator('#edit-overlay .point-indicator').first().isVisible());
  await page.locator('#nav-mode').click();
  assert.ok(await page.locator('#nav-mode').evaluate(e=>e.classList.contains('active')));
