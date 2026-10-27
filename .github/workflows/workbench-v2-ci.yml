@@ -7,8 +7,10 @@ on:
       - 'partWorkbenchV2.css'
       - 'part-workbench-v2.html'
       - 'tests/workbenchV2.test.mjs'
+      - 'tests/workbenchV3.test.mjs'
       - 'tests/workbenchOrbitCamera.test.mjs'
       - 'research/workbenchV2BrowserSmoke.mjs'
+      - 'research/workbenchV3BrowserSmoke.mjs'
       - 'research/workbenchCameraBrowserSmoke.mjs'
       - 'research/workbenchVisualFirstBrowserSmoke.mjs'
       - 'research/workbenchContextTouchBrowserSmoke.mjs'
@@ -34,10 +36,13 @@ jobs:
           node --check partWorkbenchV2.js
           node --check workbench/thumbnail.js
           node --check workbench/orbitCamera.js
+          node --check workbench/selectionGeometry.js
+          node --check workbench/vertexTransforms.js
+          node --check workbench/assetImport.js
           node --check workbench/blueprint.js
           node --check workbench/geometry.js
           node --check workbench/storage.js
-          node --test tests/workbenchV2.test.mjs tests/workbenchOrbitCamera.test.mjs tests/partWorkbenchRecipe.test.mjs tests/partVisuals.test.mjs
+          node --test tests/workbenchV2.test.mjs tests/workbenchV3.test.mjs tests/workbenchOrbitCamera.test.mjs tests/partWorkbenchRecipe.test.mjs tests/partVisuals.test.mjs
       - name: Install real browser
         run: |
           npm install --no-save --no-package-lock playwright
@@ -54,6 +59,8 @@ jobs:
         run: node research/workbenchVisualFirstBrowserSmoke.mjs
       - name: Verify contextual point sliders, focus modes and device fit
         run: node research/workbenchContextTouchBrowserSmoke.mjs
+      - name: Verify Workbench 3 box selection, wireframe and chat asset import
+        run: node research/workbenchV3BrowserSmoke.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -10,6 +10,10 @@ import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
 import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly,importSavedGarageBay} from './workbench/factoryImport.js';
 import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
+import {rectFromPoints,selectedInRectangle} from './workbench/selectionGeometry.js';
+import {transformMeshGroups,transformProfilePoints} from './workbench/vertexTransforms.js';
+import {validateStandaloneAsset} from './workbench/assetImport.js';
+import {inspectBlueprint} from './workbench/geometryAudit.js';
 import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
@@ -20,6 +24,35 @@ let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touch
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
 let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let activePoint=null,visibilityMode='all',pointSliderStart=null;
+let displayMode='solid',pointDepth='visible',pointPick='tap',selectionOp='replace';
+let selectedPoints=new Set(),marquee=null,touchCenter=null;
+const pointKey=entry=>entry.kind+':'+entry.index;
+const parsePointKey=key=>{const [kind,index]=key.split(':');return {kind,index:Number(index)};};
+function activePointKeys(){return [...selectedPoints].map(parsePointKey);}
+function activeGroupIndices(){return [...selectedPoints].filter(k=>k.startsWith('factory-mesh:')).map(k=>Number(k.split(':')[1]));}
+function applyBatchDelta(previous,delta,scale=[1,1,1]){
+ const source=previous.nodes.find(n=>n.id===selected),g=source?.geometry;
+ if(!g)throw Error('Select a valid editable part');
+ if(g.type==='mesh')return transformMeshGroups(g,activeGroupIndices(),{delta,scale});
+ if(g.profile)return transformProfilePoints(g,activePointKeys().filter(p=>p.kind==='profile').map(p=>p.index),{delta,scale});
+ // Loft points are parameter handles, not individual arbitrary mesh vertices.
+ let temp=clone(g);
+ for(const which of activePointKeys()){
+  const document={nodes:[{...source,geometry:temp}]};
+  const original=pointCoordinates({...which,nodeId:selected},document);
+  if(!original)continue;
+  const next=original.map((x,i)=>x*scale[i]+delta[i]);
+  temp=setPointCoordinates(next,{...which,nodeId:selected},document);
+ }
+ return validateGeometry(temp);
+}
+function previewBatchGeometry(geometry){
+ const n=findNode(selected);if(!n)return;
+ n.geometry=geometry;const obj=compiled?.objects.get(selected);
+ if(obj?.isMesh){const old=obj.geometry;obj.geometry=compileGeometry(geometry);old.dispose();}
+ requestDraw();
+}
+
 const axisKeys=['X','Y','Z'];
 const findNode=id=>doc.nodes.find(n=>n.id===id);
 function pointCoordinates(which=activePoint,document=doc){
@@ -66,11 +99,16 @@ function previewPointGeometry(geometry,which=activePoint){
  requestDraw();
 }
 function selectPoint(which){
- activePoint={nodeId:which.nodeId,kind:which.kind,index:which.index};
+ const key=pointKey(which);
+ if(selectionOp==='subtract')selectedPoints.delete(key);
+ else if(selectionOp==='add'){selectedPoints.add(key);}
+ else if(!(selectedPoints.size>1&&selectedPoints.has(key))){selectedPoints=new Set([key]);}
+ activePoint=selectedPoints.has(key)?{nodeId:which.nodeId,kind:which.kind,index:which.index}:
+  (selectedPoints.size?{nodeId:which.nodeId,...parsePointKey([...selectedPoints][0])}:null);
  if(which.kind==='factory-mesh')meshPointSelectedIndex=which.index;
  updateContextPanel();requestDraw();
 }
-function clearPoint(){activePoint=null;pointSliderStart=null;updateContextPanel();}
+function clearPoint(){activePoint=null;selectedPoints.clear();pointSliderStart=null;updateContextPanel();}
 function selectedIsDescendant(id){
  if(!selected||selected==='root')return false;
  let key=id;
@@ -93,13 +131,17 @@ function applyVisibility(){
   const mats=Array.isArray(obj.material)?obj.material:[obj.material];
   for(const m of mats){
    if(!m.userData.workbenchBase)m.userData.workbenchBase={
-    opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite
+    opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite,depthTest:m.depthTest,wireframe:m.wireframe,side:m.side
    };
    const base=m.userData.workbenchBase;
    const ghost=visibilityMode==='ghost'&&!isSelected;
-   m.opacity=ghost ? .14 : base.opacity;
-   m.transparent=ghost||base.transparent;
-   m.depthWrite=ghost?false:base.depthWrite;
+   const xray=displayMode==='xray';
+   m.opacity=xray?(isSelected?.22:.09):(ghost?.14:base.opacity);
+   m.transparent=xray||ghost||base.transparent;
+   m.depthWrite=(xray||ghost)?false:base.depthWrite;
+   m.depthTest=base.depthTest;
+   m.wireframe=displayMode==='wire';
+   m.side=xray?THREE.DoubleSide:base.side;
    m.needsUpdate=true;
   }
  }
@@ -107,16 +149,76 @@ function applyVisibility(){
 }
 function updateContextPanel(){
  const n=node(),active=n&&selected!=='root',point=activePoint?.nodeId===selected?pointCoordinates():null;
+ const count=selectedPoints.size;
+ $('point-mode-toolbar').hidden=tool!=='points'||!active||n.kind!=='shape';
+ for(const [id,v] of [['point-tap',pointPick==='tap'],['point-box',pointPick==='box'],
+  ['select-add',selectionOp==='add'],['select-subtract',selectionOp==='subtract'],
+  ['display-solid',displayMode==='solid'],['display-wire',displayMode==='wire'],['display-xray',displayMode==='xray'],
+  ['depth-visible',pointDepth==='visible'],['depth-through',pointDepth==='through']])
+   $(id).classList.toggle('active',v);
+ const audit=inspectBlueprint(doc);
+ $('geometry-audit').textContent=audit.shapes+' shapes · '+audit.vertices+' imported vertices · '+audit.triangles+' triangles'+
+  (audit.warnings.length?' · '+audit.warnings[0]:'');
  $('context-edit').hidden=!active;
  $('selection-actions').hidden=!active;
  if(!active){visibilityMode='all';applyVisibility();return;}
- $('context-title').textContent=point?'POINT '+(activePoint.index+1):'SELECTED · '+n.name;
- $('context-value').textContent=point?point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join('  ·  '):n.kind.toUpperCase();
+ $('context-title').textContent=count>1?count+' POINTS SELECTED':point?'POINT '+(activePoint.index+1):'SELECTED · '+n.name;
+ $('context-value').textContent=count>1?'RELATIVE TRANSFORM · METRES':point?point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join('  ·  '):n.kind.toUpperCase();
  $('point-controls').hidden=!point;
  for(const m of ['all','ghost','isolate'])
   $('visibility-'+(m==='all'?'normal':m)).classList.toggle('active',visibilityMode===m);
  const b=$('point-axis-controls');b.replaceChildren();
  if(!point)return;
+ if(count>1){
+  for(let axis=0;axis<3;axis++){
+   const row=document.createElement('label');row.className='axis-row';
+   const name=document.createElement('strong');name.textContent=axisKeys[axis]+' Δ';
+   const slider=document.createElement('input');slider.type='range';slider.min='-.5';slider.max='.5';slider.step='.005';slider.value='0';
+   slider.dataset.axis=axis;slider.setAttribute('aria-label','Relative '+axisKeys[axis]+' offset for '+count+' points');
+   const read=document.createElement('output');read.textContent='0.000';
+   slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
+   slider.addEventListener('input',()=>{
+    if(!pointSliderStart)pointSliderStart=clone(doc);
+    const delta=[0,0,0];delta[axis]=snapValue(Number(slider.value));
+    try{previewBatchGeometry(applyBatchDelta(pointSliderStart,delta));
+     read.textContent=delta[axis].toFixed(3);
+    }catch(e){message(e.message,true);}
+   });
+   const finish=()=>{
+    if(!pointSliderStart)return;const before=pointSliderStart,after=clone(doc);
+    pointSliderStart=null;doc=before;commit(after,selected,'Moved '+count+' selected points.');
+    updateContextPanel();
+   };
+   slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+   row.append(name,slider,read);b.append(row);
+  }
+  if(n.geometry.type==='mesh'||n.geometry.profile){
+   for(let axis=0;axis<3;axis++){
+    if(n.geometry.profile&&axis===2)continue;
+    const row=document.createElement('label');row.className='axis-row';
+    const name=document.createElement('strong');name.textContent=axisKeys[axis]+' ×';
+    const slider=document.createElement('input');slider.type='range';slider.min='.5';slider.max='1.5';slider.step='.025';slider.value='1';
+    slider.setAttribute('aria-label','Scale selected points on '+axisKeys[axis]);
+    const read=document.createElement('output');read.textContent='100%';
+    slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
+    slider.addEventListener('input',()=>{
+     if(!pointSliderStart)pointSliderStart=clone(doc);
+     const scale=[1,1,1];scale[axis]=Number(slider.value);
+     try{previewBatchGeometry(applyBatchDelta(pointSliderStart,[0,0,0],scale));
+      read.textContent=Math.round(scale[axis]*100)+'%';}
+     catch(e){message(e.message,true);}
+    });
+    const finish=()=>{
+     if(!pointSliderStart)return;const before=pointSliderStart,after=clone(doc);
+     pointSliderStart=null;doc=before;commit(after,selected,'Scaled '+count+' selected points.');
+     updateContextPanel();
+    };
+    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+    row.append(name,slider,read);b.append(row);
+   }
+  }
+  return;
+ }
  const editable=n.geometry.type==='mesh'?[0,1,2]:
   n.geometry.profile?[0,1]:n.geometry.sections?
    activePoint.kind==='width'||activePoint.kind==='topWidth'?[0,1]:
@@ -168,7 +270,7 @@ function commit(next,selection=selected,notify){
   const valid=validateDocument(next);
   if(JSON.stringify(valid)===JSON.stringify(doc))return;
   doc=valid;selected=selection;
- if(activePoint?.nodeId!==selected)activePoint=null;
+ if(activePoint?.nodeId!==selected){activePoint=null;selectedPoints.clear();}
   history=history.slice(0,step+1);history.push(clone(doc));
   if(history.length>60)history.shift();step=history.length-1;
   queueSave();refresh();
@@ -186,7 +288,7 @@ function queueSave(){
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
  step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
- if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;
+ if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;selectedPoints.clear();
  queueSave();refresh();
 }
 const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
@@ -240,8 +342,8 @@ function selectedFeedback(){
 
  }
 }
-function fitSelected(){
- const obj=compiled?.objects.get(selected==='root'?'root':selected);
+function fitSelected(targetId=selected){
+ const obj=compiled?.objects.get(targetId==='root'?'root':targetId);
  if(!obj)return;
  const bounds=new THREE.Box3().setFromObject(obj);
  if(bounds.isEmpty())return;
@@ -251,7 +353,7 @@ function fitSelected(){
  const aspect=Math.max(.45,stage.clientWidth/Math.max(1,stage.clientHeight));
  const halfFov=Math.PI*38/360;
  orbit.distance=Math.max(.33,Math.min(40,Math.max(h/(2*Math.tan(halfFov)),w/(2*Math.tan(halfFov)*aspect))*1.52));
- orthoScale=Math.max(.12,Math.min(20,Math.max(h/2,w/(2*aspect))*.95));
+ orthoScale=Math.max(.12,Math.min(30,Math.max(h/2,w/(2*aspect))*1.28));
  updateCamera();requestDraw();
 }
 
@@ -348,6 +450,22 @@ function sceneSetup(){
  renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.setPixelRatio(Math.min(1.5,devicePixelRatio||1));
  setCamera();new ResizeObserver(requestDraw).observe(stage);
+}
+function cameraZoom(factor){
+ if(!Number.isFinite(factor)||factor<=0)return;
+ if(view==='quarter')orbit.distance=THREE.MathUtils.clamp(orbit.distance*factor,.22,45);
+ else orthoScale=THREE.MathUtils.clamp(orthoScale*factor,.07,30);
+ requestDraw();
+}
+function panCamera(dx,dy){
+ const height=Math.max(1,stage.clientHeight);
+ const perPixel=view==='quarter'?
+  2*orbit.distance*Math.tan(THREE.MathUtils.degToRad(38)/2)/height:
+  2*orthoScale/height;
+ const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
+ const up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+ focus.addScaledVector(right,-dx*perPixel).addScaledVector(up,dy*perPixel);
+ requestDraw();
 }
 function setCamera(){
  const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight),aspect=w/h;
@@ -767,26 +885,49 @@ $('new-project').onclick=()=>{
 };
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{
  tool=b.dataset.tool;
- if(tool!=='points')clearPoint();refresh();
+ if(tool!=='points')clearPoint();refresh();updateContextPanel();
 };
 for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
  view=b.dataset.view;setCamera();refresh();
 };
+$('zoom-in').onclick=()=>cameraZoom(.8);
+$('zoom-out').onclick=()=>cameraZoom(1.25);
+$('fit-all').onclick=()=>{fitSelected('root');requestDraw();};
+$('point-tap').onclick=()=>{pointPick='tap';updateContextPanel();requestDraw();};
+$('point-box').onclick=()=>{pointPick='box';updateContextPanel();requestDraw();};
+$('select-add').onclick=()=>{selectionOp=selectionOp==='add'?'replace':'add';updateContextPanel();};
+$('select-subtract').onclick=()=>{selectionOp=selectionOp==='subtract'?'replace':'subtract';updateContextPanel();};
+$('clear-point-selection').onclick=()=>{clearPoint();requestDraw();};
+$('select-all-points').onclick=()=>{
+ const n=node();if(!n||n.kind!=='shape'||n.locked||n.mirrorOf)return;
+ const g=n.geometry;selectedPoints=new Set((g.type==='mesh'?meshPointGroups(g).map((_,i)=>'factory-mesh:'+i):
+  g.profile?g.profile.map((_,i)=>'profile:'+i):
+  (g.sections||[]).map((_,i)=>'front:'+i)));
+ const key=[...selectedPoints][0];
+ activePoint=key?{nodeId:selected,...parsePointKey(key)}:null;
+ updateContextPanel();requestDraw();
+};
+for(const mode of ['solid','wire','xray'])$('display-'+mode).onclick=()=>{
+ displayMode=mode;applyVisibility();updateContextPanel();};
+for(const mode of ['visible','through'])$('depth-'+mode).onclick=()=>{
+ pointDepth=mode;updateContextPanel();requestDraw();};
 $('reset-camera').onclick=()=>{
  orbit={yaw:.62,pitch:.22,distance:Math.max(1.8,orbit.distance)};
  view='quarter';setCamera();refresh();message('Camera reset · FRONT -Z / RIGHT +X / UP +Y.');
 };
 $('context-toggle').onclick=()=>{showContext=!showContext;buildContext();refresh();
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
-$('test-in-yard').onclick=async()=>{
+async function deployPrototype(mode){
  try{
-  const raw=packagePrototype(doc);
+  const raw=packagePrototype(doc,{mode});
   // A standalone blueprint overlays only the left Yardwalker knee in the real range.
   sessionStorage.setItem(PROTOTYPE_KEY,raw);
   await db.saveProject(doc);
   window.location.assign('./test-yard.html?wb-prototype=1');
  }catch(e){message('Test Yard handoff failed: '+e.message,true);}
-};
+}
+$('test-in-yard').onclick=()=>deployPrototype('overlay');
+$('test-replace-calf').onclick=()=>deployPrototype('replace-calf');
 $('undo').onclick=()=>undo(-1);$('redo').onclick=()=>undo(1);
 document.addEventListener('keydown',e=>{
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
@@ -946,18 +1087,27 @@ function drawOverlay(){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
   if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
   const circle=svgNode('circle',{cx:p.x,cy:p.y,r:entry.kind==='factory-mesh'?10:14,fill:'#edb15d','fill-opacity':'.15',
-   stroke:'#e7ae57','stroke-width':1.5,class:'point-handle',
+   stroke:'#e7ae57','stroke-width':1.5,class:(pointPick==='box'?'point-indicator':'point-handle')+
+    (selectedPoints.has(pointKey(entry))?' is-selected':'')+
+    (activePoint?.kind===entry.kind&&activePoint?.index===entry.index?' is-active':''),
    'data-index':entry.index,'data-kind':entry.kind});
   const core=svgNode('circle',{cx:p.x,cy:p.y,r:5.5,fill:'#ffcc71','pointer-events':'none'});
+  if(pointPick==='box')continue;
   circle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
    selectPoint({nodeId:selected,index:entry.index,kind:entry.kind});
+   if(selectionOp!=='replace'){return;}
    const target=compiled.objects.get(selected);
    const anchor=target.localToWorld(entry.pos.clone());
    drag={mode:'point',nodeId:selected,index:entry.index,kind:entry.kind,
     pointerId:e.pointerId,anchor,previous:clone(doc)};
    svg.setPointerCapture(e.pointerId);
   });
+ }
+ if(marquee){
+  const rect=rectFromPoints(marquee.start,marquee.end);
+  svgNode('rect',{x:rect.left,y:rect.top,width:Math.max(1,rect.right-rect.left),
+   height:Math.max(1,rect.bottom-rect.top),class:'marquee'});
  }
 }
 function pointPlane(e,anchor){
@@ -972,6 +1122,12 @@ function applyPoint(e){
  const target=compiled?.objects.get(drag.nodeId);if(!target)return;
  const hit=pointPlane(e,drag.anchor);if(!hit)return;
  const local=target.worldToLocal(hit);
+ if(selectedPoints.size>1){
+  const origin=target.worldToLocal(drag.anchor.clone()),delta=local.clone().sub(origin).toArray();
+  try{previewBatchGeometry(applyBatchDelta(drag.previous,delta));
+   updatePointValueWithoutRebuildingControls();}catch(e){message(e.message,true);}
+  return;
+ }
  const n=doc.nodes.find(n=>n.id===drag.nodeId);
  const source=drag.previous.nodes.find(n=>n.id===drag.nodeId);
  if(!n||!source||n.locked)return;
@@ -1013,7 +1169,7 @@ function applyPoint(e){
  }
 }
 function updatePointValueWithoutRebuildingControls(){
- if(!activePoint)return;
+ if(!activePoint||selectedPoints.size>1)return;
  const point=pointCoordinates();
  if(!point)return;
  $('context-value').textContent=point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join(' · ');
@@ -1036,6 +1192,42 @@ const finishPoint=e=>{
 };
 svg.addEventListener('pointerup',finishPoint);svg.addEventListener('pointercancel',finishPoint);
 svg.addEventListener('pointerup',finishGizmoDrag);svg.addEventListener('pointercancel',finishGizmoDrag);
+function getSelectionCandidates(){
+ const n=node(),obj=compiled?.objects.get(selected);
+ if(!n||n.kind!=='shape'||!obj||n.locked||n.mirrorOf)return [];
+ const g=n.geometry;
+ const entries=g.type==='mesh'?meshPointGroups(g).map((v,i)=>({kind:'factory-mesh',index:i,pos:v.position})):
+  g.profile?g.profile.map((v,i)=>({kind:'profile',index:i,pos:[v[0],v[1],0]})):
+  (g.sections||[]).flatMap((v,i)=>[
+   {kind:'width',index:i,pos:[-v.width/2,v.y,v.front]},
+   {kind:'front',index:i,pos:[v.width/2,v.y,v.front]},
+   {kind:'back',index:i,pos:[v.width/2,v.y,v.back]}]);
+ obj.updateMatrixWorld(true);
+ return entries.map(p=>{
+  const world=obj.localToWorld(new THREE.Vector3(...p.pos));
+  const clip=world.clone().project(camera);
+  return {...p,id:pointKey(p),x:(clip.x+1)*stage.clientWidth/2,y:(1-clip.y)*stage.clientHeight/2,
+   inFrustum:Math.abs(clip.x)<=1.02&&Math.abs(clip.y)<=1.02&&clip.z>=-1&&clip.z<=1,world,clip};
+ });
+}
+function finishMarquee(){
+ if(!marquee)return;
+ const rect=rectFromPoints(marquee.start,marquee.end);
+ const candidates=getSelectionCandidates().filter(p=>p.x>=rect.left&&p.x<=rect.right&&p.y>=rect.top&&p.y<=rect.bottom&&p.inFrustum);
+ const obj=compiled?.objects.get(selected);
+ if(pointDepth==='visible'&&obj){
+  for(const point of candidates){
+   raycaster.setFromCamera(new THREE.Vector2(point.clip.x,point.clip.y),camera);
+   const front=raycaster.intersectObject(obj,false)[0];
+   point.visible=!front||front.distance>=camera.position.distanceTo(point.world)-.025;
+  }
+ }
+ selectedPoints=selectedInRectangle(candidates,rect,{through:pointDepth==='through',
+  operation:selectionOp,previous:selectedPoints});
+ const key=[...selectedPoints][0];activePoint=key?{nodeId:selected,...parsePointKey(key)}:null;
+ marquee=null;updateContextPanel();requestDraw();
+ message(selectedPoints.size+' points selected.');
+}
 function screenNDC(e){
  const b=stage.getBoundingClientRect();
  return {x:(e.clientX-b.left)/b.width*2-1,y:1-(e.clientY-b.top)/b.height*2};
@@ -1044,7 +1236,13 @@ canvas.addEventListener('pointerdown',e=>{
  canvas.setPointerCapture(e.pointerId);
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  // A second finger is always a viewport gesture, never an object edit.
- if(pointers.size!==1){drag=null;touchSpan=null;return;}
+ if(pointers.size!==1){drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
+ if(tool==='points'&&pointPick==='box'&&node()?.kind==='shape'){
+  const bounds=stage.getBoundingClientRect();
+  marquee={start:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},
+   end:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},pointerId:e.pointerId};
+  requestDraw();return;
+ }
  raycaster.setFromCamera(screenNDC(e),camera);
  const hits=raycaster.intersectObjects([...compiled?.objects.values()||[]].filter(x=>x.isMesh),false);
  const found=hits.find(h=>h.object.userData.workbenchSelectable);
@@ -1074,11 +1272,16 @@ canvas.addEventListener('pointermove',e=>{
  const dx=e.clientX-prev.x,dy=e.clientY-prev.y;
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(pointers.size===2){
-  const [a,b]=[...pointers.values()],distance=Math.hypot(a.x-b.x,a.y-b.y);
-  if(touchSpan!==null){if(view==='quarter')orbit.distance*=touchSpan/distance;
-   else orthoScale*=touchSpan/distance;
-  }
-  touchSpan=distance;requestDraw();return;
+  const [a,b]=[...pointers.values()],distance=Math.max(5,Math.hypot(a.x-b.x,a.y-b.y));
+  const center={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  if(touchSpan!==null)cameraZoom(touchSpan/distance);
+  if(touchCenter)panCamera(center.x-touchCenter.x,center.y-touchCenter.y);
+  touchSpan=distance;touchCenter=center;requestDraw();return;
+ }
+ if(marquee?.pointerId===e.pointerId){
+  const bounds=stage.getBoundingClientRect();
+  marquee.end={x:e.clientX-bounds.left,y:e.clientY-bounds.top};
+  requestDraw();return;
  }
  if(drag?.mode==='orbit'&&view==='quarter'){
   const traveled=Math.hypot(e.clientX-drag.start.x,e.clientY-drag.start.y);
@@ -1116,7 +1319,11 @@ canvas.addEventListener('pointermove',e=>{
  }catch{/* Drag stays on last valid snapshot. */}
 });
 function finishCanvas(e){
- pointers.delete(e.pointerId);touchSpan=null;
+ pointers.delete(e.pointerId);touchSpan=null;touchCenter=null;
+ if(marquee?.pointerId===e.pointerId){
+  if(e.type==='pointercancel')marquee=null;else finishMarquee();
+  requestDraw();return;
+ }
  if(!drag||drag.pointerId!==e.pointerId)return;
  if(drag.mode==='orbit'&&!drag.moved&&['select','points'].includes(tool)){
   selected=drag.hitId||'root';meshPointPageIndex=0;
@@ -1135,12 +1342,8 @@ for(const el of [canvas,svg,stage,$('selection-actions'),$('object-tree')]){
  el.addEventListener('contextmenu',e=>e.preventDefault());
  el.addEventListener('selectstart',e=>e.preventDefault());
 }
-canvas.addEventListener('wheel',e=>{
- e.preventDefault();
- if(view==='quarter')orbit.distance=Math.max(1,Math.min(35,orbit.distance*Math.exp(e.deltaY*.001)));
- else {orthoScale=Math.max(.15,Math.min(16,orthoScale*Math.exp(e.deltaY*.001)));setCamera();}
- requestDraw();
-},{passive:false});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cameraZoom(Math.exp(e.deltaY*.001));},{passive:false});
+canvas.addEventListener('dblclick',e=>{if(e.target===canvas){selected='root';clearPoint();fitSelected();requestDraw();}});
 
 function switchTab(which){
  for(const b of document.querySelectorAll('[data-tab]'))b.classList.toggle('active',b.dataset.tab===which);
@@ -1215,6 +1418,19 @@ async function renderLibrary(){
  }catch(e){box.textContent='Library unavailable: '+e.message;}
 }
 
+$('import-part').onclick=()=>$('part-json-file').click();
+$('part-json-file').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>2e6)throw Error('Single asset exceeds 2 MB; use a smaller design or import a project bundle.');
+  const validated=validateStandaloneAsset(JSON.parse(await file.text()));
+  const asset={...validated,id:'wb-'+crypto.randomUUID(),created:Date.now(),updated:Date.now(),revision:1,
+   name:validated.name.trim()};
+  await db.saveAsset(asset);await renderLibrary();
+  message('Imported editable design "'+asset.name+'". Tap its thumbnail to insert.');
+ }catch(error){message('Part import rejected: '+error.message,true);}
+ e.target.value='';
+};
 $('library-search').oninput=()=>renderLibrary();
 const download=(name,value)=>{
  const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'});

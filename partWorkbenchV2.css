@@ -283,3 +283,30 @@ main{padding-bottom:max(6px,env(safe-area-inset-bottom, 0px))}
  main{height:calc(100dvh - var(--workbench-header-height));
  max-height:calc(100dvh - var(--workbench-header-height))}
 }
+
+
+/* Workbench 3 — explicit point editing, depth selection, and safe phone controls */
+.point-mode-toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:4px 6px;background:#1b2f23;border-top:1px solid #516956}
+.toolbar-group{display:flex;gap:3px;flex:1;min-width:0}
+.point-mode-toolbar button,.view-modes button{flex:1;min-width:0;background:#344b3b;color:#e3e8d9;border:1px solid #68816c;border-radius:5px;min-height:33px;padding:3px 4px;font-size:10px;font-weight:750;white-space:nowrap}
+.view-modes{display:flex;align-items:center;gap:4px;margin:5px 0}
+.view-modes span{font-size:9px;letter-spacing:.04em;color:#c9d8c7;min-width:46px}
+.view-modes button{min-height:32px}
+.audit-summary{font-size:10px;color:#c2d0bc;padding:4px 5px;line-height:1.35}
+#edit-overlay .marquee{pointer-events:none;fill:rgba(235,183,106,.13);stroke:#ffd28a;stroke-width:1.5;stroke-dasharray:5 3}
+#edit-overlay .point-handle.is-selected{stroke:#ffe4a3;fill:#eead53;fill-opacity:.8;stroke-width:2.6}
+#edit-overlay .point-handle.is-active{stroke:#fff0c6;stroke-width:3}
+#zoom-in,#zoom-out,#fit-all{font-size:12px}
+#tab-library .toolbar{display:flex;flex-wrap:wrap;gap:5px}
+#tab-library .toolbar button{flex:1;min-width:80px}
+@media(max-width:849px) and (orientation:landscape){
+ .point-mode-toolbar{padding:2px 4px}
+ .point-mode-toolbar button{min-height:25px;font-size:9px}
+ .view-modes button{min-height:28px}
+}
+
+/* Explicit test-only calf visual swap — not production physics. */
+.drawer-footer{flex-wrap:wrap}
+#test-replace-calf{min-height:34px;font-size:10px;border:1px solid #d9ba72;border-radius:5px;background:#755d39;color:#fff1d1;padding:6px;white-space:nowrap}
+#edit-overlay .point-indicator{pointer-events:none}
+#edit-overlay .point-indicator.is-selected{stroke:#ffe4a3;fill:#eead53;fill-opacity:.8;stroke-width:2.6}

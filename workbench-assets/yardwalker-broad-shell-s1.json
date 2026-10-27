@@ -1,0 +1,399 @@
+{
+  "format": "m3ch4.workbench.asset",
+  "version": 2,
+  "id": "wb-yardwalker-broad-shell-s1",
+  "revision": 1,
+  "type": "part",
+  "name": "Yardwalker / Broad Shell S1",
+  "rootId": "wb-yardwalker-broad-shell-root",
+  "nodes": [
+    {
+      "id": "wb-yardwalker-broad-shell-root",
+      "name": "Yardwalker / Broad Shell S1",
+      "kind": "group",
+      "parentId": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "wb-yws1-spar",
+      "name": "Load spine / exposed rear structural member",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.095,
+          0.13
+        ],
+        "to": [
+          0.09,
+          0.1
+        ],
+        "length": 0.61
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.31,
+          0.105
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "iron"
+    },
+    {
+      "id": "wb-yws1-shell",
+      "name": "Main hex-taper shin fairing",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "loft",
+        "sections": [
+          {
+            "y": 0,
+            "width": 0.205,
+            "front": -0.132,
+            "back": 0.102
+          },
+          {
+            "y": 0.12,
+            "width": 0.31,
+            "front": -0.16,
+            "back": 0.11
+          },
+          {
+            "y": 0.31,
+            "width": 0.37,
+            "front": -0.17,
+            "back": 0.13
+          },
+          {
+            "y": 0.49,
+            "width": 0.32,
+            "front": -0.145,
+            "back": 0.115
+          },
+          {
+            "y": 0.61,
+            "width": 0.23,
+            "front": -0.12,
+            "back": 0.11
+          }
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.62,
+          -0.015
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "olive"
+    },
+    {
+      "id": "wb-yws1-left",
+      "name": "Left removable cheek panel",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "plate",
+        "profile": [
+          [
+            -0.075,
+            -0.18
+          ],
+          [
+            0.055,
+            -0.22
+          ],
+          [
+            0.092,
+            0.18
+          ],
+          [
+            -0.07,
+            0.2
+          ]
+        ],
+        "depth": 0.037
+      },
+      "transform": {
+        "position": [
+          -0.17,
+          -0.3,
+          -0.025
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "ochre"
+    },
+    {
+      "id": "wb-yws1-right",
+      "name": "Right mirrored cheek panel",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "plate",
+        "profile": [
+          [
+            -0.075,
+            -0.18
+          ],
+          [
+            0.055,
+            -0.22
+          ],
+          [
+            0.092,
+            0.18
+          ],
+          [
+            -0.07,
+            0.2
+          ]
+        ],
+        "depth": 0.037
+      },
+      "transform": {
+        "position": [
+          0.17,
+          -0.3,
+          -0.025
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": "wb-yws1-left",
+      "materialRole": "ochre"
+    },
+    {
+      "id": "wb-yws1-front",
+      "name": "Narrow raised front reinforcement",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "wedge",
+        "profile": [
+          [
+            -0.075,
+            -0.21
+          ],
+          [
+            0.075,
+            -0.21
+          ],
+          [
+            0.095,
+            0.2
+          ],
+          [
+            -0.095,
+            0.2
+          ]
+        ],
+        "depth": 0.045
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.32,
+          -0.165
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "cream"
+    },
+    {
+      "id": "wb-yws1-rear",
+      "name": "Exposed rear actuator housing",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.045,
+        "length": 0.46,
+        "sides": 8,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          0.105,
+          -0.35,
+          0.19
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "iron"
+    },
+    {
+      "id": "wb-yws1-top",
+      "name": "Upper service receiver cover",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.26,
+          0.07,
+          0.24
+        ],
+        "bevel": 0.02
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.07,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "teal"
+    },
+    {
+      "id": "wb-yws1-bottom",
+      "name": "Lower ankle relief cap",
+      "kind": "shape",
+      "parentId": "wb-yardwalker-broad-shell-root",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.21,
+          0.08,
+          0.2
+        ],
+        "bevel": 0.018
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.58,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "materialRole": "dark"
+    }
+  ],
+  "created": 0,
+  "updated": 0,
+  "metadata": {
+    "purpose": "Chat-authored editable geometry pilot; not a gameplay part",
+    "mount": "leftKnee visual prototype",
+    "constraints": "Preserve authored knee, ankle and load-bearing mechanisms; appearance only.",
+    "note": "Demo asset, not mechanically certified. Inspect both sides and motion before promotion."
+  }
+}
