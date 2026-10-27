@@ -192,6 +192,31 @@ function updateContextPanel(){
    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
    row.append(name,slider,read);b.append(row);
   }
+  if(n.geometry.type==='mesh'||n.geometry.profile){
+   for(let axis=0;axis<3;axis++){
+    if(n.geometry.profile&&axis===2)continue;
+    const row=document.createElement('label');row.className='axis-row';
+    const name=document.createElement('strong');name.textContent=axisKeys[axis]+' ×';
+    const slider=document.createElement('input');slider.type='range';slider.min='.5';slider.max='1.5';slider.step='.025';slider.value='1';
+    slider.setAttribute('aria-label','Scale selected points on '+axisKeys[axis]);
+    const read=document.createElement('output');read.textContent='100%';
+    slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
+    slider.addEventListener('input',()=>{
+     if(!pointSliderStart)pointSliderStart=clone(doc);
+     const scale=[1,1,1];scale[axis]=Number(slider.value);
+     try{previewBatchGeometry(applyBatchDelta(pointSliderStart,[0,0,0],scale));
+      read.textContent=Math.round(scale[axis]*100)+'%';}
+     catch(e){message(e.message,true);}
+    });
+    const finish=()=>{
+     if(!pointSliderStart)return;const before=pointSliderStart,after=clone(doc);
+     pointSliderStart=null;doc=before;commit(after,selected,'Scaled '+count+' selected points.');
+     updateContextPanel();
+    };
+    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+    row.append(name,slider,read);b.append(row);
+   }
+  }
   return;
  }
  const editable=n.geometry.type==='mesh'?[0,1,2]:
