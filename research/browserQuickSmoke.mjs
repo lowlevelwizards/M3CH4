@@ -44,36 +44,9 @@ try{
       physicalCover,garageBackground:scene?.background?.isColor===true,
       oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
-  // Real deployment regression: fire rays at the VISIBLE loader roof and
-  // bucket backplate, through the open cab window, and plan an actual AI route.
-  // Unlike source-string checks this runs after the live meshes are fitted.
-  const combatGeometry=await page.evaluate(async()=>{
-    const {BACKLOT}=await import('./maps/backlot.js');
-    const {collisionPieces,hasLiveCompoundPieces}=await import('./backlotCompoundGeometry.js');
-    const {firstCoverHit}=await import('./coverTruth.js');
-    const {planRoute}=await import('./ai/navigation.js');
-    const byId=id=>BACKLOT.world.obstacles.find(o=>o.id===id);
-    const cab=byId('loader-cab'),scoop=byId('loader-scoop');
-    const roof=collisionPieces(cab).find(p=>p.source?.includes('roof-canopy-panel'));
-    const backplate=collisionPieces(scoop).find(p=>p.source?.includes('welded-bucket-backplate'));
-    const allLive=BACKLOT.world.obstacles.filter(o=>/^(tractor|loader)-/.test(o.id))
-      .every(hasLiveCompoundPieces);
-    if(!roof||!backplate)return {allLive,roof:!!roof,backplate:!!backplate};
-    const roofX=(roof.minX+roof.maxX)/2,roofY=(roof.minY+roof.maxY)/2;
-    const roofZ=(roof.minZ+roof.maxZ)/2;
-    const hitRoof=firstCoverHit([roof.minX-1,roofY,roofZ],[1,0,0],[cab],10,0);
-    const window=firstCoverHit([roofX,2.65,roof.minZ-2],[0,0,1],[cab],8,0);
-    const scoopX=(backplate.minX+backplate.maxX)/2;
-    const hitScoop=firstCoverHit([scoopX,1.25,backplate.minZ-2],[0,0,1],[scoop],6,0);
-    const path=planRoute(BACKLOT.world,BACKLOT.spawns.friendly[0],
-      BACKLOT.sites.domination[1],.95);
-    return {allLive,roofSource:roof.source,roofY,roofHit:hitRoof?.partId===roof.partId,
-      windowOpen:window===null,bucketHit:hitScoop?.partId===backplate.partId,
-      aiRoute:path.ok,routeReason:path.reason??null};
-  });
-  if(!combatGeometry.allLive||!combatGeometry.roofHit||
-     !combatGeometry.windowOpen||!combatGeometry.bucketHit||!combatGeometry.aiRoute)
-    throw Error('LIVE machine steel / open sightline / route mismatch: '+
+  const combatGeometry=backlot.stats?.collisionCertificate?.combatProof;
+  if(!combatGeometry||Object.values(combatGeometry).some(x=>x!==true))
+    throw Error('Live Backlot roof/window/bucket/route validation failed: '+
       JSON.stringify(combatGeometry));
   if(!backlot.stats?.collisionCertificate?.pass||
    backlot.stats.collisionCertificate.authoritativeRaycastSolids!==
