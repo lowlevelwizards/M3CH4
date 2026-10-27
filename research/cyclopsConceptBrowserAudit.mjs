@@ -13,7 +13,6 @@ page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto('http://127.0.0.1:8765/armor-lab.html',{waitUntil:'domcontentloaded',timeout:60000});
  await page.locator('#armor-plates .armor-plate').first().waitFor({timeout:30000});
- await page.locator('#armor-focus').click();
  const four=[];
  for(let tier=0;tier<=3;tier++){
   await page.locator('#armor-tier').evaluate((input,n)=>{
