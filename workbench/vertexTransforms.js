@@ -1,6 +1,7 @@
 /** Atomic multi-vertex transforms. Always read from the gesture's original geometry. */
 import {clone,validateGeometry} from './blueprint.js';
 import {meshPointGroups} from './editableMesh.js';
+import {freezeLogicalVertexGroups} from './meshTopology.js';
 const finite3=v=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite);
 export function transformMeshGroups(geometry,groupIndices,{delta=[0,0,0],scale=[1,1,1],pivot=null}={}){
  if(geometry?.type!=='mesh')throw Error('Select an imported mesh');
@@ -10,7 +11,7 @@ export function transformMeshGroups(geometry,groupIndices,{delta=[0,0,0],scale=[
  if(!indices.length)return clone(geometry);
  const center=pivot||[0,1,2].map(axis=>indices.reduce((sum,i)=>sum+groups[i].position[axis],0)/indices.length);
  if(!finite3(center))throw Error('Invalid pivot');
- const result=clone(geometry);
+ const result=freezeLogicalVertexGroups(geometry);
  for(const i of indices){
   const g=groups[i],next=g.position.map((v,axis)=>Number((center[axis]+(v-center[axis])*scale[axis]+delta[axis]).toFixed(5)));
   if(next.some(n=>Math.abs(n)>100))throw Error('Vertex outside editing bounds');
