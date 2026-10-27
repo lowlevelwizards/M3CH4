@@ -8,6 +8,9 @@
  * instancing, and on the actual solids used by the firing raycaster.
  */
 import * as THREE from 'three';
+import {BACKLOT} from './maps/backlot.js';
+import {firstCoverHit} from './coverTruth.js';
+import {planRoute} from './ai/navigation.js';
 import {collisionPieces,COMPOUND_FAMILY_IDS,hasLiveCompoundPieces} from './backlotCompoundGeometry.js';
 
 const SECONDARY=/^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/;
@@ -95,6 +98,31 @@ export function auditBacklotCollisionTruth(root,world,solids,visibleSources=new 
  for(const key of expectedParts.keys())
   if(hits.get(key)!==1)
    errors.push(key+' must have exactly one raycast prism; got '+(hits.get(key)||0));
+ // Shoot through a real model window, strike actual roof/bucket steel, and
+ // navigate with the SAME live obstacles used by the game. No second copy
+ // of the map module can accidentally validate the legacy fallback FITS.
+ const cab=parents.get('loader-cab'),scoop=parents.get('loader-scoop');
+ const roof=collisionPieces(cab).find(p=>p.source?.includes('roof-canopy-panel'));
+ const backplate=collisionPieces(scoop).find(p=>p.source?.includes('welded-bucket-backplate'));
+ let combatProof={roofHit:false,windowOpen:false,bucketHit:false,aiRoute:false};
+ if(!roof||!backplate)errors.push('Missing live roof/bucket geometry for ray tests');
+ else{
+  const x=(roof.minX+roof.maxX)/2,y=(roof.minY+roof.maxY)/2;
+  const z=(roof.minZ+roof.maxZ)/2;
+  const actualRoof=firstCoverHit([roof.minX-1,y,z],[1,0,0],[cab],10,0);
+  const clearWindow=firstCoverHit([x,2.65,roof.minZ-2],[0,0,1],[cab],8,0);
+  const sx=(backplate.minX+backplate.maxX)/2;
+  const actualBucket=firstCoverHit([sx,1.25,backplate.minZ-2],[0,0,1],[scoop],6,0);
+  const route=planRoute(world,BACKLOT.spawns.friendly[0],BACKLOT.sites.domination[1],.95);
+  combatProof={
+   roofHit:actualRoof?.partId===roof.partId,
+   windowOpen:clearWindow===null,
+   bucketHit:actualBucket?.partId===backplate.partId,
+   aiRoute:route.ok,
+  };
+  for(const [key,ok] of Object.entries(combatProof))
+   if(!ok)errors.push('Live model combat/route regression: '+key);
+ }
  const artGroups=root.children.filter(group=>SECONDARY.test(group.name));
  for(const group of artGroups)
   group.traverse(o=>{
@@ -106,6 +134,7 @@ export function auditBacklotCollisionTruth(root,world,solids,visibleSources=new 
   gameplayObstacleCount:parents.size,
   compoundFamilyCount:COMPOUND_FAMILY_IDS.length,
   visuallyCertifiedParts:visibleSources.size,
+  combatProof:Object.freeze(combatProof),
   expectedPhysicalParts:expectedParts.size,
   authoritativeRaycastSolids:[...hits.values()].reduce((a,b)=>a+b,0),
   uncollidableOffsiteAssets:secondary.count,
