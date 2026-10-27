@@ -21,6 +21,7 @@ try{
  assert.ok(await page.locator('#display-xray').evaluate(el=>el.classList.contains('active')));
  await page.locator('#display-solid').click();
  await page.locator('#point-box').click();await page.locator('#depth-through').click();
+ await page.locator('#edit-overlay .point-indicator').first().waitFor({state:'attached'});
  const positions=await page.locator('#edit-overlay .point-indicator').evaluateAll(els=>els.map(el=>({
   x:Number(el.getAttribute('cx')),y:Number(el.getAttribute('cy'))
  })));
