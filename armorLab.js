@@ -1,5 +1,5 @@
 /** k5t1 no-save interactive armor anatomy and crew-allocation lab.
- * Both viewports use the actual production Cyclops/Kestrel builder. Plate
+ * Both viewports use production Cyclops/Kestrel/Yardwalker builders. Plate
  * meshes are individually raycastable and follow Kestrel's named joints.
  */
 import * as THREE from 'three';
@@ -56,8 +56,8 @@ function rebuild(){
   $('armor-part').value=state.id;
   $('armor-mass').textContent='+'+armorMassKg(state.id,state.tier)+' KG';
   $('armor-count').textContent=count+' PLATE'+(count===1?'':'S');
-  $('armor-walk').disabled=state.id!=='legs-compact';
-  if(state.id!=='legs-compact')state.walk=false;
+  $('armor-walk').disabled=!['legs-compact','legs-yard'].includes(state.id);
+  if(!['legs-compact','legs-yard'].includes(state.id))state.walk=false;
   $('armor-walk').setAttribute('aria-pressed',String(state.walk));
   $('armor-walk').textContent=state.walk?'Ⅱ PAUSE GAIT':'▶ GAIT';
   paintControls();
@@ -142,7 +142,7 @@ $('armor-repair-reset').addEventListener('click',()=>{removeDebris();
   state.crew=4;paintControls();note('SPECIMEN RESET · ALL INSTALLED ARMOR INTACT');});
 $('armor-part').addEventListener('change',e=>{state.id=e.target.value;state.tier=state.id==='cab-cyclops'?1:0;rebuild();});
 $('armor-tier').addEventListener('input',e=>{const level=Number(e.target.value);if(level!==state.tier){state.tier=level;rebuild();}});
-$('armor-walk').addEventListener('click',()=>{if(state.id!=='legs-compact')return;state.walk=!state.walk;
+$('armor-walk').addEventListener('click',()=>{if(!['legs-compact','legs-yard'].includes(state.id))return;state.walk=!state.walk;
   $('armor-walk').setAttribute('aria-pressed',String(state.walk));
   $('armor-walk').textContent=state.walk?'Ⅱ PAUSE GAIT':'▶ GAIT';});
 function aim(yaw,pitch=.18){state.yaw=yaw;state.pitch=pitch;}
@@ -230,7 +230,7 @@ canvas.addEventListener('touchmove',e=>{if(e.touches.length===2){
 }},{passive:true});
 canvas.addEventListener('touchend',e=>{for(const t of e.changedTouches)activeTouches.delete(t.identifier);},{passive:true});
 function animateLegs(specimen,time){
-  if(!specimen||specimen.partId!=='legs-compact')return;
+  if(!specimen||!['legs-compact','legs-yard'].includes(specimen.partId))return;
   for(const [i,side] of ['left','right'].entries()){
     const hip=specimen.root.getObjectByName(side+'Hip');
     const knee=specimen.root.getObjectByName(side+'Knee');
