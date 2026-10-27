@@ -32,6 +32,50 @@ let activePoint=null,visibilityMode='all',pointSliderStart=null;
 let displayMode='solid',pointDepth='visible',pointPick='tap',selectionOp='replace';
 let selectedPoints=new Set(),marquee=null,touchCenter=null;
 let navigating=false,objectMultiSelect=false,collapsedGroups=new Set(),editingLevel='point';
+let comparison={mode:'off',definitionId:null,compiled:null};
+const comparisonSource=()=>doc.metadata?.source?.definitionId||doc.metadata?.factoryDefinitionId||null;
+function discardComparison(){
+ if(comparison.compiled){comparison.compiled.root.parent?.remove(comparison.compiled.root);
+  disposeBlueprint(comparison.compiled.root);}
+ comparison={mode:'off',definitionId:null,compiled:null};
+}
+function updateComparisonUI(){
+ const btn=$('compare-original');if(!btn)return;
+ btn.disabled=!comparisonSource();
+ btn.textContent='COMPARE ORIGINAL: '+comparison.mode.toUpperCase().replace('SPLIT','SIDE BY SIDE');
+}
+function applyComparisonLayout(){
+ if(!compiled||comparison.mode==='off'||showContext)return;
+ const source=comparisonSource();
+ if(!source){discardComparison();updateComparisonUI();return;}
+ if(comparison.definitionId!==source||!comparison.compiled){
+  const wanted=comparison.mode;discardComparison();
+  try{
+   const model=importFactoryPart(source);
+   comparison={mode:wanted,definitionId:source,compiled:compileBlueprint(model.document)};
+   scene.add(comparison.compiled.root);
+  }catch(e){discardComparison();message('Factory comparison unavailable: '+e.message,true);return;}
+ }
+ compiled.root.position.set(0,0,0);
+ const original=comparison.compiled.root;original.position.set(0,0,0);
+ original.traverse(o=>{if(!o.isMesh)return;
+  for(const m of(Array.isArray(o.material)?o.material:[o.material])){
+   m.opacity=comparison.mode==='overlay'?.22:1;
+   m.transparent=comparison.mode==='overlay';m.depthWrite=comparison.mode!=='overlay';m.needsUpdate=true;
+  }
+ });
+ if(comparison.mode==='split'){
+  original.updateMatrixWorld(true);compiled.root.updateMatrixWorld(true);
+  const factoryBox=new THREE.Box3().setFromObject(original),draftBox=new THREE.Box3().setFromObject(compiled.root);
+  const factorySize=factoryBox.getSize(new THREE.Vector3()),draftSize=draftBox.getSize(new THREE.Vector3());
+  const gap=Math.max(.45,Math.max(factorySize.x,draftSize.x)*.35);
+  const x=Math.max(factorySize.x,draftSize.x)/2+gap;
+  original.position.x=x-factoryBox.getCenter(new THREE.Vector3()).x;
+  compiled.root.position.x=-x-draftBox.getCenter(new THREE.Vector3()).x;
+ }
+ original.updateMatrixWorld(true);compiled.root.updateMatrixWorld(true);
+ updateComparisonUI();
+}
 const elementCache=new WeakMap();
 function editingElements(g){
  let record=elementCache.get(g);if(!record){record=new Map();elementCache.set(g,record);}
@@ -395,6 +439,8 @@ function fitSelected(targetId=selected){
  const obj=compiled?.objects.get(targetId==='root'?'root':targetId);
  if(!obj)return;
  const bounds=new THREE.Box3().setFromObject(obj);
+ if(targetId==='root'&&comparison.mode==='split'&&comparison.compiled)
+  bounds.union(new THREE.Box3().setFromObject(comparison.compiled.root));
  if(bounds.isEmpty())return;
  const size=bounds.getSize(new THREE.Vector3());
  focus.copy(bounds.getCenter(new THREE.Vector3()));
@@ -593,7 +639,7 @@ function rebuild(){
    // Camera focus stays fixed while sculpting; use the FIT control deliberately.
   }
   grid.visible=!showContext;
-  applyVisibility();requestDraw();
+  applyComparisonLayout();applyVisibility();requestDraw();
  }catch(e){message('Geometry rejected: '+e.message,true);console.error(e);}
 }
 function refresh(){
@@ -604,6 +650,7 @@ function refresh(){
  $('node-count').textContent=doc.nodes.filter(n=>n.kind==='shape').length+' SHAPES';
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
+ updateComparisonUI();
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
  updateContextPanel();
  $('stage-hint').textContent=tool==='points'
@@ -862,6 +909,7 @@ $('mesh-point-select').onchange=e=>{
 
 function renderInspector(){
  const n=node(),active=!!n&&!n.locked&&n.id!=='root';
+ updateComparisonUI();
  const selector=$('reparent-target');
  if(selector){
   const chosen=selector.value;selector.replaceChildren();
@@ -1005,6 +1053,19 @@ $('lock-object').onclick=()=>{
  }
 };
 $('reset-selected').onclick=()=>changeSelected({transform:identity()});
+$('compare-original').onclick=()=>{
+ const source=comparisonSource();if(!source)return message('Open a specific factory part or draft linked to one.',true);
+ if(showContext){showContext=false;buildContext();}
+ const modes=['off','overlay','split'],next=modes[(modes.indexOf(comparison.mode)+1)%modes.length];
+ if(next==='off'){discardComparison();rebuild();}
+ else{
+  if(comparison.mode==='off'||comparison.definitionId!==source)
+   comparison={mode:next,definitionId:null,compiled:null};
+  else comparison.mode=next;
+  rebuild();fitSelected('root');
+ }
+ updateComparisonUI();message(next==='off'?'Factory comparison closed.':'Factory comparison: '+next+'.');
+};
 $('group-objects').onclick=()=>{
  try{const ids=[...selectedIds].filter(id=>id!=='root').length?
    [...selectedIds].filter(id=>id!=='root'):[selected];
@@ -1086,7 +1147,7 @@ $('reset-camera').onclick=()=>{
  orbit={yaw:.62,pitch:.22,distance:Math.max(1.8,orbit.distance)};
  view='quarter';setCamera();refresh();message('Camera reset · FRONT -Z / RIGHT +X / UP +Y.');
 };
-$('context-toggle').onclick=()=>{showContext=!showContext;buildContext();refresh();
+$('context-toggle').onclick=()=>{showContext=!showContext;if(showContext)discardComparison();buildContext();refresh();
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
 async function deployPrototype(mode){
  try{
@@ -1598,6 +1659,7 @@ async function saveSelected(type){
  const name=window.prompt('Name new '+type+':',n.name);if(!name)return;
  try{
   const asset=makeAsset(doc,selected,type,name);
+  asset.factoryDefinitionId=comparisonSource();
   await db.saveAsset(asset);await renderLibrary();
   message('Saved '+type+' "'+name+'" to reusable library.');switchTab('library');
  }catch(e){message('Could not save asset: '+e.message,true);}
@@ -1610,7 +1672,7 @@ async function openAssetForEditing(asset){
  try{
   await savePromise;await db.saveProject(doc);
   const inserted=insertAsset(createDocument(asset.name+' / draft'),asset);
-  doc=inserted.document;doc.metadata={...doc.metadata,sourceAssetId:asset.id,assetRootId:inserted.selectedId};
+  doc=inserted.document;doc.metadata={...doc.metadata,sourceAssetId:asset.id,assetRootId:inserted.selectedId,factoryDefinitionId:asset.factoryDefinitionId||null};
   startHistory();selected=inserted.selectedId;selectedIds=new Set([selected]);
   await db.saveProject(doc);refresh();switchTab('objects');fitSelected();
   message('Opened editable '+asset.name+'. Use SAVE ASSET REVISION to publish to its library history.');
@@ -1668,6 +1730,7 @@ $('save-linked-revision').onclick=async()=>{
  try{
   const old=await db.get('assets',assetId);if(!old)throw Error('Original asset missing');
   const next=makeAsset(doc,rootId,old.type,old.name);next.id=assetId;next.created=old.created;
+  next.factoryDefinitionId=old.factoryDefinitionId||comparisonSource();
   await db.saveAsset(next);await renderLibrary();message('Saved new revision of '+old.name+'.');
  }catch(e){message('Revision failed: '+e.message,true);}
 };
