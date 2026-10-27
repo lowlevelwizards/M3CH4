@@ -1,0 +1,1687 @@
+{
+  "format": "m3ch4.workbench.asset",
+  "version": 2,
+  "id": "yardwalker-concept-1",
+  "revision": 1,
+  "type": "part",
+  "name": "Yardwalker / 1 Guarded",
+  "rootId": "yardwalker-master",
+  "nodes": [
+    {
+      "id": "yardwalker-master",
+      "name": "YARDWALKER / ARTICULATED MASTER",
+      "kind": "group",
+      "parentId": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-carriage",
+      "name": "YARDWALKER / WORK-CARRIAGE",
+      "kind": "group",
+      "parentId": "yardwalker-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-leftHip",
+      "name": "leftHip",
+      "kind": "anchor",
+      "parentId": "yw-carriage",
+      "transform": {
+        "position": [
+          -0.64,
+          0.39,
+          0.08
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "hip",
+      "side": -1
+    },
+    {
+      "id": "yw-leftKnee",
+      "name": "leftKnee",
+      "kind": "anchor",
+      "parentId": "yw-leftHip",
+      "transform": {
+        "position": [
+          -0.03,
+          -0.52,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "knee",
+      "side": -1
+    },
+    {
+      "id": "yw-leftAnkle",
+      "name": "leftAnkle",
+      "kind": "anchor",
+      "parentId": "yw-leftKnee",
+      "transform": {
+        "position": [
+          0.04,
+          -0.445,
+          -0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "ankle",
+      "side": -1
+    },
+    {
+      "id": "yw-leftFoot",
+      "name": "leftFoot",
+      "kind": "anchor",
+      "parentId": "yw-leftAnkle",
+      "transform": {
+        "position": [
+          -0.01,
+          -0.167,
+          -0.18
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "foot",
+      "side": -1
+    },
+    {
+      "id": "yw-rightHip",
+      "name": "rightHip",
+      "kind": "anchor",
+      "parentId": "yw-carriage",
+      "transform": {
+        "position": [
+          0.64,
+          0.39,
+          0.08
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "hip",
+      "side": 1
+    },
+    {
+      "id": "yw-rightKnee",
+      "name": "rightKnee",
+      "kind": "anchor",
+      "parentId": "yw-rightHip",
+      "transform": {
+        "position": [
+          0.03,
+          -0.52,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "knee",
+      "side": 1
+    },
+    {
+      "id": "yw-rightAnkle",
+      "name": "rightAnkle",
+      "kind": "anchor",
+      "parentId": "yw-rightKnee",
+      "transform": {
+        "position": [
+          -0.04,
+          -0.445,
+          -0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "ankle",
+      "side": 1
+    },
+    {
+      "id": "yw-rightFoot",
+      "name": "rightFoot",
+      "kind": "anchor",
+      "parentId": "yw-rightAnkle",
+      "transform": {
+        "position": [
+          0.01,
+          -0.167,
+          -0.18
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": true,
+      "mirrorOf": null,
+      "anchorRole": "foot",
+      "side": 1
+    },
+    {
+      "id": "yw-Y1-cross-carriage",
+      "name": "Y1-cross-carriage",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          1.54,
+          0.2,
+          0.36
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          0.655,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "ochre",
+      "materialColor": 11832375,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-central-pedestal",
+      "name": "Y1-central-pedestal",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.37,
+          0.115,
+          0.29
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          0.765,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-U1-contact",
+      "name": "Y1-U1-contact",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.42,
+          0.035,
+          0.32
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          0.8075,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-underside-index",
+      "name": "Y1-underside-index",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.102,
+        "length": 0.012,
+        "sides": 10,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          0,
+          0.815,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 2700337,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-left-guide-receiver",
+      "name": "Y1-left-guide-receiver",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.1,
+          0.095,
+          0.22
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.76,
+          0.72,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 5463382,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-left-guide-contact",
+      "name": "Y1-left-guide-contact",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.012,
+          0.085,
+          0.19
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.804,
+          0.72,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y2-left-fixed-hip-yoke",
+      "name": "Y2-left-fixed-hip-yoke",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.31,
+          0.33,
+          0.31
+        ],
+        "bevel": 0.041
+      },
+      "transform": {
+        "position": [
+          -0.645,
+          0.515,
+          0.08
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "olive",
+      "materialColor": 7898731,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y3-left-hip-bearing",
+      "name": "Y3-left-hip-bearing",
+      "kind": "shape",
+      "parentId": "yw-leftHip",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.153,
+        "length": 0.175,
+        "sides": 10,
+        "axis": "x"
+      },
+      "transform": {
+        "position": [
+          -0.076,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y4-left-primary-thigh",
+      "name": "Y4-left-primary-thigh",
+      "kind": "shape",
+      "parentId": "yw-leftHip",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.28,
+          0.23
+        ],
+        "to": [
+          0.225,
+          0.19
+        ],
+        "length": 0.445
+      },
+      "transform": {
+        "position": [
+          -0.014,
+          -0.261,
+          0.046
+        ],
+        "rotation": [
+          2.95,
+          0,
+          -0.06
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y5-left-actuator-barrel",
+      "name": "Y5-left-actuator-barrel",
+      "kind": "shape",
+      "parentId": "yw-leftHip",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.066,
+        "length": 0.255,
+        "sides": 10,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          -0.125,
+          -0.186,
+          -0.145
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 5463382,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y5-left-piston-rod",
+      "name": "Y5-left-piston-rod",
+      "kind": "shape",
+      "parentId": "yw-leftHip",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.032,
+        "length": 0.146,
+        "sides": 10,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          -0.125,
+          -0.354,
+          -0.145
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y6-left-knee-bearing",
+      "name": "Y6-left-knee-bearing",
+      "kind": "shape",
+      "parentId": "yw-leftKnee",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.145,
+        "length": 0.197,
+        "sides": 10,
+        "axis": "x"
+      },
+      "transform": {
+        "position": [
+          -0.089,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "orange",
+      "materialColor": 12150860,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y7-left-single-shin-housing",
+      "name": "Y7-left-single-shin-housing",
+      "kind": "shape",
+      "parentId": "yw-leftKnee",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.27,
+          0.235
+        ],
+        "to": [
+          0.2,
+          0.165
+        ],
+        "length": 0.34
+      },
+      "transform": {
+        "position": [
+          0.015,
+          -0.23,
+          -0.047
+        ],
+        "rotation": [
+          3.36,
+          0,
+          0.08
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "olive",
+      "materialColor": 7898731,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y8-left-ankle-bearing",
+      "name": "Y8-left-ankle-bearing",
+      "kind": "shape",
+      "parentId": "yw-leftAnkle",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.095,
+        "length": 0.162,
+        "sides": 10,
+        "axis": "x"
+      },
+      "transform": {
+        "position": [
+          -0.052,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y8-left-ankle-load-shank",
+      "name": "Y8-left-ankle-load-shank",
+      "kind": "shape",
+      "parentId": "yw-leftAnkle",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.13,
+          0.14
+        ],
+        "to": [
+          0.13,
+          0.15
+        ],
+        "length": 0.155
+      },
+      "transform": {
+        "position": [
+          -0.005,
+          -0.078,
+          -0.075
+        ],
+        "rotation": [
+          3.35,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-left-continuous-boot",
+      "name": "Y9-left-continuous-boot",
+      "kind": "shape",
+      "parentId": "yw-leftFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.6,
+          0.135,
+          0.66
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.002,
+          0.057
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 5463382,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-left-inner-toe",
+      "name": "Y9-left-inner-toe",
+      "kind": "shape",
+      "parentId": "yw-leftFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.245,
+          0.09,
+          0.202
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.155,
+          -0.012,
+          -0.277
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-left-outer-toe",
+      "name": "Y9-left-outer-toe",
+      "kind": "shape",
+      "parentId": "yw-leftFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.245,
+          0.09,
+          0.202
+        ]
+      },
+      "transform": {
+        "position": [
+          0.155,
+          -0.012,
+          -0.277
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-left-heel",
+      "name": "Y9-left-heel",
+      "kind": "shape",
+      "parentId": "yw-leftFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.38,
+          0.112,
+          0.165
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.006,
+          0.293
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-right-guide-receiver",
+      "name": "Y1-right-guide-receiver",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.1,
+          0.095,
+          0.22
+        ]
+      },
+      "transform": {
+        "position": [
+          0.76,
+          0.72,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 5463382,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y1-right-guide-contact",
+      "name": "Y1-right-guide-contact",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.012,
+          0.085,
+          0.19
+        ]
+      },
+      "transform": {
+        "position": [
+          0.804,
+          0.72,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y2-right-fixed-hip-yoke",
+      "name": "Y2-right-fixed-hip-yoke",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.31,
+          0.33,
+          0.31
+        ],
+        "bevel": 0.041
+      },
+      "transform": {
+        "position": [
+          0.645,
+          0.515,
+          0.08
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "olive",
+      "materialColor": 7898731,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y3-right-hip-bearing",
+      "name": "Y3-right-hip-bearing",
+      "kind": "shape",
+      "parentId": "yw-rightHip",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.153,
+        "length": 0.175,
+        "sides": 10,
+        "axis": "x"
+      },
+      "transform": {
+        "position": [
+          0.076,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y4-right-primary-thigh",
+      "name": "Y4-right-primary-thigh",
+      "kind": "shape",
+      "parentId": "yw-rightHip",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.28,
+          0.23
+        ],
+        "to": [
+          0.225,
+          0.19
+        ],
+        "length": 0.445
+      },
+      "transform": {
+        "position": [
+          0.014,
+          -0.261,
+          0.046
+        ],
+        "rotation": [
+          2.95,
+          0,
+          0.06
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y5-right-actuator-barrel",
+      "name": "Y5-right-actuator-barrel",
+      "kind": "shape",
+      "parentId": "yw-rightHip",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.066,
+        "length": 0.255,
+        "sides": 10,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          0.125,
+          -0.186,
+          -0.145
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 5463382,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y5-right-piston-rod",
+      "name": "Y5-right-piston-rod",
+      "kind": "shape",
+      "parentId": "yw-rightHip",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.032,
+        "length": 0.146,
+        "sides": 10,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          0.125,
+          -0.354,
+          -0.145
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y6-right-knee-bearing",
+      "name": "Y6-right-knee-bearing",
+      "kind": "shape",
+      "parentId": "yw-rightKnee",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.145,
+        "length": 0.197,
+        "sides": 10,
+        "axis": "x"
+      },
+      "transform": {
+        "position": [
+          0.089,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "orange",
+      "materialColor": 12150860,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y7-right-single-shin-housing",
+      "name": "Y7-right-single-shin-housing",
+      "kind": "shape",
+      "parentId": "yw-rightKnee",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.27,
+          0.235
+        ],
+        "to": [
+          0.2,
+          0.165
+        ],
+        "length": 0.34
+      },
+      "transform": {
+        "position": [
+          -0.015,
+          -0.23,
+          -0.047
+        ],
+        "rotation": [
+          3.36,
+          0,
+          -0.08
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "olive",
+      "materialColor": 7898731,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y8-right-ankle-bearing",
+      "name": "Y8-right-ankle-bearing",
+      "kind": "shape",
+      "parentId": "yw-rightAnkle",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.095,
+        "length": 0.162,
+        "sides": 10,
+        "axis": "x"
+      },
+      "transform": {
+        "position": [
+          0.052,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 10200739,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y8-right-ankle-load-shank",
+      "name": "Y8-right-ankle-load-shank",
+      "kind": "shape",
+      "parentId": "yw-rightAnkle",
+      "geometry": {
+        "type": "taper",
+        "from": [
+          0.13,
+          0.14
+        ],
+        "to": [
+          0.13,
+          0.15
+        ],
+        "length": 0.155
+      },
+      "transform": {
+        "position": [
+          0.005,
+          -0.078,
+          -0.075
+        ],
+        "rotation": [
+          3.35,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-right-continuous-boot",
+      "name": "Y9-right-continuous-boot",
+      "kind": "shape",
+      "parentId": "yw-rightFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.6,
+          0.135,
+          0.66
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.002,
+          0.057
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 5463382,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-right-inner-toe",
+      "name": "Y9-right-inner-toe",
+      "kind": "shape",
+      "parentId": "yw-rightFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.245,
+          0.09,
+          0.202
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.155,
+          -0.012,
+          -0.277
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-right-outer-toe",
+      "name": "Y9-right-outer-toe",
+      "kind": "shape",
+      "parentId": "yw-rightFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.245,
+          0.09,
+          0.202
+        ]
+      },
+      "transform": {
+        "position": [
+          0.155,
+          -0.012,
+          -0.277
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y9-right-heel",
+      "name": "Y9-right-heel",
+      "kind": "shape",
+      "parentId": "yw-rightFoot",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.38,
+          0.112,
+          0.165
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.006,
+          0.293
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-yard-left-hip",
+      "name": "yard-left-hip",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.285,
+          0.25,
+          0.34
+        ],
+        "bevel": 0.037
+      },
+      "transform": {
+        "position": [
+          -0.72,
+          0.535,
+          0.055
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "armorPlateId": "yard-left-hip"
+    },
+    {
+      "id": "yw-yard-left-shin",
+      "name": "yard-left-shin",
+      "kind": "shape",
+      "parentId": "yw-leftKnee",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.265,
+          0.276,
+          0.075
+        ],
+        "bevel": 0.04
+      },
+      "transform": {
+        "position": [
+          0.012,
+          -0.234,
+          -0.18
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "armorPlateId": "yard-left-shin"
+    },
+    {
+      "id": "yw-yard-right-hip",
+      "name": "yard-right-hip",
+      "kind": "shape",
+      "parentId": "yw-carriage",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.285,
+          0.25,
+          0.34
+        ],
+        "bevel": 0.037
+      },
+      "transform": {
+        "position": [
+          0.72,
+          0.535,
+          0.055
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "armorPlateId": "yard-right-hip"
+    },
+    {
+      "id": "yw-yard-right-shin",
+      "name": "yard-right-shin",
+      "kind": "shape",
+      "parentId": "yw-rightKnee",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.265,
+          0.276,
+          0.075
+        ],
+        "bevel": 0.04
+      },
+      "transform": {
+        "position": [
+          -0.012,
+          -0.234,
+          -0.18
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "armor",
+      "materialColor": 13288622,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null,
+      "armorPlateId": "yard-right-shin"
+    }
+  ],
+  "metadata": {
+    "definitionId": "legs-yard",
+    "reference": "2026-10-27 simplified four-stage workhorse concept",
+    "armorTier": 1,
+    "source": "yardwalker-design/master.json",
+    "visualOnly": true,
+    "articulated": true,
+    "note": "Edit joint-relative geometry; full production IK/damage requires yardwalkerVisual.js adapter."
+  }
+}
