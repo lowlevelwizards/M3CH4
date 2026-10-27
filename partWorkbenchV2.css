@@ -348,3 +348,9 @@ main{padding-bottom:max(6px,env(safe-area-inset-bottom, 0px))}
 #asset-history{padding:6px;border:1px solid #849779;border-radius:7px}
 #reparent-target{max-width:100%;min-height:34px;color:#ede6d4;background:#344a3b}
 #more-actions>.more-menu{max-height:min(65dvh,340px);overflow-y:auto}
+
+
+.axis-row input[type=number]{width:100%;min-width:0;min-height:31px;padding:4px 2px;
+ border-radius:4px;border:1px solid #7a906f;background:#182b20;color:#f8e9c6;
+ font-variant-numeric:tabular-nums;text-align:right;font-size:11px}
+.axis-row input[type=number]:focus{outline:2px solid #e4ba77;outline-offset:1px}
