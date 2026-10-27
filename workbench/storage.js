@@ -117,7 +117,7 @@ export async function importBundle(bundle){
   assets.length>250||images.length>12||revisions.length>400||checkpoints.length>200)
   throw Error('Invalid bundle collections');
  for(const i of images){
-  if(typeof i.id!=='string'||typeof i.data!=='string'||!/^data:image\\/(jpeg|png|webp);base64,/.test(i.data)||i.data.length>5e6)
+  if(typeof i.id!=='string'||typeof i.data!=='string'||!/^data:image\/(jpeg|png|webp);base64,/.test(i.data)||i.data.length>5e6)
    throw Error('Invalid reference image in bundle');
  }
  for(const asset of assets)validateStandaloneAsset(asset);
