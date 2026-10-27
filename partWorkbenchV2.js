@@ -1217,6 +1217,7 @@ function drawSelectionAndGizmos(object,n){
    fill:'#f5efe2','pointer-events':'none'}).textContent=['X','Y','Z'][i];
   hit.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
+   if(isEditGesture()&&drag.pointerId!==e.pointerId){cancelActivePreview('Interrupted edit cancelled.');return;}
    drag={mode:'gizmo',tool,nodeId:selected,axis:i,worldAxis:axis,anchor:anchor.clone(),
     projectedAxis:{x:dx/len,y:dy/len},worldDistance,pixelLength:len,
     pointerId:e.pointerId,previous:clone(doc),base:clone(n.transform),
@@ -1318,6 +1319,7 @@ function drawTopologyHandles(geometry,obj){
   if(pointPick==='box')continue;
   handle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
+   if(isEditGesture()&&drag.pointerId!==e.pointerId){cancelActivePreview('Interrupted edit cancelled.');return;}
    selectedPoints=modifyElementVertexSelection(selectedPoints,[entry],{operation:selectionOp});
    const key=[...selectedPoints][0];
    activePoint=key?{nodeId:selected,...parsePointKey(key)}:null;
@@ -1379,6 +1381,7 @@ function drawOverlay(){
   if(pointPick==='box')continue;
   circle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
+   if(isEditGesture()&&drag.pointerId!==e.pointerId){cancelActivePreview('Interrupted edit cancelled.');return;}
    selectPoint({nodeId:selected,index:entry.index,kind:entry.kind});
    if(selectionOp!=='replace'){return;}
    const target=compiled.objects.get(selected);
@@ -1533,6 +1536,9 @@ function screenNDC(e){
 }
 canvas.addEventListener('pointerdown',e=>{
  canvas.setPointerCapture(e.pointerId);
+ if((isEditGesture()&&drag.pointerId!==e.pointerId)||pointSliderStart){
+  cancelActivePreview('Interrupted edit cancelled; geometry restored.');
+ }
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  // A second finger is always a viewport gesture, never an object edit.
  if(pointers.size!==1){cancelActivePreview();drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
