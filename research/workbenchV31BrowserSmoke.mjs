@@ -43,7 +43,7 @@ try{
  await page.locator('#show-factory-panel').click();
  await page.locator('#factory-part-select').selectOption('legs-yard');
  await page.locator('#open-factory-part').click();
- await page.locator('#compare-original').waitFor({state:'attached'});
+ await page.waitForFunction(()=>!document.querySelector('#compare-original')?.disabled,null,{timeout:15000});
  assert.equal(await page.locator('#compare-original').isDisabled(),false);
  await page.locator('#compare-original').evaluate(el=>el.click());
  assert.match(await page.locator('#compare-original').textContent(),/OVERLAY/);
