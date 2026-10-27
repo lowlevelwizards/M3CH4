@@ -10,6 +10,10 @@ import {buildExteriorRig} from './scene.js';
 import {makeTestAssembly} from './components.js';
 import {factoryCatalogueOptions,importFactoryPart,importFactoryAssembly,importSavedGarageBay} from './workbench/factoryImport.js';
 import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editableMesh.js';
+import {rectFromPoints,selectedInRectangle} from './workbench/selectionGeometry.js';
+import {transformMeshGroups,transformProfilePoints} from './workbench/vertexTransforms.js';
+import {validateStandaloneAsset} from './workbench/assetImport.js';
+import {inspectBlueprint} from './workbench/geometryAudit.js';
 import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
@@ -20,6 +24,35 @@ let referenceObjects=new Map(),activeRef=null,drag=null,pointers=new Map(),touch
 let orbit={yaw:.65,pitch:.32,distance:3.9},focus=new THREE.Vector3();
 let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let activePoint=null,visibilityMode='all',pointSliderStart=null;
+let displayMode='solid',pointDepth='visible',pointPick='tap',selectionOp='replace';
+let selectedPoints=new Set(),marquee=null,touchCenter=null;
+const pointKey=entry=>entry.kind+':'+entry.index;
+const parsePointKey=key=>{const [kind,index]=key.split(':');return {kind,index:Number(index)};};
+function activePointKeys(){return [...selectedPoints].map(parsePointKey);}
+function activeGroupIndices(){return [...selectedPoints].filter(k=>k.startsWith('factory-mesh:')).map(k=>Number(k.split(':')[1]));}
+function applyBatchDelta(previous,delta,scale=[1,1,1]){
+ const source=previous.nodes.find(n=>n.id===selected),g=source?.geometry;
+ if(!g)throw Error('Select a valid editable part');
+ if(g.type==='mesh')return transformMeshGroups(g,activeGroupIndices(),{delta,scale});
+ if(g.profile)return transformProfilePoints(g,activePointKeys().filter(p=>p.kind==='profile').map(p=>p.index),{delta,scale});
+ // Loft points are parameter handles, not individual arbitrary mesh vertices.
+ let temp=clone(g);
+ for(const which of activePointKeys()){
+  const document={nodes:[{...source,geometry:temp}]};
+  const original=pointCoordinates({...which,nodeId:selected},document);
+  if(!original)continue;
+  const next=original.map((x,i)=>x*scale[i]+delta[i]);
+  temp=setPointCoordinates(next,{...which,nodeId:selected},document);
+ }
+ return validateGeometry(temp);
+}
+function previewBatchGeometry(geometry){
+ const n=findNode(selected);if(!n)return;
+ n.geometry=geometry;const obj=compiled?.objects.get(selected);
+ if(obj?.isMesh){const old=obj.geometry;obj.geometry=compileGeometry(geometry);old.dispose();}
+ requestDraw();
+}
+
 const axisKeys=['X','Y','Z'];
 const findNode=id=>doc.nodes.find(n=>n.id===id);
 function pointCoordinates(which=activePoint,document=doc){
@@ -66,11 +99,16 @@ function previewPointGeometry(geometry,which=activePoint){
  requestDraw();
 }
 function selectPoint(which){
- activePoint={nodeId:which.nodeId,kind:which.kind,index:which.index};
+ const key=pointKey(which);
+ if(selectionOp==='subtract')selectedPoints.delete(key);
+ else if(selectionOp==='add'){selectedPoints.add(key);}
+ else {selectedPoints=new Set([key]);}
+ activePoint=selectedPoints.has(key)?{nodeId:which.nodeId,kind:which.kind,index:which.index}:
+  (selectedPoints.size?{nodeId:which.nodeId,...parsePointKey([...selectedPoints][0])}:null);
  if(which.kind==='factory-mesh')meshPointSelectedIndex=which.index;
  updateContextPanel();requestDraw();
 }
-function clearPoint(){activePoint=null;pointSliderStart=null;updateContextPanel();}
+function clearPoint(){activePoint=null;selectedPoints.clear();pointSliderStart=null;updateContextPanel();}
 function selectedIsDescendant(id){
  if(!selected||selected==='root')return false;
  let key=id;
@@ -93,13 +131,17 @@ function applyVisibility(){
   const mats=Array.isArray(obj.material)?obj.material:[obj.material];
   for(const m of mats){
    if(!m.userData.workbenchBase)m.userData.workbenchBase={
-    opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite
+    opacity:m.opacity,transparent:m.transparent,depthWrite:m.depthWrite,depthTest:m.depthTest,wireframe:m.wireframe,side:m.side
    };
    const base=m.userData.workbenchBase;
    const ghost=visibilityMode==='ghost'&&!isSelected;
-   m.opacity=ghost ? .14 : base.opacity;
-   m.transparent=ghost||base.transparent;
-   m.depthWrite=ghost?false:base.depthWrite;
+   const xray=displayMode==='xray';
+   m.opacity=xray?(isSelected?.22:.09):(ghost?.14:base.opacity);
+   m.transparent=xray||ghost||base.transparent;
+   m.depthWrite=(xray||ghost)?false:base.depthWrite;
+   m.depthTest=base.depthTest;
+   m.wireframe=displayMode==='wire';
+   m.side=xray?THREE.DoubleSide:base.side;
    m.needsUpdate=true;
   }
  }
@@ -107,16 +149,51 @@ function applyVisibility(){
 }
 function updateContextPanel(){
  const n=node(),active=n&&selected!=='root',point=activePoint?.nodeId===selected?pointCoordinates():null;
+ const count=selectedPoints.size;
+ $('point-mode-toolbar').hidden=tool!=='points'||!active||n.kind!=='shape';
+ for(const [id,v] of [['point-tap',pointPick==='tap'],['point-box',pointPick==='box'],
+  ['select-add',selectionOp==='add'],['select-subtract',selectionOp==='subtract'],
+  ['display-solid',displayMode==='solid'],['display-wire',displayMode==='wire'],['display-xray',displayMode==='xray'],
+  ['depth-visible',pointDepth==='visible'],['depth-through',pointDepth==='through']])
+   $(id).classList.toggle('active',v);
+ const audit=inspectBlueprint(doc);
+ $('geometry-audit').textContent=audit.shapes+' shapes · '+audit.vertices+' imported vertices · '+audit.triangles+' triangles'+
+  (audit.warnings.length?' · '+audit.warnings[0]:'');
  $('context-edit').hidden=!active;
  $('selection-actions').hidden=!active;
  if(!active){visibilityMode='all';applyVisibility();return;}
- $('context-title').textContent=point?'POINT '+(activePoint.index+1):'SELECTED · '+n.name;
- $('context-value').textContent=point?point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join('  ·  '):n.kind.toUpperCase();
+ $('context-title').textContent=count>1?count+' POINTS SELECTED':point?'POINT '+(activePoint.index+1):'SELECTED · '+n.name;
+ $('context-value').textContent=count>1?'RELATIVE TRANSFORM · METRES':point?point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join('  ·  '):n.kind.toUpperCase();
  $('point-controls').hidden=!point;
  for(const m of ['all','ghost','isolate'])
   $('visibility-'+(m==='all'?'normal':m)).classList.toggle('active',visibilityMode===m);
  const b=$('point-axis-controls');b.replaceChildren();
  if(!point)return;
+ if(count>1){
+  for(let axis=0;axis<3;axis++){
+   const row=document.createElement('label');row.className='axis-row';
+   const name=document.createElement('strong');name.textContent=axisKeys[axis]+' Δ';
+   const slider=document.createElement('input');slider.type='range';slider.min='-.5';slider.max='.5';slider.step='.005';slider.value='0';
+   slider.dataset.axis=axis;slider.setAttribute('aria-label','Relative '+axisKeys[axis]+' offset for '+count+' points');
+   const read=document.createElement('output');read.textContent='0.000';
+   slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
+   slider.addEventListener('input',()=>{
+    if(!pointSliderStart)pointSliderStart=clone(doc);
+    const delta=[0,0,0];delta[axis]=snapValue(Number(slider.value));
+    try{previewBatchGeometry(applyBatchDelta(pointSliderStart,delta));
+     read.textContent=delta[axis].toFixed(3);
+    }catch(e){message(e.message,true);}
+   });
+   const finish=()=>{
+    if(!pointSliderStart)return;const before=pointSliderStart,after=clone(doc);
+    pointSliderStart=null;doc=before;commit(after,selected,'Moved '+count+' selected points.');
+    updateContextPanel();
+   };
+   slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+   row.append(name,slider,read);b.append(row);
+  }
+  return;
+ }
  const editable=n.geometry.type==='mesh'?[0,1,2]:
   n.geometry.profile?[0,1]:n.geometry.sections?
    activePoint.kind==='width'||activePoint.kind==='topWidth'?[0,1]:
@@ -168,7 +245,7 @@ function commit(next,selection=selected,notify){
   const valid=validateDocument(next);
   if(JSON.stringify(valid)===JSON.stringify(doc))return;
   doc=valid;selected=selection;
- if(activePoint?.nodeId!==selected)activePoint=null;
+ if(activePoint?.nodeId!==selected){activePoint=null;selectedPoints.clear();}
   history=history.slice(0,step+1);history.push(clone(doc));
   if(history.length>60)history.shift();step=history.length-1;
   queueSave();refresh();
@@ -186,7 +263,7 @@ function queueSave(){
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
  step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
- if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;
+ if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;selectedPoints.clear();
  queueSave();refresh();
 }
 const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
