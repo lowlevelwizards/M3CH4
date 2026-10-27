@@ -342,8 +342,8 @@ function selectedFeedback(){
 
  }
 }
-function fitSelected(){
- const obj=compiled?.objects.get(selected==='root'?'root':selected);
+function fitSelected(targetId=selected){
+ const obj=compiled?.objects.get(targetId==='root'?'root':targetId);
  if(!obj)return;
  const bounds=new THREE.Box3().setFromObject(obj);
  if(bounds.isEmpty())return;
@@ -892,10 +892,7 @@ for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
 };
 $('zoom-in').onclick=()=>cameraZoom(.8);
 $('zoom-out').onclick=()=>cameraZoom(1.25);
-$('fit-all').onclick=()=>{
- selected='root';selectedIds.clear();clearPoint();fitSelected();
- selectedFeedback();renderInspector();requestDraw();
-};
+$('fit-all').onclick=()=>{fitSelected('root');requestDraw();};
 $('point-tap').onclick=()=>{pointPick='tap';updateContextPanel();};
 $('point-box').onclick=()=>{pointPick='box';updateContextPanel();};
 $('select-add').onclick=()=>{selectionOp=selectionOp==='add'?'replace':'add';updateContextPanel();};
