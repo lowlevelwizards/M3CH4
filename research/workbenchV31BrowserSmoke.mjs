@@ -15,6 +15,7 @@ try{
  assert.ok(await page.locator('#edit-level-edge').evaluate(e=>e.classList.contains('active')));
  assert.ok(await page.locator('#edit-overlay line').count()>0,'Edge mode renders editable edges');
  await page.locator('#edit-level-face').click();
+ await page.locator('#edit-overlay polygon').first().waitFor({state:'attached',timeout:10000});
  assert.ok(await page.locator('#edit-overlay polygon').count()>0,'Face mode renders editable polygons');
  await page.locator('#edit-level-point').click();
  await page.locator('#point-box').click();
