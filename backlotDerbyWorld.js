@@ -1,19 +1,21 @@
-/** Backlot Dustbowl: an outdoor scrap-derby ring, not the indoor box arena.
- * Gameplay geometry remains one certified AABB per obstacle. Wreck details,
- * spectator structures, tracks, and the perimeter are visual-only; live
- * projectiles, AI line of sight, navigation, and hit certification still use
- * the same world.obstacles data.
+/** Backlot Dustbowl: true compound tractor/loader steel.
+ * Original obstacle group identities remain authored in maps/backlot.js.
+ * The rebuilt tractor/loader receive shared physical collision sub-prisms;
+ * other cover retains its existing single certified AABB.
+ * Navigation, locomotion, AI LOS and ballistics all use those exact parts.
  */
 import * as THREE from 'three';
 import {buildBacklotTerrainAndFacilities} from './backlotEnvironmentPass.js';
 import {buildBacklotObstacleKit} from './backlotObstacleKits.js';
 import {buildAnatomicalTractor} from './backlotAnatomicalTractor.js';
-import {MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
+import {buildAnatomicalLoader,MACHINE_EXHIBITS} from './backlotAnatomicalMachines.js';
 import {SALVAGE_EXHIBITS} from './backlotAnatomicalSalvage.js';
 import {upgradeBacklotScenery} from './backlotSceneryAnatomy.js';
 import {upgradeBacklotSecondaryProps} from './backlotSecondaryAnatomy.js';
 import {auditBacklotCollisionTruth,secondaryGeometryClearance} from './backlotCollisionCertificate.js';
 import {auditBacklotAssembly} from './backlotAssemblyAudit.js';
+import {collisionPieces,isCompoundObstacle} from './backlotCompoundGeometry.js';
+import {fitLiveBacklotMachineCollisions} from './backlotLiveCollisionFit.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -152,6 +154,40 @@ function physicalScrapPart(root,o,solids){
      x,h*.48,front,P.steel,.35);
  }
  return mass;
+}
+/** Exactly the same compound prisms consumed by locomotion, AI and
+ * coverTruth are raycast directly. They are kept OUT of the scene graph:
+ * no invisible render geometry, no unnecessary WebGL calls, no shadows.
+ * The beautifully detailed models supply the visible surface.
+ */
+function physicalCompoundPart(o,solids){
+ for(const prism of collisionPieces(o)){
+  const w=prism.maxX-prism.minX,d=prism.maxZ-prism.minZ,
+    h=prism.maxY-(prism.minY??0);
+  const hit=new THREE.Mesh(boxGeo(1,1,1),mat(P.iron,.26));
+  hit.name='real-compound-collider-'+prism.partId;
+  hit.position.set((prism.minX+prism.maxX)/2,
+    (prism.minY??0)+h/2,(prism.minZ+prism.maxZ)/2);
+  hit.scale.set(w,h,d);
+  hit.userData.arenaObstacleId=o.id;
+  hit.userData.compoundPartId=prism.partId;
+  hit.userData.physicalOnly=true;
+  hit.updateMatrixWorld(true);
+  // Deliberately DO NOT add to root. The scene's solids[] raycaster
+  // continues to test this object without rendering phantom surfaces.
+  solids.push(hit);
+ }
+}
+function addLiveMechanicalAnatomy(root){
+ const tractor=buildAnatomicalTractor(root);
+ tractor.name='LIVE compound rebuilt tractor';
+ tractor.position.set(-4.07,0,-1.65);
+ tractor.scale.set(1.32,1,1.23);
+ const loader=buildAnatomicalLoader(root);
+ loader.name='LIVE compound rebuilt tracked loader';
+ loader.position.set(5.08,0,.43);
+ loader.scale.set(1.12,1,.92);
+ return {tractor,loader};
 }
 /** Visible metal/wood mass intentionally fills each gameplay obstacle prism:
  * none of the ornament changes cover, routes, or hit tests.
@@ -407,41 +443,80 @@ export function batchBacklotDerbyDecorations(root){
  // plain trailer boxes would cost many dozens of additional iPhone draws.
  // This happens only in the live render graph; the source gallery retains
  // the true unbatched, named component hierarchy for inspection.
- const completed=[...root.children].filter(node=>node.isGroup&&
-   /^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/.test(node.name));
+ // Globally batch the newly live static machines WITH the already
+ // optimized offsite scenery. Local wheel groups otherwise leave ~80 extra
+ // draw calls despite sharing the same material and geometry primitives.
+ const completed=[...root.children].filter(node=>node.isGroup&&(
+   /^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/.test(node.name)||
+   /^LIVE compound rebuilt (?:tractor|tracked loader)$/.test(node.name)));
+ const secondaryAssemblyCount=completed.filter(n=>n.name.startsWith('secondary-')).length;
  let secondaryInstances=0,secondaryBatches=0;
  if(completed.length){
   root.updateWorldMatrix(true,true);
   const inverse=root.matrixWorld.clone().invert();
-  const buckets=new Map();
-  for(const group of completed){
-   group.traverse(node=>{
-    if(!node.isMesh||node.isInstancedMesh||node.material?.transparent)return;
-    const key=node.geometry.uuid+':'+node.material.uuid;
-    if(!buckets.has(key))buckets.set(key,[]);
-    buckets.get(key).push({node,matrix:inverse.clone().multiply(node.matrixWorld)});
-    secondaryInstances++;
+  // The offsite scenery and live machines use many distinct primitive
+  // dimensions (especially tyres, torus radii, sloped roofs and bucket
+  // profiles). Instancing by *identical geometry* still leaves ~65 draws.
+  // Convert these static meshes into one baked nonindexed geometry PER
+  // material, preserving positions, normals, wheel holes, and bucket gaps.
+  // Per-geometry and then per-material merging still creates too many
+  // draw calls on iPhone. Three shared vertex-colour buckets preserve
+  // original rusty/paint/rubber colour while retaining coarse differences
+  // between matte components, painted castings and bare steel.
+  const materialsByKey=new Map();
+  for(const group of completed)group.traverse(node=>{
+   if(!node.isMesh||node.isInstancedMesh||node.material?.transparent||
+      Array.isArray(node.material))return;
+   const metal=Number(node.material.metalness??.2);
+   const key=metal<.12?'matte':metal>=.31?'bare-metal':'painted';
+   if(!materialsByKey.has(key))materialsByKey.set(key,{tier:key,items:[]});
+   materialsByKey.get(key).items.push({
+     node,matrix:inverse.clone().multiply(node.matrixWorld),
    });
-  }
+   secondaryInstances++;
+  });
   for(const group of completed)root.remove(group);
   const merged=new THREE.Group();merged.name='batch-completed-secondary-scenery';
   root.add(merged);
-  for(const items of buckets.values()){
-   if(items.length===1){
-    const {node,matrix}=items[0];
-    const one=node.clone();
-    matrix.decompose(one.position,one.quaternion,one.scale);
-    merged.add(one);
-    continue;
+  for(const pack of materialsByKey.values()){
+   let count=0;
+   const transformed=pack.items.map(item=>{
+    let geo=item.node.geometry.clone();
+    geo.applyMatrix4(item.matrix);
+    if(geo.index)geo=geo.toNonIndexed();
+    if(!geo.getAttribute('normal'))geo.computeVertexNormals();
+    count+=geo.getAttribute('position').count;
+    return {geo,color:item.node.material.color};
+   });
+   const positions=new Float32Array(count*3),normals=new Float32Array(count*3),
+     colors=new Float32Array(count*3);
+   let at=0;
+   for(const {geo,color} of transformed){
+    const p=geo.getAttribute('position'),n=geo.getAttribute('normal');
+    positions.set(p.array,at);normals.set(n.array,at);
+    const c=color??new THREE.Color(0xffffff);
+    for(let i=0;i<p.array.length;i+=3){
+     const k=at+i;colors[k]=c.r;colors[k+1]=c.g;colors[k+2]=c.b;
+    }
+    at+=p.array.length;geo.dispose();
    }
-   const batch=new THREE.InstancedMesh(items[0].node.geometry,
-     items[0].node.material,items.length);
-   batch.name='instanced-secondary-scenery';
-   batch.userData.visualOnly=true;
-   batch.castShadow=false;batch.receiveShadow=true;
-   items.forEach((item,i)=>batch.setMatrixAt(i,item.matrix));
-   batch.instanceMatrix.needsUpdate=true;
-   merged.add(batch);secondaryBatches++;
+   const geometry=new THREE.BufferGeometry();
+   geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+   geometry.setAttribute('normal',new THREE.BufferAttribute(normals,3));
+   geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));
+   geometry.computeBoundingSphere();
+   const styles={
+    matte:{metalness:.04,roughness:.97},
+    painted:{metalness:.19,roughness:.88},
+    'bare-metal':{metalness:.40,roughness:.81},
+   };
+   const material=new THREE.MeshStandardMaterial({
+    color:0xffffff,vertexColors:true,flatShading:true,...styles[pack.tier],
+   });
+   const mesh=new THREE.Mesh(geometry,material);
+   mesh.name='baked-static-backlot-'+pack.tier;
+   mesh.userData.visualOnly=true;mesh.receiveShadow=true;mesh.castShadow=false;
+   merged.add(mesh);secondaryBatches++;
   }
  }
  // Batch static siblings at EVERY authored hierarchy level, not just the
@@ -477,24 +552,32 @@ export function batchBacklotDerbyDecorations(root){
    }
  }
  return Object.freeze({sourceMeshes,batches,instances,
-   secondaryAssemblies:completed.length,secondaryInstances,secondaryBatches,
+   secondaryAssemblies:secondaryAssemblyCount,secondaryInstances,secondaryBatches,
+   globallyBatchedLiveMachines:completed.length-secondaryAssemblyCount,
    callsSaved:instances-batches+secondaryInstances-secondaryBatches});
 }
 export function buildBacklotDerbyWorld(scene,world,solids){
  const root=new THREE.Group();root.name='backlot-outdoor-derby-world';
  root.userData.venue='open-sky-scrap-derby';
  perimeter(root,world);
- for(const obstacle of world.obstacles)createWreck(root,obstacle,solids);
+ // Harvest exact bounds of the rendered steel after the final art transforms,
+ // before static batching; those are the sole live collision source.
+ const liveModels=addLiveMechanicalAnatomy(root);
+ const liveFit=fitLiveBacklotMachineCollisions(liveModels,world);
+ for(const obstacle of world.obstacles)
+  if(isCompoundObstacle(obstacle))physicalCompoundPart(obstacle,solids);
+  else createWreck(root,obstacle,solids);
  dirtMarks(root,world);spectatorYard(root,world);
  upgradeBacklotScenery(root,world);
  upgradeBacklotSecondaryProps(root,world);
  // Certify named geometry before static instancing consumes scene groups.
- const collisionCertificate=auditBacklotCollisionTruth(root,world,solids);
+ const collisionCertificate=auditBacklotCollisionTruth(root,world,solids,liveFit.sources);
  const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
    fixtureBatch,collisionCertificate,
+   liveStructuralMeshes:liveFit.visibleStructuralMeshes,
    environment:root.userData.backlotReactivity? 'reactive-dustbowl':'static',
-   obstacleCount:world.obstacles.length,collisionSolids:world.obstacles.length,
+   obstacleCount:world.obstacles.length,collisionSolids:solids.filter(x=>x.userData?.arenaObstacleId!=='floor').length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
    perimeter:'two-metre-stockyard-rails',sky:'open',
    detailedCoverCount:world.obstacles.filter(o=>o.artKit||o.art).length,
@@ -525,28 +608,34 @@ export function buildBacklotPropCatalog(world){
  oldTractor.position.set(-oldC.x,-oldB.min.y,-oldC.z);
  oldPart.add(oldTractor);oldPart.visible=false;
  const newPart=new THREE.Group();
- buildAnatomicalTractor(newPart);
+ const actualTractor=buildAnatomicalTractor(newPart);
+ const tractorAudit=auditBacklotAssembly(newPart,'tractor');
+ // Audit mechanical joins at native authoring scale, before presentation
+ // transform, so the same .22m tolerance remains comparable across builds.
+ // The A/B gallery now inspects the exact LIVE machine transform.
+ actualTractor.scale.set(1.32,1,1.23);
+ actualTractor.position.set(-4.07-oldC.x,0,-1.65-oldC.z);
  const collisionOverlay=new THREE.Group();
  collisionOverlay.name='AUTHORITATIVE OLD BACKLOT AABBs — reference only';
  const colliderMaterial=new THREE.LineBasicMaterial({
    color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
  });
- for(const o of currentTractor){
+ for(const o of currentTractor)for(const part of collisionPieces(o)){
+   const height=(part.maxY??part.height)-(part.minY??0);
    const shell=new THREE.LineSegments(
      new THREE.EdgesGeometry(new THREE.BoxGeometry(
-       o.maxX-o.minX,o.height,o.maxZ-o.minZ)),colliderMaterial);
-   shell.name='current-map-collider-'+o.id;
-   shell.position.set((o.minX+o.maxX)/2-oldC.x,o.height*.5,
-     (o.minZ+o.maxZ)/2-oldC.z);
+       part.maxX-part.minX,height,part.maxZ-part.minZ)),colliderMaterial);
+   shell.name='live-compound-collider-'+(part.partId??o.id);
+   shell.position.set((part.minX+part.maxX)/2-oldC.x,
+     (part.minY??0)+height*.5,(part.minZ+part.maxZ)/2-oldC.z);
    shell.userData.colliderOverlay=true;collisionOverlay.add(shell);
  }
  collisionOverlay.visible=false;
- const tractorAudit=auditBacklotAssembly(newPart,'tractor');
  const comparison=new THREE.Group();comparison.name='experimental-versus-production-tractor';
  comparison.add(newPart,oldPart,collisionOverlay);
  catalog.push({id:'experiment-tractor-anatomy',category:'experiment',
    label:'TRACTOR ANATOMY · FINISH V6',
-   detail:'FINAL SHAPE POLISH vs CURRENT LIVE MODEL · NOT YET IN MATCHES',
+   detail:'THIS MODEL IS NOW LIVE · compare with LEGACY AABB machinery',
    group:comparison,
    experiment:{newPart,oldPart,collisionOverlay,audit:tractorAudit}});
 
@@ -564,20 +653,26 @@ export function buildBacklotPropCatalog(world){
   const center=bounds.getCenter(new THREE.Vector3());
   oldRoot.position.set(-center.x,-bounds.min.y,-center.z);
   const oldPart=new THREE.Group();oldPart.add(oldRoot);oldPart.visible=false;
-  const newPart=new THREE.Group();exhibit.build(newPart);
+  const newPart=new THREE.Group();
+  const actual=exhibit.build(newPart);
   const assemblyAudit=auditBacklotAssembly(newPart,exhibit.id);
+  if(exhibit.id==='loader'){
+   actual.scale.set(1.12,1,.92);
+   actual.position.set(5.08-center.x,0,.43-center.z);
+  }
   const collisionOverlay=new THREE.Group();
   collisionOverlay.name='EXISTING LIVE COLLIDERS ONLY '+exhibit.id;
-  for(const o of parts){
+  for(const o of parts)for(const part of collisionPieces(o)){
+   const height=(part.maxY??part.height)-(part.minY??0);
    const edges=new THREE.LineSegments(
     new THREE.EdgesGeometry(new THREE.BoxGeometry(
-     o.maxX-o.minX,o.height,o.maxZ-o.minZ)),
+     part.maxX-part.minX,height,part.maxZ-part.minZ)),
     new THREE.LineBasicMaterial({
      color:0xffc57c,transparent:true,opacity:.9,depthTest:false,
     }));
-   edges.position.set((o.minX+o.maxX)/2-center.x,o.height*.5,
-      (o.minZ+o.maxZ)/2-center.z);
-   edges.name='current-map-collider-'+o.id;
+   edges.position.set((part.minX+part.maxX)/2-center.x,
+      (part.minY??0)+height*.5,(part.minZ+part.maxZ)/2-center.z);
+   edges.name='live-compound-collider-'+(part.partId??o.id);
    edges.userData.colliderOverlay=true;
    collisionOverlay.add(edges);
   }
@@ -586,7 +681,7 @@ export function buildBacklotPropCatalog(world){
   group.name='EXPERIMENT '+exhibit.id;
   group.add(newPart,oldPart,collisionOverlay);
   catalog.push({id:'experiment-'+exhibit.id+'-anatomy',category:'experiment',
-   label:exhibit.label,detail:exhibit.details+' · NOT YET IN MATCHES',
+   label:exhibit.label,detail:exhibit.details+(exhibit.id==='loader'?' · THIS MODEL IS NOW LIVE':' · DEV-ONLY'),
    group,experiment:{newPart,oldPart,collisionOverlay,audit:assemblyAudit,front:exhibit.front||'+z'}});
  }
  const describe=o=>o.artKit||o.art||(

@@ -5,6 +5,7 @@
  * of the arena's authoritative obstacle prisms first. It closes precision/edge gaps
  * and gives DEV diagnostics an explicit cover identity.
  */
+import {collisionPieces} from './backlotCompoundGeometry.js';
 const EPS = 1e-8;
 const n = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 
@@ -60,9 +61,12 @@ export function rayAabbHit(origin, direction, box, maxDistance = 100, padding = 
 export function firstCoverHit(origin, direction, obstacles, maxDistance = 100, padding = 0.035) {
     let best = null;
     for (const obstacle of obstacles ?? []) {
-        const hit = rayAabbHit(origin, direction, obstacle, maxDistance, padding);
-        if (!hit || (best && hit.distance >= best.distance)) continue;
-        best = { ...hit, id: obstacle.id ?? 'arena-cover', obstacle };
+        for(const piece of collisionPieces(obstacle)){
+            const hit = rayAabbHit(origin, direction, piece, maxDistance, padding);
+            if (!hit || (best && hit.distance >= best.distance)) continue;
+            best = { ...hit, id: obstacle.id ?? 'arena-cover',
+                partId:piece.partId??obstacle.partId??obstacle.id,obstacle };
+        }
     }
     return best;
 }

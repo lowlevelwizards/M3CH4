@@ -2,13 +2,13 @@
  * Predicted positions are provisional. Only scene.traceCombatantShot(), at the
  * actual muzzle, may grant permission to shoot. */
 import { firstCoverHit } from '../coverTruth.js';
+import {positionHitsCover} from '../backlotCompoundGeometry.js';
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const passable=(point,world,pad)=>{
     if(!world||!point||point.x<world.minX+pad||point.x>world.maxX-pad||
         point.z<world.minZ+pad||point.z>world.maxZ-pad)return false;
-    return !(world.obstacles??[]).some(o=>point.x>=o.minX-pad&&point.x<=o.maxX+pad&&
-        point.z>=o.minZ-pad&&point.z<=o.maxZ+pad);
+    return !positionHitsCover(point,world.obstacles,pad);
 };
 
 /** Height-aware *provisional* firing corridor. Low barricades can be shot

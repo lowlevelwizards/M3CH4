@@ -1,4 +1,5 @@
 import { firstCoverHit } from './coverTruth.js';
+import {allCollisionPieces} from './backlotCompoundGeometry.js';
 
 const distance = (a, b) => Math.hypot((a?.x ?? 0) - (b?.x ?? 0), (a?.z ?? 0) - (b?.z ?? 0));
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -90,7 +91,7 @@ export function recentThreatTargetId(owner) {
 }
 
 function staticObstacles(world) {
-    return (world?.obstacles ?? []).filter(obstacle => !obstacle.dynamic);
+    return allCollisionPieces((world?.obstacles ?? []).filter(obstacle => !obstacle.dynamic));
 }
 
 /** Body-height tactical LOS. Ballistic raycasts remain authoritative for actual fire;
@@ -157,7 +158,8 @@ export function chooseCoverPoint(enemy, target, world, radius, behavior, preferr
         const height = Number(obstacle.height ?? obstacle.maxY ?? 1.1);
         // Tiny pillars and waist-high barricades are useful movement geometry but poor
         // whole-rig emergency cover for this first awareness pass.
-        if (height < 2.25 || obstacle.kind === 'pillar') continue;
+        if (height < 2.25 || obstacle.kind === 'pillar' ||
+            (obstacle.minY??0)>1.85) continue;
         const cx = (obstacle.minX + obstacle.maxX) * .5;
         const cz = (obstacle.minZ + obstacle.maxZ) * .5;
         let nx = cx - threat.x, nz = cz - threat.z;

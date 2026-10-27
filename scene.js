@@ -16,7 +16,8 @@ import {addRigCrewPlate} from './rigCrewVisuals.js';
 import {serviceBayFocus} from './serviceBayVisualRules.js';
 import {createYardGroundTexture,createWorkshopFloorTexture} from './artStyleProcedural.js';
 import {lightingProfile} from './visualLightingLanguage.js';
-import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './backlotDerbyWorld.js?v=k5s2';
+import {backlotGroundTexture,setBacklotOpenSky,buildBacklotDerbyWorld} from './backlotDerbyWorld.js?v=k5s4';
+import {allMovementPieces} from './backlotCompoundGeometry.js';
 import {advanceBacklotTerrain,recordBacklotCoverStrike} from './backlotEnvironmentPass.js';
 import { normalizePaint } from './factoryPaint.js';
 import { buildPartVisual } from './partVisuals.js?v=k4w4';
@@ -4249,13 +4250,21 @@ export function buildCockpit(scene) {
     return cockpit;
 }
 function buildDebugColliders(scene,world) {
-    const group = new THREE.Group();
-    const material = new THREE.MeshBasicMaterial({ color: 0x65ff91, wireframe: true, transparent: true, opacity: 0.7, depthTest: false });
-    for (const obstacle of world.obstacles) {
-        const w = obstacle.maxX - obstacle.minX;
-        const d = obstacle.maxZ - obstacle.minZ;
-        const mesh = box(w + 1.9, 0.4, d + 1.9, material);
-        mesh.position.set((obstacle.minX + obstacle.maxX) / 2, 0.25, (obstacle.minZ + obstacle.maxZ) / 2);
+    const group=new THREE.Group();
+    group.name='dev-authored-physical-footprint-overlay';
+    const material=new THREE.MeshBasicMaterial({
+      color:0x65ff91,wireframe:true,transparent:true,opacity:.7,depthTest:false,
+    });
+    // This debug overlay is deliberately driven by the exact SAME lower
+    // structural segments as collision/AI, inflated by the mech's diameter.
+    // The legacy tractor/loader external rectangles are NOT shown as if
+    // they remain live physical barriers.
+    for(const obstacle of allMovementPieces(world.obstacles)){
+        const w=obstacle.maxX-obstacle.minX,d=obstacle.maxZ-obstacle.minZ;
+        const mesh=box(w+1.9,.4,d+1.9,material);
+        mesh.position.set((obstacle.minX+obstacle.maxX)/2,.25,
+          (obstacle.minZ+obstacle.maxZ)/2);
+        mesh.userData.compoundPartId=obstacle.partId??obstacle.id;
         group.add(mesh);
     }
     scene.add(group);

@@ -2,12 +2,12 @@
  * advice, not a new steering system. Works for all arena objective modes.
  */
 import { tacticalLineOfSight } from '../tacticalAwareness.js';
+import {positionHitsCover} from '../backlotCompoundGeometry.js';
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const passable=(p,world,pad=1.4)=>
     p.x>world.minX+pad&&p.x<world.maxX-pad&&
     p.z>world.minZ+pad&&p.z<world.maxZ-pad&&
-    !(world.obstacles??[]).some(o=>!o.dynamic&&
-        p.x>o.minX-pad&&p.x<o.maxX+pad&&p.z>o.minZ-pad&&p.z<o.maxZ+pad);
+    !positionHitsCover(p,world.obstacles,pad,{includeDynamic:false});
 export function chooseFightPosition(world,self,target,desiredRange=6,style='pressure') {
     if(!target||!world)return self;
     let choice=null,best=-Infinity;

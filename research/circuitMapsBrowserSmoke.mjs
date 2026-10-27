@@ -46,7 +46,14 @@ try {
       if(node.isMesh&&node.userData?.arenaObstacleId)
         cover.add(node.userData.arenaObstacleId);
     });
-    const allMapCover=map.world.obstacles.every(o=>cover.has(o.id));
+    const cert=arena.scene.getObjectByName('backlot-outdoor-derby-world')
+      ?.userData?.backlotStats?.collisionCertificate;
+    const allMapCover=id==='backlot-dustbowl'
+      ?!!cert?.pass&&cert.gameplayObstacleCount===map.world.obstacles.length&&
+       cert.visuallyCertifiedParts>=30&&
+       map.world.obstacles.every(o=>o.id.startsWith('tractor-')||
+        o.id.startsWith('loader-')||cover.has(o.id))
+      :map.world.obstacles.every(o=>cover.has(o.id));
     const actual=arena.scene.getObjectByName('arena-environment');
     const themed=id==='backlot-dustbowl'
       ?arena.scene.getObjectByName('backlot-outdoor-derby-world')
@@ -76,7 +83,7 @@ try {
        eyeLevel,data};
   },mapId);
   if(outcome.actualMap!==mapId||!outcome.themed||!outcome.backlotOpen||!outcome.allMapCover||
-      outcome.drawnColliders<outcome.obstacleCount)
+      (mapId!=='backlot-dustbowl'&&outcome.drawnColliders<outcome.obstacleCount))
     throw Error('Venue cover/visual parity '+JSON.stringify({...outcome,data:'omitted'}));
   const buffer=Buffer.from(outcome.data.split(',')[1],'base64');
   writeFileSync('art-lab-artifacts/map-'+mapId+'.png',buffer);

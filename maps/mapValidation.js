@@ -2,6 +2,7 @@
  * consume the exact same obstacle list. Do not use rendered meshes as proxy.
  */
 import {planRoute} from '../ai/navigation.js';
+import {positionHitsCover,collisionPieces} from '../backlotCompoundGeometry.js';
 import {tacticalLineOfSight} from '../tacticalAwareness.js';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
@@ -10,8 +11,7 @@ export function pointClear(map,point,padding=1.55){
  return finite(point?.x)&&finite(point?.z)&&
   point.x>=w.minX+padding&&point.x<=w.maxX-padding&&
   point.z>=w.minZ+padding&&point.z<=w.maxZ-padding&&
-  !w.obstacles.some(o=>point.x>o.minX-padding&&point.x<o.maxX+padding&&
-   point.z>o.minZ-padding&&point.z<o.maxZ+padding);
+  !positionHitsCover(point,w.obstacles,padding);
 }
 export function certifyArena(map,{radius=1.55,checkRoutes=true}={}){
  const errors=[],world=map.world,seen=new Set();
@@ -24,6 +24,12 @@ export function certifyArena(map,{radius=1.55,checkRoutes=true}={}){
   if(![o.minX,o.maxX,o.minZ,o.maxZ,o.height].every(finite)||
     o.minX>=o.maxX||o.minZ>=o.maxZ||o.height<=0)
     errors.push('INVALID COVER '+o.id);
+  for(const piece of collisionPieces(o)){
+    if(![piece.minX,piece.maxX,piece.minZ,piece.maxZ,piece.maxY??piece.height]
+      .every(finite)||piece.minX>=piece.maxX||piece.minZ>=piece.maxZ||
+      (piece.minY??0)>=(piece.maxY??piece.height))
+      errors.push('INVALID COMPOUND COVER '+(piece.partId??o.id));
+   }
   if(o.minX<world.minX-.01||o.maxX>world.maxX+.01||
     o.minZ<world.minZ-.01||o.maxZ>world.maxZ+.01)
     errors.push('COVER OUTSIDE BOUNDS '+o.id);

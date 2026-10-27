@@ -1,3 +1,4 @@
+import {positionHitsCover} from '../backlotCompoundGeometry.js';
 /**
  * k4w: squad-level physical destination reservations.
  *
@@ -12,9 +13,7 @@ const valid=(p,world,pad)=>{
   if(!world)return true;
   if(p.x<world.minX+pad||p.x>world.maxX-pad||
      p.z<world.minZ+pad||p.z>world.maxZ-pad)return false;
-  return !(world.obstacles??[]).some(o=>!o.dynamic&&
-    p.x>o.minX-pad&&p.x<o.maxX+pad&&
-    p.z>o.minZ-pad&&p.z<o.maxZ+pad);
+  return !positionHitsCover(p,world.obstacles,pad,{includeDynamic:false});
 };
 function clear(a,b,world,pad){
   if(!world)return true;

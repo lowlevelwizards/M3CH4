@@ -44,8 +44,14 @@ try{
       physicalCover,garageBackground:scene?.background?.isColor===true,
       oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
+  const combatGeometry=backlot.stats?.collisionCertificate?.combatProof;
+  if(!combatGeometry||Object.values(combatGeometry).some(x=>x!==true))
+    throw Error('Live Backlot roof/window/bucket/route validation failed: '+
+      JSON.stringify(combatGeometry));
   if(!backlot.stats?.collisionCertificate?.pass||
-   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==34||
+   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==
+     backlot.stats.collisionCertificate.expectedPhysicalParts||
+   backlot.stats.collisionCertificate.visuallyCertifiedParts<30||
    backlot.stats.collisionCertificate.uncollidableOffsiteAssets!==18)
     throw Error('Backlot physical/render certificate failed: '+
       JSON.stringify(backlot.stats?.collisionCertificate));
@@ -53,7 +59,10 @@ try{
      backlot.stats.enclosingWarehouseWalls!==0||
      backlot.stats.sky!=='open'||
      backlot.stats.fixtureBatch?.callsSaved<80||
-     backlot.physicalCover!==backlot.stats.obstacleCount||
+     // Twelve rebuilt machinery parents use mesh-derived raycast volumes,
+     // so only the 22 legacy covers remain as tagged visible geometry.
+     backlot.physicalCover!==(backlot.stats.obstacleCount-
+       backlot.stats.collisionCertificate.compoundFamilyCount)||
      backlot.activeDrawObjects<backlot.physicalCover||
      backlot.activeDrawObjects>320)
     throw Error('Mobile open-air Backlot world validation failed: '+JSON.stringify(backlot));

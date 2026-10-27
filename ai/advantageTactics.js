@@ -1,3 +1,4 @@
+import {positionHitsCover} from '../backlotCompoundGeometry.js';
 /** Team tactical arithmetic uses own instrumented machines, PUBLIC score
  * territory/roster counts, and coarse LAST VISUALLY OBSERVED enemy cues.
  * Never inspect a hidden opponent's current coordinates, components or route. */
@@ -6,8 +7,7 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const other=t=>t==='friendly'?'hostile':'friendly';
 const valid=(p,w,pad)=>!!w&&Number.isFinite(p?.x)&&Number.isFinite(p?.z)&&
  p.x>=w.minX+pad&&p.x<=w.maxX-pad&&p.z>=w.minZ+pad&&p.z<=w.maxZ-pad&&
- !(w.obstacles??[]).some(o=>!o.dynamic&&
-  p.x>o.minX-pad&&p.x<o.maxX+pad&&p.z>o.minZ-pad&&p.z<o.maxZ+pad);
+ !positionHitsCover(p,w.obstacles,pad,{includeDynamic:false});
 export function assessTacticalAdvantage(snapshot,team){
  const allies=snapshot?.knowledge?.[team]?.allies??[];
  const contacts=snapshot?.knowledge?.[team]?.contacts??[];

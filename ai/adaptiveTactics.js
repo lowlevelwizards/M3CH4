@@ -1,3 +1,4 @@
+import {positionHitsCover} from '../backlotCompoundGeometry.js';
 /** k.3u.3: bounded tactical evaluators. Advice only; never move rigs,
  * invent enemy positions, mutate hardware or override weapon/score authority. */
 const dist=(a,b)=>Math.hypot((a.x??0)-(b.x??0),(a.z??0)-(b.z??0));
@@ -127,9 +128,7 @@ export function trafficWaypoint(rig,waypoint,nearby,world,collisionRadius=1){
         z:rig.z+nz*Math.max(1.8,item.ahead+1.25)+nx*side*(item.clearance+.8)};
       if(p.x<world.minX+collisionRadius||p.x>world.maxX-collisionRadius||
         p.z<world.minZ+collisionRadius||p.z>world.maxZ-collisionRadius)continue;
-      if((world.obstacles??[]).some(o=>!o.dynamic&&
-        p.x>o.minX-collisionRadius&&p.x<o.maxX+collisionRadius&&
-        p.z>o.minZ-collisionRadius&&p.z<o.maxZ+collisionRadius))continue;
+      if(positionHitsCover(p,world.obstacles,collisionRadius,{includeDynamic:false}))continue;
       if(nearby.some(other=>{
         const q=other.position??other.rig;
         return q&&Math.hypot(p.x-q.x,p.z-q.z)<

@@ -1,3 +1,4 @@
+import {positionHitsCover,allMovementPieces} from '../backlotCompoundGeometry.js';
 /**
  * k4x: team-level one-lane corridor reservations. Unlike objective-arrival
  * coordination, this groups physically overlapping *routes* even when the
@@ -18,14 +19,12 @@ const valid=(p,world,r)=>{
   if(!Number.isFinite(p?.x)||!Number.isFinite(p?.z))return false;
   if(p.x<world.minX+r||p.x>world.maxX-r||
       p.z<world.minZ+r||p.z>world.maxZ-r)return false;
-  return !(world.obstacles??[]).some(o=>!o.dynamic&&
-    p.x>o.minX-r&&p.x<o.maxX+r&&
-    p.z>o.minZ-r&&p.z<o.maxZ+r);
+  return !positionHitsCover(p,world.obstacles,r,{includeDynamic:false});
 };
 const inside=(p,o)=>p.x>=o.minX&&p.x<=o.maxX&&
   p.z>=o.minZ&&p.z<=o.maxZ;
 function corridorSides(point,dx,dz,world,radius){
-  const blocks=(world.obstacles??[]).filter(o=>!o.dynamic);
+  const blocks=allMovementPieces(world.obstacles).filter(o=>!o.dynamic);
   if(!blocks.length)return false;
   // A two-sided narrow crossing requires solid surfaces on BOTH
   // sides of this travel bearing at the SAME longitudinal position.
