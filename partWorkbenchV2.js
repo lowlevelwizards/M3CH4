@@ -1485,12 +1485,80 @@ async function saveSelected(type){
 $('save-shape').onclick=()=>saveSelected('shape');
 $('save-part').onclick=()=>saveSelected('part');
 $('save-assembly').onclick=()=>saveSelected('assembly');
+async function openAssetForEditing(asset){
+ if(!confirm('Open '+asset.name+' as its own editable project? Current project will be saved.'))return;
+ try{
+  await savePromise;await db.saveProject(doc);
+  const inserted=insertAsset(createDocument(asset.name+' / draft'),asset);
+  doc=inserted.document;doc.metadata={...doc.metadata,sourceAssetId:asset.id,assetRootId:inserted.selectedId};
+  startHistory();selected=inserted.selectedId;selectedIds=new Set([selected]);
+  await db.saveProject(doc);refresh();switchTab('objects');fitSelected();
+  message('Opened editable '+asset.name+'. Use SAVE ASSET REVISION to publish to its library history.');
+ }catch(e){message('Could not open asset: '+e.message,true);}
+}
+async function showAssetHistory(asset){
+ const panel=$('asset-history');panel.replaceChildren();panel.hidden=false;
+ const title=document.createElement('strong');title.textContent='REVISIONS / '+asset.name;panel.append(title);
+ const versions=[{revision:asset.revision,savedAt:asset.updated,live:true},...await db.assetRevisionHistory(asset.id)];
+ for(const item of versions.slice(0,16)){
+  const row=document.createElement('div');row.className='version-row';
+  const label=document.createElement('span');label.textContent='v'+item.revision+' · '+new Date(item.savedAt||Date.now()).toLocaleString();
+  row.append(label);
+  if(!item.live){
+   const restore=document.createElement('button');restore.textContent='RESTORE';
+   restore.onclick=async()=>{
+    if(!confirm('Restore '+asset.name+' version '+item.revision+' as a new latest revision?'))return;
+    try{await db.restoreAssetRevision(asset.id,item.id);await renderLibrary();message('Older version restored; newer revisions kept.');}
+    catch(e){message(e.message,true);}
+   };row.append(restore);
+  }else{
+   const edit=document.createElement('button');edit.textContent='OPEN';edit.onclick=()=>openAssetForEditing(asset);
+   row.append(edit);
+  }
+  panel.append(row);
+ }
+}
+async function renderCheckpoints(){
+ const box=$('project-checkpoints');box.replaceChildren();
+ try{
+  const checkpoints=(await db.projectCheckpointHistory(doc.id)).slice(0,12);
+  if(!checkpoints.length)return;
+  const title=document.createElement('strong');title.textContent='PROJECT CHECKPOINTS';box.append(title);
+  for(const checkpoint of checkpoints){
+   const row=document.createElement('div');row.className='version-row';
+   const label=document.createElement('span');label.textContent=checkpoint.label+' · '+new Date(checkpoint.savedAt).toLocaleDateString();
+   const restore=document.createElement('button');restore.textContent='RESTORE';
+   restore.onclick=async()=>{
+    if(!confirm('Restore '+checkpoint.label+'? Your current state will remain undoable.'))return;
+    try{commit(await db.loadProjectCheckpoint(checkpoint.id),selected,'Restored checkpoint '+checkpoint.label+'.');}
+    catch(e){message(e.message,true);}
+   };
+   row.append(label,restore);box.append(row);
+  }
+ }catch(e){message('Checkpoints unavailable: '+e.message,true);}
+}
+$('save-checkpoint').onclick=async()=>{
+ const label=prompt('Checkpoint name',doc.name+' / checkpoint');if(!label?.trim())return;
+ try{await db.saveProjectCheckpoint(doc,label.trim());await renderCheckpoints();message('Checkpoint saved.');}
+ catch(e){message('Checkpoint failed: '+e.message,true);}
+};
+$('save-linked-revision').onclick=async()=>{
+ const assetId=doc.metadata?.sourceAssetId,rootId=doc.metadata?.assetRootId;
+ if(!assetId||!rootId)return message('Open a library asset to create a revision.',true);
+ try{
+  const old=await db.get('assets',assetId);if(!old)throw Error('Original asset missing');
+  const next=makeAsset(doc,rootId,old.type,old.name);next.id=assetId;next.created=old.created;
+  await db.saveAsset(next);await renderLibrary();message('Saved new revision of '+old.name+'.');
+ }catch(e){message('Revision failed: '+e.message,true);}
+};
 async function renderLibrary(){
  if(!ready)return;
  const box=$('library-items'),projectsBox=$('project-items');
  try{
   const [assets,projects]=await Promise.all([db.all('assets'),db.all('projects')]);
   projectsBox.replaceChildren();box.replaceChildren();
+  $('save-linked-revision').disabled=!doc.metadata?.sourceAssetId;
+  void renderCheckpoints();
   for(const project of projects.filter(p=>p?.format===FORMAT)
    .sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0)).slice(0,30)){
    const tile=makeTile({id:project.id},project,'project',project.name,
@@ -1524,7 +1592,7 @@ async function renderLibrary(){
    const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename';
    rename.onclick=async e=>{e.stopPropagation();const next=prompt('Rename asset',asset.name);
     if(!next?.trim())return;
-    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();}
+    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset,{keepRevision:false});renderLibrary();}
     catch(err){message(err.message,true);}
    };
    const remove=document.createElement('button');remove.textContent='×';remove.title='Delete';
@@ -1533,7 +1601,11 @@ async function renderLibrary(){
     try{await db.remove('assets',asset.id);renderLibrary();}
     catch(err){message(err.message,true);}
    };
-   actions.append(add,rename,remove);tile.append(actions);box.append(tile);
+   const open=document.createElement('button');open.textContent='OPEN';open.title='Edit independent library draft';
+   open.onclick=e=>{e.stopPropagation();openAssetForEditing(asset);};
+   const historyButton=document.createElement('button');historyButton.textContent='HISTORY';historyButton.title='Restore an earlier asset version';
+   historyButton.onclick=e=>{e.stopPropagation();showAssetHistory(asset);};
+   actions.append(add,open,historyButton,rename,remove);tile.append(actions);box.append(tile);
   }
   if(!box.children.length){const p=document.createElement('p');p.className='hint';
     p.textContent='No saved parts yet. Select a piece and tap SAVE AS PART.';
