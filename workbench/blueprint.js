@@ -75,6 +75,18 @@ export function validateGeometry(g){
   const count=g.positions.length/3;
   assert(Array.isArray(g.indices)&&g.indices.length>=3&&g.indices.length<=90000&&g.indices.length%3===0&&g.indices.every(n=>Number.isInteger(n)&&n>=0&&n<count),'Invalid imported mesh triangles');
   if(g.normals!==undefined)assert(Array.isArray(g.normals)&&g.normals.length===g.positions.length&&g.normals.every(n=>finite(n)&&Math.abs(n)<=1.01),'Invalid mesh normals');
+  if(g.pointGroups!==undefined){
+   assert(Array.isArray(g.pointGroups)&&g.pointGroups.length<=count,'Invalid logical mesh groups');
+   const covered=new Set();
+   for(const group of g.pointGroups){
+    assert(Array.isArray(group)&&group.length>0,'Empty logical mesh group');
+    for(const i of group){
+     assert(Number.isInteger(i)&&i>=0&&i<count&&!covered.has(i),'Overlapping logical mesh point groups');
+     covered.add(i);
+    }
+   }
+   assert(covered.size===count,'Incomplete logical mesh groups');
+  }
   if(g.groups!==undefined){
    assert(Array.isArray(g.groups)&&g.groups.length<=128&&g.groups.every(x=>Number.isInteger(x.start)&&Number.isInteger(x.count)&&Number.isInteger(x.materialIndex)&&x.start>=0&&x.count>=0&&x.start+x.count<=g.indices.length&&x.materialIndex>=0&&x.materialIndex<16),'Invalid material groups');
   }
