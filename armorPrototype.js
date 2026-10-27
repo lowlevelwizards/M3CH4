@@ -10,6 +10,7 @@
  */
 import * as THREE from 'three';
 import {buildPartVisual} from './partVisuals.js';
+import {buildCyclopsArmorPlate} from './cyclopsVisual.js';
 import {KESTREL_LAYOUT} from './mobilityDefinitions.js';
 import {ARMOR_PROTOTYPES,installedArmorPlates,armorMassKg,armorHit,armorCrewPatch} from './armorPlan.js';
 const clamp=v=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0));
@@ -98,64 +99,17 @@ function splitBootGuardGeometry(){
   geom.rotateX(Math.PI/2);return geom;
 }
 
-/** Remove only the factory's separate cheek guards. This leaves the naked
- * Cyclops housing, operator tub and iconic single optic completely untouched. */
-function clearFactoryCheeks(root){
-  const cheeks=root.getObjectByName('CYCLOPS / DETACHABLE CHEEKS');
-  if(!cheeks)throw Error('Cyclops needs its original detachable cheek mount');
-  for(const mesh of [...cheeks.children]){cheeks.remove(mesh);mesh.geometry?.dispose?.();}
-  return cheeks;
+/** Naked Cyclops no longer contains baked-in cream cheeks.
+ * Keep the compatibility boundary explicit: the actual cheeks are authored as
+ * removable armor in cyclopsDesign.js (including cyclops-crown at tier 3).
+ */
+function clearFactoryCheeks(root) {
+ if(root.getObjectByName('CYCLOPS / DETACHABLE CHEEKS'))
+   throw Error('Cyclops core unexpectedly contains baked-in factory cheek armor');
+ return root;
 }
 function cyclopsPlate(root,entry,tier){
-  const cheeks=root.getObjectByName('CYCLOPS / DETACHABLE CHEEKS');
-  const cell=root.getObjectByName('CYCLOPS / PILOT CELL');
-  const heavy=tier===3,medium=tier===2;
-  if(entry.id==='cyclops-left-cheek'||entry.id==='cyclops-right-cheek'){
-    const sign=entry.id==='cyclops-left-cheek'?-1:1;
-    // The broad faceted surface faces sideways. Avoid long blocky slabs:
-    // short field cheek → extended face-mask side → heavy helmet flank.
-    return makePlate(cheeks,entry,
-      heavy?[sign*.516,-.030,-.160]:medium?[sign*.512,-.042,-.092]:[sign*.510,-.047,.038],
-      heavy?[.645,.645,.165]:medium?[.640,.548,.113]:[.510,.445,.105],{
-        lean:sign*(Math.PI/2+(heavy?.065:.025)),
-        tone:heavy?0xada389:medium?0xc3b89d:0xbbb39a,
-        taper:heavy?.70:.79,cut:heavy?.095:.075,
-      });
-  }
-  switch(entry.id){
-    case 'cyclops-brow':
-      return makePlate(cell,entry,
-        heavy?[0,.315,-.468]:[0,.300,-.467],
-        heavy?[.997,.155,.168]:[.870,.142,.131],{
-          pitch:heavy?-.105:-.085,tone:0xb99b63,
-          taper:heavy?.78:.84,cut:.100,
-        });
-    case 'cyclops-chin':
-      return makePlate(cell,entry,
-        heavy?[0,-.325,-.467]:[0,-.316,-.464],
-        heavy?[.965,.162,.152]:[.862,.137,.128],{
-          pitch:heavy?.09:.065,tone:0xc5bba1,
-          taper:heavy?.80:.87,cut:.084,
-        });
-    case 'cyclops-rear':
-      // Chamfered rear service cassette distinct from helmet's front face.
-      return makePlate(cell,entry,[0,-.052,.522],[.764,.442,.085],
-        {tone:0x929688,taper:.70,cut:.11});
-    case 'cyclops-left-wrap':
-    case 'cyclops-right-wrap':{
-      const sign=entry.id.includes('left')?-1:1;
-      return makePlate(cell,entry,[sign*.507,-.024,.290],[.340,.455,.126],{
-        lean:sign*(Math.PI/2+.05),tone:0x8e9283,taper:.65,cut:.084,
-      });
-    }
-    case 'cyclops-crown':
-      // Contiguous frontal roof above visor, not a full-length box on top.
-      // Raised rear electronics remain outside this helmet cap.
-      return makePlate(cell,entry,[0,.328,-.192],[.979,.488,.113],{
-        pitch:-Math.PI/2,tone:0xb49c69,taper:.74,cut:.090,
-      });
-    default:throw Error('Unknown Cyclops armor '+entry.id);
-  }
+ return buildCyclopsArmorPlate(root,entry,tier);
 }
 
 function kestrelPlate(root,entry,tier){
