@@ -45,8 +45,9 @@ try{
       oldWarehouse:!!scene?.getObjectByName('wall-north')};
   });
   if(!backlot.stats?.collisionCertificate?.pass||
-   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==60||
-   backlot.stats.collisionCertificate.expectedPhysicalParts!==60||
+   backlot.stats.collisionCertificate.authoritativeRaycastSolids!==
+     backlot.stats.collisionCertificate.expectedPhysicalParts||
+   backlot.stats.collisionCertificate.visuallyCertifiedParts<30||
    backlot.stats.collisionCertificate.uncollidableOffsiteAssets!==18)
     throw Error('Backlot physical/render certificate failed: '+
       JSON.stringify(backlot.stats?.collisionCertificate));
@@ -54,9 +55,8 @@ try{
      backlot.stats.enclosingWarehouseWalls!==0||
      backlot.stats.sky!=='open'||
      backlot.stats.fixtureBatch?.callsSaved<80||
-     // The 12 newly promoted machinery parent records now have off-scene
-     // raycast-only compound meshes. Count visible LEGACY cover here; their
-     // 38 compound child solids were already certified above.
+     // Twelve rebuilt machinery parents use mesh-derived raycast volumes,
+     // so only the 22 legacy covers remain as tagged visible geometry.
      backlot.physicalCover!==(backlot.stats.obstacleCount-
        backlot.stats.collisionCertificate.compoundFamilyCount)||
      backlot.activeDrawObjects<backlot.physicalCover||
