@@ -15,6 +15,7 @@ import {upgradeBacklotSecondaryProps} from './backlotSecondaryAnatomy.js';
 import {auditBacklotCollisionTruth,secondaryGeometryClearance} from './backlotCollisionCertificate.js';
 import {auditBacklotAssembly} from './backlotAssemblyAudit.js';
 import {collisionPieces,isCompoundObstacle} from './backlotCompoundGeometry.js';
+import {fitLiveBacklotMachineCollisions} from './backlotLiveCollisionFit.js';
 
 const P={dirt:0x796044,darkDirt:0x443b30,rust:0x855137,rust2:0xa16d46,
   steel:0x303c3c,iron:0x4c554f,cream:0xb2a07e,yellow:0xc09a4e,
@@ -559,18 +560,22 @@ export function buildBacklotDerbyWorld(scene,world,solids){
  const root=new THREE.Group();root.name='backlot-outdoor-derby-world';
  root.userData.venue='open-sky-scrap-derby';
  perimeter(root,world);
+ // Harvest exact bounds of the rendered steel after the final art transforms,
+ // before static batching; those are the sole live collision source.
+ const liveModels=addLiveMechanicalAnatomy(root);
+ const liveFit=fitLiveBacklotMachineCollisions(liveModels,world);
  for(const obstacle of world.obstacles)
   if(isCompoundObstacle(obstacle))physicalCompoundPart(obstacle,solids);
   else createWreck(root,obstacle,solids);
- addLiveMechanicalAnatomy(root);
  dirtMarks(root,world);spectatorYard(root,world);
  upgradeBacklotScenery(root,world);
  upgradeBacklotSecondaryProps(root,world);
  // Certify named geometry before static instancing consumes scene groups.
- const collisionCertificate=auditBacklotCollisionTruth(root,world,solids);
+ const collisionCertificate=auditBacklotCollisionTruth(root,world,solids,liveFit.sources);
  const fixtureBatch=batchBacklotDerbyDecorations(root);
  root.userData.backlotStats={
    fixtureBatch,collisionCertificate,
+   liveStructuralMeshes:liveFit.visibleStructuralMeshes,
    environment:root.userData.backlotReactivity? 'reactive-dustbowl':'static',
    obstacleCount:world.obstacles.length,collisionSolids:solids.filter(x=>x.userData?.arenaObstacleId!=='floor').length,
    enclosingWarehouseWalls:0,overheadWarehouseFixtures:0,
