@@ -47,5 +47,5 @@ test('lab owns patch visuals and samples real physics, without charging credits 
  assert.match(lab,/terrainVisuals=new THREE\.Group/);
  assert.match(html,/id="surface-mode"/);
  assert.doesNotMatch(lab,/localStorage|storeMachine\(|settleSortie\(/);
- assert.match(source('index.html'),/locomotion\.js\?v=k5a7/);
+ assert.match(source('index.html'),/"\.\/locomotion\.js":\s*"\.\/locomotion\.js\?v=[^"]+"/);
 });
