@@ -185,13 +185,14 @@ function updateContextPanel(){
    const name=document.createElement('strong');name.textContent=axisKeys[axis]+' Δ';
    const slider=document.createElement('input');slider.type='range';slider.min='-.5';slider.max='.5';slider.step='.005';slider.value='0';
    slider.dataset.axis=axis;slider.setAttribute('aria-label','Relative '+axisKeys[axis]+' offset for '+count+' points');
-   const read=document.createElement('output');read.textContent='0.000';
+   const read=document.createElement('input');read.type='number';read.min='-10';read.max='10';read.step='.005';read.value='0';
+   read.setAttribute('aria-label','Exact relative displacement in metres');
    slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
    slider.addEventListener('input',()=>{
     if(!pointSliderStart)pointSliderStart=clone(doc);
     const delta=[0,0,0];delta[axis]=snapValue(Number(slider.value));
     try{previewBatchGeometry(applyBatchDelta(pointSliderStart,delta));
-     read.textContent=delta[axis].toFixed(3);
+     read.value=delta[axis].toFixed(3);
     }catch(e){message(e.message,true);}
    });
    const finish=()=>{
@@ -200,7 +201,23 @@ function updateContextPanel(){
     updateContextPanel();
    };
    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
-   row.append(name,slider,read);b.append(row);
+   read.addEventListener('change',()=>{
+    const value=Number(read.value);if(!Number.isFinite(value)||Math.abs(value)>10)return message('Offset outside 10 metre range.',true);
+    try{
+     const snapshot=clone(doc),delta=[0,0,0];delta[axis]=snapValue(value);
+     const next=clone(doc);next.nodes.find(n=>n.id===selected).geometry=applyBatchDelta(snapshot,delta);
+     commit(next,selected,'Moved '+count+' vertices by '+delta[axis].toFixed(3)+'m.');
+    }catch(e){message(e.message,true);}
+   });
+   read.addEventListener('change',()=>{
+     const value=Number(read.value);if(!Number.isFinite(value)||value<=0||value>10)return message('Invalid scale factor.',true);
+     try{
+      const snapshot=clone(doc),scale=[1,1,1];scale[axis]=value;
+      const next=clone(doc);next.nodes.find(n=>n.id===selected).geometry=applyBatchDelta(snapshot,[0,0,0],scale);
+      commit(next,selected,'Scaled '+count+' selected vertices.');
+     }catch(e){message(e.message,true);}
+    });
+    row.append(name,slider,read);b.append(row);
   }
   if(n.geometry.type==='mesh'||n.geometry.profile){
    for(let axis=0;axis<3;axis++){
@@ -209,13 +226,14 @@ function updateContextPanel(){
     const name=document.createElement('strong');name.textContent=axisKeys[axis]+' ×';
     const slider=document.createElement('input');slider.type='range';slider.min='.5';slider.max='1.5';slider.step='.025';slider.value='1';
     slider.setAttribute('aria-label','Scale selected points on '+axisKeys[axis]);
-    const read=document.createElement('output');read.textContent='100%';
+    const read=document.createElement('input');read.type='number';read.min='.05';read.max='10';read.step='.025';read.value='1';
+    read.setAttribute('aria-label','Exact axis scale multiplier');
     slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
     slider.addEventListener('input',()=>{
      if(!pointSliderStart)pointSliderStart=clone(doc);
      const scale=[1,1,1];scale[axis]=Number(slider.value);
      try{previewBatchGeometry(applyBatchDelta(pointSliderStart,[0,0,0],scale));
-      read.textContent=Math.round(scale[axis]*100)+'%';}
+      read.value=scale[axis].toFixed(3);}
      catch(e){message(e.message,true);}
     });
     const finish=()=>{
