@@ -8,6 +8,7 @@ import {transformMeshGroups} from '../workbench/vertexTransforms.js';
 import {moveLoftControls} from '../workbench/loftTransforms.js';
 import {bakeXReflection} from '../workbench/mirrorGeometry.js';
 import {selectableElements,modifyElementVertexSelection} from '../workbench/elementSelection.js';
+import {deepMeshAudit} from '../workbench/geometryAudit.js';
 
 test('cancelled transaction restores a validated document without mutating initial',()=>{
  const d=addNode(createDocument('Fixture'),newShape('box'));
@@ -79,4 +80,14 @@ test('edge and face selection edits the same stable vertex groups as Point mode'
  const plate=defaultGeometry('plate');
  assert.equal(selectableElements(plate,'edge').length,4);
  assert.equal(selectableElements(plate,'face').length,1);
+});
+
+test('mesh audit is advisory and does not modify original geometry',()=>{
+ const mesh={type:'mesh',positions:[0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0],
+ indices:[0,1,2,3,4,5]};
+ const original=clone(mesh),result=deepMeshAudit(mesh);
+ assert.equal(result.degenerateTriangles,1);
+ assert.equal(result.renderIslands,2);
+ assert.ok(result.boundaryEdges>0);
+ assert.deepEqual(mesh,original);
 });
