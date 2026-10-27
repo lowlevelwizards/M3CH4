@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import {buildPartVisual} from './partVisuals.js';
 import {buildCyclopsArmorPlate} from './cyclopsVisual.js';
+import {buildYardwalkerArmorPlate} from './yardwalkerVisual.js';
 import {KESTREL_LAYOUT} from './mobilityDefinitions.js';
 import {ARMOR_PROTOTYPES,installedArmorPlates,armorMassKg,armorHit,armorCrewPatch} from './armorPlan.js';
 const clamp=v=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0));
@@ -168,7 +169,10 @@ export function createArmoredPrototype(partId,tier=0){
   const plates=new Map();
   for(const entry of installedArmorPlates(partId,level)){
     const mesh=partId==='cab-cyclops'
-      ?cyclopsPlate(root,entry,level):kestrelPlate(root,entry,level);
+      ?cyclopsPlate(root,entry,level)
+      :partId==='legs-yard'
+        ?buildYardwalkerArmorPlate(root,entry,level)
+        :kestrelPlate(root,entry,level);
     plates.set(entry.id,{...entry,mesh,health:1});
   }
   root.userData.armorPrototype=true;root.userData.armorTier=level;
