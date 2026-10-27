@@ -354,3 +354,5 @@ main{padding-bottom:max(6px,env(safe-area-inset-bottom, 0px))}
  border-radius:4px;border:1px solid #7a906f;background:#182b20;color:#f8e9c6;
  font-variant-numeric:tabular-nums;text-align:right;font-size:11px}
 .axis-row input[type=number]:focus{outline:2px solid #e4ba77;outline-offset:1px}
+
+#yard-preview-side{min-height:34px;background:#344a3b;border:1px solid #73896f;border-radius:5px;color:#f4ebd9;font-size:10px;min-width:91px}
