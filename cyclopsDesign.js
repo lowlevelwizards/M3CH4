@@ -1561,7 +1561,7 @@ export const CYCLOPS_ARMOR = Object.freeze({
         "pos": [
           -0.567,
           -0.01,
-          0.335
+          0.245
         ],
         "rot": [
           0,
