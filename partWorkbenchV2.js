@@ -17,6 +17,7 @@ import {inspectBlueprint} from './workbench/geometryAudit.js';
 import {moveLoftControls} from './workbench/loftTransforms.js';
 import {insertProfilePoint,insertLoftSection} from './workbench/meshTopology.js';
 import {bakeXReflection} from './workbench/mirrorGeometry.js';
+import {selectableElements,modifyElementVertexSelection} from './workbench/elementSelection.js';
 import {moveNodeToParent,groupPreservingPose,ungroupPreservingPose} from './workbench/hierarchyTransforms.js';
 import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
@@ -30,7 +31,13 @@ let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let activePoint=null,visibilityMode='all',pointSliderStart=null;
 let displayMode='solid',pointDepth='visible',pointPick='tap',selectionOp='replace';
 let selectedPoints=new Set(),marquee=null,touchCenter=null;
-let navigating=false,objectMultiSelect=false,collapsedGroups=new Set();
+let navigating=false,objectMultiSelect=false,collapsedGroups=new Set(),editingLevel='point';
+const elementCache=new WeakMap();
+function editingElements(g){
+ let record=elementCache.get(g);if(!record){record=new Map();elementCache.set(g,record);}
+ if(!record.has(editingLevel))record.set(editingLevel,selectableElements(g,editingLevel));
+ return record.get(editingLevel);
+}
 const isEditGesture=()=>!!drag&&drag.mode!=='orbit';
 function cancelActivePreview(note){
  let changed=false;
@@ -169,7 +176,9 @@ function updateContextPanel(){
  for(const [id,v] of [['point-tap',pointPick==='tap'],['point-box',pointPick==='box'],
   ['select-add',selectionOp==='add'],['select-subtract',selectionOp==='subtract'],
   ['display-solid',displayMode==='solid'],['display-wire',displayMode==='wire'],['display-xray',displayMode==='xray'],
-  ['depth-visible',pointDepth==='visible'],['depth-through',pointDepth==='through']])
+  ['depth-visible',pointDepth==='visible'],['depth-through',pointDepth==='through'],
+  ['edit-level-point',editingLevel==='point'],['edit-level-edge',editingLevel==='edge'],
+  ['edit-level-face',editingLevel==='face']])
    $(id).classList.toggle('active',v);
  const audit=inspectBlueprint(doc);
  $('geometry-audit').textContent=audit.shapes+' shapes · '+audit.vertices+' imported vertices · '+audit.triangles+' triangles'+
@@ -1050,6 +1059,13 @@ $('frame-points').onclick=()=>{
  requestDraw();
 };
 $('point-box').onclick=()=>{pointPick='box';updateContextPanel();requestDraw();};
+for(const level of ['point','edge','face'])$('edit-level-'+level).onclick=()=>{
+ const g=node()?.geometry;
+ if(level!=='point'&&g&&!['mesh','plate','wedge'].includes(g.type))
+  return message('Edge/Face editing is available for mesh and polygon shells; use Point for loft sections.',true);
+ cancelActivePreview();editingLevel=level;navigating=false;$('nav-mode').classList.remove('active');
+ updateContextPanel();requestDraw();
+};
 $('select-add').onclick=()=>{selectionOp=selectionOp==='add'?'replace':'add';updateContextPanel();};
 $('select-subtract').onclick=()=>{selectionOp=selectionOp==='subtract'?'replace':'subtract';updateContextPanel();};
 $('clear-point-selection').onclick=()=>{clearPoint();requestDraw();};
@@ -1213,6 +1229,45 @@ function shapePointHandles(g,whichView=view){
  });
  return handles;
 }
+function drawTopologyHandles(geometry,obj){
+ let elements;
+ try{elements=editingElements(geometry);}catch(e){message(e.message,true);return;}
+ const seen=new Set(),selectedDisplay=[];
+ let shown=0;
+ for(const entry of elements){
+  const pts=entry.points.map(p=>projected(obj.localToWorld(new THREE.Vector3(...p))));
+  const x=pts.reduce((sum,p)=>sum+p.x,0)/pts.length,y=pts.reduce((sum,p)=>sum+p.y,0)/pts.length;
+  const selectedElement=entry.members.every(k=>selectedPoints.has(k));
+  if(x< -20||y< -20||x>stage.clientWidth+20||y>stage.clientHeight+20)continue;
+  const cell=Math.floor(x/12)+':'+Math.floor(y/12);
+  if(!selectedElement&&(seen.has(cell)||shown>=360))continue;
+  seen.add(cell);shown++;
+  const center=obj.localToWorld(new THREE.Vector3(...entry.center));
+  let handle;
+  if(editingLevel==='face'){
+   handle=svgNode('polygon',{points:pts.map(p=>p.x+','+p.y).join(' '),
+    fill:selectedElement?'#e8af65':'#b7d5b0','fill-opacity':selectedElement?.35:.08,
+    stroke:selectedElement?'#ffe2a2':'#b6c2ad','stroke-opacity':selectedElement?.9:.4,
+    'stroke-width':selectedElement?2:1,'pointer-events':'all'});
+  }else{
+   handle=svgNode('line',{x1:pts[0].x,y1:pts[0].y,x2:pts[1].x,y2:pts[1].y,
+    stroke:selectedElement?'#ffd893':'#aac9b2','stroke-opacity':selectedElement?.95:.4,
+    'stroke-width':selectedElement?9:7,'stroke-linecap':'round','pointer-events':'stroke'});
+  }
+  if(pointPick==='box')continue;
+  handle.addEventListener('pointerdown',e=>{
+   e.preventDefault();e.stopPropagation();
+   selectedPoints=modifyElementVertexSelection(selectedPoints,[entry],{operation:selectionOp});
+   const key=[...selectedPoints][0];
+   activePoint=key?{nodeId:selected,...parsePointKey(key)}:null;
+   updateContextPanel();requestDraw();
+   if(selectionOp!=='replace'||!key)return;
+   drag={mode:'point',nodeId:selected,kind:'factory-mesh',
+    pointerId:e.pointerId,anchor:center,previous:clone(doc)};
+   svg.setPointerCapture(e.pointerId);
+  });
+ }
+}
 function drawOverlay(){
  if(!camera)return;
  const w=stage.clientWidth,h=stage.clientHeight;
@@ -1237,7 +1292,10 @@ function drawOverlay(){
  drawSelectionAndGizmos(obj,n);
  if(n.kind!=='shape')return;
  const g=n.mirrorOf?doc.nodes.find(s=>s.id===n.mirrorOf).geometry:n.geometry;
- const allHandles=tool==='points'&&!n.locked&&!n.mirrorOf&&!navigating?
+ if(tool==='points'&&editingLevel!=='point'&&!n.locked&&!n.mirrorOf&&!navigating){
+  drawTopologyHandles(g,obj);
+ }
+  const allHandles=tool==='points'&&editingLevel==='point'&&!n.locked&&!n.mirrorOf&&!navigating?
   shapePointHandles(g,view):[];
  const handles=[],cells=new Set();
  for(const entry of allHandles){
