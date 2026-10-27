@@ -13,7 +13,7 @@ page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
 try{
   await page.goto('http://127.0.0.1:8765/part-workbench.html',
     {waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForFunction(()=>window.__m3ch4PartWorkbenchReady===false &&\n    document.querySelector('#feedback')?.textContent.includes('Legacy calf recipe'),
+  await page.waitForFunction(()=>window.__m3ch4PartWorkbenchReady===false &&    document.querySelector('#feedback')?.textContent.includes('Legacy calf recipe'),
     undefined,{timeout:45000});
   await page.screenshot({path:'part-workbench-artifacts/start-portrait.png'});
   const before=await page.evaluate(()=>({
