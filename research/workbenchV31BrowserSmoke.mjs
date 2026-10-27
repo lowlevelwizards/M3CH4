@@ -23,6 +23,7 @@ try{
  assert.ok(await page.locator('#edit-overlay .point-indicator').first().isVisible());
  await page.locator('#nav-mode').click();
  assert.ok(await page.locator('#nav-mode').evaluate(e=>e.classList.contains('active')));
+ await page.waitForFunction(()=>document.querySelectorAll('#edit-overlay .point-indicator').length===0,null,{timeout:10000});
  assert.equal(await page.locator('#edit-overlay .point-indicator').count(),0,'Navigation hides point hit targets');
  await page.locator('#point-tap').click();
  await page.locator('[data-tool="select"]').click();
