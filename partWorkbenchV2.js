@@ -14,6 +14,8 @@ import {rectFromPoints,selectedInRectangle} from './workbench/selectionGeometry.
 import {transformMeshGroups,transformProfilePoints} from './workbench/vertexTransforms.js';
 import {validateStandaloneAsset} from './workbench/assetImport.js';
 import {inspectBlueprint} from './workbench/geometryAudit.js';
+import {moveLoftControls} from './workbench/loftTransforms.js';
+import {insertProfilePoint,insertLoftSection} from './workbench/meshTopology.js';
 import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
@@ -26,6 +28,17 @@ let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let activePoint=null,visibilityMode='all',pointSliderStart=null;
 let displayMode='solid',pointDepth='visible',pointPick='tap',selectionOp='replace';
 let selectedPoints=new Set(),marquee=null,touchCenter=null;
+let navigating=false,objectMultiSelect=false,collapsedGroups=new Set();
+const isEditGesture=()=>!!drag&&drag.mode!=='orbit';
+function cancelActivePreview(note){
+ let changed=false;
+ if(isEditGesture()&&drag.previous){doc=clone(drag.previous);drag=null;changed=true;}
+ if(pointSliderStart){doc=clone(pointSliderStart);pointSliderStart=null;changed=true;}
+ if(marquee){marquee=null;changed=true;}
+ if(changed){rebuild();renderInspector();updateContextPanel();requestDraw();}
+ if(changed&&note)message(note);
+ return changed;
+}
 const pointKey=entry=>entry.kind+':'+entry.index;
 const parsePointKey=key=>{const [kind,index]=key.split(':');return {kind,index:Number(index)};};
 function activePointKeys(){return [...selectedPoints].map(parsePointKey);}
@@ -35,16 +48,11 @@ function applyBatchDelta(previous,delta,scale=[1,1,1]){
  if(!g)throw Error('Select a valid editable part');
  if(g.type==='mesh')return transformMeshGroups(g,activeGroupIndices(),{delta,scale});
  if(g.profile)return transformProfilePoints(g,activePointKeys().filter(p=>p.kind==='profile').map(p=>p.index),{delta,scale});
- // Loft points are parameter handles, not individual arbitrary mesh vertices.
- let temp=clone(g);
- for(const which of activePointKeys()){
-  const document={nodes:[{...source,geometry:temp}]};
-  const original=pointCoordinates({...which,nodeId:selected},document);
-  if(!original)continue;
-  const next=original.map((x,i)=>x*scale[i]+delta[i]);
-  temp=setPointCoordinates(next,{...which,nodeId:selected},document);
+ if(g.type==='loft'){
+  if(scale.some(v=>v!==1))throw Error('Loft group scaling requires section parameters; use Move instead.');
+  return moveLoftControls(g,activePointKeys(),{delta});
  }
- return validateGeometry(temp);
+ throw Error('Unsupported group geometry');
 }
 function previewBatchGeometry(geometry){
  const n=findNode(selected);if(!n)return;
@@ -538,8 +546,7 @@ function rebuild(){
   compiled=compileBlueprint(doc);
   if(showContext&&context?.knee){
    context.knee.add(compiled.root);context.root.updateMatrixWorld(true);
-   focus.copy(context.knee.getWorldPosition(new THREE.Vector3()));
-   orbit.distance=Math.max(orbit.distance,3.4);
+   // Keep camera state stable while the edited geometry is rebuilt.
   }else{
    scene.add(compiled.root);
    // Camera focus stays fixed while sculpting; use the FIT control deliberately.
@@ -884,11 +891,11 @@ $('new-project').onclick=()=>{
  doc=createDocument('Untitled assembly');startHistory();queueSave();refresh();message('New assembly created.');
 };
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{
- tool=b.dataset.tool;
+ cancelActivePreview();tool=b.dataset.tool;
  if(tool!=='points')clearPoint();refresh();updateContextPanel();
 };
 for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
- view=b.dataset.view;setCamera();refresh();
+ cancelActivePreview();view=b.dataset.view;setCamera();refresh();
 };
 $('zoom-in').onclick=()=>cameraZoom(.8);
 $('zoom-out').onclick=()=>cameraZoom(1.25);
@@ -929,7 +936,10 @@ async function deployPrototype(mode){
 $('test-in-yard').onclick=()=>deployPrototype('overlay');
 $('test-replace-calf').onclick=()=>deployPrototype('replace-calf');
 $('undo').onclick=()=>undo(-1);$('redo').onclick=()=>undo(1);
+window.addEventListener('blur',()=>cancelActivePreview());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelActivePreview();});
 document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){cancelActivePreview('Edit cancelled.');return;}
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
   e.preventDefault();undo(e.shiftKey?1:-1);
  }
@@ -1026,6 +1036,7 @@ function applyGizmoDrag(e){
 }
 function finishGizmoDrag(e){
  if(!drag||drag.mode!=='gizmo'||drag.pointerId!==e.pointerId)return;
+ if(e.type==='pointercancel'){cancelActivePreview('Axis transform cancelled.');return;}
  const before=drag.previous,after=clone(doc),selection=drag.nodeId;
  drag=null;doc=before;commit(after,selection,'Updated part directly on the model.');
 }
@@ -1185,8 +1196,8 @@ svg.addEventListener('pointermove',e=>{
 });
 const finishPoint=e=>{
  if(drag?.mode!=='point'||drag.pointerId!==e.pointerId)return;
+ if(e.type==='pointercancel'){cancelActivePreview('Point edit cancelled.');return;}
  const after=clone(doc),before=drag.previous;drag=null;
- if(e.type==='pointercancel'){doc=before;rebuild();updateContextPanel();return;}
  doc=before;commit(after,selected,'Edited selected point.');
  updateContextPanel();
 };
@@ -1236,7 +1247,7 @@ canvas.addEventListener('pointerdown',e=>{
  canvas.setPointerCapture(e.pointerId);
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  // A second finger is always a viewport gesture, never an object edit.
- if(pointers.size!==1){drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
+ if(pointers.size!==1){cancelActivePreview();drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
  if(tool==='points'&&pointPick==='box'&&node()?.kind==='shape'){
   const bounds=stage.getBoundingClientRect();
   marquee={start:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},
@@ -1320,6 +1331,7 @@ canvas.addEventListener('pointermove',e=>{
 });
 function finishCanvas(e){
  pointers.delete(e.pointerId);touchSpan=null;touchCenter=null;
+ if(e.type==='pointercancel'){cancelActivePreview('Gesture cancelled.');drag=null;return;}
  if(marquee?.pointerId===e.pointerId){
   if(e.type==='pointercancel')marquee=null;else finishMarquee();
   requestDraw();return;
@@ -1343,7 +1355,7 @@ for(const el of [canvas,svg,stage,$('selection-actions'),$('object-tree')]){
  el.addEventListener('selectstart',e=>e.preventDefault());
 }
 canvas.addEventListener('wheel',e=>{e.preventDefault();cameraZoom(Math.exp(e.deltaY*.001));},{passive:false});
-canvas.addEventListener('dblclick',e=>{if(e.target===canvas){selected='root';clearPoint();fitSelected();requestDraw();}});
+canvas.addEventListener('dblclick',e=>{if(e.target===canvas){fitSelected('root');requestDraw();}});
 
 function switchTab(which){
  for(const b of document.querySelectorAll('[data-tab]'))b.classList.toggle('active',b.dataset.tab===which);
