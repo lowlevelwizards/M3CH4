@@ -310,3 +310,24 @@ main{padding-bottom:max(6px,env(safe-area-inset-bottom, 0px))}
 #test-replace-calf{min-height:34px;font-size:10px;border:1px solid #d9ba72;border-radius:5px;background:#755d39;color:#fff1d1;padding:6px;white-space:nowrap}
 #edit-overlay .point-indicator{pointer-events:none}
 #edit-overlay .point-indicator.is-selected{stroke:#ffe4a3;fill:#eead53;fill-opacity:.8;stroke-width:2.6}
+
+
+/* Workbench 3.1 — structural assembly hierarchy, deliberate touch targets */
+#object-tree .tree-line{display:flex;align-items:center;gap:3px;width:100%;min-width:0;
+ padding-inline-start:calc(var(--tree-depth,0)*12px)}
+#object-tree .tree-line .part-tile{flex:1 1 auto;min-width:0}
+#object-tree .tree-caret,#object-tree .tree-eye{
+ flex:0 0 33px;min-width:33px;height:37px;border-radius:5px;
+ border:1px solid #6b806e;background:#33493b;color:#f0e7ce;font-size:17px;
+ touch-action:manipulation}
+#object-tree .tree-caret-placeholder{flex:0 0 33px;width:33px}
+#object-tree .tree-eye{flex-basis:35px;font-size:14px}
+#object-tree .tree-line:has(.tree-item.active){background:#57664b40;border-radius:6px}
+#object-multi.active,#nav-mode.active{background:#967445!important;color:#fff3d8!important}
+#object-multi{min-width:52px;border-radius:5px;border:1px solid #728b78;
+ background:#3b5240;color:#f1eedb;font-weight:bold;font-size:11px}
+#insert-geometry-point{width:100%}
+@media(max-width:849px) and (orientation:landscape){
+ #point-mode-toolbar{gap:3px}
+ #object-tree .tree-caret,#object-tree .tree-eye{height:32px;flex-basis:30px;min-width:30px}
+}
