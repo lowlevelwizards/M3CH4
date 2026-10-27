@@ -209,14 +209,6 @@ function updateContextPanel(){
      commit(next,selected,'Moved '+count+' vertices by '+delta[axis].toFixed(3)+'m.');
     }catch(e){message(e.message,true);}
    });
-   read.addEventListener('change',()=>{
-     const value=Number(read.value);if(!Number.isFinite(value)||value<=0||value>10)return message('Invalid scale factor.',true);
-     try{
-      const snapshot=clone(doc),scale=[1,1,1];scale[axis]=value;
-      const next=clone(doc);next.nodes.find(n=>n.id===selected).geometry=applyBatchDelta(snapshot,[0,0,0],scale);
-      commit(next,selected,'Scaled '+count+' selected vertices.');
-     }catch(e){message(e.message,true);}
-    });
     row.append(name,slider,read);b.append(row);
   }
   if(n.geometry.type==='mesh'||n.geometry.profile){
@@ -242,6 +234,14 @@ function updateContextPanel(){
      updateContextPanel();
     };
     slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+    read.addEventListener('change',()=>{
+     const value=Number(read.value);if(!Number.isFinite(value)||value<=0||value>10)return message('Invalid scale factor.',true);
+     try{
+      const snapshot=clone(doc),scale=[1,1,1];scale[axis]=value;
+      const next=clone(doc);next.nodes.find(n=>n.id===selected).geometry=applyBatchDelta(snapshot,[0,0,0],scale);
+      commit(next,selected,'Scaled '+count+' selected vertices.');
+     }catch(e){message(e.message,true);}
+    });
     row.append(name,slider,read);b.append(row);
    }
   }
