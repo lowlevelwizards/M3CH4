@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#202b25"><title>M3CH4 / Part Workbench V2</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
-<link rel="stylesheet" href="./partWorkbenchV2.css?v=workbench3a"></head>
+<link rel="stylesheet" href="./partWorkbenchV2.css?v=workbench31a"></head>
 <body>
 <header class="workbench-head">
  <a id="return-to-game" class="icon-button" href="./index.html" aria-label="Back to live game" title="Back to game">←</a>
@@ -40,7 +40,7 @@
   <button data-tool="points" title="Edit shape control points in 3D or orthographic views" aria-label="Edit points"><span>⬡</span><small>POINTS</small></button>
  </nav>
  <div id="point-mode-toolbar" class="point-mode-toolbar" hidden>
-  <div class="toolbar-group"><button id="point-tap" class="active">TAP</button><button id="point-box">BOX SELECT</button></div>
+  <div class="toolbar-group"><button id="point-tap" class="active">TAP</button><button id="point-box">BOX SELECT</button><button id="nav-mode" title="Navigate without changing selection">PAN / ORBIT</button><button id="frame-points" title="Focus selected vertices">FOCUS</button></div>
   <div class="toolbar-group"><button id="select-add">＋ ADD</button><button id="select-subtract">− REMOVE</button><button id="select-all-points">ALL</button><button id="clear-point-selection">CLEAR</button></div>
  </div>
  <nav class="selection-actions" id="selection-actions" aria-label="Selected object actions" hidden>
@@ -54,6 +54,8 @@
     <button id="lock-object" title="Lock/unlock this object">♧ LOCK</button>
     <button id="group-objects" title="Group selection">⊞ GROUP</button>
     <button id="ungroup" title="Ungroup selection">⊟ UNGROUP</button>
+    <button id="hide-others" title="Hide unselected shapes">◉ HIDE OTHERS</button>
+    <button id="show-all-nodes" title="Show all model shapes">◎ SHOW ALL</button>
    </div>
   </details>
  </nav>
@@ -87,7 +89,7 @@
  <div id="drawer-content">
   <div id="tab-objects">
    <div class="browse-heading"><strong>ON THIS MODEL</strong><span id="node-count">0 PARTS</span></div>
-   <div class="filter-row"><input id="object-search" type="search" placeholder="Find a shape or module…" aria-label="Find shape in assembly"><button id="tree-list-toggle" aria-label="Toggle hierarchy list" title="Toggle hierarchy list">☷</button></div>
+   <div class="filter-row"><input id="object-search" type="search" placeholder="Find a shape or module…" aria-label="Find shape in assembly"><button id="tree-list-toggle" aria-label="Toggle hierarchy list" title="Toggle hierarchy list">☷</button><button id="object-multi" aria-pressed="false" title="Select several objects" aria-label="Multi-object selection">MULTI</button></div>
    <div id="object-tree" class="part-grid" role="listbox" aria-label="Visual model pieces"></div>
    <div class="quick-add-row">
     <button id="show-shapes-panel">＋ SHAPE</button>
@@ -121,6 +123,7 @@
      <div class="small-label">ROTATION (°)</div><div class="num-grid" id="rotation-fields"></div>
      <div class="small-label">SCALE</div><div class="num-grid" id="scale-fields"></div>
      <div class="small-label">GEOMETRY PARAMETERS</div><div id="geometry-fields"></div>
+     <div class="toolbar"><button id="insert-geometry-point" title="Insert a point after the selected profile vertex, or a loft section after the selected section">＋ INSERT AFTER SELECTED</button></div>
      <div id="mesh-point-panel" hidden>
       <div class="small-label">EDITED MESH POINTS <span id="mesh-points-label"></span></div>
       <div class="toolbar"><button id="mesh-points-prev">◀</button><button id="mesh-points-next">▶</button></div>
@@ -162,5 +165,5 @@
  </div>
 </section>
 </main>
-<script type="module" src="./partWorkbenchV2.js?v=workbench3a"></script>
+<script type="module" src="./partWorkbenchV2.js?v=workbench31a"></script>
 </body></html>
