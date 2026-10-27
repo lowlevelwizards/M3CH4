@@ -10,6 +10,7 @@ on:
       - 'tests/workbenchV3.test.mjs'
       - 'tests/workbenchOrbitCamera.test.mjs'
       - 'research/workbenchV2BrowserSmoke.mjs'
+      - 'research/workbenchV3BrowserSmoke.mjs'
       - 'research/workbenchCameraBrowserSmoke.mjs'
       - 'research/workbenchVisualFirstBrowserSmoke.mjs'
       - 'research/workbenchContextTouchBrowserSmoke.mjs'
@@ -58,6 +59,8 @@ jobs:
         run: node research/workbenchVisualFirstBrowserSmoke.mjs
       - name: Verify contextual point sliders, focus modes and device fit
         run: node research/workbenchContextTouchBrowserSmoke.mjs
+      - name: Verify Workbench 3 box selection, wireframe and chat asset import
+        run: node research/workbenchV3BrowserSmoke.mjs
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
