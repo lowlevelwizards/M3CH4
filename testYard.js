@@ -80,9 +80,10 @@ export function createTestYardPanel({assembly,onInstall,onEquipment,onDeploy,onG
   const tag=element('strong','yard-tag','▣ TEST YARD');
   const back=element('a','yard-link','CAMPAIGN');
   const fromConstructor=new URLSearchParams(window.location.search).get('from')==='m3ch4ex';
-  back.href=fromConstructor?'/M3CH4Ex/graybox.html':'./index.html';
-  back.textContent=fromConstructor?'CONSTRUCTOR':'CAMPAIGN';
-  back.title=fromConstructor?'Return to your saved experimental machine':'Exit the sandbox; your campaign was not changed';
+  const fromWorkbench=new URLSearchParams(window.location.search).get('wb-prototype')==='1';
+  back.href=fromWorkbench?'./part-workbench-v2.html?from=yard':fromConstructor?'/M3CH4Ex/graybox.html':'./index.html';
+  back.textContent=fromWorkbench?'WORKBENCH':fromConstructor?'CONSTRUCTOR':'CAMPAIGN';
+  back.title=fromWorkbench?'Return to the saved Workbench draft':fromConstructor?'Return to your saved experimental machine':'Exit the sandbox; your campaign was not changed';
   const benchButton=button('BENCH',()=>{panel.classList.toggle('collapsed');benchButton.setAttribute('aria-expanded',String(!panel.classList.contains('collapsed')));});
   benchButton.setAttribute('aria-expanded','true');
   const changeButton=button('DEPLOY',()=>{ if(inspecting) onDeploy(); else onGarage(); });

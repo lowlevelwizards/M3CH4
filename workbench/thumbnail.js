@@ -31,7 +31,7 @@ function draw(doc,rootId,width=140,height=100){
   const transform=new THREE.Matrix4().compose(
    new THREE.Vector3(...(isRoot?[0,0,0]:t.position)),
    new THREE.Quaternion().setFromEuler(new THREE.Euler(...(isRoot?[0,0,0]:t.rotation),'XYZ')),
-   new THREE.Vector3(...(isRoot?[1,1,1]:t.scale))
+   new THREE.Vector3(...(isRoot?[1,1,1]:node.mirrorOf?[-t.scale[0],t.scale[1],t.scale[2]]:t.scale))
   );
   const world=matrix.clone().multiply(transform);
   if(node.kind==='shape'&&node.visible!==false){

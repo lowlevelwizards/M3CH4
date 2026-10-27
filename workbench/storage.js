@@ -1,6 +1,6 @@
 /** IndexedDB-backed project and asset library. No career/test-yard storage keys. */
-const DB='m3ch4-workbench-v2',VER=1;
-const STORES=['projects','assets','images','settings'];
+const DB='m3ch4-workbench-v2',VER=2;
+const STORES=['projects','assets','images','settings','assetRevisions','projectCheckpoints'];
 let promise=null;
 function open(){
  if(!promise)promise=new Promise((resolve,reject)=>{
@@ -35,10 +35,52 @@ export async function saveProject(doc){
  await put('projects',record);await put('settings',{id:'lastProject',projectId:doc.id});return record;
 }
 export const lastProject=async()=>{const s=await get('settings','lastProject');return s?.projectId?get('projects',s.projectId):null;};
-export async function saveAsset(asset){
- const old=await get('assets',asset.id);
- const record={...structuredClone(asset),revision:(old?.revision||0)+1,updated:Date.now()};
- await put('assets',record);return record;
+/** Archive the prior asset in the SAME IndexedDB transaction as the replacement. */
+export async function saveAsset(asset,{keepRevision=true}={}){
+ const db=await open();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(['assets','assetRevisions'],'readwrite');
+  const assets=tx.objectStore('assets'),revisions=tx.objectStore('assetRevisions');
+  let record;
+  const req=assets.get(asset.id);
+  req.onsuccess=()=>{
+   const old=req.result;
+   if(old&&keepRevision){
+    revisions.put({id:asset.id+'@'+(old.revision||1),assetId:asset.id,
+     revision:old.revision||1,snapshot:structuredClone(old),savedAt:Date.now()});
+   }
+   record={...structuredClone(asset),revision:old&&keepRevision?(old.revision||1)+1:old?.revision||1,updated:Date.now()};
+   assets.put(record);
+  };
+  tx.oncomplete=()=>resolve(record);
+  tx.onerror=()=>reject(tx.error||Error('Asset revision write failed'));
+  tx.onabort=()=>reject(tx.error||Error('Asset revision aborted'));
+ });
+}
+export async function assetRevisionHistory(assetId){
+ const list=(await all('assetRevisions')).filter(item=>item.assetId===assetId);
+ return list.sort((a,b)=>b.revision-a.revision);
+}
+export async function restoreAssetRevision(assetId,historyId){
+ const record=await get('assetRevisions',historyId);
+ if(!record||record.assetId!==assetId)throw Error('Asset revision not found');
+ return saveAsset({...structuredClone(record.snapshot),id:assetId});
+}
+export async function saveProjectCheckpoint(doc,label){
+ const now=Date.now(),id=doc.id+'@'+now+'-'+Math.random().toString(36).slice(2,7);
+ const record={id,projectId:doc.id,label:String(label||'Checkpoint').slice(0,100),
+  savedAt:now,document:structuredClone(doc)};
+ await put('projectCheckpoints',record);return record;
+}
+export async function projectCheckpointHistory(projectId){
+ return (await all('projectCheckpoints')).filter(x=>x.projectId===projectId)
+  .sort((a,b)=>b.savedAt-a.savedAt);
+}
+export async function loadProjectCheckpoint(id){
+ const item=await get('projectCheckpoints',id);
+ if(!item)throw Error('Checkpoint missing');
+ const {validateDocument}=await import('./blueprint.js');
+ return validateDocument(item.document);
 }
 export async function importImage(file){
  if(!file||!file.type.startsWith('image/')||file.size>7e6)throw Error('Please use an image smaller than 7 MB.');
@@ -57,33 +99,53 @@ export async function importImage(file){
  await put('images',result);return result;
 }
 export async function exportBundle(doc){
- const assets=await all('assets');
+ const [assets,revisions,checkpoints]=await Promise.all([
+  all('assets'),all('assetRevisions'),projectCheckpointHistory(doc.id)]);
  const references=await Promise.all(doc.references.map(r=>get('images',r.imageId)));
  return {format:'m3ch4.workbench.bundle',version:1,project:structuredClone(doc),
   assets:assets.filter(a=>a.format==='m3ch4.workbench.asset'),
-  images:references.filter(Boolean)};
+  images:references.filter(Boolean),
+  revisions:revisions.filter(item=>assets.some(asset=>asset.id===item.assetId)),checkpoints};
 }
+
 export async function importBundle(bundle){
  if(bundle?.format!=='m3ch4.workbench.bundle'||bundle.version!==1)throw Error('Unsupported Workbench bundle');
  const {validateDocument}=await import('./blueprint.js');
+ const {validateStandaloneAsset}=await import('./assetImport.js');
  const doc=validateDocument(bundle.project);
- if(!Array.isArray(bundle.assets)||!Array.isArray(bundle.images)||bundle.assets.length>250||bundle.images.length>12)
-  throw Error('Invalid bundle assets');
- for(const item of bundle.images){
-  if(typeof item.id!=='string'||typeof item.data!=='string'||!/^data:image\/(jpeg|png|webp);base64,/.test(item.data)||item.data.length>5e6)
+ const assets=bundle.assets,images=bundle.images,revisions=bundle.revisions||[],checkpoints=bundle.checkpoints||[];
+ if(!Array.isArray(assets)||!Array.isArray(images)||!Array.isArray(revisions)||!Array.isArray(checkpoints)||
+  assets.length>250||images.length>12||revisions.length>400||checkpoints.length>200)
+  throw Error('Invalid bundle collections');
+ for(const i of images){
+  if(typeof i.id!=='string'||typeof i.data!=='string'||!/^data:image\/(jpeg|png|webp);base64,/.test(i.data)||i.data.length>5e6)
    throw Error('Invalid reference image in bundle');
  }
- for(const a of bundle.assets){
-  if(a?.format!=='m3ch4.workbench.asset'||a.version!==2||!Array.isArray(a.nodes))throw Error('Invalid library asset');
-  const trial={format:'m3ch4.workbench',version:2,id:'import-validate',name:a.name||'',rootId:'root',nodes:[
-   {id:'root',name:'root',kind:'group',parentId:null,transform:{position:[0,0,0],rotation:[0,0,0],scale:[1,1,1]},visible:true,locked:false,mirrorOf:null},
-   ...a.nodes.map(n=>({...n,parentId:n.parentId||'root'}))
-  ],references:[]};
-  // Assets can contain their own root named anything. Validate geometry nodes individually.
-  const {validateGeometry}=await import('./blueprint.js');
-  for(const n of a.nodes)if(n.kind==='shape')validateGeometry(n.geometry);
+ for(const asset of assets)validateStandaloneAsset(asset);
+ const knownIds=new Set(assets.map(a=>a.id));
+ for(const item of revisions){
+  if(typeof item.id!=='string'||!knownIds.has(item.assetId)||!Number.isInteger(item.revision))
+   throw Error('Invalid asset revision reference');
+  validateStandaloneAsset(item.snapshot);
  }
- for(const i of bundle.images)await put('images',i);
- for(const a of bundle.assets)await put('assets',a);
- await saveProject(doc);return doc;
+ for(const item of checkpoints){
+  if(typeof item.id!=='string'||item.projectId!==doc.id||typeof item.label!=='string')
+   throw Error('Invalid project checkpoint');
+  validateDocument(item.document);
+ }
+ // Do not partially replace a library if one collection fails validation or a write aborts.
+ const db=await open();
+ await new Promise((resolve,reject)=>{
+  const tx=db.transaction(['projects','settings','assets','images','assetRevisions','projectCheckpoints'],'readwrite');
+  for(const item of images)tx.objectStore('images').put(item);
+  for(const item of assets)tx.objectStore('assets').put(item);
+  for(const item of revisions)tx.objectStore('assetRevisions').put(item);
+  for(const item of checkpoints)tx.objectStore('projectCheckpoints').put(item);
+  tx.objectStore('projects').put({...structuredClone(doc),metadata:{...(doc.metadata||{}),updated:Date.now()}});
+  tx.objectStore('settings').put({id:'lastProject',projectId:doc.id});
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(tx.error||Error('Bundle import failed'));
+  tx.onabort=()=>reject(tx.error||Error('Bundle import cancelled'));
+ });
+ return doc;
 }

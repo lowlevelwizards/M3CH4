@@ -13,7 +13,12 @@ import {meshPointPage,meshPointGroups,updateMeshPoint} from './workbench/editabl
 import {rectFromPoints,selectedInRectangle} from './workbench/selectionGeometry.js';
 import {transformMeshGroups,transformProfilePoints} from './workbench/vertexTransforms.js';
 import {validateStandaloneAsset} from './workbench/assetImport.js';
-import {inspectBlueprint} from './workbench/geometryAudit.js';
+import {inspectBlueprint,deepMeshAudit} from './workbench/geometryAudit.js';
+import {moveLoftControls} from './workbench/loftTransforms.js';
+import {insertProfilePoint,insertLoftSection} from './workbench/meshTopology.js';
+import {bakeXReflection} from './workbench/mirrorGeometry.js';
+import {selectableElements,modifyElementVertexSelection} from './workbench/elementSelection.js';
+import {moveNodeToParent,groupPreservingPose,ungroupPreservingPose} from './workbench/hierarchyTransforms.js';
 import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
@@ -26,6 +31,72 @@ let meshPointPageIndex=0,meshPointSelectedIndex=0;
 let activePoint=null,visibilityMode='all',pointSliderStart=null;
 let displayMode='solid',pointDepth='visible',pointPick='tap',selectionOp='replace';
 let selectedPoints=new Set(),marquee=null,touchCenter=null;
+let navigating=false,objectMultiSelect=false,collapsedGroups=new Set(),editingLevel='point';
+let comparison={mode:'off',definitionId:null,compiled:null};
+const comparisonSource=()=>doc.metadata?.source?.definitionId||doc.metadata?.factoryDefinitionId||null;
+function discardComparison(){
+ if(comparison.compiled){comparison.compiled.root.parent?.remove(comparison.compiled.root);
+  disposeBlueprint(comparison.compiled.root);}
+ comparison={mode:'off',definitionId:null,compiled:null};
+}
+function updateComparisonUI(){
+ const btn=$('compare-original');if(!btn)return;
+ btn.disabled=!comparisonSource();
+ btn.textContent='COMPARE ORIGINAL: '+comparison.mode.toUpperCase().replace('SPLIT','SIDE BY SIDE');
+}
+function applyComparisonLayout(){
+ if(!compiled||comparison.mode==='off'||showContext)return;
+ const source=comparisonSource();
+ if(!source){discardComparison();updateComparisonUI();return;}
+ if(comparison.definitionId!==source||!comparison.compiled){
+  const wanted=comparison.mode;discardComparison();
+  try{
+   const model=importFactoryPart(source);
+   comparison={mode:wanted,definitionId:source,compiled:compileBlueprint(model.document)};
+   scene.add(comparison.compiled.root);
+  }catch(e){discardComparison();message('Factory comparison unavailable: '+e.message,true);return;}
+ }
+ compiled.root.position.set(0,0,0);
+ const original=comparison.compiled.root;original.position.set(0,0,0);
+ original.traverse(o=>{if(!o.isMesh)return;
+  for(const m of(Array.isArray(o.material)?o.material:[o.material])){
+   m.opacity=comparison.mode==='overlay'?.22:1;
+   m.transparent=comparison.mode==='overlay';m.depthWrite=comparison.mode!=='overlay';m.needsUpdate=true;
+  }
+ });
+ if(comparison.mode==='split'){
+  original.updateMatrixWorld(true);compiled.root.updateMatrixWorld(true);
+  const factoryBox=new THREE.Box3().setFromObject(original),draftBox=new THREE.Box3().setFromObject(compiled.root);
+  const factorySize=factoryBox.getSize(new THREE.Vector3()),draftSize=draftBox.getSize(new THREE.Vector3());
+  const gap=Math.max(.45,Math.max(factorySize.x,draftSize.x)*.35);
+  const x=Math.max(factorySize.x,draftSize.x)/2+gap;
+  original.position.x=x-factoryBox.getCenter(new THREE.Vector3()).x;
+  compiled.root.position.x=-x-draftBox.getCenter(new THREE.Vector3()).x;
+ }
+ original.updateMatrixWorld(true);compiled.root.updateMatrixWorld(true);
+ updateComparisonUI();
+}
+const elementCache=new WeakMap();
+function editingElements(g){
+ let record=elementCache.get(g);if(!record){record=new Map();elementCache.set(g,record);}
+ if(!record.has(editingLevel))record.set(editingLevel,selectableElements(g,editingLevel));
+ return record.get(editingLevel);
+}
+const isEditGesture=()=>!!drag&&drag.mode!=='orbit';
+function cancelActivePreview(note){
+ let changed=false;
+ if(isEditGesture()&&drag.previous){doc=clone(drag.previous);drag=null;changed=true;}
+ if(pointSliderStart){doc=clone(pointSliderStart);pointSliderStart=null;changed=true;}
+ if(marquee){marquee=null;changed=true;}
+ if(changed){rebuild();renderInspector();updateContextPanel();requestDraw();}
+ if(changed&&note)message(note);
+ return changed;
+}
+function cancelSliderPreview(){
+ if(!pointSliderStart)return;
+ doc=clone(pointSliderStart);pointSliderStart=null;rebuild();renderInspector();updateContextPanel();
+ message('Slider edit cancelled.');
+}
 const pointKey=entry=>entry.kind+':'+entry.index;
 const parsePointKey=key=>{const [kind,index]=key.split(':');return {kind,index:Number(index)};};
 function activePointKeys(){return [...selectedPoints].map(parsePointKey);}
@@ -35,16 +106,11 @@ function applyBatchDelta(previous,delta,scale=[1,1,1]){
  if(!g)throw Error('Select a valid editable part');
  if(g.type==='mesh')return transformMeshGroups(g,activeGroupIndices(),{delta,scale});
  if(g.profile)return transformProfilePoints(g,activePointKeys().filter(p=>p.kind==='profile').map(p=>p.index),{delta,scale});
- // Loft points are parameter handles, not individual arbitrary mesh vertices.
- let temp=clone(g);
- for(const which of activePointKeys()){
-  const document={nodes:[{...source,geometry:temp}]};
-  const original=pointCoordinates({...which,nodeId:selected},document);
-  if(!original)continue;
-  const next=original.map((x,i)=>x*scale[i]+delta[i]);
-  temp=setPointCoordinates(next,{...which,nodeId:selected},document);
+ if(g.type==='loft'){
+  if(scale.some(v=>v!==1))throw Error('Loft group scaling requires section parameters; use Move instead.');
+  return moveLoftControls(g,activePointKeys(),{delta});
  }
- return validateGeometry(temp);
+ throw Error('Unsupported group geometry');
 }
 function previewBatchGeometry(geometry){
  const n=findNode(selected);if(!n)return;
@@ -154,7 +220,9 @@ function updateContextPanel(){
  for(const [id,v] of [['point-tap',pointPick==='tap'],['point-box',pointPick==='box'],
   ['select-add',selectionOp==='add'],['select-subtract',selectionOp==='subtract'],
   ['display-solid',displayMode==='solid'],['display-wire',displayMode==='wire'],['display-xray',displayMode==='xray'],
-  ['depth-visible',pointDepth==='visible'],['depth-through',pointDepth==='through']])
+  ['depth-visible',pointDepth==='visible'],['depth-through',pointDepth==='through'],
+  ['edit-level-point',editingLevel==='point'],['edit-level-edge',editingLevel==='edge'],
+  ['edit-level-face',editingLevel==='face']])
    $(id).classList.toggle('active',v);
  const audit=inspectBlueprint(doc);
  $('geometry-audit').textContent=audit.shapes+' shapes · '+audit.vertices+' imported vertices · '+audit.triangles+' triangles'+
@@ -175,13 +243,14 @@ function updateContextPanel(){
    const name=document.createElement('strong');name.textContent=axisKeys[axis]+' Δ';
    const slider=document.createElement('input');slider.type='range';slider.min='-.5';slider.max='.5';slider.step='.005';slider.value='0';
    slider.dataset.axis=axis;slider.setAttribute('aria-label','Relative '+axisKeys[axis]+' offset for '+count+' points');
-   const read=document.createElement('output');read.textContent='0.000';
+   const read=document.createElement('input');read.type='number';read.min='-10';read.max='10';read.step='.005';read.value='0';
+   read.setAttribute('aria-label','Exact relative displacement in metres');
    slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
    slider.addEventListener('input',()=>{
     if(!pointSliderStart)pointSliderStart=clone(doc);
     const delta=[0,0,0];delta[axis]=snapValue(Number(slider.value));
     try{previewBatchGeometry(applyBatchDelta(pointSliderStart,delta));
-     read.textContent=delta[axis].toFixed(3);
+     read.value=delta[axis].toFixed(3);
     }catch(e){message(e.message,true);}
    });
    const finish=()=>{
@@ -189,8 +258,16 @@ function updateContextPanel(){
     pointSliderStart=null;doc=before;commit(after,selected,'Moved '+count+' selected points.');
     updateContextPanel();
    };
-   slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
-   row.append(name,slider,read);b.append(row);
+   slider.addEventListener('change',finish);slider.addEventListener('pointercancel',cancelSliderPreview);
+   read.addEventListener('change',()=>{
+    const value=Number(read.value);if(!Number.isFinite(value)||Math.abs(value)>10)return message('Offset outside 10 metre range.',true);
+    try{
+     const snapshot=clone(doc),delta=[0,0,0];delta[axis]=snapValue(value);
+     const next=clone(doc);next.nodes.find(n=>n.id===selected).geometry=applyBatchDelta(snapshot,delta);
+     commit(next,selected,'Moved '+count+' vertices by '+delta[axis].toFixed(3)+'m.');
+    }catch(e){message(e.message,true);}
+   });
+    row.append(name,slider,read);b.append(row);
   }
   if(n.geometry.type==='mesh'||n.geometry.profile){
    for(let axis=0;axis<3;axis++){
@@ -199,13 +276,14 @@ function updateContextPanel(){
     const name=document.createElement('strong');name.textContent=axisKeys[axis]+' ×';
     const slider=document.createElement('input');slider.type='range';slider.min='.5';slider.max='1.5';slider.step='.025';slider.value='1';
     slider.setAttribute('aria-label','Scale selected points on '+axisKeys[axis]);
-    const read=document.createElement('output');read.textContent='100%';
+    const read=document.createElement('input');read.type='number';read.min='.05';read.max='10';read.step='.025';read.value='1';
+    read.setAttribute('aria-label','Exact axis scale multiplier');
     slider.addEventListener('pointerdown',()=>{pointSliderStart=clone(doc);});
     slider.addEventListener('input',()=>{
      if(!pointSliderStart)pointSliderStart=clone(doc);
      const scale=[1,1,1];scale[axis]=Number(slider.value);
      try{previewBatchGeometry(applyBatchDelta(pointSliderStart,[0,0,0],scale));
-      read.textContent=Math.round(scale[axis]*100)+'%';}
+      read.value=scale[axis].toFixed(3);}
      catch(e){message(e.message,true);}
     });
     const finish=()=>{
@@ -213,7 +291,15 @@ function updateContextPanel(){
      pointSliderStart=null;doc=before;commit(after,selected,'Scaled '+count+' selected points.');
      updateContextPanel();
     };
-    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',cancelSliderPreview);
+    read.addEventListener('change',()=>{
+     const value=Number(read.value);if(!Number.isFinite(value)||value<=0||value>10)return message('Invalid scale factor.',true);
+     try{
+      const snapshot=clone(doc),scale=[1,1,1];scale[axis]=value;
+      const next=clone(doc);next.nodes.find(n=>n.id===selected).geometry=applyBatchDelta(snapshot,[0,0,0],scale);
+      commit(next,selected,'Scaled '+count+' selected vertices.');
+     }catch(e){message(e.message,true);}
+    });
     row.append(name,slider,read);b.append(row);
    }
   }
@@ -250,7 +336,7 @@ function updateContextPanel(){
    updateContextPanel();
   };
   range.addEventListener('change',finish);
-  range.addEventListener('pointercancel',finish);
+  range.addEventListener('pointercancel',cancelSliderPreview);
   row.append(title,range,read);b.append(row);
  }
 }
@@ -263,7 +349,7 @@ const snapValue=v=>snap()?Math.round(v/snap())*snap():v;
 const node=()=>doc.nodes.find(n=>n.id===selected);
 const message=(s,error=false)=>{const e=$('status');e.textContent=s;e.style.color=error?'#efa596':'#e1ba7b';};
 function startHistory(){
- history=[clone(doc)];step=0;selected='root';selectedIds.clear();
+ history=[clone(doc)];step=0;selected='root';selectedIds.clear();activePoint=null;selectedPoints.clear();
 }
 function commit(next,selection=selected,notify){
  try{
@@ -287,8 +373,15 @@ function queueSave(){
 }
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
+ const pointSelection=new Set(selectedPoints),previousActive=activePoint;
  step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
- if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;selectedPoints.clear();
+ if(!doc.nodes.some(n=>n.id===selected))selected='root';
+ const n=doc.nodes.find(x=>x.id===selected);
+ const available=new Set(n?.kind==='shape'&&!n.locked&&!n.mirrorOf?
+  shapePointHandles(n.geometry,view).map(pointKey):[]);
+ selectedPoints=new Set([...pointSelection].filter(key=>available.has(key)));
+ activePoint=previousActive&&selectedPoints.has(pointKey(previousActive))?previousActive:
+  (selectedPoints.size?{nodeId:selected,...parsePointKey([...selectedPoints][0])}:null);
  queueSave();refresh();
 }
 const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
@@ -346,6 +439,8 @@ function fitSelected(targetId=selected){
  const obj=compiled?.objects.get(targetId==='root'?'root':targetId);
  if(!obj)return;
  const bounds=new THREE.Box3().setFromObject(obj);
+ if(targetId==='root'&&comparison.mode==='split'&&comparison.compiled)
+  bounds.union(new THREE.Box3().setFromObject(comparison.compiled.root));
  if(bounds.isEmpty())return;
  const size=bounds.getSize(new THREE.Vector3());
  focus.copy(bounds.getCenter(new THREE.Vector3()));
@@ -538,14 +633,13 @@ function rebuild(){
   compiled=compileBlueprint(doc);
   if(showContext&&context?.knee){
    context.knee.add(compiled.root);context.root.updateMatrixWorld(true);
-   focus.copy(context.knee.getWorldPosition(new THREE.Vector3()));
-   orbit.distance=Math.max(orbit.distance,3.4);
+   // Keep camera state stable while the edited geometry is rebuilt.
   }else{
    scene.add(compiled.root);
    // Camera focus stays fixed while sculpting; use the FIT control deliberately.
   }
   grid.visible=!showContext;
-  applyVisibility();requestDraw();
+  applyComparisonLayout();applyVisibility();requestDraw();
  }catch(e){message('Geometry rejected: '+e.message,true);console.error(e);}
 }
 function refresh(){
@@ -556,6 +650,7 @@ function refresh(){
  $('node-count').textContent=doc.nodes.filter(n=>n.kind==='shape').length+' SHAPES';
  $('selected-id').textContent=selected==='root'?'ROOT':selected.slice(-8);
  $('context-toggle').textContent=showContext?'HIDE YARDWALKER':'SHOW YARDWALKER';
+ updateComparisonUI();
  $('mode-status').textContent=view.toUpperCase()+' / '+tool.toUpperCase();
  updateContextPanel();
  $('stage-hint').textContent=tool==='points'
@@ -565,40 +660,82 @@ function refresh(){
    :tool.toUpperCase()+' · DRAG COLORED XYZ HANDLES OR THE PIECE';
  rebuild();
 }
+function treeLineage(node,map){
+ const parents=[],seen=new Set([node.id]);
+ let parent=map.get(node.parentId);
+ while(parent&&parent.id!=='root'&&!seen.has(parent.id)){
+  parents.unshift(parent);seen.add(parent.id);parent=map.get(parent.parentId);
+ }
+ return parents;
+}
 function renderTree(){
  const target=$('object-tree');target.replaceChildren();
  target.classList.toggle('list-mode',browseListMode);
  const search=$('object-search').value.trim().toLowerCase();
- const candidates=doc.nodes.filter(n=>n.id!=='root'&&(
-  !search||n.name.toLowerCase().includes(search)));
- let count=0;
- for(const n of candidates.slice(0,170)){
-  const label=n.name||'Unnamed piece';
-  const b=makeTile(n,doc,'node',label,n.kind==='shape'?
-   n.geometry.type.toUpperCase():'ASSEMBLY / GROUP');
-  b.classList.add('tree-item');
-  if(n.kind!=='shape')b.classList.add('is-group');
-  if(selected===n.id)b.classList.add('active');
-  b.dataset.kind=n.kind;
-  b.dataset.nodeId=n.id;
-  if(n.visible===false)b.classList.add('is-hidden');
-  if(n.locked||n.visible===false){
-   const flag=document.createElement('small');flag.className='tile-flag';
-   flag.textContent=n.visible===false?'HIDDEN':'LOCK';b.append(flag);
-  }
-  b.onclick=e=>{
-   clearPoint();
-   if(e.shiftKey||e.ctrlKey||e.metaKey){
-    selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
-   }else{selectedIds.clear();selectedIds.add(n.id);}
-   selected=n.id;meshPointPageIndex=0;
-   renderTree();renderInspector();selectedFeedback();applyVisibility();requestDraw();
-  };
-  target.append(b);count++;
+ const map=new Map(doc.nodes.map(n=>[n.id,n])),children=new Map();
+ for(const n of doc.nodes)if(n.id!=='root'){
+  if(!children.has(n.parentId))children.set(n.parentId,[]);
+  children.get(n.parentId).push(n);
  }
- if(candidates.length>170){
+ const matched=new Set();
+ if(search)for(const n of doc.nodes)if(n.id!=='root'&&n.name.toLowerCase().includes(search)){
+  matched.add(n.id);for(const ancestor of treeLineage(n,map))matched.add(ancestor.id);
+ }
+ let count=0;
+ function visit(parentId,depth){
+  for(const n of children.get(parentId)||[]){
+   if(count>=170)return;
+   if(search&&!matched.has(n.id))continue;
+   const childrenCount=(children.get(n.id)||[]).length;
+   const collapsed=!search&&collapsedGroups.has(n.id);
+   const line=document.createElement('div');line.className='tree-line';
+   line.style.setProperty('--tree-depth',Math.min(depth,12));
+   if(childrenCount){
+    const toggle=document.createElement('button');toggle.className='tree-caret';
+    toggle.type='button';toggle.textContent=collapsed?'▸':'▾';
+    toggle.setAttribute('aria-label',(collapsed?'Expand ':'Collapse ')+n.name);
+    toggle.setAttribute('aria-expanded',String(!collapsed));
+    toggle.onclick=()=>{
+     collapsed?collapsedGroups.delete(n.id):collapsedGroups.add(n.id);renderTree();
+    };
+    line.append(toggle);
+   }else{
+    const placeholder=document.createElement('span');placeholder.className='tree-caret-placeholder';line.append(placeholder);
+   }
+   const tile=makeTile(n,doc,'node',n.name||'Unnamed piece',n.kind==='shape'?
+    n.geometry.type.toUpperCase():n.kind.toUpperCase());
+   tile.classList.add('tree-item');
+   if(n.kind!=='shape')tile.classList.add('is-group');
+   if(selectedIds.has(n.id)||selected===n.id)tile.classList.add('active');
+   tile.dataset.kind=n.kind;tile.dataset.nodeId=n.id;
+   if(n.visible===false)tile.classList.add('is-hidden');
+   if(n.locked||n.visible===false){
+    const flag=document.createElement('small');flag.className='tile-flag';
+    flag.textContent=n.visible===false?'HIDDEN':'LOCK';tile.append(flag);
+   }
+   tile.onclick=e=>{
+    cancelActivePreview();clearPoint();
+    if(objectMultiSelect||e.shiftKey||e.ctrlKey||e.metaKey){
+     selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
+     selected=selectedIds.has(n.id)?n.id:([...selectedIds][0]||'root');
+    }else{selectedIds.clear();selectedIds.add(n.id);selected=n.id;}
+    meshPointPageIndex=0;renderTree();renderInspector();selectedFeedback();applyVisibility();requestDraw();
+   };
+   line.append(tile);
+   const eye=document.createElement('button');eye.className='tree-eye';
+   eye.type='button';eye.textContent=n.visible===false?'◌':'◉';
+   eye.setAttribute('aria-label',(n.visible===false?'Show ':'Hide ')+n.name);
+   eye.onclick=()=>{try{commit(updateNode(doc,n.id,{visible:!n.visible}),selected,'Updated visibility.');}
+    catch(e){message(e.message,true);}};
+   line.append(eye);
+   target.append(line);count++;
+   if(!collapsed&&childrenCount)visit(n.id,depth+1);
+  }
+ }
+ visit('root',0);
+ if(count>=170){
   const more=document.createElement('p');more.className='hint';
-  more.textContent='Showing first 170 pieces. Search to find others.';
+  more.textContent='Showing first 170 expanded pieces. Collapse groups or search to find others.';
   target.append(more);
  }
  if(count===0){
@@ -606,8 +743,16 @@ function renderTree(){
   p.textContent=search?'No matching model pieces.':'Your canvas is empty. Choose + SHAPE or GAME PART.';
   target.append(p);
  }
+ const multi=$('object-multi');
+ if(multi){multi.classList.toggle('active',objectMultiSelect);
+  multi.setAttribute('aria-pressed',String(objectMultiSelect));
+  multi.title=selectedIds.size+' objects selected';}
 }
+
 $('object-search').oninput=()=>renderTree();
+$('object-multi').onclick=()=>{objectMultiSelect=!objectMultiSelect;
+ if(!objectMultiSelect&&selected!=='root')selectedIds=new Set([selected]);
+ renderTree();message(objectMultiSelect?'MULTI: tap several shapes to select them.':'Single-object selection.');};
 $('tree-list-toggle').onclick=()=>{
  browseListMode=!browseListMode;renderTree();
  $('tree-list-toggle').textContent=browseListMode?'▦':'☷';
@@ -631,6 +776,17 @@ $('dock-collapse').onclick=()=>{
 };
 $('focus-selected').onclick=()=>fitSelected();
 $('context-close').onclick=()=>clearPoint();
+$('run-geometry-audit').onclick=()=>{
+ const n=node();if(n?.kind!=='shape'||n.geometry?.type!=='mesh')
+  return message('Select an imported triangle mesh for its topology report.',true);
+ try{
+  const audit=deepMeshAudit(n.geometry);
+  $('geometry-audit').textContent='MESH CHECK · '+audit.triangles+' triangles · '+
+   audit.degenerateTriangles+' degenerate · '+audit.boundaryEdges+' boundary edges · '+
+   audit.nonManifoldEdges+' non-manifold edges · '+audit.renderIslands+' render islands. '+audit.note;
+  message('Mesh topology inspected; original geometry unchanged.');
+ }catch(e){message('Mesh inspection failed: '+e.message,true);}
+};
 const moreActions=$('more-actions');
 moreActions.addEventListener('click',e=>{
  if(e.target.closest('button'))moreActions.open=false;
@@ -646,6 +802,30 @@ for(const [mode,id] of [['all','visibility-normal'],['ghost','visibility-ghost']
  };
 }
 
+$('hide-others').onclick=()=>{
+ const preserved=new Set(selectedIds.size?selectedIds:[selected]);
+ if(!preserved.size||preserved.has('root'))return message('Select a shape or group first.',true);
+ const kept=new Set();
+ for(const n of doc.nodes){
+  let cur=n,seen=new Set();
+  while(cur&&!seen.has(cur.id)){
+   seen.add(cur.id);if(preserved.has(cur.id)){kept.add(n.id);break;}
+   cur=doc.nodes.find(p=>p.id===cur.parentId);
+  }
+  if(preserved.has(n.id)){
+   let parent=doc.nodes.find(p=>p.id===n.parentId);
+   while(parent&&!kept.has(parent.id)){kept.add(parent.id);parent=doc.nodes.find(p=>p.id===parent.parentId);}
+  }
+ }
+ const next=clone(doc);
+ for(const n of next.nodes)if(n.id!=='root')n.visible=kept.has(n.id);
+ commit(next,selected,'Other objects hidden (undo to restore).');
+};
+$('show-all-nodes').onclick=()=>{
+ const next=clone(doc);
+ for(const n of next.nodes)n.visible=true;
+ commit(next,selected,'All objects visible.');
+};
 function showPrimitiveGrid(){
  const target=$('primitive-grid');target.replaceChildren();
  for(const type of ['box','chamfer','cylinder','tube','wedge','plate','taper','loft']){
@@ -740,6 +920,17 @@ $('mesh-point-select').onchange=e=>{
 
 function renderInspector(){
  const n=node(),active=!!n&&!n.locked&&n.id!=='root';
+ updateComparisonUI();
+ const selector=$('reparent-target');
+ if(selector){
+  const chosen=selector.value;selector.replaceChildren();
+  for(const parent of doc.nodes.filter(x=>['group','anchor'].includes(x.kind))){
+   const option=document.createElement('option');option.value=parent.id;option.textContent=parent.name;
+   selector.append(option);
+  }
+  selector.value=[...selector.options].some(o=>o.value===chosen)?chosen:'root';
+  $('reparent-object').disabled=!active;
+ }
  $('object-name').value=n?.name||'';$('object-name').disabled=!active;
  $('material-role').value=n?.materialRole||'olive';$('material-role').disabled=!active||n.kind!=='shape';
  for(const [field,title] of [['position','POSITION'],['rotation','ROTATION'],['scale','SCALE']]){
@@ -784,6 +975,7 @@ function renderInspector(){
  const del=document.createElement('button');del.textContent=g.sections?'REMOVE SECTION':'REMOVE POINT';
  add.onclick=()=>editGeometryCount(1);del.onclick=()=>editGeometryCount(-1);
  if(g.profile||g.sections){actions.append(add,del);target.append(actions);}
+ $('insert-geometry-point').disabled=!(g.profile||g.sections);
 }
 function editGeometryCount(delta){
  const n=node(),g=clone(n.geometry);if(g.sections){
@@ -804,6 +996,20 @@ function editGeometryCount(delta){
  }
  try{commit(updateNode(doc,selected,{geometry:g}));}catch(e){message(e.message,true);}
 }
+$('insert-geometry-point').onclick=()=>{
+ const n=node(),g=n?.geometry;if(!n||n.locked||n.mirrorOf||!(g?.profile||g?.sections))return;
+ try{
+  let geometry;
+  if(g.profile){
+   const chosen=activePoint?.kind==='profile'?activePoint.index:0;
+   geometry=insertProfilePoint(g,chosen);
+  }else{
+   const chosen=Math.max(0,Math.min(g.sections.length-2,activePoint?.index??0));
+   geometry=insertLoftSection(g,chosen);
+  }
+  clearPoint();commit(updateNode(doc,selected,{geometry}),selected,'Inserted control point/section after selection.');
+ }catch(e){message('Could not insert control: '+e.message,true);}
+};
 const changeSelected=(change,msg)=>{
  const n=node();if(!n||n.locked||selected==='root')return;
  try{commit(updateNode(doc,selected,change),selected,msg);}catch(e){message(e.message,true);}
@@ -842,7 +1048,7 @@ $('mirror').onclick=()=>{
 $('unlink').onclick=()=>{
  const n=node();if(!n?.mirrorOf)return message('Select a linked mirror to unlink.');
  const source=doc.nodes.find(x=>x.id===n.mirrorOf);
- changeSelected({geometry:clone(source.geometry),mirrorOf:null},'Independent mirrored shape created.');
+ changeSelected({geometry:bakeXReflection(source.geometry),mirrorOf:null},'Mirror unlinked without changing its appearance.');
 };
 $('delete-object').onclick=()=>{
  if(node()?.locked)return message('Unlock this object before deleting it.',true);
@@ -858,22 +1064,37 @@ $('lock-object').onclick=()=>{
  }
 };
 $('reset-selected').onclick=()=>changeSelected({transform:identity()});
+$('compare-original').onclick=()=>{
+ const source=comparisonSource();if(!source)return message('Open a specific factory part or draft linked to one.',true);
+ if(showContext){showContext=false;buildContext();}
+ const modes=['off','overlay','split'],next=modes[(modes.indexOf(comparison.mode)+1)%modes.length];
+ if(next==='off'){discardComparison();rebuild();}
+ else{
+  if(comparison.mode==='off'||comparison.definitionId!==source)
+   comparison={mode:next,definitionId:null,compiled:null};
+  else comparison.mode=next;
+  rebuild();fitSelected('root');
+ }
+ updateComparisonUI();message(next==='off'?'Factory comparison closed.':'Factory comparison: '+next+'.');
+};
 $('group-objects').onclick=()=>{
- try{const {document,selectedId}=groupNodes(doc,[...selectedIds].filter(id=>id!=='root').length?
-    [...selectedIds].filter(id=>id!=='root'):[selected]);
-    commit(document,selectedId,'Grouped selected siblings.');}
- catch(e){message(e.message,true);}
+ try{const ids=[...selectedIds].filter(id=>id!=='root').length?
+   [...selectedIds].filter(id=>id!=='root'):[selected];
+  const result=groupPreservingPose(doc,ids);
+  commit(result.document,result.selectedId,'Grouped objects without shifting their world positions.');
+ }catch(e){message('Could not group: '+e.message,true);}
 };
 $('ungroup').onclick=()=>{
  const n=node();if(n?.kind!=='group'||n.id==='root')return message('Select a group first.');
- try{
-  const next=clone(doc);
-  // Group can be flattened without losing child world pose only if its transform is identity.
-  if(JSON.stringify(n.transform)!==JSON.stringify(identity()))return message('Reset group transform before ungrouping.',true);
-  for(const item of next.nodes)if(item.parentId===n.id)item.parentId=n.parentId;
-  next.nodes=next.nodes.filter(item=>item.id!==n.id);
-  commit(next,n.parentId);
- }catch(e){message(e.message,true);}
+ try{const next=ungroupPreservingPose(doc,n.id);
+  commit(next,n.parentId,'Ungrouped and preserved child positions.');
+ }catch(e){message('Could not ungroup: '+e.message,true);}
+};
+$('reparent-object').onclick=()=>{
+ if(selected==='root')return message('Select an object first.',true);
+ const parentId=$('reparent-target').value;
+ try{commit(moveNodeToParent(doc,selected,parentId),selected,'Moved into group; world pose preserved.');}
+ catch(e){message('Cannot change parent: '+e.message,true);}
 };
 $('save-project').onclick=async()=>{
  try{await savePromise;await db.saveProject(doc);message('Project saved to this browser. Export a bundle for backup.');}
@@ -884,17 +1105,39 @@ $('new-project').onclick=()=>{
  doc=createDocument('Untitled assembly');startHistory();queueSave();refresh();message('New assembly created.');
 };
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{
- tool=b.dataset.tool;
+ cancelActivePreview();tool=b.dataset.tool;
  if(tool!=='points')clearPoint();refresh();updateContextPanel();
 };
 for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
- view=b.dataset.view;setCamera();refresh();
+ cancelActivePreview();view=b.dataset.view;setCamera();refresh();
 };
 $('zoom-in').onclick=()=>cameraZoom(.8);
 $('zoom-out').onclick=()=>cameraZoom(1.25);
 $('fit-all').onclick=()=>{fitSelected('root');requestDraw();};
-$('point-tap').onclick=()=>{pointPick='tap';updateContextPanel();requestDraw();};
+$('point-tap').onclick=()=>{navigating=false;$('nav-mode').classList.remove('active');pointPick='tap';updateContextPanel();requestDraw();};
+$('nav-mode').onclick=()=>{cancelActivePreview();navigating=!navigating;
+ $('nav-mode').classList.toggle('active',navigating);
+ message(navigating?'Navigation active: drag to orbit or pan; selection is preserved.':'Point editing active.');
+ requestDraw();};
+$('frame-points').onclick=()=>{
+ const chosen=getSelectionCandidates().filter(p=>selectedPoints.has(p.id));
+ if(!chosen.length)return fitSelected();
+ const box=new THREE.Box3();
+ for(const p of chosen)box.expandByPoint(p.world);
+ const size=box.getSize(new THREE.Vector3());focus.copy(box.getCenter(new THREE.Vector3()));
+ const dim=Math.max(.08,size.x,size.y,size.z);
+ orbit.distance=THREE.MathUtils.clamp(dim*3,.28,40);
+ orthoScale=THREE.MathUtils.clamp(dim*.95,.09,25);
+ requestDraw();
+};
 $('point-box').onclick=()=>{pointPick='box';updateContextPanel();requestDraw();};
+for(const level of ['point','edge','face'])$('edit-level-'+level).onclick=()=>{
+ const g=node()?.geometry;
+ if(level!=='point'&&g&&!['mesh','plate','wedge'].includes(g.type))
+  return message('Edge/Face editing is available for mesh and polygon shells; use Point for loft sections.',true);
+ cancelActivePreview();editingLevel=level;navigating=false;$('nav-mode').classList.remove('active');
+ updateContextPanel();requestDraw();
+};
 $('select-add').onclick=()=>{selectionOp=selectionOp==='add'?'replace':'add';updateContextPanel();};
 $('select-subtract').onclick=()=>{selectionOp=selectionOp==='subtract'?'replace':'subtract';updateContextPanel();};
 $('clear-point-selection').onclick=()=>{clearPoint();requestDraw();};
@@ -915,11 +1158,11 @@ $('reset-camera').onclick=()=>{
  orbit={yaw:.62,pitch:.22,distance:Math.max(1.8,orbit.distance)};
  view='quarter';setCamera();refresh();message('Camera reset · FRONT -Z / RIGHT +X / UP +Y.');
 };
-$('context-toggle').onclick=()=>{showContext=!showContext;buildContext();refresh();
+$('context-toggle').onclick=()=>{showContext=!showContext;if(showContext)discardComparison();buildContext();refresh();
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
 async function deployPrototype(mode){
  try{
-  const raw=packagePrototype(doc,{mode});
+  const raw=packagePrototype(doc,{mode,side:$('yard-preview-side').value});
   // A standalone blueprint overlays only the left Yardwalker knee in the real range.
   sessionStorage.setItem(PROTOTYPE_KEY,raw);
   await db.saveProject(doc);
@@ -929,7 +1172,10 @@ async function deployPrototype(mode){
 $('test-in-yard').onclick=()=>deployPrototype('overlay');
 $('test-replace-calf').onclick=()=>deployPrototype('replace-calf');
 $('undo').onclick=()=>undo(-1);$('redo').onclick=()=>undo(1);
+window.addEventListener('blur',()=>cancelActivePreview());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelActivePreview();});
 document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){cancelActivePreview('Edit cancelled.');return;}
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
   e.preventDefault();undo(e.shiftKey?1:-1);
  }
@@ -982,6 +1228,7 @@ function drawSelectionAndGizmos(object,n){
    fill:'#f5efe2','pointer-events':'none'}).textContent=['X','Y','Z'][i];
   hit.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
+   if(isEditGesture()&&drag.pointerId!==e.pointerId){cancelActivePreview('Interrupted edit cancelled.');return;}
    drag={mode:'gizmo',tool,nodeId:selected,axis:i,worldAxis:axis,anchor:anchor.clone(),
     projectedAxis:{x:dx/len,y:dy/len},worldDistance,pixelLength:len,
     pointerId:e.pointerId,previous:clone(doc),base:clone(n.transform),
@@ -1026,10 +1273,75 @@ function applyGizmoDrag(e){
 }
 function finishGizmoDrag(e){
  if(!drag||drag.mode!=='gizmo'||drag.pointerId!==e.pointerId)return;
+ if(e.type==='pointercancel'){cancelActivePreview('Axis transform cancelled.');return;}
  const before=drag.previous,after=clone(doc),selection=drag.nodeId;
  drag=null;doc=before;commit(after,selection,'Updated part directly on the model.');
 }
 
+function shapePointHandles(g,whichView=view){
+ if(g.type==='mesh')return meshPointGroups(g).map((pt,i)=>({
+  pos:new THREE.Vector3(...pt.position),kind:'factory-mesh',index:i}));
+ if(g.profile&&(whichView==='front'||whichView==='quarter'))
+  return g.profile.map((pt,i)=>({pos:new THREE.Vector3(pt[0],pt[1],0),kind:'profile',index:i}));
+ const handles=[];
+ if(g.sections)g.sections.forEach((sec,i)=>{
+  if(whichView==='quarter'){
+   handles.push({pos:new THREE.Vector3(-sec.width/2,sec.y,sec.front),kind:'width',index:i});
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.front),kind:'front',index:i});
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.back),kind:'back',index:i});
+  }else if(whichView==='front'){
+   handles.push({pos:new THREE.Vector3(-sec.width/2,sec.y,sec.front),kind:'width',index:i});
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.front),kind:'width',index:i});
+  }else if(whichView==='side'||whichView==='left'){
+   handles.push({pos:new THREE.Vector3(0,sec.y,sec.front),kind:'front',index:i});
+   handles.push({pos:new THREE.Vector3(0,sec.y,sec.back),kind:'back',index:i});
+  }else if(whichView==='top'){
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.front),kind:'topWidth',index:i});
+   handles.push({pos:new THREE.Vector3(-sec.width/2,sec.y,sec.back),kind:'topBack',index:i});
+  }
+ });
+ return handles;
+}
+function drawTopologyHandles(geometry,obj){
+ let elements;
+ try{elements=editingElements(geometry);}catch(e){message(e.message,true);return;}
+ const seen=new Set(),selectedDisplay=[];
+ let shown=0;
+ for(const entry of elements){
+  const pts=entry.points.map(p=>projected(obj.localToWorld(new THREE.Vector3(...p))));
+  const x=pts.reduce((sum,p)=>sum+p.x,0)/pts.length,y=pts.reduce((sum,p)=>sum+p.y,0)/pts.length;
+  const selectedElement=entry.members.every(k=>selectedPoints.has(k));
+  if(x< -20||y< -20||x>stage.clientWidth+20||y>stage.clientHeight+20)continue;
+  const cell=Math.floor(x/12)+':'+Math.floor(y/12);
+  if(!selectedElement&&(seen.has(cell)||shown>=360))continue;
+  seen.add(cell);shown++;
+  const center=obj.localToWorld(new THREE.Vector3(...entry.center));
+  let handle;
+  if(editingLevel==='face'){
+   handle=svgNode('polygon',{points:pts.map(p=>p.x+','+p.y).join(' '),
+    fill:selectedElement?'#e8af65':'#b7d5b0','fill-opacity':selectedElement?.35:.08,
+    stroke:selectedElement?'#ffe2a2':'#b6c2ad','stroke-opacity':selectedElement?.9:.4,
+    'stroke-width':selectedElement?2:1,'pointer-events':pointPick==='box'?'none':'all'});
+  }else{
+   handle=svgNode('line',{x1:pts[0].x,y1:pts[0].y,x2:pts[1].x,y2:pts[1].y,
+    stroke:selectedElement?'#ffd893':'#aac9b2','stroke-opacity':selectedElement?.95:.4,
+    'stroke-width':selectedElement?9:7,'stroke-linecap':'round','pointer-events':pointPick==='box'?'none':'stroke'});
+  }
+  if(pointPick==='box')continue;
+  handle.addEventListener('pointerdown',e=>{
+   e.preventDefault();e.stopPropagation();
+   if(isEditGesture()&&drag.pointerId!==e.pointerId){cancelActivePreview('Interrupted edit cancelled.');return;}
+   selectedPoints=modifyElementVertexSelection(selectedPoints,[entry],{operation:selectionOp});
+   const key=[...selectedPoints][0];
+   activePoint=key?{nodeId:selected,...parsePointKey(key)}:null;
+   updateContextPanel();requestDraw();
+   if(selectionOp!=='replace'||!key)return;
+   drag={mode:'point',nodeId:selected,kind:'factory-mesh',
+    pointerId:e.pointerId,anchor:center,previous:clone(doc)};
+   svg.setPointerCapture(e.pointerId);
+  });
+ }
+}
 function drawOverlay(){
  if(!camera)return;
  const w=stage.clientWidth,h=stage.clientHeight;
@@ -1054,34 +1366,19 @@ function drawOverlay(){
  drawSelectionAndGizmos(obj,n);
  if(n.kind!=='shape')return;
  const g=n.mirrorOf?doc.nodes.find(s=>s.id===n.mirrorOf).geometry:n.geometry;
- const handles=[];
- if(tool==='points'&&!n.locked&&!n.mirrorOf){
-  if(g.profile&&(view==='front'||view==='quarter'))
-   g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
-  if(g.type==='mesh'){
-   const page=meshPointPage(g,meshPointPageIndex);
-   page.points.forEach(point=>handles.push({
-    pos:new THREE.Vector3(...point.position),kind:'factory-mesh',index:point.index
-   }));
-  }
-  if(g.sections){
-   g.sections.forEach((s,i)=>{
-    if(view==='quarter'){
-     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,s.front),kind:'width',index:i});
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.front),kind:'front',index:i});
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.back),kind:'back',index:i});
-    }else if(view==='front'){
-     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,0),kind:'width',index:i});
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,0),kind:'width',index:i});
-    }else if(view==='side'){
-     handles.push({pos:new THREE.Vector3(0,s.y,s.front),kind:'front',index:i});
-     handles.push({pos:new THREE.Vector3(0,s.y,s.back),kind:'back',index:i});
-    }else if(view==='top'){
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.front),kind:'topWidth',index:i});
-     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,s.back),kind:'topBack',index:i});
-    }
-   });
-  }
+ if(tool==='points'&&editingLevel!=='point'&&!n.locked&&!n.mirrorOf&&!navigating){
+  drawTopologyHandles(g,obj);
+ }
+  const allHandles=tool==='points'&&editingLevel==='point'&&!n.locked&&!n.mirrorOf&&!navigating?
+  shapePointHandles(g,view):[];
+ const handles=[],cells=new Set();
+ for(const entry of allHandles){
+  const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||
+   p.x< -12||p.x>stage.clientWidth+12||p.y< -12||p.y>stage.clientHeight+12)continue;
+  if(selectedPoints.has(pointKey(entry))){handles.push(entry);continue;}
+  const cell=Math.floor(p.x/12)+':'+Math.floor(p.y/12);
+  if(!cells.has(cell)&&cells.size<450){cells.add(cell);handles.push(entry);}
  }
  for(const entry of handles){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
@@ -1095,6 +1392,7 @@ function drawOverlay(){
   if(pointPick==='box')continue;
   circle.addEventListener('pointerdown',e=>{
    e.preventDefault();e.stopPropagation();
+   if(isEditGesture()&&drag.pointerId!==e.pointerId){cancelActivePreview('Interrupted edit cancelled.');return;}
    selectPoint({nodeId:selected,index:entry.index,kind:entry.kind});
    if(selectionOp!=='replace'){return;}
    const target=compiled.objects.get(selected);
@@ -1185,8 +1483,8 @@ svg.addEventListener('pointermove',e=>{
 });
 const finishPoint=e=>{
  if(drag?.mode!=='point'||drag.pointerId!==e.pointerId)return;
+ if(e.type==='pointercancel'){cancelActivePreview('Point edit cancelled.');return;}
  const after=clone(doc),before=drag.previous;drag=null;
- if(e.type==='pointercancel'){doc=before;rebuild();updateContextPanel();return;}
  doc=before;commit(after,selected,'Edited selected point.');
  updateContextPanel();
 };
@@ -1196,12 +1494,9 @@ function getSelectionCandidates(){
  const n=node(),obj=compiled?.objects.get(selected);
  if(!n||n.kind!=='shape'||!obj||n.locked||n.mirrorOf)return [];
  const g=n.geometry;
- const entries=g.type==='mesh'?meshPointGroups(g).map((v,i)=>({kind:'factory-mesh',index:i,pos:v.position})):
-  g.profile?g.profile.map((v,i)=>({kind:'profile',index:i,pos:[v[0],v[1],0]})):
-  (g.sections||[]).flatMap((v,i)=>[
-   {kind:'width',index:i,pos:[-v.width/2,v.y,v.front]},
-   {kind:'front',index:i,pos:[v.width/2,v.y,v.front]},
-   {kind:'back',index:i,pos:[v.width/2,v.y,v.back]}]);
+ const entries=shapePointHandles(g,view).map(h=>({
+  kind:h.kind,index:h.index,pos:h.pos.toArray()
+ }));
  obj.updateMatrixWorld(true);
  return entries.map(p=>{
   const world=obj.localToWorld(new THREE.Vector3(...p.pos));
@@ -1212,6 +1507,24 @@ function getSelectionCandidates(){
 }
 function finishMarquee(){
  if(!marquee)return;
+ if(editingLevel!=='point'){
+  const obj=compiled?.objects.get(selected),n=node();
+  if(!obj||!n||n.kind!=='shape')return void (marquee=null);
+  const rect=rectFromPoints(marquee.start,marquee.end);
+  const hits=editingElements(n.geometry).filter(element=>{
+   const world=obj.localToWorld(new THREE.Vector3(...element.center));
+   const p=world.clone().project(camera),screenX=(p.x+1)*stage.clientWidth/2,screenY=(1-p.y)*stage.clientHeight/2;
+   if(p.z< -1||p.z>1||screenX<rect.left||screenX>rect.right||screenY<rect.top||screenY>rect.bottom)return false;
+   if(pointDepth==='through')return true;
+   raycaster.setFromCamera(new THREE.Vector2(p.x,p.y),camera);
+   const first=raycaster.intersectObject(obj,false)[0];
+   return !first||first.distance>=camera.position.distanceTo(world)-.025;
+  });
+  selectedPoints=modifyElementVertexSelection(selectedPoints,hits,{operation:selectionOp});
+  const first=[...selectedPoints][0];activePoint=first?{nodeId:selected,...parsePointKey(first)}:null;
+  marquee=null;updateContextPanel();requestDraw();message(selectedPoints.size+' vertices selected via '+editingLevel+'.');
+  return;
+ }
  const rect=rectFromPoints(marquee.start,marquee.end);
  const candidates=getSelectionCandidates().filter(p=>p.x>=rect.left&&p.x<=rect.right&&p.y>=rect.top&&p.y<=rect.bottom&&p.inFrustum);
  const obj=compiled?.objects.get(selected);
@@ -1234,14 +1547,20 @@ function screenNDC(e){
 }
 canvas.addEventListener('pointerdown',e=>{
  canvas.setPointerCapture(e.pointerId);
+ if((isEditGesture()&&drag.pointerId!==e.pointerId)||pointSliderStart){
+  cancelActivePreview('Interrupted edit cancelled; geometry restored.');
+ }
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  // A second finger is always a viewport gesture, never an object edit.
- if(pointers.size!==1){drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
- if(tool==='points'&&pointPick==='box'&&node()?.kind==='shape'){
+ if(pointers.size!==1){cancelActivePreview();drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
+ if(tool==='points'&&!navigating&&pointPick==='box'&&node()?.kind==='shape'){
   const bounds=stage.getBoundingClientRect();
   marquee={start:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},
    end:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},pointerId:e.pointerId};
   requestDraw();return;
+ }
+ if(navigating&&view!=='quarter'){
+  drag={mode:'pan',pointerId:e.pointerId};return;
  }
  raycaster.setFromCamera(screenNDC(e),camera);
  const hits=raycaster.intersectObjects([...compiled?.objects.values()||[]].filter(x=>x.isMesh),false);
@@ -1249,7 +1568,7 @@ canvas.addEventListener('pointerdown',e=>{
  const hitId=found?.object.userData.workbenchNodeId||null;
  // Critical: tapping a mesh selects it, DRAGGING ON THE SAME MESH ORBITS.
  // Previously any mesh hit consumed the gesture, so a full mech would barely rotate.
- if(view==='quarter'&&(tool==='select'||tool==='points'||!found)){
+ if(view==='quarter'&&(navigating||tool==='select'||tool==='points'||!found)){
   drag={mode:'orbit',pointerId:e.pointerId,hitId,moved:false,
    start:{x:e.clientX,y:e.clientY}};
   return;
@@ -1283,6 +1602,7 @@ canvas.addEventListener('pointermove',e=>{
   marquee.end={x:e.clientX-bounds.left,y:e.clientY-bounds.top};
   requestDraw();return;
  }
+ if(drag?.mode==='pan'){panCamera(dx,dy);return;}
  if(drag?.mode==='orbit'&&view==='quarter'){
   const traveled=Math.hypot(e.clientX-drag.start.x,e.clientY-drag.start.y);
   if(traveled>3)drag.moved=true;
@@ -1320,6 +1640,7 @@ canvas.addEventListener('pointermove',e=>{
 });
 function finishCanvas(e){
  pointers.delete(e.pointerId);touchSpan=null;touchCenter=null;
+ if(e.type==='pointercancel'){cancelActivePreview('Gesture cancelled.');drag=null;return;}
  if(marquee?.pointerId===e.pointerId){
   if(e.type==='pointercancel')marquee=null;else finishMarquee();
   requestDraw();return;
@@ -1343,7 +1664,7 @@ for(const el of [canvas,svg,stage,$('selection-actions'),$('object-tree')]){
  el.addEventListener('selectstart',e=>e.preventDefault());
 }
 canvas.addEventListener('wheel',e=>{e.preventDefault();cameraZoom(Math.exp(e.deltaY*.001));},{passive:false});
-canvas.addEventListener('dblclick',e=>{if(e.target===canvas){selected='root';clearPoint();fitSelected();requestDraw();}});
+canvas.addEventListener('dblclick',e=>{if(e.target===canvas){fitSelected('root');requestDraw();}});
 
 function switchTab(which){
  for(const b of document.querySelectorAll('[data-tab]'))b.classList.toggle('active',b.dataset.tab===which);
@@ -1355,6 +1676,7 @@ async function saveSelected(type){
  const name=window.prompt('Name new '+type+':',n.name);if(!name)return;
  try{
   const asset=makeAsset(doc,selected,type,name);
+  asset.factoryDefinitionId=comparisonSource();
   await db.saveAsset(asset);await renderLibrary();
   message('Saved '+type+' "'+name+'" to reusable library.');switchTab('library');
  }catch(e){message('Could not save asset: '+e.message,true);}
@@ -1362,12 +1684,81 @@ async function saveSelected(type){
 $('save-shape').onclick=()=>saveSelected('shape');
 $('save-part').onclick=()=>saveSelected('part');
 $('save-assembly').onclick=()=>saveSelected('assembly');
+async function openAssetForEditing(asset){
+ if(!confirm('Open '+asset.name+' as its own editable project? Current project will be saved.'))return;
+ try{
+  await savePromise;await db.saveProject(doc);
+  const inserted=insertAsset(createDocument(asset.name+' / draft'),asset);
+  doc=inserted.document;doc.metadata={...doc.metadata,sourceAssetId:asset.id,assetRootId:inserted.selectedId,factoryDefinitionId:asset.factoryDefinitionId||null};
+  startHistory();selected=inserted.selectedId;selectedIds=new Set([selected]);
+  await db.saveProject(doc);refresh();switchTab('objects');fitSelected();
+  message('Opened editable '+asset.name+'. Use SAVE ASSET REVISION to publish to its library history.');
+ }catch(e){message('Could not open asset: '+e.message,true);}
+}
+async function showAssetHistory(asset){
+ const panel=$('asset-history');panel.replaceChildren();panel.hidden=false;
+ const title=document.createElement('strong');title.textContent='REVISIONS / '+asset.name;panel.append(title);
+ const versions=[{revision:asset.revision,savedAt:asset.updated,live:true},...await db.assetRevisionHistory(asset.id)];
+ for(const item of versions.slice(0,16)){
+  const row=document.createElement('div');row.className='version-row';
+  const label=document.createElement('span');label.textContent='v'+item.revision+' · '+new Date(item.savedAt||Date.now()).toLocaleString();
+  row.append(label);
+  if(!item.live){
+   const restore=document.createElement('button');restore.textContent='RESTORE';
+   restore.onclick=async()=>{
+    if(!confirm('Restore '+asset.name+' version '+item.revision+' as a new latest revision?'))return;
+    try{await db.restoreAssetRevision(asset.id,item.id);await renderLibrary();message('Older version restored; newer revisions kept.');}
+    catch(e){message(e.message,true);}
+   };row.append(restore);
+  }else{
+   const edit=document.createElement('button');edit.textContent='OPEN';edit.onclick=()=>openAssetForEditing(asset);
+   row.append(edit);
+  }
+  panel.append(row);
+ }
+}
+async function renderCheckpoints(){
+ const box=$('project-checkpoints');box.replaceChildren();
+ try{
+  const checkpoints=(await db.projectCheckpointHistory(doc.id)).slice(0,12);
+  if(!checkpoints.length)return;
+  const title=document.createElement('strong');title.textContent='PROJECT CHECKPOINTS';box.append(title);
+  for(const checkpoint of checkpoints){
+   const row=document.createElement('div');row.className='version-row';
+   const label=document.createElement('span');label.textContent=checkpoint.label+' · '+new Date(checkpoint.savedAt).toLocaleDateString();
+   const restore=document.createElement('button');restore.textContent='RESTORE';
+   restore.onclick=async()=>{
+    if(!confirm('Restore '+checkpoint.label+'? Your current state will remain undoable.'))return;
+    try{commit(await db.loadProjectCheckpoint(checkpoint.id),selected,'Restored checkpoint '+checkpoint.label+'.');}
+    catch(e){message(e.message,true);}
+   };
+   row.append(label,restore);box.append(row);
+  }
+ }catch(e){message('Checkpoints unavailable: '+e.message,true);}
+}
+$('save-checkpoint').onclick=async()=>{
+ const label=prompt('Checkpoint name',doc.name+' / checkpoint');if(!label?.trim())return;
+ try{await db.saveProjectCheckpoint(doc,label.trim());await renderCheckpoints();message('Checkpoint saved.');}
+ catch(e){message('Checkpoint failed: '+e.message,true);}
+};
+$('save-linked-revision').onclick=async()=>{
+ const assetId=doc.metadata?.sourceAssetId,rootId=doc.metadata?.assetRootId;
+ if(!assetId||!rootId)return message('Open a library asset to create a revision.',true);
+ try{
+  const old=await db.get('assets',assetId);if(!old)throw Error('Original asset missing');
+  const next=makeAsset(doc,rootId,old.type,old.name);next.id=assetId;next.created=old.created;
+  next.factoryDefinitionId=old.factoryDefinitionId||comparisonSource();
+  await db.saveAsset(next);await renderLibrary();message('Saved new revision of '+old.name+'.');
+ }catch(e){message('Revision failed: '+e.message,true);}
+};
 async function renderLibrary(){
  if(!ready)return;
  const box=$('library-items'),projectsBox=$('project-items');
  try{
   const [assets,projects]=await Promise.all([db.all('assets'),db.all('projects')]);
   projectsBox.replaceChildren();box.replaceChildren();
+  $('save-linked-revision').disabled=!doc.metadata?.sourceAssetId;
+  void renderCheckpoints();
   for(const project of projects.filter(p=>p?.format===FORMAT)
    .sort((a,b)=>(b.metadata?.updated||0)-(a.metadata?.updated||0)).slice(0,30)){
    const tile=makeTile({id:project.id},project,'project',project.name,
@@ -1401,7 +1792,7 @@ async function renderLibrary(){
    const rename=document.createElement('button');rename.textContent='✎';rename.title='Rename';
    rename.onclick=async e=>{e.stopPropagation();const next=prompt('Rename asset',asset.name);
     if(!next?.trim())return;
-    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset);renderLibrary();}
+    try{asset.name=next.trim().slice(0,100);await db.saveAsset(asset,{keepRevision:false});renderLibrary();}
     catch(err){message(err.message,true);}
    };
    const remove=document.createElement('button');remove.textContent='×';remove.title='Delete';
@@ -1410,7 +1801,11 @@ async function renderLibrary(){
     try{await db.remove('assets',asset.id);renderLibrary();}
     catch(err){message(err.message,true);}
    };
-   actions.append(add,rename,remove);tile.append(actions);box.append(tile);
+   const open=document.createElement('button');open.textContent='OPEN';open.title='Edit independent library draft';
+   open.onclick=e=>{e.stopPropagation();openAssetForEditing(asset);};
+   const historyButton=document.createElement('button');historyButton.textContent='HISTORY';historyButton.title='Restore an earlier asset version';
+   historyButton.onclick=e=>{e.stopPropagation();showAssetHistory(asset);};
+   actions.append(add,open,historyButton,rename,remove);tile.append(actions);box.append(tile);
   }
   if(!box.children.length){const p=document.createElement('p');p.className='hint';
     p.textContent='No saved parts yet. Select a piece and tap SAVE AS PART.';
@@ -1471,11 +1866,18 @@ function renderReferences(){
   list.append(b);
  }
  const ref=makeReferenceImage();
+ const image=ref&&referenceObjects.get(ref.imageId);
+ $('reference-image-wrap').hidden=!image;
+ if(image)$('reference-preview').src=image.data;
+ $('reference-rotation').disabled=!ref;
+ $('reference-remove').disabled=!ref;
+ $('reference-preview-zoom').disabled=!image;
  $('reference-opacity').disabled=!ref;$('reference-width').disabled=!ref;
  $('reference-x').disabled=!ref;$('reference-y').disabled=!ref;
  if(ref){
   $('reference-opacity').value=ref.opacity;$('reference-width').value=ref.scale;
   $('reference-x').value=ref.offset[0];$('reference-y').value=ref.offset[1];
+  $('reference-rotation').value=ref.rotation;
  }
  $('module-manifest').value=doc.metadata?.moduleManifest?JSON.stringify(doc.metadata.moduleManifest,null,2):'';
 }
@@ -1499,6 +1901,26 @@ $('reference-file').onchange=async e=>{
  }catch(error){message('Image rejected: '+error.message,true);}
  e.target.value='';
 };
+$('reference-preview-zoom').oninput=()=>{
+ $('reference-preview').style.width=(Number($('reference-preview-zoom').value)*100)+'%';
+};
+$('reference-remove').onclick=()=>{
+ if(!activeRef)return;
+ const next=clone(doc);next.references=next.references.filter(r=>r.id!==activeRef);
+ activeRef=next.references[0]?.id||null;
+ commit(next,selected,'Reference removed from this project.');
+};
+$('reference-replace-file').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file||!activeRef)return;
+ try{
+  const img=await db.importImage(file),next=clone(doc);
+  const ref=next.references.find(r=>r.id===activeRef);if(!ref)throw Error('Missing selected reference');
+  ref.imageId=img.id;referenceObjects.set(img.id,img);
+  commit(next,selected,'Reference image replaced.');renderReferences();
+ }catch(error){message('Could not replace reference: '+error.message,true);}
+ e.target.value='';
+};
+$('reference-rotation').onchange=e=>setReference({rotation:Number(e.target.value)});
 $('reference-opacity').oninput=e=>setReference({opacity:Number(e.target.value)});
 $('reference-width').onchange=e=>setReference({scale:Number(e.target.value)});
 $('reference-x').onchange=e=>{
