@@ -37,7 +37,8 @@ export function attachPrototypeToPlayerExterior(exterior,assemblyId){
  if(!knee)return {ok:false,reason:'The authentic Yardwalker knee joint was not found.'};
  try{
   const compiled=compileBlueprint(doc);
-  compiled.root.name='WORKBENCH 3 / '+pkg.side.toUpperCase()+' CALF SANDBOX PROTOTYPE';
+  compiled.root.name=pkg.side==='left'?'WORKBENCH V2 / LEFT KNEE SANDBOX PROTOTYPE':
+   'WORKBENCH 3 / RIGHT KNEE SANDBOX PROTOTYPE';
   compiled.root.traverse(n=>{
    if(!n.isMesh)return;
    n.userData.visualOnly=true;
