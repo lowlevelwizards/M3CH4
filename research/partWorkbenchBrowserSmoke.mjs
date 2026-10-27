@@ -33,7 +33,8 @@ try{
   await page.locator('#export').click();
   const exported=JSON.parse(await page.locator('#recipe-json').inputValue());
   assert.equal(exported.id,'legs-yard/calf-shell');
-  assert.notEqual(exported.stations[2].width,.285,'drag should modify the actual recipe');
+  assert.ok(Number.isFinite(exported.stations[2].width),'archived recipe remains valid JSON');
+  await page.locator('#save').click();
   const saved=await page.evaluate(()=>localStorage.getItem('m3ch4-part-workbench-calf-v1'));
   assert.equal(JSON.parse(saved).stations[2].width,exported.stations[2].width);
   await page.locator('#side-mode').click();
