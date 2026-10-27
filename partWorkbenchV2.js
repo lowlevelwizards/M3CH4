@@ -102,7 +102,7 @@ function selectPoint(which){
  const key=pointKey(which);
  if(selectionOp==='subtract')selectedPoints.delete(key);
  else if(selectionOp==='add'){selectedPoints.add(key);}
- else {selectedPoints=new Set([key]);}
+ else if(!(selectedPoints.size>1&&selectedPoints.has(key))){selectedPoints=new Set([key]);}
  activePoint=selectedPoints.has(key)?{nodeId:which.nodeId,kind:which.kind,index:which.index}:
   (selectedPoints.size?{nodeId:which.nodeId,...parsePointKey([...selectedPoints][0])}:null);
  if(which.kind==='factory-mesh')meshPointSelectedIndex=which.index;
