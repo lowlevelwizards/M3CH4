@@ -895,15 +895,17 @@ $('reset-camera').onclick=()=>{
 };
 $('context-toggle').onclick=()=>{showContext=!showContext;buildContext();refresh();
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
-$('test-in-yard').onclick=async()=>{
+async function deployPrototype(mode){
  try{
-  const raw=packagePrototype(doc);
+  const raw=packagePrototype(doc,{mode});
   // A standalone blueprint overlays only the left Yardwalker knee in the real range.
   sessionStorage.setItem(PROTOTYPE_KEY,raw);
   await db.saveProject(doc);
   window.location.assign('./test-yard.html?wb-prototype=1');
  }catch(e){message('Test Yard handoff failed: '+e.message,true);}
-};
+}
+$('test-in-yard').onclick=()=>deployPrototype('overlay');
+$('test-replace-calf').onclick=()=>deployPrototype('replace-calf');
 $('undo').onclick=()=>undo(-1);$('redo').onclick=()=>undo(1);
 document.addEventListener('keydown',e=>{
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
@@ -1145,7 +1147,7 @@ function applyPoint(e){
  }
 }
 function updatePointValueWithoutRebuildingControls(){
- if(!activePoint)return;
+ if(!activePoint||selectedPoints.size>1)return;
  const point=pointCoordinates();
  if(!point)return;
  $('context-value').textContent=point.map((v,i)=>axisKeys[i]+' '+v.toFixed(3)).join(' · ');
