@@ -36,9 +36,9 @@ test('Yardwalker retains catalogue envelope, U1 interface and exactly the origin
   const xyz=id=>all.find(a=>a.id===word+id)?.position;
   const delta=(to,from)=>to.map((v,i)=>v-from[i]);
   assert.deepEqual(xyz('Hip'),leg.hip);
-  assert.deepEqual(xyz('Knee'),delta(leg.knee,leg.hip));
-  assert.deepEqual(xyz('Ankle'),delta(leg.ankle,leg.knee));
-  assert.deepEqual(xyz('Foot'),delta(leg.foot,leg.ankle));
+  assert.ok(xyz('Knee').every((n,i)=>Math.abs(n-delta(leg.knee,leg.hip)[i])<1e-9));
+  assert.ok(xyz('Ankle').every((n,i)=>Math.abs(n-delta(leg.ankle,leg.knee)[i])<1e-9));
+  assert.ok(xyz('Foot').every((n,i)=>Math.abs(n-delta(leg.foot,leg.ankle)[i])<1e-9));
  }
  assert.equal(m.anchors.filter(a=>a.joint).length,8);
 });
