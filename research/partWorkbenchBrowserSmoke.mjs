@@ -43,7 +43,7 @@ try{
   await page.locator('#compare-toggle').click();
   await page.locator('#rig-toggle').click();
   assert.match(await page.locator('#view-label').textContent(),/LEGS ONLY/);
-  assert.equal(await page.evaluate(()=>window.__m3ch4PartWorkbenchReady),false,\n    'Archived V1 calf recipes must not report live geometry modification');
+  assert.equal(await page.evaluate(()=>window.__m3ch4PartWorkbenchReady),false,    'Archived V1 calf recipes must not report live geometry modification');
   await page.screenshot({path:'part-workbench-artifacts/edit-legs-portrait.png'});
   await page.locator('#import').click();
   await page.locator('#recipe-json').fill('{"version":99,"id":"legs-yard/calf-shell","stations":[]}');
