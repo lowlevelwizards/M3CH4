@@ -1680,11 +1680,18 @@ function renderReferences(){
   list.append(b);
  }
  const ref=makeReferenceImage();
+ const image=ref&&referenceObjects.get(ref.imageId);
+ $('reference-image-wrap').hidden=!image;
+ if(image)$('reference-preview').src=image.data;
+ $('reference-rotation').disabled=!ref;
+ $('reference-remove').disabled=!ref;
+ $('reference-preview-zoom').disabled=!image;
  $('reference-opacity').disabled=!ref;$('reference-width').disabled=!ref;
  $('reference-x').disabled=!ref;$('reference-y').disabled=!ref;
  if(ref){
   $('reference-opacity').value=ref.opacity;$('reference-width').value=ref.scale;
   $('reference-x').value=ref.offset[0];$('reference-y').value=ref.offset[1];
+  $('reference-rotation').value=ref.rotation;
  }
  $('module-manifest').value=doc.metadata?.moduleManifest?JSON.stringify(doc.metadata.moduleManifest,null,2):'';
 }
@@ -1708,6 +1715,26 @@ $('reference-file').onchange=async e=>{
  }catch(error){message('Image rejected: '+error.message,true);}
  e.target.value='';
 };
+$('reference-preview-zoom').oninput=()=>{
+ $('reference-preview').style.width=(Number($('reference-preview-zoom').value)*100)+'%';
+};
+$('reference-remove').onclick=()=>{
+ if(!activeRef)return;
+ const next=clone(doc);next.references=next.references.filter(r=>r.id!==activeRef);
+ activeRef=next.references[0]?.id||null;
+ commit(next,selected,'Reference removed from this project.');
+};
+$('reference-replace-file').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file||!activeRef)return;
+ try{
+  const img=await db.importImage(file),next=clone(doc);
+  const ref=next.references.find(r=>r.id===activeRef);if(!ref)throw Error('Missing selected reference');
+  ref.imageId=img.id;referenceObjects.set(img.id,img);
+  commit(next,selected,'Reference image replaced.');renderReferences();
+ }catch(error){message('Could not replace reference: '+error.message,true);}
+ e.target.value='';
+};
+$('reference-rotation').onchange=e=>setReference({rotation:Number(e.target.value)});
 $('reference-opacity').oninput=e=>setReference({opacity:Number(e.target.value)});
 $('reference-width').onchange=e=>setReference({scale:Number(e.target.value)});
 $('reference-x').onchange=e=>{
