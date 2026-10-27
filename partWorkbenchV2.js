@@ -41,6 +41,11 @@ function cancelActivePreview(note){
  if(changed&&note)message(note);
  return changed;
 }
+function cancelSliderPreview(){
+ if(!pointSliderStart)return;
+ doc=clone(pointSliderStart);pointSliderStart=null;rebuild();renderInspector();updateContextPanel();
+ message('Slider edit cancelled.');
+}
 const pointKey=entry=>entry.kind+':'+entry.index;
 const parsePointKey=key=>{const [kind,index]=key.split(':');return {kind,index:Number(index)};};
 function activePointKeys(){return [...selectedPoints].map(parsePointKey);}
@@ -200,7 +205,7 @@ function updateContextPanel(){
     pointSliderStart=null;doc=before;commit(after,selected,'Moved '+count+' selected points.');
     updateContextPanel();
    };
-   slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+   slider.addEventListener('change',finish);slider.addEventListener('pointercancel',cancelSliderPreview);
    read.addEventListener('change',()=>{
     const value=Number(read.value);if(!Number.isFinite(value)||Math.abs(value)>10)return message('Offset outside 10 metre range.',true);
     try{
@@ -233,7 +238,7 @@ function updateContextPanel(){
      pointSliderStart=null;doc=before;commit(after,selected,'Scaled '+count+' selected points.');
      updateContextPanel();
     };
-    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',finish);
+    slider.addEventListener('change',finish);slider.addEventListener('pointercancel',cancelSliderPreview);
     read.addEventListener('change',()=>{
      const value=Number(read.value);if(!Number.isFinite(value)||value<=0||value>10)return message('Invalid scale factor.',true);
      try{
@@ -278,7 +283,7 @@ function updateContextPanel(){
    updateContextPanel();
   };
   range.addEventListener('change',finish);
-  range.addEventListener('pointercancel',finish);
+  range.addEventListener('pointercancel',cancelSliderPreview);
   row.append(title,range,read);b.append(row);
  }
 }
@@ -291,7 +296,7 @@ const snapValue=v=>snap()?Math.round(v/snap())*snap():v;
 const node=()=>doc.nodes.find(n=>n.id===selected);
 const message=(s,error=false)=>{const e=$('status');e.textContent=s;e.style.color=error?'#efa596':'#e1ba7b';};
 function startHistory(){
- history=[clone(doc)];step=0;selected='root';selectedIds.clear();
+ history=[clone(doc)];step=0;selected='root';selectedIds.clear();activePoint=null;selectedPoints.clear();
 }
 function commit(next,selection=selected,notify){
  try{
@@ -315,8 +320,15 @@ function queueSave(){
 }
 function undo(offset){
  const next=step+offset;if(next<0||next>=history.length)return;
+ const pointSelection=new Set(selectedPoints),previousActive=activePoint;
  step=next;doc=clone(history[step]);thumbEpoch++;thumbCache.clear();
- if(!doc.nodes.some(n=>n.id===selected))selected='root';activePoint=null;selectedPoints.clear();
+ if(!doc.nodes.some(n=>n.id===selected))selected='root';
+ const n=doc.nodes.find(x=>x.id===selected);
+ const available=new Set(n?.kind==='shape'&&!n.locked&&!n.mirrorOf?
+  shapePointHandles(n.geometry,view).map(pointKey):[]);
+ selectedPoints=new Set([...pointSelection].filter(key=>available.has(key)));
+ activePoint=previousActive&&selectedPoints.has(pointKey(previousActive))?previousActive:
+  (selectedPoints.size?{nodeId:selected,...parsePointKey([...selectedPoints][0])}:null);
  queueSave();refresh();
 }
 const thumbnailKey=(id)=>doc.id+'/'+thumbEpoch+'/'+id;
