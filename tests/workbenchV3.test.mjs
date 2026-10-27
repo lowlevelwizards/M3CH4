@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {createDocument,newShape,addNode,makeAsset} from '../workbench/blueprint.js';
 import {selectedInRectangle,rectFromPoints,selectedCentroid} from '../workbench/selectionGeometry.js';
 import {transformMeshGroups,transformProfilePoints} from '../workbench/vertexTransforms.js';
@@ -49,4 +50,12 @@ test('audit reports only advisory model details and leaves blueprint unchanged',
  assert.equal(audit.shapes,1);assert.equal(audit.vertices,0);
  assert.match(audit.note,/Advisory/);assert.equal(JSON.stringify(doc),before);
  assert.deepEqual(selectedCentroid([[0,0,0],[2,4,6]]),[1,2,3]);
+});
+
+test('sample chat-authored Yardwalker shell imports without executing code or touching factory',()=>{
+ const asset=JSON.parse(readFileSync(new URL('../workbench-assets/yardwalker-broad-shell-s1.json',import.meta.url),'utf8'));
+ const copy=validateStandaloneAsset(asset);
+ assert.equal(copy.type,'part');
+ assert.equal(copy.nodes.filter(n=>n.kind==='shape').length,8);
+ assert.equal(copy.nodes.find(n=>n.id==='wb-yws1-right').mirrorOf,'wb-yws1-left');
 });
