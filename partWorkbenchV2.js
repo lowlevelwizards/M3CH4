@@ -662,6 +662,9 @@ function renderTree(){
 }
 
 $('object-search').oninput=()=>renderTree();
+$('object-multi').onclick=()=>{objectMultiSelect=!objectMultiSelect;
+ if(!objectMultiSelect&&selected!=='root')selectedIds=new Set([selected]);
+ renderTree();message(objectMultiSelect?'MULTI: tap several shapes to select them.':'Single-object selection.');};
 $('tree-list-toggle').onclick=()=>{
  browseListMode=!browseListMode;renderTree();
  $('tree-list-toggle').textContent=browseListMode?'▦':'☷';
@@ -700,6 +703,30 @@ for(const [mode,id] of [['all','visibility-normal'],['ghost','visibility-ghost']
  };
 }
 
+$('hide-others').onclick=()=>{
+ const preserved=new Set(selectedIds.size?selectedIds:[selected]);
+ if(!preserved.size||preserved.has('root'))return message('Select a shape or group first.',true);
+ const kept=new Set();
+ for(const n of doc.nodes){
+  let cur=n,seen=new Set();
+  while(cur&&!seen.has(cur.id)){
+   seen.add(cur.id);if(preserved.has(cur.id)){kept.add(n.id);break;}
+   cur=doc.nodes.find(p=>p.id===cur.parentId);
+  }
+  if(preserved.has(n.id)){
+   let parent=doc.nodes.find(p=>p.id===n.parentId);
+   while(parent&&!kept.has(parent.id)){kept.add(parent.id);parent=doc.nodes.find(p=>p.id===parent.parentId);}
+  }
+ }
+ const next=clone(doc);
+ for(const n of next.nodes)if(n.id!=='root')n.visible=kept.has(n.id);
+ commit(next,selected,'Other objects hidden (undo to restore).');
+};
+$('show-all-nodes').onclick=()=>{
+ const next=clone(doc);
+ for(const n of next.nodes)n.visible=true;
+ commit(next,selected,'All objects visible.');
+};
 function showPrimitiveGrid(){
  const target=$('primitive-grid');target.replaceChildren();
  for(const type of ['box','chamfer','cylinder','tube','wedge','plate','taper','loft']){
@@ -838,6 +865,7 @@ function renderInspector(){
  const del=document.createElement('button');del.textContent=g.sections?'REMOVE SECTION':'REMOVE POINT';
  add.onclick=()=>editGeometryCount(1);del.onclick=()=>editGeometryCount(-1);
  if(g.profile||g.sections){actions.append(add,del);target.append(actions);}
+ $('insert-geometry-point').disabled=!(g.profile||g.sections);
 }
 function editGeometryCount(delta){
  const n=node(),g=clone(n.geometry);if(g.sections){
@@ -858,6 +886,20 @@ function editGeometryCount(delta){
  }
  try{commit(updateNode(doc,selected,{geometry:g}));}catch(e){message(e.message,true);}
 }
+$('insert-geometry-point').onclick=()=>{
+ const n=node(),g=n?.geometry;if(!n||n.locked||n.mirrorOf||!(g?.profile||g?.sections))return;
+ try{
+  let geometry;
+  if(g.profile){
+   const chosen=activePoint?.kind==='profile'?activePoint.index:0;
+   geometry=insertProfilePoint(g,chosen);
+  }else{
+   const chosen=Math.max(0,Math.min(g.sections.length-2,activePoint?.index??0));
+   geometry=insertLoftSection(g,chosen);
+  }
+  clearPoint();commit(updateNode(doc,selected,{geometry}),selected,'Inserted control point/section after selection.');
+ }catch(e){message('Could not insert control: '+e.message,true);}
+};
 const changeSelected=(change,msg)=>{
  const n=node();if(!n||n.locked||selected==='root')return;
  try{commit(updateNode(doc,selected,change),selected,msg);}catch(e){message(e.message,true);}
@@ -947,7 +989,22 @@ for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
 $('zoom-in').onclick=()=>cameraZoom(.8);
 $('zoom-out').onclick=()=>cameraZoom(1.25);
 $('fit-all').onclick=()=>{fitSelected('root');requestDraw();};
-$('point-tap').onclick=()=>{pointPick='tap';updateContextPanel();requestDraw();};
+$('point-tap').onclick=()=>{navigating=false;$('nav-mode').classList.remove('active');pointPick='tap';updateContextPanel();requestDraw();};
+$('nav-mode').onclick=()=>{cancelActivePreview();navigating=!navigating;
+ $('nav-mode').classList.toggle('active',navigating);
+ message(navigating?'Navigation active: drag to orbit or pan; selection is preserved.':'Point editing active.');
+ requestDraw();};
+$('frame-points').onclick=()=>{
+ const chosen=getSelectionCandidates().filter(p=>selectedPoints.has(p.id));
+ if(!chosen.length)return fitSelected();
+ const box=new THREE.Box3();
+ for(const p of chosen)box.expandByPoint(p.world);
+ const size=box.getSize(new THREE.Vector3());focus.copy(box.getCenter(new THREE.Vector3()));
+ const dim=Math.max(.08,size.x,size.y,size.z);
+ orbit.distance=THREE.MathUtils.clamp(dim*3,.28,40);
+ orthoScale=THREE.MathUtils.clamp(dim*.95,.09,25);
+ requestDraw();
+};
 $('point-box').onclick=()=>{pointPick='box';updateContextPanel();requestDraw();};
 $('select-add').onclick=()=>{selectionOp=selectionOp==='add'?'replace':'add';updateContextPanel();};
 $('select-subtract').onclick=()=>{selectionOp=selectionOp==='subtract'?'replace':'subtract';updateContextPanel();};
@@ -1113,7 +1170,7 @@ function drawOverlay(){
  if(n.kind!=='shape')return;
  const g=n.mirrorOf?doc.nodes.find(s=>s.id===n.mirrorOf).geometry:n.geometry;
  const handles=[];
- if(tool==='points'&&!n.locked&&!n.mirrorOf){
+ if(tool==='points'&&!n.locked&&!n.mirrorOf&&!navigating){
   if(g.profile&&(view==='front'||view==='quarter'))
    g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
   if(g.type==='mesh'){
@@ -1295,11 +1352,14 @@ canvas.addEventListener('pointerdown',e=>{
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  // A second finger is always a viewport gesture, never an object edit.
  if(pointers.size!==1){cancelActivePreview();drag=null;marquee=null;touchSpan=null;touchCenter=null;return;}
- if(tool==='points'&&pointPick==='box'&&node()?.kind==='shape'){
+ if(tool==='points'&&!navigating&&pointPick==='box'&&node()?.kind==='shape'){
   const bounds=stage.getBoundingClientRect();
   marquee={start:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},
    end:{x:e.clientX-bounds.left,y:e.clientY-bounds.top},pointerId:e.pointerId};
   requestDraw();return;
+ }
+ if(navigating&&view!=='quarter'){
+  drag={mode:'pan',pointerId:e.pointerId};return;
  }
  raycaster.setFromCamera(screenNDC(e),camera);
  const hits=raycaster.intersectObjects([...compiled?.objects.values()||[]].filter(x=>x.isMesh),false);
@@ -1307,7 +1367,7 @@ canvas.addEventListener('pointerdown',e=>{
  const hitId=found?.object.userData.workbenchNodeId||null;
  // Critical: tapping a mesh selects it, DRAGGING ON THE SAME MESH ORBITS.
  // Previously any mesh hit consumed the gesture, so a full mech would barely rotate.
- if(view==='quarter'&&(tool==='select'||tool==='points'||!found)){
+ if(view==='quarter'&&(navigating||tool==='select'||tool==='points'||!found)){
   drag={mode:'orbit',pointerId:e.pointerId,hitId,moved:false,
    start:{x:e.clientX,y:e.clientY}};
   return;
@@ -1341,6 +1401,7 @@ canvas.addEventListener('pointermove',e=>{
   marquee.end={x:e.clientX-bounds.left,y:e.clientY-bounds.top};
   requestDraw();return;
  }
+ if(drag?.mode==='pan'){panCamera(dx,dy);return;}
  if(drag?.mode==='orbit'&&view==='quarter'){
   const traveled=Math.hypot(e.clientX-drag.start.x,e.clientY-drag.start.y);
   if(traveled>3)drag.moved=true;
