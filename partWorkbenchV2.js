@@ -572,40 +572,82 @@ function refresh(){
    :tool.toUpperCase()+' · DRAG COLORED XYZ HANDLES OR THE PIECE';
  rebuild();
 }
+function treeLineage(node,map){
+ const parents=[],seen=new Set([node.id]);
+ let parent=map.get(node.parentId);
+ while(parent&&parent.id!=='root'&&!seen.has(parent.id)){
+  parents.unshift(parent);seen.add(parent.id);parent=map.get(parent.parentId);
+ }
+ return parents;
+}
 function renderTree(){
  const target=$('object-tree');target.replaceChildren();
  target.classList.toggle('list-mode',browseListMode);
  const search=$('object-search').value.trim().toLowerCase();
- const candidates=doc.nodes.filter(n=>n.id!=='root'&&(
-  !search||n.name.toLowerCase().includes(search)));
- let count=0;
- for(const n of candidates.slice(0,170)){
-  const label=n.name||'Unnamed piece';
-  const b=makeTile(n,doc,'node',label,n.kind==='shape'?
-   n.geometry.type.toUpperCase():'ASSEMBLY / GROUP');
-  b.classList.add('tree-item');
-  if(n.kind!=='shape')b.classList.add('is-group');
-  if(selected===n.id)b.classList.add('active');
-  b.dataset.kind=n.kind;
-  b.dataset.nodeId=n.id;
-  if(n.visible===false)b.classList.add('is-hidden');
-  if(n.locked||n.visible===false){
-   const flag=document.createElement('small');flag.className='tile-flag';
-   flag.textContent=n.visible===false?'HIDDEN':'LOCK';b.append(flag);
-  }
-  b.onclick=e=>{
-   clearPoint();
-   if(e.shiftKey||e.ctrlKey||e.metaKey){
-    selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
-   }else{selectedIds.clear();selectedIds.add(n.id);}
-   selected=n.id;meshPointPageIndex=0;
-   renderTree();renderInspector();selectedFeedback();applyVisibility();requestDraw();
-  };
-  target.append(b);count++;
+ const map=new Map(doc.nodes.map(n=>[n.id,n])),children=new Map();
+ for(const n of doc.nodes)if(n.id!=='root'){
+  if(!children.has(n.parentId))children.set(n.parentId,[]);
+  children.get(n.parentId).push(n);
  }
- if(candidates.length>170){
+ const matched=new Set();
+ if(search)for(const n of doc.nodes)if(n.id!=='root'&&n.name.toLowerCase().includes(search)){
+  matched.add(n.id);for(const ancestor of treeLineage(n,map))matched.add(ancestor.id);
+ }
+ let count=0;
+ function visit(parentId,depth){
+  for(const n of children.get(parentId)||[]){
+   if(count>=170)return;
+   if(search&&!matched.has(n.id))continue;
+   const childrenCount=(children.get(n.id)||[]).length;
+   const collapsed=!search&&collapsedGroups.has(n.id);
+   const line=document.createElement('div');line.className='tree-line';
+   line.style.setProperty('--tree-depth',Math.min(depth,12));
+   if(childrenCount){
+    const toggle=document.createElement('button');toggle.className='tree-caret';
+    toggle.type='button';toggle.textContent=collapsed?'▸':'▾';
+    toggle.setAttribute('aria-label',(collapsed?'Expand ':'Collapse ')+n.name);
+    toggle.setAttribute('aria-expanded',String(!collapsed));
+    toggle.onclick=()=>{
+     collapsed?collapsedGroups.delete(n.id):collapsedGroups.add(n.id);renderTree();
+    };
+    line.append(toggle);
+   }else{
+    const placeholder=document.createElement('span');placeholder.className='tree-caret-placeholder';line.append(placeholder);
+   }
+   const tile=makeTile(n,doc,'node',n.name||'Unnamed piece',n.kind==='shape'?
+    n.geometry.type.toUpperCase():n.kind.toUpperCase());
+   tile.classList.add('tree-item');
+   if(n.kind!=='shape')tile.classList.add('is-group');
+   if(selectedIds.has(n.id)||selected===n.id)tile.classList.add('active');
+   tile.dataset.kind=n.kind;tile.dataset.nodeId=n.id;
+   if(n.visible===false)tile.classList.add('is-hidden');
+   if(n.locked||n.visible===false){
+    const flag=document.createElement('small');flag.className='tile-flag';
+    flag.textContent=n.visible===false?'HIDDEN':'LOCK';tile.append(flag);
+   }
+   tile.onclick=e=>{
+    cancelActivePreview();clearPoint();
+    if(objectMultiSelect||e.shiftKey||e.ctrlKey||e.metaKey){
+     selectedIds.has(n.id)?selectedIds.delete(n.id):selectedIds.add(n.id);
+     selected=selectedIds.has(n.id)?n.id:([...selectedIds][0]||'root');
+    }else{selectedIds.clear();selectedIds.add(n.id);selected=n.id;}
+    meshPointPageIndex=0;renderTree();renderInspector();selectedFeedback();applyVisibility();requestDraw();
+   };
+   line.append(tile);
+   const eye=document.createElement('button');eye.className='tree-eye';
+   eye.type='button';eye.textContent=n.visible===false?'◌':'◉';
+   eye.setAttribute('aria-label',(n.visible===false?'Show ':'Hide ')+n.name);
+   eye.onclick=()=>{try{commit(updateNode(doc,n.id,{visible:!n.visible}),selected,'Updated visibility.');}
+    catch(e){message(e.message,true);}};
+   line.append(eye);
+   target.append(line);count++;
+   if(!collapsed&&childrenCount)visit(n.id,depth+1);
+  }
+ }
+ visit('root',0);
+ if(count>=170){
   const more=document.createElement('p');more.className='hint';
-  more.textContent='Showing first 170 pieces. Search to find others.';
+  more.textContent='Showing first 170 expanded pieces. Collapse groups or search to find others.';
   target.append(more);
  }
  if(count===0){
@@ -613,7 +655,12 @@ function renderTree(){
   p.textContent=search?'No matching model pieces.':'Your canvas is empty. Choose + SHAPE or GAME PART.';
   target.append(p);
  }
+ const multi=$('object-multi');
+ if(multi){multi.classList.toggle('active',objectMultiSelect);
+  multi.setAttribute('aria-pressed',String(objectMultiSelect));
+  multi.title=selectedIds.size+' objects selected';}
 }
+
 $('object-search').oninput=()=>renderTree();
 $('tree-list-toggle').onclick=()=>{
  browseListMode=!browseListMode;renderTree();
