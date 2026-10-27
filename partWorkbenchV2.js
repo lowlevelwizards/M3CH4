@@ -16,6 +16,8 @@ import {validateStandaloneAsset} from './workbench/assetImport.js';
 import {inspectBlueprint} from './workbench/geometryAudit.js';
 import {moveLoftControls} from './workbench/loftTransforms.js';
 import {insertProfilePoint,insertLoftSection} from './workbench/meshTopology.js';
+import {bakeXReflection} from './workbench/mirrorGeometry.js';
+import {moveNodeToParent,groupPreservingPose,ungroupPreservingPose} from './workbench/hierarchyTransforms.js';
 import {thumbnailForDocument,thumbnailForPrimitive,thumbnailForAsset} from './workbench/thumbnail.js';
 
 const $=id=>document.getElementById(id),rad=n=>n*Math.PI/180,deg=n=>n*180/Math.PI;
@@ -821,6 +823,16 @@ $('mesh-point-select').onchange=e=>{
 
 function renderInspector(){
  const n=node(),active=!!n&&!n.locked&&n.id!=='root';
+ const selector=$('reparent-target');
+ if(selector){
+  const chosen=selector.value;selector.replaceChildren();
+  for(const parent of doc.nodes.filter(x=>['group','anchor'].includes(x.kind))){
+   const option=document.createElement('option');option.value=parent.id;option.textContent=parent.name;
+   selector.append(option);
+  }
+  selector.value=[...selector.options].some(o=>o.value===chosen)?chosen:'root';
+  $('reparent-object').disabled=!active;
+ }
  $('object-name').value=n?.name||'';$('object-name').disabled=!active;
  $('material-role').value=n?.materialRole||'olive';$('material-role').disabled=!active||n.kind!=='shape';
  for(const [field,title] of [['position','POSITION'],['rotation','ROTATION'],['scale','SCALE']]){
@@ -938,7 +950,7 @@ $('mirror').onclick=()=>{
 $('unlink').onclick=()=>{
  const n=node();if(!n?.mirrorOf)return message('Select a linked mirror to unlink.');
  const source=doc.nodes.find(x=>x.id===n.mirrorOf);
- changeSelected({geometry:clone(source.geometry),mirrorOf:null},'Independent mirrored shape created.');
+ changeSelected({geometry:bakeXReflection(source.geometry),mirrorOf:null},'Mirror unlinked without changing its appearance.');
 };
 $('delete-object').onclick=()=>{
  if(node()?.locked)return message('Unlock this object before deleting it.',true);
@@ -955,21 +967,23 @@ $('lock-object').onclick=()=>{
 };
 $('reset-selected').onclick=()=>changeSelected({transform:identity()});
 $('group-objects').onclick=()=>{
- try{const {document,selectedId}=groupNodes(doc,[...selectedIds].filter(id=>id!=='root').length?
-    [...selectedIds].filter(id=>id!=='root'):[selected]);
-    commit(document,selectedId,'Grouped selected siblings.');}
- catch(e){message(e.message,true);}
+ try{const ids=[...selectedIds].filter(id=>id!=='root').length?
+   [...selectedIds].filter(id=>id!=='root'):[selected];
+  const result=groupPreservingPose(doc,ids);
+  commit(result.document,result.selectedId,'Grouped objects without shifting their world positions.');
+ }catch(e){message('Could not group: '+e.message,true);}
 };
 $('ungroup').onclick=()=>{
  const n=node();if(n?.kind!=='group'||n.id==='root')return message('Select a group first.');
- try{
-  const next=clone(doc);
-  // Group can be flattened without losing child world pose only if its transform is identity.
-  if(JSON.stringify(n.transform)!==JSON.stringify(identity()))return message('Reset group transform before ungrouping.',true);
-  for(const item of next.nodes)if(item.parentId===n.id)item.parentId=n.parentId;
-  next.nodes=next.nodes.filter(item=>item.id!==n.id);
-  commit(next,n.parentId);
- }catch(e){message(e.message,true);}
+ try{const next=ungroupPreservingPose(doc,n.id);
+  commit(next,n.parentId,'Ungrouped and preserved child positions.');
+ }catch(e){message('Could not ungroup: '+e.message,true);}
+};
+$('reparent-object').onclick=()=>{
+ if(selected==='root')return message('Select an object first.',true);
+ const parentId=$('reparent-target').value;
+ try{commit(moveNodeToParent(doc,selected,parentId),selected,'Moved into group; world pose preserved.');}
+ catch(e){message('Cannot change parent: '+e.message,true);}
 };
 $('save-project').onclick=async()=>{
  try{await savePromise;await db.saveProject(doc);message('Project saved to this browser. Export a bundle for backup.');}
