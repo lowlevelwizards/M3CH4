@@ -681,6 +681,78 @@
       "mirrorOf": null
     },
     {
+      "id": "yw-Y5-left-upper-actuator-lug",
+      "name": "Y5-left-upper-actuator-lug",
+      "kind": "shape",
+      "parentId": "yw-leftHip",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.145,
+          0.068,
+          0.145
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.125,
+          -0.077,
+          -0.057
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y5-left-lower-actuator-lug",
+      "name": "Y5-left-lower-actuator-lug",
+      "kind": "shape",
+      "parentId": "yw-leftHip",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.145,
+          0.068,
+          0.145
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.125,
+          -0.378,
+          -0.057
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
       "id": "yw-Y6-left-knee-bearing",
       "name": "Y6-left-knee-bearing",
       "kind": "shape",
@@ -1229,6 +1301,78 @@
       "mirrorOf": null
     },
     {
+      "id": "yw-Y5-right-upper-actuator-lug",
+      "name": "Y5-right-upper-actuator-lug",
+      "kind": "shape",
+      "parentId": "yw-rightHip",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.145,
+          0.068,
+          0.145
+        ]
+      },
+      "transform": {
+        "position": [
+          0.125,
+          -0.077,
+          -0.057
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "yw-Y5-right-lower-actuator-lug",
+      "name": "Y5-right-lower-actuator-lug",
+      "kind": "shape",
+      "parentId": "yw-rightHip",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.145,
+          0.068,
+          0.145
+        ]
+      },
+      "transform": {
+        "position": [
+          0.125,
+          -0.378,
+          -0.057
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 5003862,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
       "id": "yw-Y6-right-knee-bearing",
       "name": "Y6-right-knee-bearing",
       "kind": "shape",
@@ -1607,7 +1751,7 @@
         "type": "chamfer",
         "size": [
           0.423,
-          0.358,
+          0.31,
           0.25
         ],
         "bevel": 0.063
@@ -1615,7 +1759,7 @@
       "transform": {
         "position": [
           -0.019,
-          -0.227,
+          -0.252,
           -0.105
         ],
         "rotation": [
@@ -1759,7 +1903,7 @@
         "type": "chamfer",
         "size": [
           0.423,
-          0.358,
+          0.31,
           0.25
         ],
         "bevel": 0.063
@@ -1767,7 +1911,7 @@
       "transform": {
         "position": [
           0.019,
-          -0.227,
+          -0.252,
           -0.105
         ],
         "rotation": [
