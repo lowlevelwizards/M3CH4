@@ -1151,7 +1151,7 @@ $('context-toggle').onclick=()=>{showContext=!showContext;if(showContext)discard
  message(showContext?'Inspecting the actual Yardwalker knee assembly.':'Editing stand-alone blueprint.');};
 async function deployPrototype(mode){
  try{
-  const raw=packagePrototype(doc,{mode});
+  const raw=packagePrototype(doc,{mode,side:$('yard-preview-side').value});
   // A standalone blueprint overlays only the left Yardwalker knee in the real range.
   sessionStorage.setItem(PROTOTYPE_KEY,raw);
   await db.saveProject(doc);
