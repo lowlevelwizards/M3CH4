@@ -3,23 +3,14 @@
  * Geometry ownership stays inside V2 blueprints, never the factory builder.
  */
 import {clone,validateGeometry} from './blueprint.js';
-const key=(x,y,z)=>[x,y,z].map(v=>Math.round(v*1e4)).join(',');
+import {deriveLogicalVertexGroups,freezeLogicalVertexGroups} from './meshTopology.js';
 export const MESH_HANDLES_PER_PAGE=64;
 export function meshPointGroups(g){
  validateGeometry(g);
  if(g.type!=='mesh')throw Error('Not an imported mesh');
- const map=new Map(),groups=[];
- const values=g.positions;
- for(let i=0;i<values.length;i+=3){
-  const k=key(values[i],values[i+1],values[i+2]);
-  let group=map.get(k);
-  if(!group){
-   group={position:[values[i],values[i+1],values[i+2]],indices:[]};
-   groups.push(group);map.set(k,group);
-  }
-  group.indices.push(i/3);
- }
- return groups;
+ const membership=g.pointGroups||deriveLogicalVertexGroups(g);
+ return membership.map((indices,id)=>({id,indices,
+  position:indices.length?g.positions.slice(indices[0]*3,indices[0]*3+3):[0,0,0]}));
 }
 export function meshPointPage(g,page=0){
  const groups=meshPointGroups(g),pages=Math.max(1,Math.ceil(groups.length/MESH_HANDLES_PER_PAGE));
@@ -33,7 +24,7 @@ export function updateMeshPoint(g,index,position){
   throw Error('Invalid mesh point position');
  const groups=meshPointGroups(g),group=groups[index];
  if(!group)throw Error('Point index does not exist');
- const edited=clone(g);
+ const edited=freezeLogicalVertexGroups(g);
  for(const vertex of group.indices)for(let axis=0;axis<3;axis++)
   edited.positions[vertex*3+axis]=Number(position[axis].toFixed(5));
  // Editing a surface invalidates the original authored vertex normals.
