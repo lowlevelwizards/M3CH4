@@ -7,6 +7,7 @@ import {meshPointGroups,updateMeshPoint} from '../workbench/editableMesh.js';
 import {transformMeshGroups} from '../workbench/vertexTransforms.js';
 import {moveLoftControls} from '../workbench/loftTransforms.js';
 import {bakeXReflection} from '../workbench/mirrorGeometry.js';
+import {selectableElements,modifyElementVertexSelection} from '../workbench/elementSelection.js';
 
 test('cancelled transaction restores a validated document without mutating initial',()=>{
  const d=addNode(createDocument('Fixture'),newShape('box'));
@@ -63,4 +64,19 @@ test('mirror unlink bakes reflected profile and reverses mesh winding',()=>{
  const m=bakeXReflection(mesh);assert.deepEqual(m.indices,[0,2,1]);
  assert.deepEqual(m.positions,[0,0,0,-1,0,0,0,1,0]);
  assert.deepEqual(mesh.indices,[0,1,2]);
+});
+
+test('edge and face selection edits the same stable vertex groups as Point mode',()=>{
+ const mesh={type:'mesh',positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]};
+ const edges=selectableElements(mesh,'edge'),faces=selectableElements(mesh,'face');
+ assert.equal(edges.length,3);assert.equal(faces.length,1);
+ assert.equal(faces[0].members.length,3);
+ const selected=modifyElementVertexSelection([],faces,{operation:'replace'});
+ assert.equal(selected.size,3);
+ assert.equal(modifyElementVertexSelection(selected,[edges[0]],{operation:'subtract'}).size,1);
+ const moved=transformMeshGroups(mesh,[0,1,2],{delta:[.1,0,0]});
+ assert.equal(moved.positions[0],.1);
+ const plate=defaultGeometry('plate');
+ assert.equal(selectableElements(plate,'edge').length,4);
+ assert.equal(selectableElements(plate,'face').length,1);
 });
