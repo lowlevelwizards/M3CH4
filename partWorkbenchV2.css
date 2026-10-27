@@ -331,3 +331,20 @@ main{padding-bottom:max(6px,env(safe-area-inset-bottom, 0px))}
  #point-mode-toolbar{gap:3px}
  #object-tree .tree-caret,#object-tree .tree-eye{height:32px;flex-basis:30px;min-width:30px}
 }
+
+
+/* Workbench 3.3 — concept sheets and recoverable asset history */
+.reference-image-wrap{overflow:auto;max-height:260px;min-height:100px;padding:5px;
+ background:#192b21;border:1px solid #667d68;border-radius:7px;
+ overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.reference-image-wrap img{width:100%;max-width:none;height:auto;display:block;object-fit:contain}
+.version-list{display:flex;flex-direction:column;gap:5px;margin:5px 0}
+.version-list>strong{font-size:10px;letter-spacing:.04em;color:#e0d5a9}
+.version-row{display:flex;align-items:center;justify-content:space-between;gap:7px;
+ padding:7px 5px;border:1px solid #526f59;border-radius:5px;font-size:10px}
+.version-row span{flex:1;min-width:0;overflow-wrap:anywhere}
+.version-row button{min-height:34px;padding:5px 9px;border:1px solid #81957d;
+ border-radius:5px;background:#344b3b;color:#f5ecda;font-weight:700}
+#asset-history{padding:6px;border:1px solid #849779;border-radius:7px}
+#reparent-target{max-width:100%;min-height:34px;color:#ede6d4;background:#344a3b}
+#more-actions>.more-menu{max-height:min(65dvh,340px);overflow-y:auto}
