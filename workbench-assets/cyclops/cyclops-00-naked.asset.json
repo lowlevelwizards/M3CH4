@@ -1,0 +1,1762 @@
+{
+  "format": "m3ch4.workbench.asset",
+  "version": 2,
+  "id": "cyclops-concept-tier-0",
+  "revision": 1,
+  "type": "part",
+  "name": "Cyclops / 0 Naked",
+  "rootId": "cyclops-master",
+  "nodes": [
+    {
+      "id": "cyclops-master",
+      "name": "Cyclops / Concept Reconstruction",
+      "kind": "group",
+      "parentId": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-0",
+      "name": "CYCLOPS / PILOT CELL",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-operator-tub",
+      "name": "dark occupied operator tub",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.94,
+          0.66,
+          0.84
+        ],
+        "bevel": 0.075
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.035,
+          0.07
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-pressure-casing",
+      "name": "mustard central outer casing",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.805,
+          0.54,
+          0.59
+        ],
+        "bevel": 0.075
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.075,
+          -0.095
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "ochre",
+      "materialColor": 11700793,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-lower-sill",
+      "name": "reinforced lower sill",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.89,
+          0.09,
+          0.81
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.339,
+          0.025
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-front-lower",
+      "name": "mustard front lower load bridge",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.8,
+          0.17,
+          0.115
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.245,
+          -0.338
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "ochre",
+      "materialColor": 11700793,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-front-right",
+      "name": "mustard front upright frame",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.13,
+          0.49,
+          0.13
+        ]
+      },
+      "transform": {
+        "position": [
+          0.345,
+          -0.052,
+          -0.328
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "ochre",
+      "materialColor": 11700793,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-front-left",
+      "name": "dark left optical load pillar",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.085,
+          0.49,
+          0.13
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.416,
+          -0.04,
+          -0.322
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-upper-rail",
+      "name": "top mechanical load rail",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.84,
+          0.075,
+          0.68
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          0.287,
+          0.04
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-floor-rail",
+      "name": "bottom mechanical load rail",
+      "kind": "shape",
+      "parentId": "grp-0",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.86,
+          0.07,
+          0.55
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.332,
+          0.2
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-1",
+      "name": "CYCLOPS / OPTIC ASSEMBLY",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-optical-carrier",
+      "name": "square structural optical carrier",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.562,
+          0.535,
+          0.135
+        ],
+        "bevel": 0.055
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.421
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-optical-well",
+      "name": "deep dark square optical well",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.472,
+          0.442,
+          0.012
+        ],
+        "bevel": 0.032
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.498
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 1187102,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-well-depth",
+      "name": "dark inner optical bore",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.208,
+        "length": 0.012,
+        "sides": 12,
+        "axis": "z"
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.505
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 1514524,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-outer-bezel",
+      "name": "outer machined circular bezel",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "tube",
+        "outerRadius": 0.236,
+        "innerRadius": 0.178,
+        "length": 0.033,
+        "sides": 12,
+        "axis": "z"
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.521
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 8094331,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-lens-surround",
+      "name": "recessed protective optical ring",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "tube",
+        "outerRadius": 0.181,
+        "innerRadius": 0.147,
+        "length": 0.018,
+        "sides": 12,
+        "axis": "z"
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.54
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 1187102,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-teal-objective",
+      "name": "single protected teal objective",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.151,
+        "length": 0.016,
+        "sides": 12,
+        "axis": "z"
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.549
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "teal",
+      "materialColor": 4163980,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-optical-aperture",
+      "name": "dark central optical aperture",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.078,
+        "length": 0.009,
+        "sides": 12,
+        "axis": "z"
+      },
+      "transform": {
+        "position": [
+          -0.066,
+          0.066,
+          -0.564
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "dark",
+      "materialColor": 1583918,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-carrier-underbrace",
+      "name": "lower optical mounting bridge",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.48,
+          0.06,
+          0.22
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.064,
+          -0.252,
+          -0.391
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-carrier-left-bracket",
+      "name": "left optical retaining strut",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.065,
+          0.355,
+          0.19
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.368,
+          0.07,
+          -0.395
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-carrier-right-bracket",
+      "name": "right optical retaining strut",
+      "kind": "shape",
+      "parentId": "grp-1",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.067,
+          0.35,
+          0.19
+        ]
+      },
+      "transform": {
+        "position": [
+          0.236,
+          0.07,
+          -0.395
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-2",
+      "name": "CYCLOPS / SIDE FRAME",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-left-long-rail",
+      "name": "left exposed armor mounting rail",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.073,
+          0.076,
+          0.78
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.47,
+          -0.02,
+          0.066
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-right-long-rail",
+      "name": "right exposed armor mounting rail",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.074,
+          0.076,
+          0.78
+        ]
+      },
+      "transform": {
+        "position": [
+          0.47,
+          -0.025,
+          0.066
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-left-upper-strut",
+      "name": "left upper exoskeletal structure",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.08,
+          0.085,
+          0.68
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.448,
+          0.243,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-right-upper-strut",
+      "name": "right upper exoskeletal structure",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.08,
+          0.085,
+          0.68
+        ]
+      },
+      "transform": {
+        "position": [
+          0.448,
+          0.243,
+          0.1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-left-aft-post",
+      "name": "left rear structural upright",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.086,
+          0.54,
+          0.08
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.45,
+          -0.02,
+          0.38
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-right-aft-post",
+      "name": "right rear structural upright",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.086,
+          0.54,
+          0.08
+        ]
+      },
+      "transform": {
+        "position": [
+          0.45,
+          -0.02,
+          0.38
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-front-left-hardpoint",
+      "name": "left armor hardpoint",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.1,
+          0.1,
+          0.13
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.48,
+          -0.09,
+          -0.27
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 8094331,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-front-right-hardpoint",
+      "name": "right armor hardpoint",
+      "kind": "shape",
+      "parentId": "grp-2",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.1,
+          0.1,
+          0.13
+        ]
+      },
+      "transform": {
+        "position": [
+          0.48,
+          -0.09,
+          -0.27
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 8094331,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-3",
+      "name": "CYCLOPS / SIDE ACCESS",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-access-hatch",
+      "name": "large ochre pilot service hatch",
+      "kind": "shape",
+      "parentId": "grp-3",
+      "geometry": {
+        "type": "plate",
+        "profile": [
+          [
+            -0.29,
+            -0.205
+          ],
+          [
+            0.25,
+            -0.205
+          ],
+          [
+            0.285,
+            -0.16
+          ],
+          [
+            0.285,
+            0.19
+          ],
+          [
+            0.235,
+            0.235
+          ],
+          [
+            -0.27,
+            0.235
+          ]
+        ],
+        "depth": 0.034
+      },
+      "transform": {
+        "position": [
+          0.511,
+          -0.04,
+          0.095
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "ochre",
+      "materialColor": 11700793,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-hatch-hinge-upper",
+      "name": "service hatch upper hinge",
+      "kind": "shape",
+      "parentId": "grp-3",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.07,
+          0.075,
+          0.102
+        ]
+      },
+      "transform": {
+        "position": [
+          0.504,
+          0.135,
+          0.314
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 8094331,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-hatch-hinge-lower",
+      "name": "service hatch lower hinge",
+      "kind": "shape",
+      "parentId": "grp-3",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.07,
+          0.075,
+          0.102
+        ]
+      },
+      "transform": {
+        "position": [
+          0.504,
+          -0.198,
+          0.314
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 8094331,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-hatch-recess-latch",
+      "name": "large inset maintenance latch",
+      "kind": "shape",
+      "parentId": "grp-3",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.012,
+          0.073,
+          0.041
+        ]
+      },
+      "transform": {
+        "position": [
+          0.534,
+          -0.06,
+          -0.08
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-4",
+      "name": "CYCLOPS / REAR ELECTRONICS",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-rear-carrier",
+      "name": "rear equipment cage",
+      "kind": "shape",
+      "parentId": "grp-4",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.765,
+          0.46,
+          0.24
+        ],
+        "bevel": 0.054
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.045,
+          0.429
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-electronics-cassette",
+      "name": "teal rear service cassette",
+      "kind": "shape",
+      "parentId": "grp-4",
+      "geometry": {
+        "type": "chamfer",
+        "size": [
+          0.676,
+          0.368,
+          0.085
+        ],
+        "bevel": 0.036
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.045,
+          0.508
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "teal",
+      "materialColor": 4292481,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-rear-lock-rail",
+      "name": "rear service module lower lock rail",
+      "kind": "shape",
+      "parentId": "grp-4",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.67,
+          0.045,
+          0.095
+        ]
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.271,
+          0.485
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-5",
+      "name": "CYCLOPS / ROOF EQUIPMENT",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-roof-processor",
+      "name": "low roof electronics unit",
+      "kind": "shape",
+      "parentId": "grp-5",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.31,
+          0.148,
+          0.26
+        ]
+      },
+      "transform": {
+        "position": [
+          0.183,
+          0.343,
+          0.17
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 4278602,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-roof-processor-cap",
+      "name": "teal processor top lid",
+      "kind": "shape",
+      "parentId": "grp-5",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.288,
+          0.014,
+          0.234
+        ]
+      },
+      "transform": {
+        "position": [
+          0.183,
+          0.422,
+          0.17
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "teal",
+      "materialColor": 4292481,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-handle-left",
+      "name": "carrying handle left stem",
+      "kind": "shape",
+      "parentId": "grp-5",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.036,
+          0.123,
+          0.041
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.207,
+          0.382,
+          0.332
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-handle-right",
+      "name": "carrying handle right stem",
+      "kind": "shape",
+      "parentId": "grp-5",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.036,
+          0.123,
+          0.041
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.013,
+          0.382,
+          0.332
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-handle-crossbar",
+      "name": "carrying handle top crossbar",
+      "kind": "shape",
+      "parentId": "grp-5",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.231,
+          0.029,
+          0.044
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.11,
+          0.439,
+          0.332
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "grp-6",
+      "name": "CYCLOPS / MOUNTING CRADLE",
+      "kind": "group",
+      "parentId": "cyclops-master",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-contact-collar",
+      "name": "U1 machined contact ring",
+      "kind": "shape",
+      "parentId": "grp-6",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.198,
+        "length": 0.056,
+        "sides": 12,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.422,
+          0.045
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "bright",
+      "materialColor": 8094331,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-index-boss",
+      "name": "U1 inner index boss",
+      "kind": "shape",
+      "parentId": "grp-6",
+      "geometry": {
+        "type": "cylinder",
+        "radius": 0.122,
+        "length": 0.032,
+        "sides": 12,
+        "axis": "y"
+      },
+      "transform": {
+        "position": [
+          0,
+          -0.377,
+          0.045
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-lower-left-gusset",
+      "name": "underside left load gusset",
+      "kind": "shape",
+      "parentId": "grp-6",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.1,
+          0.094,
+          0.19
+        ]
+      },
+      "transform": {
+        "position": [
+          -0.25,
+          -0.339,
+          0.055
+        ],
+        "rotation": [
+          0,
+          0,
+          -0.26
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    },
+    {
+      "id": "c-lower-right-gusset",
+      "name": "underside right load gusset",
+      "kind": "shape",
+      "parentId": "grp-6",
+      "geometry": {
+        "type": "box",
+        "size": [
+          0.1,
+          0.094,
+          0.19
+        ]
+      },
+      "transform": {
+        "position": [
+          0.25,
+          -0.339,
+          0.055
+        ],
+        "rotation": [
+          0,
+          0,
+          0.26
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materialRole": "iron",
+      "materialColor": 3555137,
+      "visible": true,
+      "locked": false,
+      "mirrorOf": null
+    }
+  ],
+  "metadata": {
+    "definitionId": "cab-cyclops",
+    "reference": "2026-10-27 approved Cyclops 4-tier concept sheet",
+    "armorTier": 0,
+    "source": "cyclopsDesign.js",
+    "visualOnly": true,
+    "notes": "Editable visual draft; gameplay durability, collision and mass remain production-authoritative."
+  }
+}
