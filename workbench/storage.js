@@ -1,6 +1,6 @@
 /** IndexedDB-backed project and asset library. No career/test-yard storage keys. */
-const DB='m3ch4-workbench-v2',VER=1;
-const STORES=['projects','assets','images','settings'];
+const DB='m3ch4-workbench-v2',VER=2;
+const STORES=['projects','assets','images','settings','assetRevisions','projectCheckpoints'];
 let promise=null;
 function open(){
  if(!promise)promise=new Promise((resolve,reject)=>{
@@ -35,10 +35,52 @@ export async function saveProject(doc){
  await put('projects',record);await put('settings',{id:'lastProject',projectId:doc.id});return record;
 }
 export const lastProject=async()=>{const s=await get('settings','lastProject');return s?.projectId?get('projects',s.projectId):null;};
-export async function saveAsset(asset){
- const old=await get('assets',asset.id);
- const record={...structuredClone(asset),revision:(old?.revision||0)+1,updated:Date.now()};
- await put('assets',record);return record;
+/** Archive the prior asset in the SAME IndexedDB transaction as the replacement. */
+export async function saveAsset(asset,{keepRevision=true}={}){
+ const db=await open();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(['assets','assetRevisions'],'readwrite');
+  const assets=tx.objectStore('assets'),revisions=tx.objectStore('assetRevisions');
+  let record;
+  const req=assets.get(asset.id);
+  req.onsuccess=()=>{
+   const old=req.result;
+   if(old&&keepRevision){
+    revisions.put({id:asset.id+'@'+(old.revision||1),assetId:asset.id,
+     revision:old.revision||1,snapshot:structuredClone(old),savedAt:Date.now()});
+   }
+   record={...structuredClone(asset),revision:old&&keepRevision?(old.revision||1)+1:old?.revision||1,updated:Date.now()};
+   assets.put(record);
+  };
+  tx.oncomplete=()=>resolve(record);
+  tx.onerror=()=>reject(tx.error||Error('Asset revision write failed'));
+  tx.onabort=()=>reject(tx.error||Error('Asset revision aborted'));
+ });
+}
+export async function assetRevisionHistory(assetId){
+ const list=(await all('assetRevisions')).filter(item=>item.assetId===assetId);
+ return list.sort((a,b)=>b.revision-a.revision);
+}
+export async function restoreAssetRevision(assetId,historyId){
+ const record=await get('assetRevisions',historyId);
+ if(!record||record.assetId!==assetId)throw Error('Asset revision not found');
+ return saveAsset({...structuredClone(record.snapshot),id:assetId});
+}
+export async function saveProjectCheckpoint(doc,label){
+ const now=Date.now(),id=doc.id+'@'+now+'-'+Math.random().toString(36).slice(2,7);
+ const record={id,projectId:doc.id,label:String(label||'Checkpoint').slice(0,100),
+  savedAt:now,document:structuredClone(doc)};
+ await put('projectCheckpoints',record);return record;
+}
+export async function projectCheckpointHistory(projectId){
+ return (await all('projectCheckpoints')).filter(x=>x.projectId===projectId)
+  .sort((a,b)=>b.savedAt-a.savedAt);
+}
+export async function loadProjectCheckpoint(id){
+ const item=await get('projectCheckpoints',id);
+ if(!item)throw Error('Checkpoint missing');
+ const {validateDocument}=await import('./blueprint.js');
+ return validateDocument(item.document);
 }
 export async function importImage(file){
  if(!file||!file.type.startsWith('image/')||file.size>7e6)throw Error('Please use an image smaller than 7 MB.');
