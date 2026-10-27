@@ -6,6 +6,7 @@ import {freezeLogicalVertexGroups,deriveLogicalVertexGroups,meshAdjacency,insert
 import {meshPointGroups,updateMeshPoint} from '../workbench/editableMesh.js';
 import {transformMeshGroups} from '../workbench/vertexTransforms.js';
 import {moveLoftControls} from '../workbench/loftTransforms.js';
+import {bakeXReflection} from '../workbench/mirrorGeometry.js';
 
 test('cancelled transaction restores a validated document without mutating initial',()=>{
  const d=addNode(createDocument('Fixture'),newShape('box'));
@@ -50,4 +51,16 @@ test('loft inserts at chosen interval and group move updates shared section only
  assert.equal(moved.sections[2].width,Number((before.sections[2].width-.02).toFixed(5)));
  assert.deepEqual(loft,before);
  assert.throws(()=>moveLoftControls(loft,[{kind:'front',index:2}],{delta:[0,-.3,0]}),/ascend/);
+});
+
+test('mirror unlink bakes reflected profile and reverses mesh winding',()=>{
+ const profile=defaultGeometry('plate');profile.profile[0][0]-=.03;
+ const inverted=bakeXReflection(profile);
+ assert.equal(inverted.profile.length,profile.profile.length);
+ assert.equal(Math.min(...inverted.profile.map(p=>p[0])),-Math.max(...profile.profile.map(p=>p[0])));
+ const mesh={type:'mesh',positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2],
+  normals:[0,0,1,0,0,1,0,0,1]};
+ const m=bakeXReflection(mesh);assert.deepEqual(m.indices,[0,2,1]);
+ assert.deepEqual(m.positions,[0,0,0,-1,0,0,0,1,0]);
+ assert.deepEqual(mesh.indices,[0,1,2]);
 });
