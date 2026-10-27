@@ -19,7 +19,7 @@ test('authored Yardwalker JSON is single source for runtime and four exact Workb
   const generated=JSON.stringify(makeYardwalkerWorkbenchAsset(tier),null,2)+'\n';
   assert.equal(source(name),generated,'stale '+name);
   const a=JSON.parse(generated),shapes=a.nodes.filter(n=>n.kind==='shape');
-  assert.equal(shapes.length,34+[0,4,6,8][tier]);
+  assert.equal(shapes.length,38+[0,4,6,8][tier]);
   assert.deepEqual(shapes.filter(n=>!n.armorPlateId).map(n=>n.id),
     YARDWALKER_DESIGN.core.map(n=>'yw-'+n.id));
   assert.equal(a.nodes.filter(n=>n.kind==='anchor').length,8);
