@@ -1145,6 +1145,30 @@ function finishGizmoDrag(e){
  drag=null;doc=before;commit(after,selection,'Updated part directly on the model.');
 }
 
+function shapePointHandles(g,whichView=view){
+ if(g.type==='mesh')return meshPointGroups(g).map((pt,i)=>({
+  pos:new THREE.Vector3(...pt.position),kind:'factory-mesh',index:i}));
+ if(g.profile&&(whichView==='front'||whichView==='quarter'))
+  return g.profile.map((pt,i)=>({pos:new THREE.Vector3(pt[0],pt[1],0),kind:'profile',index:i}));
+ const handles=[];
+ if(g.sections)g.sections.forEach((sec,i)=>{
+  if(whichView==='quarter'){
+   handles.push({pos:new THREE.Vector3(-sec.width/2,sec.y,sec.front),kind:'width',index:i});
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.front),kind:'front',index:i});
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.back),kind:'back',index:i});
+  }else if(whichView==='front'){
+   handles.push({pos:new THREE.Vector3(-sec.width/2,sec.y,sec.front),kind:'width',index:i});
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.front),kind:'width',index:i});
+  }else if(whichView==='side'||whichView==='left'){
+   handles.push({pos:new THREE.Vector3(0,sec.y,sec.front),kind:'front',index:i});
+   handles.push({pos:new THREE.Vector3(0,sec.y,sec.back),kind:'back',index:i});
+  }else if(whichView==='top'){
+   handles.push({pos:new THREE.Vector3(sec.width/2,sec.y,sec.front),kind:'topWidth',index:i});
+   handles.push({pos:new THREE.Vector3(-sec.width/2,sec.y,sec.back),kind:'topBack',index:i});
+  }
+ });
+ return handles;
+}
 function drawOverlay(){
  if(!camera)return;
  const w=stage.clientWidth,h=stage.clientHeight;
@@ -1169,34 +1193,16 @@ function drawOverlay(){
  drawSelectionAndGizmos(obj,n);
  if(n.kind!=='shape')return;
  const g=n.mirrorOf?doc.nodes.find(s=>s.id===n.mirrorOf).geometry:n.geometry;
- const handles=[];
- if(tool==='points'&&!n.locked&&!n.mirrorOf&&!navigating){
-  if(g.profile&&(view==='front'||view==='quarter'))
-   g.profile.forEach((p,i)=>handles.push({pos:new THREE.Vector3(p[0],p[1],0),kind:'profile',index:i}));
-  if(g.type==='mesh'){
-   const page=meshPointPage(g,meshPointPageIndex);
-   page.points.forEach(point=>handles.push({
-    pos:new THREE.Vector3(...point.position),kind:'factory-mesh',index:point.index
-   }));
-  }
-  if(g.sections){
-   g.sections.forEach((s,i)=>{
-    if(view==='quarter'){
-     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,s.front),kind:'width',index:i});
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.front),kind:'front',index:i});
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.back),kind:'back',index:i});
-    }else if(view==='front'){
-     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,0),kind:'width',index:i});
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,0),kind:'width',index:i});
-    }else if(view==='side'){
-     handles.push({pos:new THREE.Vector3(0,s.y,s.front),kind:'front',index:i});
-     handles.push({pos:new THREE.Vector3(0,s.y,s.back),kind:'back',index:i});
-    }else if(view==='top'){
-     handles.push({pos:new THREE.Vector3(s.width/2,s.y,s.front),kind:'topWidth',index:i});
-     handles.push({pos:new THREE.Vector3(-s.width/2,s.y,s.back),kind:'topBack',index:i});
-    }
-   });
-  }
+ const allHandles=tool==='points'&&!n.locked&&!n.mirrorOf&&!navigating?
+  shapePointHandles(g,view):[];
+ const handles=[],cells=new Set();
+ for(const entry of allHandles){
+  const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||
+   p.x< -12||p.x>stage.clientWidth+12||p.y< -12||p.y>stage.clientHeight+12)continue;
+  if(selectedPoints.has(pointKey(entry))){handles.push(entry);continue;}
+  const cell=Math.floor(p.x/12)+':'+Math.floor(p.y/12);
+  if(!cells.has(cell)&&cells.size<450){cells.add(cell);handles.push(entry);}
  }
  for(const entry of handles){
   const world=obj.localToWorld(entry.pos.clone()),p=projected(world);
@@ -1311,12 +1317,9 @@ function getSelectionCandidates(){
  const n=node(),obj=compiled?.objects.get(selected);
  if(!n||n.kind!=='shape'||!obj||n.locked||n.mirrorOf)return [];
  const g=n.geometry;
- const entries=g.type==='mesh'?meshPointGroups(g).map((v,i)=>({kind:'factory-mesh',index:i,pos:v.position})):
-  g.profile?g.profile.map((v,i)=>({kind:'profile',index:i,pos:[v[0],v[1],0]})):
-  (g.sections||[]).flatMap((v,i)=>[
-   {kind:'width',index:i,pos:[-v.width/2,v.y,v.front]},
-   {kind:'front',index:i,pos:[v.width/2,v.y,v.front]},
-   {kind:'back',index:i,pos:[v.width/2,v.y,v.back]}]);
+ const entries=shapePointHandles(g,view).map(h=>({
+  kind:h.kind,index:h.index,pos:h.pos.toArray()
+ }));
  obj.updateMatrixWorld(true);
  return entries.map(p=>{
   const world=obj.localToWorld(new THREE.Vector3(...p.pos));
