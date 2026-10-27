@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#202b25"><title>M3CH4 / Part Workbench V2</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
-<link rel="stylesheet" href="./partWorkbenchV2.css?v=workbench31g"></head>
+<link rel="stylesheet" href="./partWorkbenchV2.css?v=workbench31h"></head>
 <body>
 <header class="workbench-head">
  <a id="return-to-game" class="icon-button" href="./index.html" aria-label="Back to live game" title="Back to game">←</a>
@@ -75,7 +75,7 @@
   </div>
   <div class="view-modes"><span>DISPLAY</span><button id="display-solid" class="active">SOLID</button><button id="display-wire">WIRE</button><button id="display-xray">X-RAY</button></div>
   <div class="view-modes"><span>SELECT</span><button id="depth-visible" class="active">VISIBLE</button><button id="depth-through">THROUGH</button></div>
-  <div id="geometry-audit" class="audit-summary"></div>
+  <div id="geometry-audit" class="audit-summary"></div><button id="run-geometry-audit" title="Inspect triangle topology, boundaries and separate geometry islands">CHECK SELECTED MESH</button>
   <div id="point-controls" hidden>
    <div id="point-axis-controls"></div>
    <small class="point-guide">Tap or box-select points; drag the group or use relative X / Y / Z offsets. 1 unit = 1 metre.</small>
@@ -171,5 +171,5 @@
  </div>
 </section>
 </main>
-<script type="module" src="./partWorkbenchV2.js?v=workbench31g"></script>
+<script type="module" src="./partWorkbenchV2.js?v=workbench31h"></script>
 </body></html>
