@@ -8,7 +8,7 @@
  * instancing, and on the actual solids used by the firing raycaster.
  */
 import * as THREE from 'three';
-import {collisionPieces,COMPOUND_FAMILY_IDS} from './backlotCompoundGeometry.js';
+import {collisionPieces,COMPOUND_FAMILY_IDS,hasLiveCompoundPieces} from './backlotCompoundGeometry.js';
 
 const SECONDARY=/^secondary-(?:trailer-|fuel-counter-|mechanic-|working-grain-|power-pole-|derby-gate|hog-pen-)/;
 const EPS=.035,SAFE_MARGIN=.65;
@@ -41,7 +41,7 @@ export function secondaryGeometryClearance(root,world,{margin=SAFE_MARGIN}={}){
     ...bad.map(item=>item.id+' intersects or approaches the playable yard')],
   items});
 }
-export function auditBacklotCollisionTruth(root,world,solids){
+export function auditBacklotCollisionTruth(root,world,solids,visibleSources=new Map()){
  const secondary=secondaryGeometryClearance(root,world);
  const parents=new Map((world.obstacles||[]).map(o=>[o.id,o]));
  const expectedParts=new Map();
@@ -52,6 +52,25 @@ export function auditBacklotCollisionTruth(root,world,solids){
  }
  const hits=new Map();
  const errors=[...secondary.errors];
+ for(const o of parents.values())if(COMPOUND_FAMILY_IDS.includes(o.id)&&
+    !hasLiveCompoundPieces(o))errors.push('No real visible-metal fit '+o.id);
+ // Compare independently against each real transformed structural mesh.
+ // This catches model movement/scale drift, not just collider self-consistency.
+ for(const [key,nodes] of visibleSources){
+  const entry=expectedParts.get(key);
+  if(!entry){errors.push('Unknown visible part '+key);continue;}
+  const actual=new THREE.Box3();
+  for(const node of nodes)actual.union(new THREE.Box3().setFromObject(node));
+  const p=entry.part;
+  for(const [have,want,axis] of [
+   [actual.min.x,p.minX,'minX'],[actual.max.x,p.maxX,'maxX'],
+   [actual.min.y,p.minY,'minY'],[actual.max.y,p.maxY,'maxY'],
+   [actual.min.z,p.minZ,'minZ'],[actual.max.z,p.maxZ,'maxZ']])
+   if(Math.abs(have-want)>EPS)
+    errors.push(key+' visible steel differs from hit prism '+axis);
+ }
+ for(const key of expectedParts.keys())if(key.includes('::')&&!visibleSources.has(key))
+  errors.push('Unwitnessed compound collider '+key);
  for(const solid of solids||[]){
   const id=solid.userData?.arenaObstacleId;
   if(!id||id==='floor')continue;
@@ -86,6 +105,7 @@ export function auditBacklotCollisionTruth(root,world,solids){
   pass:errors.length===0,
   gameplayObstacleCount:parents.size,
   compoundFamilyCount:COMPOUND_FAMILY_IDS.length,
+  visuallyCertifiedParts:visibleSources.size,
   expectedPhysicalParts:expectedParts.size,
   authoritativeRaycastSolids:[...hits.values()].reduce((a,b)=>a+b,0),
   uncollidableOffsiteAssets:secondary.count,
