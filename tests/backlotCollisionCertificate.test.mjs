@@ -33,6 +33,7 @@ test('every LIVE raycast solid is independently compared to the authored gamepla
  assert.match(cert,/expectedParts=new Map/);
  assert.match(cert,/authoritativeRaycastSolids/);
  assert.match(cert,/visible steel differs from hit prism/);
+ assert.match(cert,/Live model combat\/route regression/);
 });
 test("the gallery\u0027s fourteen hollow mechanical prototypes are NOT deceptively certified as solid",()=>{
  assert.match(cert,/currentPolicy:'tractor-and-loader-compound-live/);
