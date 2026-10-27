@@ -1,0 +1,43 @@
+name: Cyclops Concept Reconstruction
+on:
+  pull_request:
+    paths:
+      - 'cyclopsDesign.js'
+      - 'cyclopsWorkbenchExport.js'
+      - 'cyclopsVisual.js'
+      - 'armorPrototype.js'
+      - 'workbench-assets/cyclops/**'
+      - 'research/exportCyclopsWorkbench.mjs'
+      - 'research/cyclopsConceptBrowserAudit.mjs'
+      - 'tests/cyclopsConcept.test.mjs'
+      - '.github/workflows/cyclops-concept-ci.yml'
+  workflow_dispatch:
+jobs:
+  concept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate JSON freshness, silhouette envelopes and current systems
+        run: |
+          node research/exportCyclopsWorkbench.mjs --check
+          node --test tests/cyclopsConcept.test.mjs tests/k3yCommandCabAnatomy.test.mjs tests/k5t1ArmorLab.test.mjs tests/k5t3ArmorSilhouette.test.mjs tests/k5t4ArmorDesign.test.mjs
+      - name: Install actual Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve same modules as live game
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/cyclops-http.log 2>&1 &
+          sleep 2
+      - name: Capture all four armor levels
+        run: node research/cyclopsConceptBrowserAudit.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cyclops-four-tier-visual-audit
+          path: cyclops-concept-artifacts/
+          if-no-files-found: warn
