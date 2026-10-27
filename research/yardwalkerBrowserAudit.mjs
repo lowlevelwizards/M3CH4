@@ -59,6 +59,18 @@ try{
       j.Ankle.rotation.set(pose.ankle,0,0);
     }
     root.updateMatrixWorld(true);
+    // Fixed hip shells must not overlap the moving thigh shells in any
+    // representative real gait pose (including forward lean and hip roll).
+    if(tier>=2){
+      for(const side of axes){
+        const hip=specimen.plates.get('yard-'+side+'-hip').mesh;
+        const thigh=specimen.plates.get('yard-'+side+'-thigh').mesh;
+        const fixedBox=new THREE.Box3().setFromObject(hip);
+        const movingBox=new THREE.Box3().setFromObject(thigh);
+        if(fixedBox.intersectsBox(movingBox))
+          throw Error('Hip shell intersects moving thigh at '+pose.name+' / '+side+' / tier '+tier);
+      }
+    }
     const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3());
     if([size.x,size.y,size.z].some(x=>!Number.isFinite(x)||x<.1))
       throw Error('Invalid Yardwalker bounds on '+pose.name);
