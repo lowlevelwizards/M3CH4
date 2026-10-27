@@ -893,8 +893,8 @@ for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{
 $('zoom-in').onclick=()=>cameraZoom(.8);
 $('zoom-out').onclick=()=>cameraZoom(1.25);
 $('fit-all').onclick=()=>{fitSelected('root');requestDraw();};
-$('point-tap').onclick=()=>{pointPick='tap';updateContextPanel();};
-$('point-box').onclick=()=>{pointPick='box';updateContextPanel();};
+$('point-tap').onclick=()=>{pointPick='tap';updateContextPanel();requestDraw();};
+$('point-box').onclick=()=>{pointPick='box';updateContextPanel();requestDraw();};
 $('select-add').onclick=()=>{selectionOp=selectionOp==='add'?'replace':'add';updateContextPanel();};
 $('select-subtract').onclick=()=>{selectionOp=selectionOp==='subtract'?'replace':'subtract';updateContextPanel();};
 $('clear-point-selection').onclick=()=>{clearPoint();requestDraw();};
