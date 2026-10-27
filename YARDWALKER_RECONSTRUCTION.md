@@ -45,14 +45,14 @@ the shared master JSON; V1 edits no longer affect it.
 
 ## Anatomy and deliberate simplification
 
-The Naked core consists of 34 large shapes across both articulated legs.
+The Naked core consists of 38 large shapes across both articulated legs.
 Each thigh and shin now has just one primary tapered load-bearing component,
 a distinct knee bearing and broad, integrated work boot. The hydraulic-look
-pressure cylinder and rod are attached to the same moving upper-leg assembly;
+pressure cylinder and rod have two simple attachment lugs and are attached to the same moving upper-leg assembly;
 they are not a simulated piston crossing two moving joints. Thus they cannot
 pop apart under the existing game's IK, and no fake physics is introduced.
 
-Configured shapes: 34 / 38 / 40 / 42 (tiers 0 / 1 / 2 / 3).
+Configured shapes: 38 / 42 / 44 / 46 (tiers 0 / 1 / 2 / 3).
 Armor identities: 0 / 4 / 6 / 8, with stronger tier geometry **replacing**
 earlier shell profiles. Parent carriage for stationary hip guards, moving
 hip for thigh armor, moving knee for shin and calf coverage. The joints
