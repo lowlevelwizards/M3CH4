@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createDocument,newShape,addNode,clone,defaultGeometry} from '../workbench/blueprint.js';
+import {createEditTransaction} from '../workbench/editTransactions.js';
+import {freezeLogicalVertexGroups,deriveLogicalVertexGroups,meshAdjacency,insertProfilePoint,insertLoftSection} from '../workbench/meshTopology.js';
+import {meshPointGroups,updateMeshPoint} from '../workbench/editableMesh.js';
+import {transformMeshGroups} from '../workbench/vertexTransforms.js';
+import {moveLoftControls} from '../workbench/loftTransforms.js';
+
+test('cancelled transaction restores a validated document without mutating initial',()=>{
+ const d=addNode(createDocument('Fixture'),newShape('box'));
+ const session=createEditTransaction(d,'Drag');
+ const changed=clone(d);changed.nodes[1].transform.position[0]=1;
+ session.update(changed);const original=session.cancel();
+ assert.deepEqual(original,d);assert.deepEqual(d.nodes[1].transform.position,[0,0,0]);
+ assert.throws(()=>session.commit(),/already cancelled/);
+});
+test('transaction commits one valid complete snapshot',()=>{
+ const d=addNode(createDocument('Fixture'),newShape('box'));
+ const transaction=createEditTransaction(d);const edited=clone(d);
+ edited.nodes[1].transform.scale=[1.5,1,1];transaction.update(edited);
+ assert.deepEqual(transaction.commit().nodes[1].transform.scale,[1.5,1,1]);
+ assert.throws(()=>transaction.update(edited),/already committed/);
+});
+test('stable vertex groups stay numbered when coincident points move away',()=>{
+ const mesh={type:'mesh',positions:[0,0,0,1,0,0,0,1,0,0,0,0,1,0,0,0,1,1],indices:[0,1,2,3,4,5]};
+ const snap=freezeLogicalVertexGroups(mesh),count=meshPointGroups(snap).length;
+ assert.equal(count,4);
+ const displaced=updateMeshPoint(snap,0,[.4,.3,0]);
+ assert.equal(meshPointGroups(displaced).length,count);
+ assert.deepEqual(meshPointGroups(displaced)[0].indices,[0,3]);
+ assert.deepEqual(snap.positions,mesh.positions);
+ assert.throws(()=>freezeLogicalVertexGroups({...mesh,pointGroups:[[0],[0,1,2,3,4,5]]}),/Overlapping/);
+ const grouped=transformMeshGroups(mesh,[0],{delta:[.2,0,0]});
+ assert.deepEqual(grouped.pointGroups[0],[0,3]);
+});
+test('edge topology and contextual profile insertion validate',()=>{
+ const mesh={type:'mesh',positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]};
+ assert.equal(meshAdjacency(mesh).edges.length,3);
+ const profile=defaultGeometry('plate'),next=insertProfilePoint(profile,1,.25);
+ assert.equal(next.profile.length,5);assert.equal(profile.profile.length,4);
+ assert.throws(()=>insertProfilePoint(profile,99),/Invalid/);
+});
+test('loft inserts at chosen interval and group move updates shared section only once',()=>{
+ const loft=defaultGeometry('loft');const inserted=insertLoftSection(loft,1);
+ assert.equal(inserted.sections.length,5);assert.equal(loft.sections.length,4);
+ const before=clone(loft);
+ const moved=moveLoftControls(loft,[{kind:'front',index:2},{kind:'back',index:2},{kind:'width',index:2}],{delta:[.01,.02,.01]});
+ assert.equal(moved.sections[2].y,Number((before.sections[2].y+.02).toFixed(5)));
+ assert.equal(moved.sections[2].width,Number((before.sections[2].width-.02).toFixed(5)));
+ assert.deepEqual(loft,before);
+ assert.throws(()=>moveLoftControls(loft,[{kind:'front',index:2}],{delta:[0,-.3,0]}),/ascend/);
+});
