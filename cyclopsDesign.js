@@ -931,7 +931,7 @@ export const CYCLOPS_CORE = Object.freeze([
     },
     "position": [
       -0.11,
-      0.439,
+      0.434,
       0.332
     ],
     "rotation": [
