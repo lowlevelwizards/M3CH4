@@ -1248,11 +1248,11 @@ function drawTopologyHandles(geometry,obj){
    handle=svgNode('polygon',{points:pts.map(p=>p.x+','+p.y).join(' '),
     fill:selectedElement?'#e8af65':'#b7d5b0','fill-opacity':selectedElement?.35:.08,
     stroke:selectedElement?'#ffe2a2':'#b6c2ad','stroke-opacity':selectedElement?.9:.4,
-    'stroke-width':selectedElement?2:1,'pointer-events':'all'});
+    'stroke-width':selectedElement?2:1,'pointer-events':pointPick==='box'?'none':'all'});
   }else{
    handle=svgNode('line',{x1:pts[0].x,y1:pts[0].y,x2:pts[1].x,y2:pts[1].y,
     stroke:selectedElement?'#ffd893':'#aac9b2','stroke-opacity':selectedElement?.95:.4,
-    'stroke-width':selectedElement?9:7,'stroke-linecap':'round','pointer-events':'stroke'});
+    'stroke-width':selectedElement?9:7,'stroke-linecap':'round','pointer-events':pointPick==='box'?'none':'stroke'});
   }
   if(pointPick==='box')continue;
   handle.addEventListener('pointerdown',e=>{
@@ -1432,6 +1432,24 @@ function getSelectionCandidates(){
 }
 function finishMarquee(){
  if(!marquee)return;
+ if(editingLevel!=='point'){
+  const obj=compiled?.objects.get(selected),n=node();
+  if(!obj||!n||n.kind!=='shape')return void (marquee=null);
+  const rect=rectFromPoints(marquee.start,marquee.end);
+  const hits=editingElements(n.geometry).filter(element=>{
+   const world=obj.localToWorld(new THREE.Vector3(...element.center));
+   const p=world.clone().project(camera),screenX=(p.x+1)*stage.clientWidth/2,screenY=(1-p.y)*stage.clientHeight/2;
+   if(p.z< -1||p.z>1||screenX<rect.left||screenX>rect.right||screenY<rect.top||screenY>rect.bottom)return false;
+   if(pointDepth==='through')return true;
+   raycaster.setFromCamera(new THREE.Vector2(p.x,p.y),camera);
+   const first=raycaster.intersectObject(obj,false)[0];
+   return !first||first.distance>=camera.position.distanceTo(world)-.025;
+  });
+  selectedPoints=modifyElementVertexSelection(selectedPoints,hits,{operation:selectionOp});
+  const first=[...selectedPoints][0];activePoint=first?{nodeId:selected,...parsePointKey(first)}:null;
+  marquee=null;updateContextPanel();requestDraw();message(selectedPoints.size+' vertices selected via '+editingLevel+'.');
+  return;
+ }
  const rect=rectFromPoints(marquee.start,marquee.end);
  const candidates=getSelectionCandidates().filter(p=>p.x>=rect.left&&p.x<=rect.right&&p.y>=rect.top&&p.y<=rect.bottom&&p.inFrustum);
  const obj=compiled?.objects.get(selected);
