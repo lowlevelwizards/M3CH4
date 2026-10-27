@@ -1,30 +1,63 @@
-/** CYCLOPS / compact salvaged single-optic operator cell. */
+/** Cyclops / concept reconstruction. One authoritative geometry description is used by
+ * the factory model, Armor Lab, and exported Workbench JSON. -Z forward, metres.
+ * The eye remains a 'square structural optical carrier' containing one
+ * 'single protected teal objective'. All shapes are simple flat-shaded geometry.
+ */
 import * as THREE from 'three';
-import {groupAt,block,chamferBlock,disk,beamBetween,mountCollar,finishCommandVisual} from './commandVisualKit.js';
+import {compileGeometry} from './workbench/geometry.js';
+import {CYCLOPS_CORE,CYCLOPS_ARMOR,CYCLOPS_GROUPS} from './cyclopsDesign.js';
+import {partMaterial} from './partMaterialPalette.js';
+import {finishCommandVisual} from './commandVisualKit.js';
+
+const materialName=Object.freeze({
+ iron:'structure',loadSteel:'loadSteel',ochre:'mustard',cream:'cream',
+ teal:'teal',optic:'optic',opticRecess:'opticalRecess',recess:'darkMechanism',
+ glass:'glazing',raw:'rawSteel',bright:'machined'
+});
+function makeShape(spec,{ownedMaterial=false}={}){
+ const mat=partMaterial(materialName[spec.material]||'structure');
+ const mesh=new THREE.Mesh(compileGeometry(spec.geometry),
+   ownedMaterial?mat.clone():mat);
+ mesh.name=spec.name;
+ mesh.position.set(...spec.position);
+ mesh.rotation.set(...spec.rotation);
+ mesh.castShadow=true;
+ mesh.receiveShadow=true;
+ mesh.userData.materialRole=mat.userData.materialRole;
+ mesh.userData.cyclopsElementId=spec.id;
+ return mesh;
+}
+function ensureGroup(root,name){
+ let group=root.children.find(x=>x.isGroup&&x.name===name);
+ if(!group){group=new THREE.Group();group.name=name;root.add(group);}
+ return group;
+}
 export function buildCyclopsVisual(fixture){
-    const root=new THREE.Group();root.name='fit-fixture:cab-cyclops';
-    const body=groupAt(root,'CYCLOPS / PILOT CELL');
-    chamferBlock(body,'dark occupied operator tub',[0,-.055,.080],[.96,.67,.82],'iron',.085);
-    chamferBlock(body,'mustard central outer casing',[0,-.035,-.055],[.82,.58,.68],'ochre',.10);
-    block(body,'steel lower pressure sill',[0,-.319,.045],[.88,.105,.68],'raw');
-    const optics=groupAt(root,'CYCLOPS / OPTIC ASSEMBLY');
-    chamferBlock(optics,'square structural optical carrier',[-.06,.072,-.427],[.57,.55,.132],'iron',.085);
-    block(optics,'recessed square optical well',[-.06,.072,-.500],[.451,.43,.012],'opticRecess');
-    disk(optics,'outer machined circular bezel',[-.06,.072,-.512],.235,.047,'bright');
-    disk(optics,'dark recessed lens surround',[-.06,.072,-.541],.195,.017,'opticRecess');
-    disk(optics,'single protected teal objective',[-.06,.072,-.555],.163,.013,'optic');
-    disk(optics,'inner optical aperture',[-.06,.072,-.566],.091,.007,'glass');
-    const cheeks=groupAt(root,'CYCLOPS / DETACHABLE CHEEKS');
-    chamferBlock(cheeks,'right cream service armor',[.505,-.020,.054],[.195,.535,.65],'cream',.16);
-    chamferBlock(cheeks,'left compact guard',[-.508,-.075,.065],[.142,.445,.49],'cream',.16);
-    const rear=groupAt(root,'CYCLOPS / REAR MACHINERY');
-    chamferBlock(rear,'teal rear service enclosure',[0,-.013,.400],[.69,.425,.29],'teal',.07);
-    block(rear,'low roof electronics housing',[.16,.355,.177],[.32,.13,.235],'loadSteel');
-    block(rear,'roof equipment cover',[.16,.421,.177],[.28,.014,.22],'teal');
-    // A tiny welded carrying handle lies inside the specified envelope.
-    beamBetween(rear,'rear lift handle left',[-.20,.318,.38],[-.20,.420,.38],.026,.035,'iron');
-    beamBetween(rear,'rear lift handle right',[.02,.318,.38],[.02,.420,.38],.026,.035,'iron');
-    block(rear,'rear lift grip',[-.09,.426,.38],[.245,.025,.038],'iron');
-    mountCollar(root,fixture.envelope[1],.20);
-    return finishCommandVisual(root,fixture,'square optical workhorse');
+ const root=new THREE.Group();
+ root.name='fit-fixture:cab-cyclops';
+ for(const s of CYCLOPS_CORE){
+   const group=ensureGroup(root,CYCLOPS_GROUPS[s.group]||s.group);
+   group.add(makeShape(s));
+ }
+ return finishCommandVisual(root,fixture,'square optical workhorse');
+}
+/** Armor Lab only. Every removable panel is one independently pickable mesh.
+ * Tier-specific geometry REPLACES the earlier version of the same armor plate,
+ * rather than stacking overlapping shells at levels 2 and 3.
+ */
+export function buildCyclopsArmorPlate(root,entry,tier){
+ const design=CYCLOPS_ARMOR[entry.id];
+ if(!design)throw Error('Unknown Cyclops armor plate: '+entry.id);
+ const variant=[...design.variants].reverse().find(v=>v.level<=tier);
+ if(!variant)throw Error('Cyclops plate not present at tier '+tier+': '+entry.id);
+ const mesh=makeShape({
+   id:entry.id,name:'REMOVABLE ARMOR / '+entry.label,material:design.material,
+   geometry:variant.geo,position:variant.pos,rotation:variant.rot
+ },{ownedMaterial:true});
+ mesh.userData.armorPlateId=entry.id;
+ mesh.userData.armorRegion=entry.region;
+ mesh.userData.armorMaximum=entry.hp;
+ mesh.userData.armorBaseColor=mesh.material.color.getHex();
+ ensureGroup(root,design.group).add(mesh);
+ return mesh;
 }
