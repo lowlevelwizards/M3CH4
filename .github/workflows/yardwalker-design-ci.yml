@@ -14,6 +14,7 @@ on:
       - 'partWorkbench.js'
       - 'part-workbench.html'
       - 'tests/yardwalkerRedesign.test.mjs'
+      - 'tests/yardwalkerV3Linkage.test.mjs'
       - 'tests/yardwalkerV2Geometry.test.mjs'
       - 'tests/yardwalkerV2Surfaces.test.mjs'
       - 'tests/partWorkbenchRecipe.test.mjs'
@@ -33,7 +34,7 @@ jobs:
       - name: Validate canonical source and existing mobility + armor regression tests
         run: |
           node research/exportYardwalkerDesign.mjs --check
-          node --test tests/yardwalkerV2Surfaces.test.mjs tests/yardwalkerV2Geometry.test.mjs tests/yardwalkerRedesign.test.mjs tests/k5t1ArmorLab.test.mjs tests/k5t3ArmorSilhouette.test.mjs tests/k5t4ArmorDesign.test.mjs tests/partWorkbenchRecipe.test.mjs tests/k3v2Mobility.test.mjs
+          node --test tests/yardwalkerV3Linkage.test.mjs tests/yardwalkerV2Surfaces.test.mjs tests/yardwalkerV2Geometry.test.mjs tests/yardwalkerRedesign.test.mjs tests/k5t1ArmorLab.test.mjs tests/k5t3ArmorSilhouette.test.mjs tests/k5t4ArmorDesign.test.mjs tests/partWorkbenchRecipe.test.mjs tests/k3v2Mobility.test.mjs
       - name: Install Chromium
         run: |
           npm install --no-save --no-package-lock playwright
