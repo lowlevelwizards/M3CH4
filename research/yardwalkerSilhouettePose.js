@@ -10,8 +10,10 @@ export const POSE_MODES=Object.freeze([
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const length=(a,b)=>Math.hypot(a[1]-b[1],a[2]-b[2]);
 const distance2=(a,b)=>(a[1]-b[1])**2+(a[2]-b[2])**2;
-export function sagittalKnee(hip,ankle,restKnee){
- const upper=length(hip,restKnee),lower=length(restKnee,ankle);
+export function sagittalKnee(hip,ankle,restKnee,restAnkle=ankle){
+ // Fixed bone lengths must come from the ORIGINAL resting geometry. Using the
+ // moving ankle here would silently stretch the shin through each step.
+ const upper=length(hip,restKnee),lower=length(restKnee,restAnkle);
  const yzDistance=Math.hypot(ankle[1]-hip[1],ankle[2]-hip[2]);
  const goal=Math.min(upper+lower-1e-5,Math.max(Math.abs(upper-lower)+1e-5,yzDistance));
  const dy=(ankle[1]-hip[1])/(yzDistance||1),dz=(ankle[2]-hip[2])/(yzDistance||1);
@@ -51,7 +53,7 @@ export function sampleStudyPose(params,mode='neutral',phase=0){
   ankle[2]+=stepZ;
   const result=mode==='neutral'
    ?{knee:[...leg.knee],reachLimited:false}
-   :sagittalKnee(hip,ankle,leg.knee);
+   :sagittalKnee(hip,ankle,leg.knee,leg.ankle);
   return {side:leg.side,hip,knee:result.knee,ankle,footPitch,
    footLift:lift,footTravel:stepZ,planted,reachLimited:result.reachLimited};
  });
