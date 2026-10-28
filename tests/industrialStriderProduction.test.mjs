@@ -21,7 +21,7 @@ test('production joint hierarchy retains all four live animation joints and U1 b
  const source=readFileSync(new URL('../yardwalkerStriderVisual.js',import.meta.url),'utf8');
  for(const joint of ['hip','knee','ankle','foot']){
   assert.match(source,new RegExp("joint,side:leg.side,restPose:0"));
-  assert.match(source,new RegExp("side+'"+joint[0].toUpperCase()+joint.slice(1)+"'"));
+  assert.ok(source.includes("side+'"+joint[0].toUpperCase()+joint.slice(1)+"'"));
  }
  const p=deriveSilhouette(candidateById('strider'));
  assert.deepEqual(p.mount,YARDWALKER_LAYOUT.mountingFace);
