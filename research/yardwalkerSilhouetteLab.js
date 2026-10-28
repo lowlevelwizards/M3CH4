@@ -9,12 +9,14 @@ import {candidateById,SILHOUETTE_PRESETS,TUNABLES,deriveSilhouette,clampParamete
   from './yardwalkerSilhouetteDesign.js';
 import {createSilhouetteMachine} from './yardwalkerSilhouetteGeometry.js';
 import {ARMOR_LEVELS,normalizeArmor} from './yardwalkerSilhouetteArmor.js';
+import {POSE_MODES,sampleStudyPose} from './yardwalkerSilhouettePose.js';
 
 const $=id=>document.getElementById(id);
 const stage=$('stage'),panels=$('panels'),canvas=$('scene');
 const state={selected:'strider',focus:window.innerWidth<761,fullRig:true,black:false,
  view:'quarter',arena:false,zoom:1,yaw:.65,pitch:.22,
  armorTier:0,armorStyle:'box',bootPlate:true,
+ poseMode:'neutral',posePaused:false,walkPhase:0,walkSpeed:1,previousFrame:0,
  configs:Object.fromEntries(SILHOUETTE_PRESETS.map(p=>[p.id,candidateById(p.id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33473b);
 scene.add(new THREE.HemisphereLight(0xe9e1cb,0x33483e,2.0));
@@ -51,8 +53,59 @@ for(const preset of SILHOUETTE_PRESETS){
  mobilityGroup.add(study.root);
  root.visible=false;scene.add(root);
  const torso=root.getObjectByName(initial.partGroups.get('structure').name);
- rigs.set(preset.id,{root,mobilityGroup,torso,study});
+ rigs.set(preset.id,{root,mobilityGroup,torso,study,baseY:root.position.y,pose:null});
 }
+const UP=new THREE.Vector3(0,1,0);
+const vec=a=>new THREE.Vector3(...a);
+function orientLimb(group,fromStart,fromEnd,toStart,toEnd){
+ const reference=vec(fromEnd).sub(vec(fromStart)).normalize();
+ const current=vec(toEnd).sub(vec(toStart)).normalize();
+ group.position.fromArray(toStart);
+ group.quaternion.setFromUnitVectors(reference,current);
+}
+function applyPosePreview(rig){
+ const pose=sampleStudyPose(rig.study.params,state.poseMode,state.walkPhase);
+ rig.root.position.y=rig.baseY+pose.bodyY;
+ for(const posed of pose.legs){
+  const limb=rig.study.poseLegs.find(l=>l.side===posed.side);
+  const rest=limb.rest,g=limb.groups;
+  orientLimb(g.thigh,rest.hip,rest.knee,posed.hip,posed.knee);
+  orientLimb(g.shin,rest.knee,rest.ankle,posed.knee,posed.ankle);
+  g.foot.position.fromArray(posed.ankle);
+  g.foot.rotation.set(posed.footPitch,0,0);
+ }
+ rig.pose=pose;
+}
+function updatePoseControls(){
+ for(const b of document.querySelectorAll('[data-pose]'))
+  b.setAttribute('aria-pressed',String(b.dataset.pose===state.poseMode));
+ const walking=state.poseMode==='walk';
+ $('pose-pause').disabled=!walking;
+ $('pose-pause').textContent=state.posePaused?'RESUME':'PAUSE';
+ $('pose-pause').setAttribute('aria-pressed',String(walking&&state.posePaused));
+ $('pose-phase').disabled=!walking||!state.posePaused;
+ $('pose-phase').value=String(state.walkPhase);
+ $('pose-phase-value').textContent=Math.round(state.walkPhase*100)+'%';
+ $('pose-status').textContent=state.poseMode==='neutral'?'Original Naked stance: all link transforms reset':
+  state.poseMode==='crouch'?'Deep bend: planted boots, body compressed · compare shin/knee/hip clearance':
+  (state.posePaused?'Paused walk · scrub phase to inspect armor gaps':
+    'Walk preview · alternating planted and swinging feet · shared phase');
+}
+for(const button of document.querySelectorAll('[data-pose]'))
+ button.addEventListener('click',()=>{
+  state.poseMode=button.dataset.pose;state.posePaused=false;state.previousFrame=0;
+  if(state.poseMode==='neutral')state.walkPhase=0;
+  updatePoseControls();schedule();
+ });
+$('pose-pause').addEventListener('click',()=>{
+ state.posePaused=!state.posePaused;state.previousFrame=0;
+ updatePoseControls();schedule();
+});
+$('pose-phase').addEventListener('input',event=>{
+ state.walkPhase=Math.max(0,Math.min(1,Number(event.target.value)));
+ updatePoseControls();schedule();
+});
+$('pose-speed').addEventListener('change',event=>{state.walkSpeed=Number(event.target.value);schedule();});
 const renderStamp={count:0};
 let pending=false;
 function schedule(){if(pending)return;pending=true;requestAnimationFrame(render);}
@@ -202,7 +255,16 @@ function finishPointer(event){
 canvas.addEventListener('pointerup',finishPointer);
 canvas.addEventListener('pointercancel',event=>{pointers.delete(event.pointerId);oldPinch=0;});
 canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(event.deltaY>0?1.1:.91);},{passive:false});
-function render(){
+function render(now=0){
+ if(state.poseMode==='walk'&&!state.posePaused){
+  if(state.previousFrame)
+   state.walkPhase=(state.walkPhase+
+      Math.min(65,now-state.previousFrame)*state.walkSpeed/1600)%1;
+  $('pose-phase').value=String(state.walkPhase);
+  $('pose-phase-value').textContent=Math.round(state.walkPhase*100)+'%';
+ }
+ state.previousFrame=now;
+ for(const rig of rigs.values())applyPosePreview(rig);
  pending=false;
  const r=stage.getBoundingClientRect();if(r.width<1||r.height<1)return;
  renderer.setSize(r.width,r.height,false);
@@ -235,10 +297,16 @@ function render(){
   rig.root.visible=true;scene.updateMatrixWorld(true);renderer.render(scene,camera);rig.root.visible=false;
  }
  renderStamp.count++;
+ if(state.poseMode==='walk'&&!state.posePaused)schedule();
  window.__yardwalkerSilhouetteLab={ready:true,frames:renderStamp.count,
   inspect:()=>({selected:state.selected,focus:state.focus,fullRig:state.fullRig,view:state.view,
    black:state.black,arena:state.arena,zoom:state.zoom,
    armorTier:state.armorTier,armorStyle:state.armorStyle,bootPlate:state.bootPlate,
+   poseMode:state.poseMode,posePaused:state.posePaused,walkPhase:state.walkPhase,
+   poseSummary:Object.fromEntries([...rigs.entries()].map(([id,rig])=>[
+    id,{bodyY:rig.pose?.bodyY,reachLimited:rig.pose?.reachLimited,
+      feet:rig.pose?.legs.map(l=>({side:l.side,planted:l.planted,
+        footLift:l.footLift,footTravel:l.footTravel,knee:l.knee}))}])),
    armorPieces:Object.fromEntries([...rigs.entries()].map(([id,rig])=>{
     let count=0;rig.study.root.traverse(obj=>{if(obj.userData?.armorZone)count++;});
     return [id,count];
@@ -247,4 +315,4 @@ function render(){
 }
 if('ResizeObserver'in window)new ResizeObserver(schedule).observe(stage);
 window.addEventListener('resize',schedule);
-updateArmorControls();setFocus(state.focus);choose(state.selected);schedule();
+updateArmorControls();updatePoseControls();setFocus(state.focus);choose(state.selected);schedule();

@@ -50,3 +50,25 @@ a{color:#e4c48a;text-decoration:none;font-size:12px}.toolbar{display:flex;flex-w
  .armor-extras{width:100%;justify-content:space-between}
  #armor-description{font-size:9px}
 }
+
+/* Deliberately compact, mobile accessible gait-preview controls */
+.posebar{display:flex;flex-wrap:wrap;align-items:center;gap:9px 14px;padding:9px 13px;
+ background:#192820;border-bottom:1px solid #5c7661}
+.pose-heading{display:flex;flex-direction:column;gap:3px}
+.pose-heading strong{font-size:13px;letter-spacing:.08em;color:#dfbf81}
+.pose-heading small,.pose-status{color:#aabbaa;font-size:10px}
+.posebar button{min-height:33px;font-size:11px;padding:7px 9px}
+.posebar button:disabled{opacity:.45;cursor:default}
+.pose-scrub,.pose-speed{display:flex;align-items:center;gap:6px;color:#b8caba;font-size:10px}
+.pose-scrub input{width:clamp(90px,15vw,190px);accent-color:#d4ad62}
+.pose-scrub input:disabled{opacity:.4}
+.pose-scrub output{min-width:36px;color:#e6c786}
+.pose-speed select{padding:6px 7px;border:1px solid #748a77;border-radius:4px;
+ background:#2c4135;color:#e6dfcc;font:inherit;font-size:11px}
+.pose-status{width:100%}
+@media(max-width:760px){
+ .posebar{padding:8px;gap:8px}.pose-heading{width:100%}
+ .posebar .tools{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+ .posebar button{min-width:0;padding:6px 3px;font-size:10px}
+ .pose-scrub{flex:1}.pose-scrub input{width:100%;min-width:45px}
+}

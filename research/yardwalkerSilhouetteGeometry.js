@@ -11,6 +11,32 @@ const palette={
 const materials=Object.fromEntries(Object.entries(palette).map(([name,color])=>[name,
   new THREE.MeshStandardMaterial({color,flatShading:true,roughness:.88,metalness:.13})]));
 const v=a=>new THREE.Vector3(...a),middle=(a,b)=>a.clone().add(b).multiplyScalar(.5);
+const legGroupNames={
+ thigh:/upper principal casting|mounted hydraulic body|actuator upper boss|actuator lower boss|knee fork|visible steel knee pin|recessed fastener/,
+ shin:/shin load member|ankle clevis/,
+ foot:/ankle boot root|load spreading boot|single replaceable toe shoe|heel stabilizer/
+};
+/** Regroup geometry without changing any rest-world coordinates. Every fitted
+ * plate is already parented to its solid casting and moves with that casting.
+ */
+function makeArticulatedLeg(root,leg,prefix){
+ const groups={};
+ const anchors={thigh:leg.hip,shin:leg.knee,foot:leg.ankle};
+ for(const name of ['thigh','shin','foot']){
+  const group=new THREE.Group();
+  group.name=prefix+'/pose '+name;
+  group.position.fromArray(anchors[name]);
+  const members=[...root.children].filter(o=>
+   o.name.startsWith(prefix+'/')&&legGroupNames[name].test(o.name));
+  for(const member of members){
+   root.remove(member);
+   group.add(member);
+   member.position.sub(group.position);
+  }
+  root.add(group);groups[name]=group;
+ }
+ return {side:leg.side,rest:leg,groups};
+}
 function meshAt(parent,name,geom,role,position){
  const mesh=new THREE.Mesh(geom,materials[role]);
  mesh.name=name;mesh.position.copy(position);mesh.castShadow=true;mesh.receiveShadow=true;
@@ -70,6 +96,7 @@ export function createSilhouetteMachine(raw,armorSettings={}){
  // Substantial central load knot + diverging cast transfer arms (not goalposts).
  block(root,'U1 top mount',[0,.770,0],[.44,.115,.35],'steel');
  block(root,'deep load knuckle',[0,.645,.005],[.72,.23,p.carriageDepth],'iron');
+ const poseLegs=[];
  for(const leg of p.legs){
   const side=leg.side,s=side<0?'L':'R';
   const hip=leg.hip,knee=leg.knee,ankle=leg.ankle,foot=leg.foot;
@@ -132,7 +159,9 @@ export function createSilhouetteMachine(raw,armorSettings={}){
   const shinProfile={length:v([knee[0],knee[1]-.058,knee[2]]).distanceTo(v([ankle[0],ankle[1]+.044,ankle[2]])),
     topW:p.shinMass*(p.id==='bruiser'?1.35:1.11),bottomW:p.shinMass*.94,
     topD:p.id==='bruiser'?.36:.25,bottomD:p.id==='hound'?.31:.25};
-  addArmorToLeg({leg,thigh,shin,boot,thighProfile,shinProfile,footWidth,footDepth},armor);
+  addArmorToLeg({leg:{...leg,candidateId:p.id},thigh,shin,boot,thighProfile,shinProfile,footWidth,footDepth},armor);
+  poseLegs.push(makeArticulatedLeg(root,leg,s));
  }
- return {root,params:p};
+ root.userData.posePreview=true;
+ return {root,params:p,poseLegs};
 }

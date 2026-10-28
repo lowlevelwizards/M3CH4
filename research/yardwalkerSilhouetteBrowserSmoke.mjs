@@ -196,6 +196,41 @@ try{
  assert.equal(reset.candidates[1].thighMass,a.candidates[1].thighMass);
  await page.locator('#legs-only').click();await snapshot('07-legs-only-three-candidates.png');
  await page.locator('#full-rig').click();
+ // Real articulated preview: validate that a moving leg changes joint
+ // geometry, carries its own armor, and the stance/swing controls respond.
+ await page.locator('[data-armor-tier="3"]').click();
+ await page.locator('#choose-bruiser').click();
+ await page.locator('[data-pose="walk"]').click();
+ await page.waitForTimeout(220);
+ const walking=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
+ assert.equal(walking.poseMode,'walk');
+ assert.ok(walking.walkPhase>0);
+ await page.locator('#pose-pause').click();
+ const paused=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
+ assert.equal(paused.posePaused,true);
+ await page.locator('#pose-phase').evaluate(el=>{el.value='.82';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ const scrub=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
+ assert.ok(Math.abs(scrub.walkPhase-.82)<.02);
+ assert.ok(scrub.poseSummary.bruiser.feet.some(l=>!l.planted&&l.footLift>.02));
+ await page.locator('#legs-only').click();
+ await page.locator('[data-view="side"]').click();
+ await snapshot('20-encased-bruiser-walk-swing-inspection.png');
+ await page.locator('[data-pose="crouch"]').click();
+ await page.waitForFunction(()=>Math.abs(
+   window.__yardwalkerSilhouetteLab.inspect().poseSummary.bruiser.bodyY+.17)<1e-5);
+ const crouch=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
+ assert.equal(crouch.poseMode,'crouch');
+ assert.ok(Math.abs(crouch.poseSummary.bruiser.bodyY+.17)<1e-5);
+ assert.ok(crouch.poseSummary.bruiser.feet.every(l=>l.planted));
+ await snapshot('21-encased-bruiser-deep-bend-side.png');
+ await page.locator('[data-pose="neutral"]').click();
+ await page.waitForFunction(()=>window.__yardwalkerSilhouetteLab.inspect()
+  .poseSummary.bruiser.feet.every(l=>l.footLift===0));
+ const neutral=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
+ assert.ok(neutral.poseSummary.bruiser.feet.every(l=>l.footLift===0));
+ await page.locator('#full-rig').click();
+ await page.locator('[data-armor-tier="0"]').click();
+ await page.locator('[data-view="quarter"]').click();
  await page.locator('#focus').click();
  assert.equal((await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect())).focus,true);
  await snapshot('08-focus-bruiser.png');
@@ -210,6 +245,13 @@ try{
  await page.locator('[data-armor-tier="3"]').click();
  await page.locator('#encased-style').selectOption('taper');
  await snapshot('17-mobile-encased-taper.png');
+ await page.locator('[data-armor-tier="0"]').click();
+ await page.locator('[data-pose="walk"]').click();
+ await page.locator('#pose-pause').click();
+ await page.locator('#pose-phase').evaluate(el=>{el.value='.80';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.locator('[data-armor-tier="3"]').click();
+ await snapshot('22-mobile-encased-walk-pose.png');
+ await page.locator('[data-pose="neutral"]').click();
  await page.locator('[data-armor-tier="0"]').click();
  await page.locator('#choose-hound').click();
  await page.locator('[data-view="side"]').click();
