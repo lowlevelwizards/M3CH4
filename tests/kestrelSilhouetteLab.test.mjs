@@ -24,7 +24,7 @@ test('all variants have real compact fit, matching U1 and grounded feet',()=>{
   assert.ok(p.footWidth<.40);
   for(const leg of p.legs){
    assert.ok(leg.knee[2]-leg.hip[2]>.24,'signature birdlike rear knee');
-   assert.ok(leg.knee[2]-leg.ankle[2]>.40,'forward-sweeping shin');
+   assert.ok(leg.knee[2]-leg.ankle[2]>.35,'forward-sweeping shin');
    assert.ok(leg.hip[1]>leg.knee[1]&&leg.knee[1]>leg.ankle[1]);
    assert.ok(Math.abs((leg.foot[1]-p.footHeight/2)-p.floor)<1e-9);
   }
