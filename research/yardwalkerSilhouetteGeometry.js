@@ -15,7 +15,11 @@ function meshAt(parent,name,geom,role,position){
  mesh.name=name;mesh.position.copy(position);mesh.castShadow=true;mesh.receiveShadow=true;
  parent.add(mesh);return mesh;
 }
-function ringGeometry(bottomW,topW,depthB,depthT,length,cut=.13){
+/** Closed bevelled octagonal prism, winding OUTWARD on every face.
+ * Default FrontSide culling should reveal the exterior, never the inside.
+ * Exposed for browser geometry regression checks.
+ */
+export function ringGeometry(bottomW,topW,depthB,depthT,length,cut=.13){
  const pts=[],idx=[];
  for(const [y,w,d] of [[-length/2,bottomW,depthB],[length/2,topW,depthT]]){
   const x=w/2,z=d/2,c=Math.min(w*.22,d*.22,cut);
@@ -24,11 +28,14 @@ function ringGeometry(bottomW,topW,depthB,depthT,length,cut=.13){
    [x-c,y,z],[-x+c,y,z],[-x,y,z-c],[-x,y,-z+c]
   ].flat());
  }
+ // Ring order runs from front-left to front-right around X/Z.
+ // With Y as the up axis, the old a,b,d winding pointed INTO the prism.
+ // Reverse both wall triangles and the top/bottom cap fans (not DoubleSide).
  for(let k=0;k<8;k++){const a=k,b=(k+1)%8,c=k+8,d=(k+1)%8+8;
-  idx.push(a,b,d,a,d,c);}
- for(let k=1;k<7;k++){idx.push(0,k+1,k);idx.push(8,8+k,8+k+1);}
+  idx.push(a,d,b,a,c,d);}
+ for(let k=1;k<7;k++){idx.push(0,k,k+1);idx.push(8,8+k+1,8+k);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
- g.setIndex(idx);g.computeVertexNormals();return g;
+ g.setIndex(idx);g.computeVertexNormals();g.userData.yardwalkerPrism=true;return g;
 }
 function link(parent,name,a,b,wTop,wBottom,dTop,dBottom,role){
  const top=v(a),bottom=v(b),dir=top.clone().sub(bottom),len=dir.length();
