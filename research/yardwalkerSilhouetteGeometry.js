@@ -63,7 +63,7 @@ function contact(parent,name,pos,w,d,role){
  * center. No production shape reuse, making these three *actual* fresh studies.
  */
 export function createSilhouetteMachine(raw,armorSettings={}){
- const p=deriveSilhouette(raw),armor=normalizeArmor(armorSettings.tier,armorSettings.style,armorSettings.bootPlate);
+ const p=deriveSilhouette(raw),armor=normalizeArmor(armorSettings.tier??armorSettings.armorTier,armorSettings.style??armorSettings.armorStyle,armorSettings.bootPlate);
  const root=new THREE.Group();root.name='STUDY / '+p.title;
  root.userData={prototypeOnly:true,noSave:true,notGameplay:true,id:p.id,
   mount:p.mount,ground:p.floor,armorTier:armor.tier,armorStyle:armor.style};
