@@ -106,7 +106,7 @@ try{
  // uses one equal-scale orthographic camera and the actual shared production builder.
  await page.goto('http://127.0.0.1:8765/yardwalker-lineage.html',
    {waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForFunction(()=>window.__yardwalkerLineageReady===true,{timeout:30000});
+ await page.waitForFunction(()=>window.__yardwalkerLineageReady===true,null,{timeout:10000}).catch(async e=>{ throw Error('Lineage page failed: '+e.message+'; page errors: '+errors.join(' | ')+'; status: '+(await page.locator('#status').textContent())); });
  await page.locator('[data-view="side"]').click();
  await page.screenshot({path:dir+'/lineage-original-v3-naked-side.png',fullPage:true});
  await page.locator('#tier').selectOption('2');
