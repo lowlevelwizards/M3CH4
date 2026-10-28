@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three';
 import {deriveSilhouette} from './yardwalkerSilhouetteDesign.js';
+import {addArmorToLeg,normalizeArmor} from './yardwalkerSilhouetteArmor.js';
 const palette={
  ochre:0xb38a37,olive:0x75816a,iron:0x48574f,steel:0x899089,
  dark:0x26332e,rust:0xa66d4f,cream:0xc9c2a8,foot:0x556157,
@@ -61,11 +62,11 @@ function contact(parent,name,pos,w,d,role){
 /** Returns isolated, preview-only assembly rooted at the nominal Yardwalker slot
  * center. No production shape reuse, making these three *actual* fresh studies.
  */
-export function createSilhouetteMachine(raw){
- const p=deriveSilhouette(raw);
+export function createSilhouetteMachine(raw,armorSettings={}){
+ const p=deriveSilhouette(raw),armor=normalizeArmor(armorSettings.tier,armorSettings.style,armorSettings.bootPlate);
  const root=new THREE.Group();root.name='STUDY / '+p.title;
  root.userData={prototypeOnly:true,noSave:true,notGameplay:true,id:p.id,
-  mount:p.mount,ground:p.floor};
+  mount:p.mount,ground:p.floor,armorTier:armor.tier,armorStyle:armor.style};
  // Substantial central load knot + diverging cast transfer arms (not goalposts).
  block(root,'U1 top mount',[0,.770,0],[.44,.115,.35],'steel');
  block(root,'deep load knuckle',[0,.645,.005],[.72,.23,p.carriageDepth],'iron');
@@ -78,7 +79,7 @@ export function createSilhouetteMachine(raw){
   block(root,s+'/root shoulder',[hip[0],hip[1]+.052,hip[2]],
     [p.thighMass*1.15,.29,p.carriageDepth*1.17],'iron',.065);
   // The thigh is ONE dominant load-bearing casting, not a stack of boxes.
-  link(root,s+'/upper principal casting',
+  const thigh=link(root,s+'/upper principal casting',
     [hip[0],hip[1]-.07,hip[2]],
     [knee[0],knee[1]+.037,knee[2]],
     p.thighMass*1.16,p.thighMass*.80,
@@ -95,7 +96,7 @@ export function createSilhouetteMachine(raw){
   disk(root,s+'/recessed fastener',[kx+side*(p.thighMass*.49+.024),knee[1],knee[2]],
     kr*.27,.016,'rust');
   // An intentionally different lower structure for each family.
-  link(root,s+'/shin load member',
+  const shin=link(root,s+'/shin load member',
     [knee[0],knee[1]-.058,knee[2]],
     [ankle[0],ankle[1]+.044,ankle[2]],
     p.shinMass*(p.id==='bruiser'?1.35:1.11),p.shinMass*.94,
@@ -106,7 +107,7 @@ export function createSilhouetteMachine(raw){
    .19,.25,.18,.21,'steel');
   // One large boot, broad heel and integrated top toe; no two slipper bars.
   const footWidth=p.footWidth,footDepth=p.footDepth;
-  block(root,s+'/load spreading boot',foot,
+  const boot=block(root,s+'/load spreading boot',foot,
     [footWidth,p.footHeight,footDepth],'foot',.07);
   const toe=[foot[0],foot[1]+.030,foot[2]-footDepth*.39];
   contact(root,s+'/single replaceable toe shoe',toe,footWidth*.82,footDepth*.21,'cream');
@@ -122,6 +123,16 @@ export function createSilhouetteMachine(raw){
     .085,.067,.087,.069,'dark');
   disk(root,s+'/actuator upper boss',top,.072,.065,'steel');
   disk(root,s+'/actuator lower boss',bottom,.070,.065,'steel');
+  // Armor is constructed AFTER the Naked assembly, mounted to each actual
+  // canted limb rather than to independent world-space positions.
+  const thighProfile={length:v([hip[0],hip[1]-.07,hip[2]]).distanceTo(v([knee[0],knee[1]+.037,knee[2]])),
+    topW:p.thighMass*1.16,bottomW:p.thighMass*.80,
+    topD:p.id==='bruiser'?.52:p.id==='hound'?.36:.34,
+    bottomD:p.id==='bruiser'?.38:p.id==='hound'?.27:.28};
+  const shinProfile={length:v([knee[0],knee[1]-.058,knee[2]]).distanceTo(v([ankle[0],ankle[1]+.044,ankle[2]])),
+    topW:p.shinMass*(p.id==='bruiser'?1.35:1.11),bottomW:p.shinMass*.94,
+    topD:p.id==='bruiser'?.36:.25,bottomD:p.id==='hound'?.31:.25};
+  addArmorToLeg({leg,thigh,shin,boot,thighProfile,shinProfile,footWidth,footDepth},armor);
  }
  return {root,params:p};
 }
