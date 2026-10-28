@@ -50,7 +50,7 @@ document.getElementById('tier').addEventListener('change',event=>{
  scene.remove(current);
  current=buildYardwalkerVisual(fixture,YARDWALKER_LAYOUT,{armorTier:tier});
  current.visible=false;scene.add(current);
- document.getElementById('v3-label').textContent='01 / V3 '+['NAKED','GUARDED','HEAVY','ENCASED'][tier];
+ document.getElementById('v3-label').textContent='01 / V4 '+['NAKED','GUARDED','HEAVY','ENCASED'][tier];
  schedule();
 });
 window.addEventListener('resize',schedule);
