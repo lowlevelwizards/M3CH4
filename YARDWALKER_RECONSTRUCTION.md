@@ -130,3 +130,26 @@ The Yardwalker browser CI captures `lineage-original-v3-*-side.png` and a
 three-quarter Encased comparison in addition to the standard Armor Lab images.
 Artistic judgment requires looking at these rendered pictures, especially
 the opposing leg angles and whether armor reads as fitted long-form panels.
+
+## V4 — mechanical cleanup and whole-leg armor composition
+
+V3 finally recovered the fore-aft linkage. This pass **locks those beams and all
+original hip/knee/ankle/foot anchors**, rather than rewriting every component.
+The only Naked changes are a reinforced knee clevis, deeper ankle throat,
+and clearer service-strut attachment hardware. The actual cylinder remains
+rigidly mounted on the moving thigh; it is **not** falsely represented as
+a functioning two-link piston actuator.
+
+**Armor direction is now asymmetric in mass, not randomly in mirroring.**
+Fixed hip panels are subordinate fitted hoods. The big Heavy silhouette is
+created by the moving upper-thigh shells: wide outward near the hip, tapering
+down toward the knee, following the original fore-aft slope. Encased enlarges
+those continuous shapes while protecting most of the shin front and adding
+slender rear-side calf rails. Guarded has thin standalone shin strike plates,
+not merely miniaturized Heavy shells. All eight armor IDs, prototype HP/mass,
+material channels, and joint parents remain identical across the export.
+
+**Review gates:** render Naked, Guarded, Heavy and Encased in Armor Lab;
+check full fixed-hip/moving-thigh clearance; assess front, side, rear and
+quarter views. Compare Naked and Heavy against the original pre-JSON source
+via `yardwalker-lineage.html`. Review at small garage/combat scale before merge.
