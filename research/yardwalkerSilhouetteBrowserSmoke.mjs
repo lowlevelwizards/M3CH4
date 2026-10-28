@@ -22,6 +22,47 @@ async function open(viewport,mobile=false){
 async function snapshot(file){await page.waitForTimeout(150);await page.screenshot({path:out+'/'+file,fullPage:false});}
 try{
  await open({width:1280,height:780});
+ // Audit actual geometry, not just a screenshot: every triangle of every
+ // custom prism must face OUTWARD. The previous inward winding rendered only
+ // interiors under Three.js's standard FrontSide backface culling.
+ const geometryAudit=await page.evaluate(async()=>{
+  const {createSilhouetteMachine}=await import('./research/yardwalkerSilhouetteGeometry.js');
+  const {candidateById,SILHOUETTE_PRESETS,TUNABLES}=await import('./research/yardwalkerSilhouetteDesign.js');
+  const bad=[];let meshes=0,triangles=0;
+  const cases=SILHOUETTE_PRESETS.flatMap(p=>{
+   const baseline=candidateById(p.id);
+   return [baseline,
+    {...baseline,...Object.fromEntries(Object.entries(TUNABLES).map(([k,v])=>[k,v.min]))},
+    {...baseline,...Object.fromEntries(Object.entries(TUNABLES).map(([k,v])=>[k,v.max]))}];
+  });
+  for(const params of cases){
+   const machine=createSilhouetteMachine(params);
+   machine.root.traverse(o=>{
+    if(!o.isMesh||!o.geometry.userData?.yardwalkerPrism)return;
+    meshes++;
+    const g=o.geometry,positions=g.getAttribute('position'),ind=g.index.array;
+    for(let i=0;i<ind.length;i+=3){
+     const a=ind[i],b=ind[i+1],c=ind[i+2];
+     const pa=[positions.getX(a),positions.getY(a),positions.getZ(a)];
+     const pb=[positions.getX(b),positions.getY(b),positions.getZ(b)];
+     const pc=[positions.getX(c),positions.getY(c),positions.getZ(c)];
+     const u=pb.map((v,k)=>v-pa[k]),v=pc.map((q,k)=>q-pa[k]);
+     const normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+     const centroid=pa.map((q,k)=>(q+pb[k]+pc[k])/3);
+     const dot=normal.reduce((sum,q,k)=>sum+q*centroid[k],0);
+     // Convex closed prisms are centered at the origin in local coordinates.
+     // Outward normals have a strictly positive dot with their face centroid.
+     if(dot<=1e-9)bad.push({study:params.id,mesh:o.name,triangle:i/3,dot});
+     triangles++;
+    }
+    g.dispose();
+   });
+  }
+  return {meshes,triangles,bad:bad.slice(0,30),badCount:bad.length};
+ });
+ assert.ok(geometryAudit.meshes>80,'must audit actual thigh, shin, foot and carriage faces');
+ assert.ok(geometryAudit.triangles>2500,'must inspect every custom triangle');
+ assert.equal(geometryAudit.badCount,0,JSON.stringify(geometryAudit.bad));
  let before=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(before.focus,false);
  assert.equal(before.fullRig,true);
@@ -74,6 +115,6 @@ try{
  const q=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(q.focus,false);
  assert.equal(diagnostics.length,0,diagnostics.join('\n'));
- writeFileSync(out+'/acceptance.json',JSON.stringify({desktop:before,edited:b,mobile:q,diagnostics},null,2));
+ writeFileSync(out+'/acceptance.json',JSON.stringify({desktop:before,edited:b,mobile:q,geometryAudit,diagnostics},null,2));
  console.log('YARDWALKER SILHOUETTE LAB BROWSER PASS');
 }finally{await browser.close();}
