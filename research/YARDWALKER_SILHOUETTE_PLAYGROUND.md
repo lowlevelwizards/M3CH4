@@ -1,7 +1,7 @@
 # Yardwalker silhouette playground — visual-first replacement study
 
 Open **[yardwalker-silhouette.html](../yardwalker-silhouette.html)** from the **garage → Dev** tools.
-No production Yardwalker JSON, palette, catalogue ID, IK, saves, armor, or combat is changed.
+The isolated lab does not edit production parts itself. As of the Industrial Strider promotion, the approved **Naked Industrial Strider** is the default live `legs-yard` visual on `main`; Dockyard Bruiser, Utility Hound and all experimental armor remain in this lab. The V4 JSON-backed model is retained only for the separate dev Armor Lab. Gameplay IK, catalogue ID, saves and combat remain unchanged.
 
 ## Why this lab exists
 
@@ -35,16 +35,18 @@ studies**, not a functioning actuator or new IK solver.
    authoring production parts.
 
 The lab is **NO SAVE**. Refresh or reset to return to the three baselines.
-It never calls the live build registry to install these concepts. The existing
-`legs-yard` remains the actual playable mobility system.
+It never installs concepts into the live game. **Industrial Strider's immutable
+Naked preset** is separately used by the production `legs-yard` builder,
+which re-parents its meshes into true animated joints and preserves existing
+gameplay balance. Slider changes in this lab do not affect the live part.
 
-## Explicit next step, intentionally NOT included
+## Subsequent work (not part of this promotion)
 
-Once a concept looks right on a complete rig, create a new articulated,
-dimensioned, fixed-mount mechanical design with named hip/knee/ankle anchors,
-true gait and ground contact, then independent armor silhouettes. Implement
-and validate the selected design on a separate branch before any live replacement.
-This lab alone does not validate collisions, motion clearance, balance or weights.
+Do not add alternate purchasable mobility variants or gameplay armor until
+they have a distinct mechanical role and validated art. The previous
+four-tier Yardwalker armor is preserved only as a concept in the lab.
+The game continues to use its existing locomotion/IK and collision contracts;
+the playground alone cannot certify swept armor clearance or new balance.
 
 ## Validation
 

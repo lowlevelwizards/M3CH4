@@ -1,10 +1,11 @@
-/** M3CH4 Yardwalker: angled industrial utility walker with cohesive heavy/combat silhouette armor.
- * Exact geometry source: yardwalker-design/master.json.
- * Generated runtime data: yardwalkerDesignData.js.
- * Joint positions and names are unchanged from mobilityDefinitions.js.
+/** Yardwalker production visual: approved bare Industrial Strider.
+ * The V4 design JSON and generated data below are retained exclusively for
+ * the unsaved legacy Armor Lab; they are NOT the live gameplay legs-yard.
+ * Existing live leg animation and U1/catalogue contract remain in place.
  */
 import * as THREE from 'three';
 import {YARDWALKER_DESIGN} from './yardwalkerDesignData.js';
+import {buildIndustrialStriderYardwalker} from './yardwalkerStriderVisual.js';
 import {compileGeometry} from './workbench/geometry.js';
 import {YARDWALKER_LAYOUT,validateYardwalkerLayout} from './mobilityDefinitions.js?v=k3a8';
 import {MOBILITY_MATERIALS,groupAt,disk,link,finishMobilityVisual} from './mobilityVisualKit.js?v=k3a8';
@@ -49,7 +50,7 @@ function anchorMap(root,layout){
 /** Default level 0 for the authentic live gameplay model. Armor visuals
  * are explicitly dev-only until the combat armor feature has full hit logic.
  */
-export function buildYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT,{armorTier=0}={}){
+export function buildLegacyYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT,{armorTier=0}={}){
  const check=validateYardwalkerLayout(layout,fixture);
  if(!check.valid)throw Error('Invalid Yardwalker engineering sheet: '+check.errors.join(' '));
  const root=new THREE.Group();root.name='fit-fixture:legs-yard';
@@ -71,6 +72,15 @@ export function buildYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT,{armorTie
   }
  }
  return finishMobilityVisual(root,fixture,layout);
+}
+/** Gameplay/preview uses the approved bare Industrial Strider.
+ * Legacy V4 geometry is preserved only for the independent, not-yet-playable
+ * Armor Lab. Never attach experimental armor to production Yardwalker.
+ */
+export function buildYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT){
+ const check=validateYardwalkerLayout(layout,fixture);
+ if(!check.valid)throw Error('Invalid Yardwalker engineering sheet: '+check.errors.join(' '));
+ return buildIndustrialStriderYardwalker(fixture,layout);
 }
 /** Dev-only Armor Lab: one removable, joint-parented mesh per armor ID. */
 export function buildYardwalkerArmorPlate(root,entry,tier){

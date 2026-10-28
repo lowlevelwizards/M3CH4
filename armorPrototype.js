@@ -11,7 +11,8 @@
 import * as THREE from 'three';
 import {buildPartVisual} from './partVisuals.js';
 import {buildCyclopsArmorPlate} from './cyclopsVisual.js';
-import {buildYardwalkerArmorPlate} from './yardwalkerVisual.js';
+import {buildYardwalkerArmorPlate,buildLegacyYardwalkerVisual} from './yardwalkerVisual.js';
+import {fitFixtureFor} from './chassisFitFixtures.js';
 import {KESTREL_LAYOUT} from './mobilityDefinitions.js';
 import {ARMOR_PROTOTYPES,installedArmorPlates,armorMassKg,armorHit,armorCrewPatch} from './armorPlan.js';
 const clamp=v=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0));
@@ -164,7 +165,11 @@ function kestrelPlate(root,entry,tier){
 export function createArmoredPrototype(partId,tier=0){
   if(!ARMOR_PROTOTYPES[partId])throw Error('Unsupported armor specimen: '+partId);
   const level=Math.max(0,Math.min(3,Math.floor(tier)));
-  const root=buildPartVisual(partId,{mode:'gameplay'});
+  // The Yardwalker V4 Armor Lab remains an archival design experiment.
+  // Gameplay is now Naked Industrial Strider; never attach V4 plates to it.
+  const root=partId==='legs-yard'
+    ?buildLegacyYardwalkerVisual(fitFixtureFor(partId))
+    :buildPartVisual(partId,{mode:'gameplay'});
   if(partId==='cab-cyclops')clearFactoryCheeks(root);
   const plates=new Map();
   for(const entry of installedArmorPlates(partId,level)){
