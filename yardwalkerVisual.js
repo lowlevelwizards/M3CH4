@@ -1,4 +1,4 @@
-/** M3CH4 Yardwalker: deliberately simple, joint-aware industrial workhorse.
+/** M3CH4 Yardwalker: deliberately shaped low-poly articulated industrial workhorse.
  * Exact geometry source: yardwalker-design/master.json.
  * Generated runtime data: yardwalkerDesignData.js.
  * Joint positions and names are unchanged from mobilityDefinitions.js.
@@ -55,7 +55,7 @@ export function buildYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT,{armorTie
  const root=new THREE.Group();root.name='fit-fixture:legs-yard';
  root.userData={fitFixtureId:fixture.id,previewOnly:true,engineeredMobility:true,
     singleFunctionalMobilityInput:true,restPoseOnly:true,silhouetteFamily:'utility-walker',
-    visualDesign:'yardwalker-simplified-v1'};
+    visualDesign:'yardwalker-sculpted-v2'};
  const anchors=anchorMap(root,layout);
  for(const s of design.core){
    const parent=anchors.get(s.parent);
