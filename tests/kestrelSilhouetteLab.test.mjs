@@ -57,6 +57,8 @@ test('Kestrel prototype stays outside playable registry; one deliberate casting 
  assert.match(geom,/new THREE\.CylinderGeometry/);
  assert.match(js,/buildExteriorRig\(makeTestAssembly\(\)\)/);
  assert.match(js,/createSilhouetteMachine/);
+ assert.match(js,/selected:'raptor'/);
+ assert.doesNotMatch(js,/selected:'strider'/);
  assert.doesNotMatch(geom,/buildKestrelVisual|armorTier:3|addArmorToLeg/);
  assert.doesNotMatch(registry,/kestrelSilhouetteGeometry|kestrelSilhouetteDesign/);
  assert.match(registry,/'legs-compact': buildKestrelVisual/);
