@@ -1,7 +1,7 @@
-/** M3CH4 Yardwalker: angled industrial utility walker with cohesive heavy/combat silhouette armor.
- * Exact geometry source: yardwalker-design/master.json.
- * Generated runtime data: yardwalkerDesignData.js.
- * Joint positions and names are unchanged from mobilityDefinitions.js.
+/** Yardwalker production visual: approved bare Industrial Strider.
+ * The V4 design JSON and generated data below are retained exclusively for
+ * the unsaved legacy Armor Lab; they are NOT the live gameplay legs-yard.
+ * Existing live leg animation and U1/catalogue contract remain in place.
  */
 import * as THREE from 'three';
 import {YARDWALKER_DESIGN} from './yardwalkerDesignData.js';
