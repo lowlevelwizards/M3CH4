@@ -22,8 +22,8 @@ function range(shape,axis=0){
   const a=shape.geometry.positions.filter((_,i)=>i%3===axis).map(v=>v+shape.position[axis]);
   return Math.max(...a)-Math.min(...a);
 }
-test('V3 restores two opposing and visibly angled, independent walking links',()=>{
-  assert.equal(model.version,3);
+test('V4 preserves the V3-restored two opposing and visibly angled, independent walking links',()=>{
+  assert.equal(model.version,4);
   assert.deepEqual(model.mountFace,YARDWALKER_LAYOUT.mountingFace);
   for(const word of ['left','right']){
     const upper=stations(core('Y4-'+word+'-primary-thigh'));
@@ -67,6 +67,6 @@ test('all tiers preserve the same core, moving-parent split and editable Workben
     assert.deepEqual(pieces.filter(x=>!x.armorId),bare);
     assert.equal(pieces.filter(x=>x.armorId).length,[0,4,6,8][tier]);
     assert.equal(asset.nodes.filter(x=>x.kind==='shape').length,pieces.length);
-    assert.equal(asset.metadata.version,'Yardwalker-V3');
+    assert.equal(asset.metadata.version,'Yardwalker-V4');
   }
 });
