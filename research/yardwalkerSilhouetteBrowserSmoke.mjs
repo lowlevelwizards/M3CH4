@@ -142,6 +142,9 @@ try{
  assert.equal(before.candidates.length,3);
  assert.equal(before.candidates[0].id,'strider');
  await snapshot('01-full-mech-compare-quarter.png');
+ await page.locator('#legs-only').click();
+ await snapshot('20-naked-legs-only-quarter.png');
+ await page.locator('#full-rig').click();
  // A consistent tier across all three models makes whole-silhouette progression
  // judgeable, without conflating armor with base mechanical redesigns.
  for(const [level,label] of [[1,'light'],[2,'heavy'],[3,'encased-box']]){
