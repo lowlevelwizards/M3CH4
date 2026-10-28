@@ -1,0 +1,39 @@
+name: Yardwalker Silhouette Playground
+on:
+  pull_request:
+    paths:
+      - 'yardwalker-silhouette.html'
+      - 'yardwalker-silhouette.css'
+      - 'research/yardwalkerSilhouette*.js'
+      - 'research/yardwalkerSilhouette*.mjs'
+      - 'tests/yardwalkerSilhouetteLab.test.mjs'
+      - '.github/workflows/yardwalker-silhouette-ci.yml'
+  workflow_dispatch:
+jobs:
+  silhouette:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate isolated presets and controls
+        run: node --test tests/yardwalkerSilhouetteLab.test.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve game files
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/silhouette-http.log 2>&1 &
+          sleep 2
+      - name: Check full five-station rig comparison and mobile tools in browser
+        run: node research/yardwalkerSilhouetteBrowserSmoke.mjs
+      - name: Upload actual design screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yardwalker-silhouette-compare
+          path: yardwalker-silhouette-artifacts/
+          if-no-files-found: warn
