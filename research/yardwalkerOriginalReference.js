@@ -11,7 +11,7 @@ import {addYardwalkerCalf} from '../partWorkbenchGeometry.js';
 import {MOBILITY_MATERIALS} from '../mobilityVisualKit.js?v=k3a8';
 import {YARDWALKER_LAYOUT,validateYardwalkerLayout} from '../mobilityDefinitions.js?v=k3a8';
 import {groupAt,block,disk,bearing,link,actuator,chamferBlock,taperedLink,
-    wedgeSole,finishMobilityVisual} from './mobilityVisualKit.js?v=k3a8';
+    wedgeSole,finishMobilityVisual} from '../mobilityVisualKit.js?v=k3a8';
 const sub=(a,b)=>a.map((n,i)=>n-b[i]);
 export function buildYardwalkerOriginalReference(fixture,layout=YARDWALKER_LAYOUT){
     const check=validateYardwalkerLayout(layout,fixture);
