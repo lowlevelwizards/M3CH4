@@ -116,3 +116,17 @@ full-gait movement; the JSON exporter does not replace live IK metadata.
 Artistic acceptance: angled two-link profile is evident when Naked, and Heavy
 and Encased read as substantially different whole-leg silhouettes at arena
 size, not as sleeves or cuffs. Keep V3 in draft for actual visual approval.
+
+### Historical side-by-side visual audit
+
+Open `yardwalker-lineage.html` in the dev build for an equal-scale rendering
+of the frozen **original pre-JSON Yardwalker** (left) versus the actual current
+production V3 builder (right). Use 3D/SIDE/FRONT/REAR controls and the V3 armor
+tier selector. The historical model lives at
+`research/yardwalkerOriginalReference.js` and is **not** registered for
+career builds, vendor inventory or any production gameplay.
+
+The Yardwalker browser CI captures `lineage-original-v3-*-side.png` and a
+three-quarter Encased comparison in addition to the standard Armor Lab images.
+Artistic judgment requires looking at these rendered pictures, especially
+the opposing leg angles and whether armor reads as fitted long-form panels.
