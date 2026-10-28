@@ -13,8 +13,8 @@ const tri=(positions,indices,p)=>{
  const normal=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
  return {normal,centroid:a.map((x,i)=>(x+b[i]+c[i])/3)};
 };
-test('Yardwalker V3 retains deliberate sculpted geometry, not more scaled cuboids',()=>{
- assert.equal(D.version,3);
+test('Yardwalker V4 retains deliberate sculpted geometry, not more scaled cuboids',()=>{
+ assert.equal(D.version,4);
  assert.ok(D.core.length>=40&&D.core.length<=54);
  const structural=D.core.filter(s=>/(cross-carriage|fixed-hip-yoke|primary-thigh|single-shin-housing|continuous-boot)/.test(s.id));
  assert.equal(structural.length,9);
