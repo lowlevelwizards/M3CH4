@@ -101,7 +101,7 @@ function sample(profile,y){
 function frontPlate(profile,role,extent,projection=0.048){
  const h=profile.length,lowY=-h*extent,highY=h*extent;
  const low=sample(profile,lowY),high=sample(profile,highY);
- const plate=(at,y)=>({y,width:at.width*(role==='light'?.73:.84),
+ const plate=(at,y)=>({y,width:at.width*(role==='light'?.73:.91),
     front:-at.depth/2-projection,back:-at.depth/2+.028});
  return plateGeometry(plate(low,lowY),plate(high,highY));
 }
@@ -111,9 +111,9 @@ function outerPlate(profile,side,extent){
   const b=sample(profile,y);
   // Outer rail is inserted 0.03m into the original casting; side-facing
   // plating never competes with the central front plate.
-  const x=side*(b.width/2+.008),thickness=.077;
+  const x=side*(b.width/2+.016),thickness=.116;
   return {y,x,width:thickness,
-   front:-b.depth*.38,back:b.depth*.42};
+   front:-b.depth*.43,back:b.depth*.45};
  };
  return plateGeometry(st(yLo),st(yHi));
 }
