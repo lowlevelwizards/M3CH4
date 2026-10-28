@@ -20,6 +20,9 @@ on:
       - 'tests/partWorkbenchRecipe.test.mjs'
       - 'research/exportYardwalkerDesign.mjs'
       - 'research/yardwalkerBrowserAudit.mjs'
+      - 'yardwalker-lineage.html'
+      - 'research/yardwalkerOriginalReference.js'
+      - 'research/yardwalkerLineageComparison.js'
       - '.github/workflows/yardwalker-design-ci.yml'
   workflow_dispatch:
 jobs:
