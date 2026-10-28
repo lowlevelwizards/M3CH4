@@ -102,7 +102,7 @@ try{
   }
  }
  if(errors.length)throw Error(errors.join('; '));
- // Visual acceptance evidence: the frozen original beside the active V3
+ // Visual acceptance evidence: the frozen original beside the active V4
  // uses one equal-scale orthographic camera and the actual shared production builder.
  const lineageIssues=[];
  page.on('console',m=>{if(m.type()==='error')lineageIssues.push('console '+m.text());});
@@ -112,13 +112,13 @@ try{
    {waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__yardwalkerLineageReady===true,null,{timeout:10000}).catch(async e=>{ throw Error('Lineage page failed: '+e.message+'; page errors: '+errors.join(' | ')+'; console/network: '+lineageIssues.join(' | ')+'; status: '+(await page.locator('#status').textContent())); });
  await page.locator('[data-view="side"]').click();
- await page.screenshot({path:dir+'/lineage-original-v3-naked-side.png',fullPage:true});
+ await page.screenshot({path:dir+'/lineage-original-v4-naked-side.png',fullPage:true});
  await page.locator('#tier').selectOption('2');
- await page.screenshot({path:dir+'/lineage-original-v3-heavy-side.png',fullPage:true});
+ await page.screenshot({path:dir+'/lineage-original-v4-heavy-side.png',fullPage:true});
  await page.locator('#tier').selectOption('3');
- await page.screenshot({path:dir+'/lineage-original-v3-encased-side.png',fullPage:true});
+ await page.screenshot({path:dir+'/lineage-original-v4-encased-side.png',fullPage:true});
  await page.locator('[data-view="quarter"]').click();
- await page.screenshot({path:dir+'/lineage-original-v3-encased-quarter.png',fullPage:true});
+ await page.screenshot({path:dir+'/lineage-original-v4-encased-quarter.png',fullPage:true});
  if(errors.length)throw Error('Yardwalker lineage comparison page errors: '+errors.join('; '));
  writeFileSync(dir+'/measurements.json',JSON.stringify(measurements,null,2));
  console.log('YARDWALKER FOUR-TIER AUDIT PASS '+JSON.stringify(measurements));
