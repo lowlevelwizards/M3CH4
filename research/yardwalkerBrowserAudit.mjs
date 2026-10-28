@@ -102,6 +102,20 @@ try{
   }
  }
  if(errors.length)throw Error(errors.join('; '));
+ // Visual acceptance evidence: the frozen original beside the active V3
+ // uses one equal-scale orthographic camera and the actual shared production builder.
+ await page.goto('http://127.0.0.1:8765/yardwalker-lineage.html',
+   {waitUntil:'domcontentloaded',timeout:60000});
+ await page.waitForFunction(()=>window.__yardwalkerLineageReady===true,{timeout:30000});
+ await page.locator('[data-view="side"]').click();
+ await page.screenshot({path:dir+'/lineage-original-v3-naked-side.png',fullPage:true});
+ await page.locator('#tier').selectOption('2');
+ await page.screenshot({path:dir+'/lineage-original-v3-heavy-side.png',fullPage:true});
+ await page.locator('#tier').selectOption('3');
+ await page.screenshot({path:dir+'/lineage-original-v3-encased-side.png',fullPage:true});
+ await page.locator('[data-view="quarter"]').click();
+ await page.screenshot({path:dir+'/lineage-original-v3-encased-quarter.png',fullPage:true});
+ if(errors.length)throw Error('Yardwalker lineage comparison page errors: '+errors.join('; '));
  writeFileSync(dir+'/measurements.json',JSON.stringify(measurements,null,2));
  console.log('YARDWALKER FOUR-TIER AUDIT PASS '+JSON.stringify(measurements));
 }finally{await browser.close();}
