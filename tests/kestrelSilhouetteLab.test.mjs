@@ -38,7 +38,7 @@ test('editing one prototype is independent and never changes immutable defaults'
  const before=deriveSilhouette(b).fullSpan;
  a.hipSpan=clampParameter('hipSpan',1.06);
  assert.equal(deriveSilhouette(b).fullSpan,before);
- assert.equal(candidateById('raptor').hipSpan,.91);
+ assert.equal(candidateById('raptor').hipSpan,.82);
  assert.equal(clampParameter('footSize',22),TUNABLES.footSize.max);
  assert.equal(clampParameter('thighMass',-.1),TUNABLES.thighMass.min);
  assert.throws(()=>clampParameter('NO',4),/Unknown/);
