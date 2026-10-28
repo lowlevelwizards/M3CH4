@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>M3CH4 / Yardwalker Lineage Comparison</title>
+<style>
+:root{color-scheme:dark;font:14px "Share Tech Mono",ui-monospace,monospace;background:#14251f;color:#e5dfc7}
+*{box-sizing:border-box}body{margin:0}header{min-height:78px;padding:14px clamp(14px,3vw,38px);border-bottom:1px solid #52695d;display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#111d19}
+h1{font-size:20px;letter-spacing:.09em;margin:0;color:#e8c37a}header p{margin:5px 0 0;color:#9db0a4;font-size:12px}
+a{color:#e8c37a}button,select{font:inherit;cursor:pointer;background:#273c33;border:1px solid #75877a;color:#ecdfb9;padding:10px 13px;border-radius:5px}
+button[aria-pressed=true]{background:#bf9855;color:#14231c}.controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:auto}
+label{font-size:12px;color:#c1c9ba}.stage{position:relative;width:100%;height:min(68vh,680px);min-height:360px;overflow:hidden;background:#293d33}
+#scene{position:absolute;width:100%;height:100%;inset:0;display:block;touch-action:pan-y}
+.columns{position:relative;pointer-events:none;display:grid;grid-template-columns:1fr 1fr;height:100%}.panel{border-right:1px dashed #82918366;position:relative}
+.label{background:#13261fdc;color:#ead5ac;padding:9px 12px;display:inline-block;font-size:13px;letter-spacing:.06em;margin:12px}
+footer{max-width:1050px;padding:16px 22px;line-height:1.6;color:#afc1b3}#status{color:#eac781}
+@media(max-width:540px){.controls{margin:0}.stage{height:55vh;min-height:300px}.label{font-size:10px;margin:7px;padding:6px}h1{font-size:17px}}
+</style></head><body>
+<header><div><h1>YARDWALKER / LINEAGE</h1><p>ORIGINAL PRE-JSON CONSTRUCTION vs V3 · EQUAL SCALE · DEV ONLY</p></div>
+<div class="controls">
+<button data-view="quarter" aria-pressed="true">3D</button>
+<button data-view="side" aria-pressed="false">SIDE</button>
+<button data-view="front" aria-pressed="false">FRONT</button>
+<button data-view="rear" aria-pressed="false">REAR</button>
+<label for="tier">V3 ARMOR</label><select id="tier"><option value="0">0 NAKED</option><option value="1">1 GUARDED</option><option value="2">2 HEAVY</option><option value="3">3 ENCASED</option></select>
+</div></header>
+<main><div id="stage" class="stage"><canvas id="scene"></canvas><div class="columns">
+<div class="panel"><span class="label">00 / ORIGINAL YARDWALKER</span></div>
+<div class="panel"><span id="v3-label" class="label">01 / V3 NAKED</span></div>
+</div></div></main>
+<footer><strong>Design review:</strong> Compare the opposing thigh and shin angles, knee load path, stance, boot integration and differences in armored whole-leg silhouette.
+The left is a frozen historical development visual, not an alternate production model. The right is built from the actual V3 production JSON and the unchanged gameplay IK anchors.
+<span id="status" role="status"></span></footer>
+<script type="module" src="./research/yardwalkerLineageComparison.js"></script>
+</body></html>
