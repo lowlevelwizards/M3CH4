@@ -63,12 +63,106 @@ try{
  assert.ok(geometryAudit.meshes>80,'must audit actual thigh, shin, foot and carriage faces');
  assert.ok(geometryAudit.triangles>2500,'must inspect every custom triangle');
  assert.equal(geometryAudit.badCount,0,JSON.stringify(geometryAudit.bad));
+ // Independently verify 0/1/2/3 kits for all three candidates at all slider extremes.
+ // Naked geometry must remain byte-for-byte identical across armor tiers.
+ const armorAudit=await page.evaluate(async()=>{
+  const {createSilhouetteMachine}=await import('./research/yardwalkerSilhouetteGeometry.js');
+  const {SILHOUETTE_PRESETS,TUNABLES,candidateById}=await import('./research/yardwalkerSilhouetteDesign.js');
+  const {normalizeArmor,ARMOR_LEVELS}=await import('./research/yardwalkerSilhouetteArmor.js');
+  const cases=SILHOUETTE_PRESETS.flatMap(p=>{
+   const base=candidateById(p.id);
+   return [base,...['min','max'].map(edge=>({...base,
+    ...Object.fromEntries(Object.entries(TUNABLES).map(([k,v])=>[k,v[edge]]))}))];
+  });
+  const errors=[],counts={};
+  function signedVolume(geometry){
+   const attr=geometry.getAttribute('position'),idx=geometry.index.array;
+   let volume=0,invalid=0;
+   const edgeMap=new Map();
+   for(let i=0;i<idx.length;i+=3){
+    const a=idx[i],b=idx[i+1],c=idx[i+2];
+    const pa=[attr.getX(a),attr.getY(a),attr.getZ(a)],
+      pb=[attr.getX(b),attr.getY(b),attr.getZ(b)],
+      pc=[attr.getX(c),attr.getY(c),attr.getZ(c)];
+    const u=pb.map((x,k)=>x-pa[k]),v=pc.map((x,k)=>x-pa[k]);
+    const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+    if(Math.hypot(...n)<1e-8)invalid++;
+    volume+=(pa[0]*(pb[1]*pc[2]-pb[2]*pc[1])+
+      pa[1]*(pb[2]*pc[0]-pb[0]*pc[2])+pa[2]*(pb[0]*pc[1]-pb[1]*pc[0]))/6;
+    for(const [x,y] of [[a,b],[b,c],[c,a]]){
+     const key=Math.min(x,y)+':'+Math.max(x,y);
+     edgeMap.set(key,(edgeMap.get(key)||0)+1);
+    }
+   }
+   return {volume,invalid,openEdges:[...edgeMap.values()].filter(n=>n!==2).length};
+  }
+  for(const config of cases){
+   const base=createSilhouetteMachine(config,{tier:0});
+   const exposed=new Map();
+   base.root.traverse(obj=>{
+    if(obj.isMesh&&!obj.userData?.armorZone)
+     exposed.set(obj.name,JSON.stringify(Array.from(obj.geometry.getAttribute('position').array)));
+   });
+   for(const tier of [0,1,2,3]){
+    for(const style of tier===3?['box','taper']:['box']){
+     const built=createSilhouetteMachine(config,{tier,style,bootPlate:true});
+     const armored=[],unmodified=[];
+     built.root.traverse(obj=>{
+      if(!obj.isMesh)return;
+      if(obj.userData?.armorZone){
+       armored.push(obj);
+       if(!obj.parent?.isMesh)errors.push('Armor parent is not moving link '+obj.name);
+       const meshStats=signedVolume(obj.geometry);
+       if(meshStats.invalid||meshStats.openEdges||meshStats.volume<=1e-6)
+        errors.push('Bad armor geometry '+config.id+' '+tier+' '+style+' '+obj.name+' '+JSON.stringify(meshStats));
+      }else{
+       if(exposed.get(obj.name)!==JSON.stringify(Array.from(obj.geometry.getAttribute('position').array)))
+        unmodified.push(obj.name);
+      }
+     });
+     if(unmodified.length)errors.push('Naked geometry changed: '+unmodified.join(','));
+     const expected=([0,4,8,8])[tier];
+     if(armored.length!==expected)errors.push(config.id+' kit '+tier+' '+style+' parts '+armored.length+' expected '+expected);
+     counts[config.id+'/'+tier+'/'+style]=(counts[config.id+'/'+tier+'/'+style]||0)+1;
+     built.root.traverse(obj=>{if(obj.isMesh)obj.geometry.dispose();});
+    }
+   }
+   base.root.traverse(obj=>{if(obj.isMesh)obj.geometry.dispose();});
+  }
+  const bootOff=createSilhouetteMachine(cases[0],{tier:3,bootPlate:false});
+  let count=0;bootOff.root.traverse(o=>{if(o.userData?.armorZone)count++;});
+  if(count!==6)errors.push('Encased with no boot plates should contain 6 plates, got '+count);
+  bootOff.root.traverse(obj=>{if(obj.isMesh)obj.geometry.dispose();});
+  return {cases:cases.length,levels:ARMOR_LEVELS.length,variants:Object.keys(counts).length,errors:errors.slice(0,30)};
+ });
+ assert.equal(armorAudit.errors.length,0,armorAudit.errors.join('\n'));
  let before=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(before.focus,false);
  assert.equal(before.fullRig,true);
  assert.equal(before.candidates.length,3);
  assert.equal(before.candidates[0].id,'strider');
  await snapshot('01-full-mech-compare-quarter.png');
+ // A consistent tier across all three models makes whole-silhouette progression
+ // judgeable, without conflating armor with base mechanical redesigns.
+ for(const [level,label] of [[1,'light'],[2,'heavy'],[3,'encased-box']]){
+  await page.locator('[data-armor-tier="'+level+'"]').click();
+  const st=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
+  assert.equal(st.armorTier,level);
+  assert.ok(Object.values(st.armorPieces).every(n=>n===([0,4,8,8])[level]));
+  await snapshot('12-'+label+'-three-up-quarter.png');
+  if(level===2){await page.locator('[data-view="side"]').click();
+   await snapshot('13-heavy-three-up-side.png');
+   await page.locator('[data-view="quarter"]').click();}
+ }
+ await page.locator('#encased-style').selectOption('taper');
+ assert.equal((await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect())).armorStyle,'taper');
+ await snapshot('14-encased-taper-quarter.png');
+ await page.locator('#boot-plate').uncheck();
+ assert.ok(Object.values((await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect())).armorPieces).every(n=>n===6));
+ await snapshot('15-encased-no-boot-plate.png');
+ await page.locator('#boot-plate').check();
+ await page.locator('[data-armor-tier="0"]').click();
+ assert.equal((await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect())).armorTier,0);
  await page.locator('[data-view="front"]').click();await snapshot('02-full-mech-compare-front.png');
  await page.locator('[data-view="side"]').click();await snapshot('03-full-mech-compare-side.png');
  await page.locator('#arena').click();await snapshot('04-full-mech-arena-distance.png');
@@ -98,6 +192,12 @@ try{
  const p=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(p.focus,true,'phone should focus one candidate by default');
  await snapshot('09-mobile-portrait-strider.png');
+ await page.locator('[data-armor-tier="2"]').click();
+ await snapshot('16-mobile-heavy-kit.png');
+ await page.locator('[data-armor-tier="3"]').click();
+ await page.locator('#encased-style').selectOption('taper');
+ await snapshot('17-mobile-encased-taper.png');
+ await page.locator('[data-armor-tier="0"]').click();
  await page.locator('#choose-hound').click();
  await page.locator('[data-view="side"]').click();
  await snapshot('10-mobile-portrait-hound-side.png');
@@ -115,6 +215,6 @@ try{
  const q=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(q.focus,false);
  assert.equal(diagnostics.length,0,diagnostics.join('\n'));
- writeFileSync(out+'/acceptance.json',JSON.stringify({desktop:before,edited:b,mobile:q,geometryAudit,diagnostics},null,2));
+ writeFileSync(out+'/acceptance.json',JSON.stringify({desktop:before,edited:b,mobile:q,geometryAudit,armorAudit,diagnostics},null,2));
  console.log('YARDWALKER SILHOUETTE LAB BROWSER PASS');
 }finally{await browser.close();}
