@@ -139,8 +139,10 @@ export function upperShell(profile,style,candidate='strider'){
  // closed, hollow, joint-parented shell instead of piling up geometry.
  const profiles=candidate==='bruiser'?
   (style==='box'?
-   [[-.38,.132,.115],[-.015,.205,.178],[.39,.295,.255]]:
-   [[-.38,.122,.105],[-.015,.205,.193],[.39,.365,.305]]):
+   // The longer, moderately flared industrial housing reads as a true
+   // thigh sleeve, not the old oversized shallow skirt / knee cuff.
+   [[-.44,.108,.102],[-.025,.163,.152],[.47,.208,.194]]:
+   [[-.43,.105,.100],[.035,.179,.165],[.47,.266,.238]]):
   (style==='box'?[[-.38,.175,.19],[.39,.285,.26]]:
     [[-.38,.115,.155],[.39,.40,.31]]);
  const stages=profiles.map(([t,widen,depth])=>{
