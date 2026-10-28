@@ -61,6 +61,8 @@ test('Kestrel prototype stays outside playable registry; one deliberate casting 
  assert.doesNotMatch(registry,/kestrelSilhouetteGeometry|kestrelSilhouetteDesign/);
  assert.match(registry,/'legs-compact': buildKestrelVisual/);
  assert.match(index,/id="kestrel-silhouette-open"/);
+ assert.match(html,/src="\.\/research\/kestrelSilhouetteLab\.js"/);
+ assert.doesNotMatch(html,/src="\.\/research\/yardwalkerSilhouetteLab\.js"/);
  assert.match(html,/data-id="raptor"/);
  assert.match(html,/data-id="field"/);
  assert.match(html,/data-id="perch"/);
