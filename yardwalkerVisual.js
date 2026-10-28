@@ -1,4 +1,4 @@
-/** M3CH4 Yardwalker: restored canted-leg industrial utility walker, with fitted articulated armor.
+/** M3CH4 Yardwalker: angled industrial utility walker with cohesive heavy/combat silhouette armor.
  * Exact geometry source: yardwalker-design/master.json.
  * Generated runtime data: yardwalkerDesignData.js.
  * Joint positions and names are unchanged from mobilityDefinitions.js.
@@ -55,7 +55,7 @@ export function buildYardwalkerVisual(fixture,layout=YARDWALKER_LAYOUT,{armorTie
  const root=new THREE.Group();root.name='fit-fixture:legs-yard';
  root.userData={fitFixtureId:fixture.id,previewOnly:true,engineeredMobility:true,
     singleFunctionalMobilityInput:true,restPoseOnly:true,silhouetteFamily:'utility-walker',
-    visualDesign:'yardwalker-original-linkage-v3'};
+    visualDesign:'yardwalker-angled-combat-armor-v4'};
  const anchors=anchorMap(root,layout);
  for(const s of design.core){
    const parent=anchors.get(s.parent);
