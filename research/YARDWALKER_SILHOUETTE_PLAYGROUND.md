@@ -53,3 +53,35 @@ independence, shared interface, stability and UI scope.
 `research/yardwalkerSilhouetteBrowserSmoke.mjs` uses real WebGL to validate
 desktop three-up and phone focus, user edits, camera and scale controls, and
 writes same-camera full-rig screenshots to the Actions artifact.
+
+## Armor prototype pass — all three candidates preserved
+
+Armor has an **explicit silhouette-first vocabulary** and applies equally to
+Industrial Strider, Dockyard Bruiser and Utility Hound. No candidate is deleted
+or turned into a production mobility part. In the dedicated armor bar above
+the viewport, switch tiers instantly for an apples-to-apples comparison.
+
+- **0 Naked:** The original approved proportion study, unchanged.
+- **1 Light:** One thin fitted, chamfered **front strike plate** on each thigh
+  and each shin. No boxy hip decorations.
+- **2 Heavy:** Existing front coverage becomes broader, with **outer side plates**
+  on the thighs and shins. Bearings and ankles stay visible; front and side
+  plates remain distinct manufactured objects.
+- **3 Encased:** Replace the separate thigh plates with a **single hollow,
+  open-ended, flared upper-leg enclosure** on each thigh. The structural thigh
+  remains inside. Each shin gets front and outer-side protection. One small
+  optional instep armor plate per boot can be toggled. The exposed knee and
+  ankle are NOT bridged with floating rigid armor.
+
+For Encased, **Box Flare** is the primary squared industrial shroud and
+**Tapered Hood** exaggerates the upper-leg flare and narrows toward the knee.
+Both use the same skeleton and preserve open hip/knee clearance in the neutral
+pose. The shapes attach to the existing inclined link meshes in local space;
+they have physically separated faces and correctly wound outward triangles,
+not stacked coplanar decorative rectangles.
+
+The browser CI now renders the three candidates at Light, Heavy, Encased Box,
+Encased Taper, and optional boot-off, in addition to Naked, on desktop and
+portrait mobile. It checks closed manifold surface meshes, volume orientation,
+and base geometry preservation at all slider extremes. **Artistic approval and
+animated collision clearance remain required before implementing live armor.**
