@@ -31,6 +31,22 @@
   <button type="button" id="camera-reset">RESET VIEW</button>
  </div>
 </section>
+<section class="armorbar" aria-label="Experimental Yardwalker armor kits">
+ <div class="armor-heading"><strong>ARMOR KIT</strong><small>Same tier on all three · Naked model never changes</small></div>
+ <div class="armor-tier-buttons" role="group" aria-label="Armor level">
+  <button type="button" data-armor-tier="0" aria-pressed="true">0 · NAKED</button>
+  <button type="button" data-armor-tier="1" aria-pressed="false">1 · LIGHT</button>
+  <button type="button" data-armor-tier="2" aria-pressed="false">2 · HEAVY</button>
+  <button type="button" data-armor-tier="3" aria-pressed="false">3 · ENCASED</button>
+ </div>
+ <div class="armor-extras">
+  <label>ENCASED FORM <select id="encased-style" disabled>
+   <option value="box">BOX FLARE</option><option value="taper">TAPERED HOOD</option>
+  </select></label>
+  <label class="check"><input id="boot-plate" type="checkbox" checked disabled> BOOT PLATE</label>
+ </div>
+ <small id="armor-description">0 NAKED · Original experimental structure, unchanged</small>
+</section>
 <section id="stage" class="stage" aria-label="Three independent Yardwalker leg designs, with the same assembled mech upper body">
  <canvas id="scene" aria-label="3D silhouette comparison canvas"></canvas>
  <div class="panels" id="panels">
@@ -61,7 +77,7 @@
   </div>
   <div class="stats"><span id="study-footprint">STUDY ENVELOPE</span><span id="study-warnings">NO PRODUCTION GEOMETRY MODIFIED</span></div>
  </section>
- <p class="disclaimer">These are fresh proportion prototypes, not new catalogue parts. The torso, cab, weapon and generator are sourced from a real M3CH4 assembled rig; only the leg visual is substituted in this isolated lab. They do not affect IK, movement, hitboxes, credits, armor, saves, or the production Yardwalker. The silhouettes are intentionally primitive and do not yet prove mechanical articulation.</p>
+ <p class="disclaimer">These are fresh proportion prototypes, not new catalogue parts. The torso, cab, weapon and generator are sourced from a real M3CH4 assembled rig; only the leg visual is substituted in this isolated lab. They do not affect IK, movement, hitboxes, credits, armor, saves, or the production Yardwalker. The silhouettes and armor panels are intentionally experimental, with no damage values, collision or articulation validation; shell clearances under walking must be checked before producing parts.</p>
 </main>
 <script type="module" src="./research/yardwalkerSilhouetteLab.js"></script>
 </body></html>
