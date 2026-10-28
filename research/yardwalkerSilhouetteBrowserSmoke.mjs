@@ -216,12 +216,16 @@ try{
  await page.locator('[data-view="side"]').click();
  await snapshot('20-encased-bruiser-walk-swing-inspection.png');
  await page.locator('[data-pose="crouch"]').click();
+ await page.waitForFunction(()=>Math.abs(
+   window.__yardwalkerSilhouetteLab.inspect().poseSummary.bruiser.bodyY+.17)<1e-5);
  const crouch=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(crouch.poseMode,'crouch');
  assert.ok(Math.abs(crouch.poseSummary.bruiser.bodyY+.17)<1e-5);
  assert.ok(crouch.poseSummary.bruiser.feet.every(l=>l.planted));
  await snapshot('21-encased-bruiser-deep-bend-side.png');
  await page.locator('[data-pose="neutral"]').click();
+ await page.waitForFunction(()=>window.__yardwalkerSilhouetteLab.inspect()
+  .poseSummary.bruiser.feet.every(l=>l.footLift===0));
  const neutral=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.ok(neutral.poseSummary.bruiser.feet.every(l=>l.footLift===0));
  await page.locator('#full-rig').click();
