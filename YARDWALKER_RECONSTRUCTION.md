@@ -1,9 +1,7 @@
 # Yardwalker clean anatomy / four-tier reconstruction
 
 **Art target:** 2026-10-27 approved simplified Yardwalker lineup. Fewer,
-bigger purposeful mechanical shapes; a wide mustard carriage, clear fixed
-hip yokes, one tapered main thigh spar, one rigid same-link strut, one orange
-knee hinge, one tapered olive shin, and integrated flat work boots.
+bigger purposeful mechanical shapes; a profiled mustard carriage, forked hip yokes, custom multi-section load-bearing thigh spars, one articulated-link service strut, a recessed knee bearing with restrained orange hub, sculpted olive shin housings, and continuous faceted industrial boots.
 
 ## Single source of truth
 
@@ -45,14 +43,14 @@ the shared master JSON; V1 edits no longer affect it.
 
 ## Anatomy and deliberate simplification
 
-The Naked core consists of 38 large shapes across both articulated legs.
+The Naked core consists of 46 deliberately sculpted shapes across both articulated legs.
 Each thigh and shin now has just one primary tapered load-bearing component,
 a distinct knee bearing and broad, integrated work boot. The hydraulic-look
 pressure cylinder and rod have two simple attachment lugs and are attached to the same moving upper-leg assembly;
 they are not a simulated piston crossing two moving joints. Thus they cannot
 pop apart under the existing game's IK, and no fake physics is introduced.
 
-Configured shapes: 38 / 42 / 44 / 46 (tiers 0 / 1 / 2 / 3).
+Configured shapes: 46 / 50 / 52 / 54 (tiers 0 / 1 / 2 / 3).
 Armor identities: 0 / 4 / 6 / 8, with stronger tier geometry **replacing**
 earlier shell profiles. Parent carriage for stationary hip guards, moving
 hip for thigh armor, moving knee for shin and calf coverage. The joints
@@ -77,3 +75,22 @@ unchanged. Armor Lab masses are dev-only proposals.
 
 No feet-kit, new inventory part, serialized live armor durability,
 replacement vehicle dynamics or advanced suspension is part of this change.
+
+## V2 focused visual corrections
+
+The first minimalist rebuild was judged too boxy and detached in actual Armor Lab
+screenshots. V2 keeps all eight original armored prototype identities and exact
+joint transforms but replaces the visual forms with closed custom ring-section
+meshes. The body no longer relies on uniformly sized chamfered boxes; upper
+and lower links, hip castings and shells now have deliberate changes in width,
+front/back depth, taper, and silhouette. Orange knees are enclosed in dark
+bearing housings; the large orange cylinder no longer projects as a separate
+oversized puck. Boots are single faceted bodies with inset replaceable toe pads.
+
+All sculpted surfaces are authored within the existing Workbench V2 mesh schema
+and remain individually editable in point mode. The generic Workbench editor
+still does not animate anchor groups: evaluate poses in production or Armor Lab.
+
+V2 validation additionally checks normals/winding, degeneracy, exposed plate
+clearance, rest envelope, and distinct silhouette occupancy. Final sign-off is
+visual review of real game renders, not shape-count metrics alone.
