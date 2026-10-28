@@ -61,16 +61,17 @@ test('edits change surface geometry without changing the section spans',()=>{
   assert.notDeepEqual(a.vertices,b.vertices);
   for(let i=0;i<5;i++)assert.equal(a.vertices[i*12+1],b.vertices[i*12+1]);
 });
-test('live production uses one authored shape node per shin, not new joints or save paths',()=>{
-  const yard=readFileSync(new URL('../yardwalkerVisual.js',import.meta.url),'utf8');
-  const adaptor=readFileSync(new URL('../partWorkbenchGeometry.js',import.meta.url),'utf8');
-  const workbench=readFileSync(new URL('../partWorkbench.js',import.meta.url),'utf8');
-  assert.match(yard,/addYardwalkerCalf\(knee/);
-  assert.match(yard,/Y7-\$\{word\}-shaped-olive-calf/);
-  assert.match(adaptor,/targets\.length!==2/);
-  assert.match(adaptor,/node\.geometry=replacements\[index\]/);
-  assert.match(workbench,/buildExteriorRig\(makeTestAssembly\(\)\)/);
-  assert.match(workbench,/buildPartVisual\('legs-yard',\{mode:'gameplay'\}\)/);
-  assert.match(workbench,/m3ch4-part-workbench-calf-v1/);
-  assert.doesNotMatch(workbench,/m3ch4-test-yard-loadout-v1|m3ch4-graybox-v1/);
+test('legacy calf recipes remain importable but current Yardwalker is JSON-mastered',()=>{
+ const yard=readFileSync(new URL('../yardwalkerVisual.js',import.meta.url),'utf8');
+ const oldAdapter=readFileSync(new URL('../partWorkbenchGeometry.js',import.meta.url),'utf8');
+ const tool=readFileSync(new URL('../partWorkbench.js',import.meta.url),'utf8');
+ assert.match(yard,/YARDWALKER_DESIGN/);
+ assert.match(yard,/compileGeometry/);
+ assert.doesNotMatch(yard,/addYardwalkerCalf\(knee/);
+ assert.match(oldAdapter,/targets\.length!==2/);
+ assert.match(tool,/buildExteriorRig\(makeTestAssembly\(\)\)/);
+ assert.match(tool,/buildPartVisual\('legs-yard',\{mode:'gameplay'\}\)/);
+ assert.match(tool,/m3ch4-part-workbench-calf-v1/);
+ assert.match(tool,/Legacy calf recipe only/);
+ assert.doesNotMatch(tool,/m3ch4-test-yard-loadout-v1|m3ch4-graybox-v1/);
 });

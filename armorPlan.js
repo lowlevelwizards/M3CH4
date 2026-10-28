@@ -16,6 +16,19 @@ export const ARMOR_PROTOTYPES=Object.freeze({
       {id:'cyclops-crown',label:'THICK UPPER ROOF CAP',tier:3,region:'top',massKg:32,hp:118},
     ]),
   }),
+  'legs-yard':Object.freeze({
+    label:'YARDWALKER / UNIVERSAL WORKHORSE',slot:'mobility',baseline:0,
+    plates:Object.freeze([
+      {id:'yard-left-hip',label:'LEFT FIXED HIP GUARD',tier:1,region:'left-hip',massKg:21,hp:82},
+      {id:'yard-right-hip',label:'RIGHT FIXED HIP GUARD',tier:1,region:'right-hip',massKg:21,hp:82},
+      {id:'yard-left-shin',label:'LEFT MOVING SHIN GUARD',tier:1,region:'left-shin',massKg:19,hp:78},
+      {id:'yard-right-shin',label:'RIGHT MOVING SHIN GUARD',tier:1,region:'right-shin',massKg:19,hp:78},
+      {id:'yard-left-thigh',label:'LEFT MOVING THIGH SHELL',tier:2,region:'left-thigh',massKg:34,hp:105},
+      {id:'yard-right-thigh',label:'RIGHT MOVING THIGH SHELL',tier:2,region:'right-thigh',massKg:34,hp:105},
+      {id:'yard-left-calf-wrap',label:'LEFT OUTER CALF SHELL',tier:3,region:'left-calf',massKg:27,hp:98},
+      {id:'yard-right-calf-wrap',label:'RIGHT OUTER CALF SHELL',tier:3,region:'right-calf',massKg:27,hp:98},
+    ]),
+  }),
   'legs-compact':Object.freeze({
     label:'KESTREL / OPEN RUNNER',slot:'mobility',baseline:0,
     plates:Object.freeze([

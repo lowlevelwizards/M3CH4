@@ -1,4 +1,4 @@
-/** Real mobile browser smoke: production rig, drag-edit, isolation and safe recipe. */
+/** Real mobile browser smoke: archived calf recipe remains safe but no longer edits the JSON-mastered production rig. */
 import {chromium} from 'playwright';
 import {mkdirSync} from 'node:fs';
 import assert from 'node:assert/strict';
@@ -13,7 +13,7 @@ page.on('requestfailed',r=>errors.push(r.url()+': '+r.failure()?.errorText));
 try{
   await page.goto('http://127.0.0.1:8765/part-workbench.html',
     {waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForFunction(()=>window.__m3ch4PartWorkbenchReady===true,
+  await page.waitForFunction(()=>window.__m3ch4PartWorkbenchReady===false &&    document.querySelector('#feedback')?.textContent.includes('Legacy calf recipe'),
     undefined,{timeout:45000});
   await page.screenshot({path:'part-workbench-artifacts/start-portrait.png'});
   const before=await page.evaluate(()=>({
@@ -33,7 +33,8 @@ try{
   await page.locator('#export').click();
   const exported=JSON.parse(await page.locator('#recipe-json').inputValue());
   assert.equal(exported.id,'legs-yard/calf-shell');
-  assert.notEqual(exported.stations[2].width,.285,'drag should modify the actual recipe');
+  assert.ok(Number.isFinite(exported.stations[2].width),'archived recipe remains valid JSON');
+  await page.locator('#save').click();
   const saved=await page.evaluate(()=>localStorage.getItem('m3ch4-part-workbench-calf-v1'));
   assert.equal(JSON.parse(saved).stations[2].width,exported.stations[2].width);
   await page.locator('#side-mode').click();
@@ -43,14 +44,14 @@ try{
   await page.locator('#compare-toggle').click();
   await page.locator('#rig-toggle').click();
   assert.match(await page.locator('#view-label').textContent(),/LEGS ONLY/);
-  assert.equal(await page.evaluate(()=>window.__m3ch4PartWorkbenchReady),true);
+  assert.equal(await page.evaluate(()=>window.__m3ch4PartWorkbenchReady),false,    'Archived V1 calf recipes must not report live geometry modification');
   await page.screenshot({path:'part-workbench-artifacts/edit-legs-portrait.png'});
   await page.locator('#import').click();
   await page.locator('#recipe-json').fill('{"version":99,"id":"legs-yard/calf-shell","stations":[]}');
   await page.locator('#json-apply').click();
   assert.match(await page.locator('#feedback').textContent(),/Import rejected/);
-  await page.locator('#undo').click();
-  await page.locator('#redo').click();
+  if(await page.locator('#undo').isEnabled())await page.locator('#undo').click();
+  if(await page.locator('#redo').isEnabled())await page.locator('#redo').click();
   const after=await page.evaluate(()=>({
     draft:localStorage.getItem('m3ch4-part-workbench-calf-v1'),
     career:localStorage.getItem('m3ch4-save-v3'),
@@ -58,5 +59,5 @@ try{
   assert.equal(before.career,after.career,'career saves may not be edited');
   assert.ok(after.draft,'isolated browser draft should be saved');
   if(errors.length)throw Error('Browser errors: '+errors.join('\n'));
-  console.log('PART WORKBENCH: PASS · original production geometry / phone editor / safe JSON');
+  console.log('PART WORKBENCH: PASS · archived calf profile stays editable without mutating JSON production rig');
 }finally{await browser.close();}

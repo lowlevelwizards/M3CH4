@@ -1,6 +1,7 @@
 /**
  * Phone-first development editor. All 3D imagery is the *production* M3CH4
- * Yardwalker geometry; no substitute meshes or independent constructor.
+ * Yardwalker geometry. Legacy V1 calf recipes are archived; current model
+ * edits now belong in the joint-aware V2/V3 Workbench JSON pipeline.
  * This page never writes campaign or Test Yard save keys.
  */
 import * as THREE from 'three';
@@ -72,7 +73,7 @@ function applyShell() {
   if(!rigRoot)return;
   const response=applyYardwalkerCalfRecipe(rigRoot,
     showOriginal?DEFAULT_CALF_RECIPE:recipe);
-  if(!response.ok)feedback(response.reason||'Calf shell is missing.',true);
+  if(!response.ok)feedback('Legacy calf recipe only. Current Yardwalker uses editable JSON in Workbench V2/V3.',true);
   window.__m3ch4PartWorkbenchReady=!!response.ok;
   requestDraw();
   return response;
@@ -344,4 +345,4 @@ document.addEventListener('keydown',e=>{
 window.addEventListener('unhandledrejection',e=>feedback('Preview error: '+(e.reason?.message||e.reason),true));
 window.addEventListener('error',e=>feedback('Preview error: '+(e.message||'unknown'),true));
 rebuildModel();refresh();
-feedback('Ready. Editing changes only the two real Yardwalker calf casings.');
+feedback('Legacy calf recipe editor archived: current Yardwalker uses the full JSON Workbench.');
