@@ -11,7 +11,7 @@ import {createSilhouetteMachine} from './kestrelSilhouetteGeometry.js';
 
 const $=id=>document.getElementById(id);
 const stage=$('stage'),panels=$('panels'),canvas=$('scene');
-const state={selected:'strider',focus:window.innerWidth<761,fullRig:true,black:false,
+const state={selected:'raptor',focus:window.innerWidth<761,fullRig:true,black:false,
  view:'quarter',arena:false,zoom:1,yaw:.65,pitch:.22,
  configs:Object.fromEntries(SILHOUETTE_PRESETS.map(p=>[p.id,candidateById(p.id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33473b);
