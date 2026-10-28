@@ -68,21 +68,32 @@ export function plateGeometry(low,high){
  * exterior faces, inward-facing interior, and top/bottom steel thickness rims.
  * A shell is one piece, not a column of touching cuffs.
  */
-export function enclosureGeometry(lower,upper){
- const bo=outline(lower.outer),to=outline(upper.outer),
-       bi=outline(lower.inner),ti=outline(upper.inner);
- const verts=[...bo,...to,...bi,...ti],indices=[];
- outerFaces(indices,0,8);
- // Inside wall normals must face the empty bore, the opposite of exterior.
- for(let i=0;i<RING;i++){
-  const a=16+i,b=16+(i+1)%8,c=24+i,d=24+(i+1)%8;
-  indices.push(a,b,d,a,d,c);
+export function enclosureGeometry(lower,upper,intermediate=null){
+ // A Bruiser-only middle section controls the hip-to-knee silhouette without
+ // adding a separate cuff or interrupting the open mechanical bore.
+ const stages=intermediate?[lower,intermediate,upper]:[lower,upper];
+ const n=stages.length;
+ const verts=[
+  ...stages.flatMap(st=>outline(st.outer)),
+  ...stages.flatMap(st=>outline(st.inner))
+ ],indices=[];
+ const innerBase=n*RING;
+ for(let j=0;j<n-1;j++){
+  outerFaces(indices,j*RING,(j+1)*RING);
+  for(let i=0;i<RING;i++){
+   const a=innerBase+j*RING+i,b=innerBase+j*RING+(i+1)%RING,
+    c=innerBase+(j+1)*RING+i,d=innerBase+(j+1)*RING+(i+1)%RING;
+   indices.push(a,b,d,a,d,c);
+  }
  }
- // End faces, not caps across the limb: leave a real open knee/hip bore.
- for(let i=0;i<RING;i++){
-  const j=(i+1)%8;
-  indices.push(i,j,16+j,i,16+j,16+i);
-  indices.push(8+i,24+j,8+j,8+i,24+i,24+j);
+ // A watertight metal rim around each open end, not a solid lid.
+ for(const j of [0,n-1]){
+  const outer=j*RING,inner=innerBase+j*RING;
+  for(let i=0;i<RING;i++){
+   const k=(i+1)%RING,a=outer+i,b=outer+k,c=inner+i,d=inner+k;
+   if(j===0)indices.push(a,b,d,a,d,c);
+   else indices.push(a,d,b,a,c,d);
+  }
  }
  return emitGeometry(verts,indices,'open-hollow-enclosure');
 }
@@ -101,9 +112,12 @@ function sample(profile,y){
 function frontPlate(profile,role,extent,projection=0.048){
  const h=profile.length,lowY=-h*extent,highY=h*extent;
  const low=sample(profile,lowY),high=sample(profile,highY);
- const plate=(at,y)=>({y,width:at.width*(role==='light'?.73:.91),
+ // Light is a longer, deliberately tapering strike plate, not a tiny
+ // rectangle. Heavy stops short of the outer side guard to leave a real seam.
+ const plate=(at,y,upper)=>({y,
+    width:at.width*(role==='light'?(upper?.83:.69):.80),
     front:-at.depth/2-projection,back:-at.depth/2+.028});
- return plateGeometry(plate(low,lowY),plate(high,highY));
+ return plateGeometry(plate(low,lowY,false),plate(high,highY,true));
 }
 function outerPlate(profile,side,extent){
  const h=profile.length,yLo=-h*extent,yHi=h*extent;
@@ -111,21 +125,26 @@ function outerPlate(profile,side,extent){
   const b=sample(profile,y);
   // Outer rail is inserted 0.03m into the original casting; side-facing
   // plating never competes with the central front plate.
-  const x=side*(b.width/2+.016),thickness=.116;
+  const x=side*(b.width/2+.027),thickness=.090;
   return {y,x,width:thickness,
-   front:-b.depth*.43,back:b.depth*.45};
+   front:-b.depth*.39,back:b.depth*.45};
  };
  return plateGeometry(st(yLo),st(yHi));
 }
-function upperShell(profile,style){
+export function upperShell(profile,style,candidate='strider'){
  const h=profile.length;
- const stations=[-.38,.39].map((t,i)=>{
+ // Preserve the approved two-station silhouettes for Strider and Hound.
+ // Bruiser has a very short upper link: the default lower flare makes it
+ // appear as a horizontal cuff. Add one sculpted transition INSIDE a single
+ // closed, hollow, joint-parented shell instead of piling up geometry.
+ const profiles=candidate==='bruiser'?
+  (style==='box'?
+   [[-.38,.132,.115],[-.015,.205,.178],[.39,.295,.255]]:
+   [[-.38,.122,.105],[-.015,.205,.193],[.39,.365,.305]]):
+  (style==='box'?[[-.38,.175,.19],[.39,.285,.26]]:
+    [[-.38,.115,.155],[.39,.40,.31]]);
+ const stages=profiles.map(([t,widen,depth])=>{
   const y=h*t,base=sample(profile,y);
-  const isUpper=i===1;
-  const widen=style==='box'
-    ?(isUpper?.285:.175):(isUpper?.40:.115);
-  const depth=style==='box'
-    ?(isUpper?.26:.19):(isUpper?.31:.155);
   return {
    outer:{y,width:base.width+widen,
      front:-base.depth/2-depth*.54,back:base.depth/2+depth*.46},
@@ -133,7 +152,8 @@ function upperShell(profile,style){
      front:-base.depth/2-.032,back:base.depth/2+.032}
   };
  });
- return enclosureGeometry(stations[0],stations[1]);
+ return enclosureGeometry(stages[0],stages.at(-1),
+   stages.length===3?stages[1]:null);
 }
 /** Install a deliberately limited, testable armor vocabulary onto one leg.
  * Only named links are used as parents; no additional detached world-space
@@ -144,14 +164,14 @@ export function addArmorToLeg({leg,thigh,shin,boot,thighProfile,shinProfile,foot
  if(armor.tier===0)return [];
  const tag=leg.side<0?'L':'R',result=[];
  const put=(parent,name,g,mat,zone)=>result.push(install(parent,tag+'/armor '+name,g,mat,zone,armor.tier));
- const fExtent=armor.tier===1?.34:.37;
+ const fExtent=armor.tier===1?.385:.37;
  if(armor.tier===3){
-  put(thigh,'continuous upper shell',upperShell(thighProfile,armor.style),white,'thigh-wrap');
+  put(thigh,'continuous upper shell',upperShell(thighProfile,armor.style,leg.candidateId),white,'thigh-wrap');
  }else{
   put(thigh,'thigh front plate',frontPlate(thighProfile,armor.tier===1?'light':'heavy',fExtent,armor.tier===1?.050:.072),white,'thigh-front');
   if(armor.tier>=2)put(thigh,'outer thigh side plate',outerPlate(thighProfile,leg.side,.365),sideWhite,'thigh-side');
  }
- put(shin,'shin front plate',frontPlate(shinProfile,armor.tier===1?'light':'heavy',armor.tier===1?.32:.38,armor.tier===1?.050:.072),white,'shin-front');
+ put(shin,'shin front plate',frontPlate(shinProfile,armor.tier===1?'light':'heavy',armor.tier===1?.355:.38,armor.tier===1?.050:.072),white,'shin-front');
  if(armor.tier>=2)put(shin,'outer shin side plate',outerPlate(shinProfile,leg.side,.365),sideWhite,'shin-side');
  if(armor.tier===3&&armor.bootPlate){
   // A single shallow raised instep cap, leaving sole and toe pad recognizable.
