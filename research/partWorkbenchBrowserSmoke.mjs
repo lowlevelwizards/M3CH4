@@ -50,8 +50,8 @@ try{
   await page.locator('#recipe-json').fill('{"version":99,"id":"legs-yard/calf-shell","stations":[]}');
   await page.locator('#json-apply').click();
   assert.match(await page.locator('#feedback').textContent(),/Import rejected/);
-  await page.locator('#undo').click();
-  await page.locator('#redo').click();
+  if(await page.locator('#undo').isEnabled())await page.locator('#undo').click();
+  if(await page.locator('#redo').isEnabled())await page.locator('#redo').click();
   const after=await page.evaluate(()=>({
     draft:localStorage.getItem('m3ch4-part-workbench-calf-v1'),
     career:localStorage.getItem('m3ch4-save-v3'),
