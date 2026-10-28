@@ -8446,9 +8446,9 @@
     "reference": "2026-10-27 Yardwalker V2 industrial anatomy and sculpted four-tier armor",
     "armorTier": 3,
     "source": "yardwalker-design/master.json",
+    "version": "Yardwalker-V2",
     "visualOnly": true,
     "articulated": true,
-    "note": "Edit joint-relative geometry; full production IK/damage requires yardwalkerVisual.js adapter.",
-    "version": "Yardwalker-V2"
+    "note": "Edit joint-relative geometry; full production IK/damage requires yardwalkerVisual.js adapter."
   }
 }
