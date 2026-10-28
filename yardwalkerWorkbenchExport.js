@@ -57,16 +57,16 @@ export function makeYardwalkerWorkbenchAsset(tier){
   format:'m3ch4.workbench.asset',version:2,id:'yardwalker-concept-'+tier,
   revision:1,type:'part',name:'Yardwalker / '+tier+' '+labels[tier],
   rootId,nodes,metadata:{definitionId:'legs-yard',
-   reference:'2026-10-27 simplified four-stage workhorse concept',
-   armorTier:tier,source:'yardwalker-design/master.json',
+   reference:design.reference,
+   armorTier:tier,source:'yardwalker-design/master.json',version:'Yardwalker-V2',
    visualOnly:true,articulated:true,
    note:'Edit joint-relative geometry; full production IK/damage requires yardwalkerVisual.js adapter.'}
  });
 }
 export function assertYardwalkerDesign(){
- if(design.format!=='m3ch4.yardwalker.design'||design.version!==1||
+ if(design.format!=='m3ch4.yardwalker.design'||design.version!==2||
    design.definitionId!=='legs-yard')throw Error('Invalid Yardwalker master header');
- if(design.core.length<24||design.core.length>38)throw Error('Yardwalker exceeds intended clean anatomy shape budget');
+ if(design.core.length<32||design.core.length>54)throw Error('Yardwalker exceeds intended clean anatomy shape budget');
  const ids=new Set();
  for(const s of [...design.anchors,...design.core,...design.armor]){
   if(ids.has(s.id))throw Error('Duplicate Yardwalker ID '+s.id);
