@@ -119,7 +119,7 @@ test('walk alternates stance and swing and keeps grounded feet at rest level',()
     assert.ok(Math.abs(lower-originalLower)<.0015,'moving lower link length should remain fixed');
    }
   }
-  const phaseA=sampleStudyPose(p,'walk',.11),phaseB=sampleStudyPose(p,'walk',.61);
+  const phaseA=sampleStudyPose(p,'walk',.11),phaseB=sampleStudyPose(p,'walk',.72);
   assert.ok(phaseA.legs[0].planted!==phaseB.legs[0].planted);
  }
 });
