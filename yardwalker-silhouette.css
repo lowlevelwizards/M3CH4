@@ -27,3 +27,26 @@ a{color:#e4c48a;text-decoration:none;font-size:12px}.toolbar{display:flex;flex-w
  .sliders{grid-template-columns:repeat(2,minmax(0,1fr))}.caption{font-size:12px}.study-choices button{min-width:82px}
 }
 @media(max-width:420px){.toolbar button{font-size:10px;padding:6px}.sliders{grid-template-columns:1fr 1fr;gap:10px}.overlay-tip{font-size:9px}}
+
+/* Visual prototype armor controls: always above the comparison canvas. */
+.armorbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 15px;padding:9px 13px;
+ background:#1e3026;border-bottom:1px solid #5e7967}
+.armor-heading{display:flex;flex-direction:column;min-width:145px;gap:2px}
+.armor-heading strong{font-size:14px;color:#ebc785;letter-spacing:.08em}
+.armor-heading small,#armor-description{font-size:10px;color:#a8bcaa;line-height:1.4}
+.armor-tier-buttons{display:flex;flex-wrap:wrap;gap:5px}
+.armor-tier-buttons button{font-size:11px;min-height:35px;padding:7px 10px}
+.armor-extras{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.armor-extras label{display:flex;align-items:center;gap:5px;font-size:10px;color:#b9c8b9}
+.armor-extras select{font:inherit;color:#e0dbc4;background:#304539;border:1px solid #7d907d;
+ border-radius:5px;padding:7px 9px;max-width:160px}
+.armor-extras select:disabled,.armor-extras input:disabled{opacity:.4}
+.armor-extras .check{white-space:nowrap}.armor-extras .check input{accent-color:#d6b579;min-height:16px;min-width:16px}
+#armor-description{width:100%;letter-spacing:.02em}
+@media(max-width:760px){
+ .armorbar{padding:8px;gap:7px}
+ .armor-heading{width:100%}.armor-tier-buttons{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+ .armor-tier-buttons button{font-size:10px;padding:7px 2px;white-space:normal;min-width:0}
+ .armor-extras{width:100%;justify-content:space-between}
+ #armor-description{font-size:9px}
+}

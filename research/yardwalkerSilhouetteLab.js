@@ -8,11 +8,13 @@ import {buildExteriorRig} from '../scene.js';
 import {candidateById,SILHOUETTE_PRESETS,TUNABLES,deriveSilhouette,clampParameter}
   from './yardwalkerSilhouetteDesign.js';
 import {createSilhouetteMachine} from './yardwalkerSilhouetteGeometry.js';
+import {ARMOR_LEVELS,normalizeArmor} from './yardwalkerSilhouetteArmor.js';
 
 const $=id=>document.getElementById(id);
 const stage=$('stage'),panels=$('panels'),canvas=$('scene');
 const state={selected:'strider',focus:window.innerWidth<761,fullRig:true,black:false,
  view:'quarter',arena:false,zoom:1,yaw:.65,pitch:.22,
+ armorTier:0,armorStyle:'box',bootPlate:true,
  configs:Object.fromEntries(SILHOUETTE_PRESETS.map(p=>[p.id,candidateById(p.id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33473b);
 scene.add(new THREE.HemisphereLight(0xe9e1cb,0x33483e,2.0));
@@ -45,7 +47,7 @@ for(const preset of SILHOUETTE_PRESETS){
  const root=initial.root.clone(true);
  const mobilityGroup=root.getObjectByName(mobility.name);
  if(!mobilityGroup)throw Error('Missing mobility mount in cloned five-station rig');
- const study=createSilhouetteMachine(state.configs[preset.id]);
+ const study=createSilhouetteMachine(state.configs[preset.id],state);
  mobilityGroup.add(study.root);
  root.visible=false;scene.add(root);
  const torso=root.getObjectByName(initial.partGroups.get('structure').name);
@@ -80,11 +82,32 @@ function updateMetrics(){
 }
 function redrawStudy(id){
  const rig=rigs.get(id);const old=rig.study.root;
- const study=createSilhouetteMachine(state.configs[id]);rig.mobilityGroup.remove(old);
+ const study=createSilhouetteMachine(state.configs[id],state);rig.mobilityGroup.remove(old);
  // Only study meshes are exclusive to one rig and may be safely disposed.
  old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
  rig.mobilityGroup.add(study.root);rig.study=study;updateMetrics();schedule();
 }
+function updateArmorControls(){
+ const armor=normalizeArmor(state.armorTier,state.armorStyle,state.bootPlate);
+ for(const b of document.querySelectorAll('[data-armor-tier]'))
+  b.setAttribute('aria-pressed',String(Number(b.dataset.armorTier)===armor.tier));
+ $('encased-style').disabled=armor.tier!==3;
+ $('encased-style').value=armor.style;
+ $('boot-plate').disabled=armor.tier!==3;
+ $('boot-plate').checked=armor.bootPlate;
+ $('armor-description').textContent=ARMOR_LEVELS[armor.tier].detail
+  +(armor.tier===3?' · '+(armor.style==='box'?'Box flare':'Tapered hood')+
+    (armor.bootPlate?' · Boot plate fitted':' · Bare boots'):'')
+  +' · Prototype only';
+}
+function applyArmor(){
+ updateArmorControls();
+ for(const preset of SILHOUETTE_PRESETS)redrawStudy(preset.id);
+}
+for(const b of document.querySelectorAll('[data-armor-tier]'))
+ b.addEventListener('click',()=>{state.armorTier=Number(b.dataset.armorTier);applyArmor();});
+$('encased-style').addEventListener('change',e=>{state.armorStyle=e.target.value;applyArmor();});
+$('boot-plate').addEventListener('change',e=>{state.bootPlate=e.target.checked;applyArmor();});
 function setParameter(key,value){
  state.configs[state.selected][key]=clampParameter(key,value);
  $(key).value=String(state.configs[state.selected][key]);
@@ -215,8 +238,13 @@ function render(){
  window.__yardwalkerSilhouetteLab={ready:true,frames:renderStamp.count,
   inspect:()=>({selected:state.selected,focus:state.focus,fullRig:state.fullRig,view:state.view,
    black:state.black,arena:state.arena,zoom:state.zoom,
+   armorTier:state.armorTier,armorStyle:state.armorStyle,bootPlate:state.bootPlate,
+   armorPieces:Object.fromEntries([...rigs.entries()].map(([id,rig])=>{
+    let count=0;rig.study.root.traverse(obj=>{if(obj.userData?.armorZone)count++;});
+    return [id,count];
+   })),
    candidates:SILHOUETTE_PRESETS.map(p=>({id:p.id,...deriveSilhouette(state.configs[p.id])}))})};
 }
 if('ResizeObserver'in window)new ResizeObserver(schedule).observe(stage);
 window.addEventListener('resize',schedule);
-setFocus(state.focus);choose(state.selected);schedule();
+updateArmorControls();setFocus(state.focus);choose(state.selected);schedule();

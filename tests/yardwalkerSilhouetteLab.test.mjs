@@ -53,6 +53,7 @@ test('the dev lab is linked, keeps production code isolated and has usable contr
  const html=get('../yardwalker-silhouette.html'),
   renderer=get('../research/yardwalkerSilhouetteLab.js'),
   geometry=get('../research/yardwalkerSilhouetteGeometry.js'),
+  armor=get('../research/yardwalkerSilhouetteArmor.js'),
   main=get('../index.html');
  assert.match(main,/id="yardwalker-silhouette-open"/);
  assert.match(html,/id="hipSpan"/);
@@ -64,6 +65,16 @@ test('the dev lab is linked, keeps production code isolated and has usable contr
  assert.match(renderer,/root\.clone\(true\)/);
  assert.match(renderer,/mobilityGroup\.add\(study\.root\)/);
  assert.doesNotMatch(renderer,/localStorage|sessionStorage|fetch\(|saveAssembly|equip\(/);
- assert.doesNotMatch(geometry,/buildYardwalkerVisual|yardwalkerDesignData|armorTier/);
+ assert.doesNotMatch(geometry,/buildYardwalkerVisual|yardwalkerDesignData|productionArmorPlan/);
  assert.match(html,/NO SAVE/);
+ assert.match(html,/data-armor-tier="0"/);
+ assert.match(html,/data-armor-tier="3"/);
+ assert.match(html,/id="encased-style"/);
+ assert.match(html,/id="boot-plate"/);
+ assert.match(armor,/enclosureGeometry/);
+ assert.match(armor,/addArmorToLeg/);
+ assert.match(armor,/frontPlate/);
+ assert.match(armor,/outerPlate/);
+ assert.match(renderer,/createSilhouetteMachine\(state\.configs\[id\],state\)/);
+ assert.doesNotMatch(armor,/legs-yard|partGroups|buildExteriorRig/);
 });
