@@ -35,7 +35,7 @@ export function ringGeometry(bottomW,topW,depthB,depthT,length,cut=.13){
   idx.push(a,d,b,a,c,d);}
  for(let k=1;k<7;k++){idx.push(0,k,k+1);idx.push(8,8+k+1,8+k);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
- g.setIndex(idx);g.computeVertexNormals();return g;
+ g.setIndex(idx);g.computeVertexNormals();g.userData.yardwalkerPrism=true;return g;
 }
 function link(parent,name,a,b,wTop,wBottom,dTop,dBottom,role){
  const top=v(a),bottom=v(b),dir=top.clone().sub(bottom),len=dir.length();
