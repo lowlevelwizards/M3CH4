@@ -193,7 +193,11 @@ function render(){
   const v=panel.getBoundingClientRect();if(v.width<2||v.height<2)continue;
   const x=Math.floor(v.left-r.left),y=Math.floor(r.bottom-v.bottom),w=Math.floor(v.width),h=Math.floor(v.height);
   const aspect=w/h;
-  const height=Math.max(state.arena?7.0:3.75,(state.arena?3.95:3.38)/aspect)*state.zoom;
+  // Match the real *whole rig* envelope, not merely the leg footprint.
+  // The side view needs more horizontal room for the long training cannon.
+  const widthNeeded=state.view==='side'?4.35:state.view==='quarter'?3.65:3.42;
+  const height=Math.max(state.arena?7.0:3.75,
+    (state.arena?5.85:widthNeeded)/aspect)*state.zoom;
   camera.left=-height*aspect/2;camera.right=height*aspect/2;
   camera.top=height/2;camera.bottom=-height/2;camera.updateProjectionMatrix();
   const target=new THREE.Vector3(0,1.50,0),radius=9;
