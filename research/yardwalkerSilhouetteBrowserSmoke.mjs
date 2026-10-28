@@ -22,6 +22,57 @@ async function open(viewport,mobile=false){
 async function snapshot(file){await page.waitForTimeout(150);await page.screenshot({path:out+'/'+file,fullPage:false});}
 try{
  await open({width:1280,height:780});
+ // Production and the approved Naked Industrial Strider must share
+ // every meaningful primitive and rest-world pose. Actual named joints must
+ // move it; do not silently substitute the old V4 model for gameplay.
+ const livePromotion=await page.evaluate(async()=>{
+  const [{buildPartVisual},{createSilhouetteMachine},{candidateById}]=await Promise.all([
+   import('./partVisuals.js'),import('./research/yardwalkerSilhouetteGeometry.js'),
+   import('./research/yardwalkerSilhouetteDesign.js')]);
+  const live=buildPartVisual('legs-yard',{mode:'gameplay'});
+  const lab=createSilhouetteMachine(candidateById('strider'),{tier:0}).root;
+  live.updateMatrixWorld(true);lab.updateMatrixWorld(true);
+  const mismatches=[],names=[],newGeometry=[],armored=[];
+  const a=window.THREE||null;
+  lab.traverse(obj=>{if(obj.isMesh){
+   const installed=live.getObjectByName(obj.name);
+   names.push(obj.name);
+   if(!installed||!installed.isMesh){mismatches.push(obj.name+' missing');return;}
+   if(installed.geometry.getAttribute('position').count!==
+      obj.geometry.getAttribute('position').count)mismatches.push(obj.name+' vertex count');
+   const v1=obj.getWorldPosition(obj.position.clone()),
+    v2=installed.getWorldPosition(installed.position.clone());
+   const q1=obj.getWorldQuaternion(obj.quaternion.clone()),
+    q2=installed.getWorldQuaternion(installed.quaternion.clone());
+   if(v1.distanceTo(v2)>.004||1-Math.abs(q1.dot(q2))>1e-5)
+    mismatches.push(obj.name+' rest pose');
+  }});
+  live.traverse(obj=>{if(obj.userData?.armorZone)armored.push(obj.name);});
+  const chain=['left','right'].map(side=>{
+   const joints=['Hip','Knee','Ankle','Foot'].map(j=>live.getObjectByName(side+j));
+   return {side,names:joints.map(j=>j?.name),valid:joints.every((j,i)=>j?.userData?.joint===
+    ['hip','knee','ankle','foot'][i])};
+  });
+  const foot=live.getObjectByName('L/load spreading boot'),
+    hip=live.getObjectByName('leftHip');
+  const initial=foot.getWorldPosition(foot.position.clone());
+  hip.rotation.x=.13;live.updateMatrixWorld(true);
+  const animated=foot.getWorldPosition(foot.position.clone());
+  const movement=initial.distanceTo(animated);
+  hip.rotation.x=0;live.updateMatrixWorld(true);
+  const restored=foot.getWorldPosition(foot.position.clone());
+  const baseDesign=live.userData.visualDesign;
+  return {names:names.length,mismatches,chain,movement,
+   restoredError:restored.distanceTo(initial),armorPieces:armored.length,
+   design:baseDesign};
+ });
+ assert.ok(livePromotion.names>=20,'must compare all meaningful lab meshes against live model');
+ assert.deepEqual(livePromotion.mismatches,[],'live Strider should match the Naked lab');
+ assert.ok(livePromotion.chain.every(c=>c.valid),'actual named live gait joints must exist');
+ assert.ok(livePromotion.movement>.018,'visual foot must move under hip rotation');
+ assert.ok(livePromotion.restoredError<1e-5,'rest pose should be reversible');
+ assert.equal(livePromotion.armorPieces,0,'armor must not ship in live Yardwalker');
+ assert.equal(livePromotion.design,'industrial-strider-naked-v1');
  // Audit actual geometry, not just a screenshot: every triangle of every
  // custom prism must face OUTWARD. The previous inward winding rendered only
  // interiors under Three.js's standard FrontSide backface culling.
@@ -228,6 +279,6 @@ try{
  const q=await page.evaluate(()=>window.__yardwalkerSilhouetteLab.inspect());
  assert.equal(q.focus,false);
  assert.equal(diagnostics.length,0,diagnostics.join('\n'));
- writeFileSync(out+'/acceptance.json',JSON.stringify({desktop:before,edited:b,mobile:q,geometryAudit,armorAudit,diagnostics},null,2));
+ writeFileSync(out+'/acceptance.json',JSON.stringify({desktop:before,edited:b,mobile:q,livePromotion,geometryAudit,armorAudit,diagnostics},null,2));
  console.log('YARDWALKER SILHOUETTE LAB BROWSER PASS');
 }finally{await browser.close();}
