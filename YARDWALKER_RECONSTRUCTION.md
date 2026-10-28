@@ -94,3 +94,39 @@ still does not animate anchor groups: evaluate poses in production or Armor Lab.
 V2 validation additionally checks normals/winding, degeneracy, exposed plate
 clearance, rest envelope, and distinct silhouette occupancy. Final sign-off is
 visual review of real game renders, not shape-count metrics alone.
+
+## V3: restore Yardwalker's original offset-knee silhouette
+
+The first two JSON rebuilds preserved the mathematical hip/knee/ankle anchors but
+lost the angled appearance of the pre-JSON Yardwalker. The original build used
+`taperedLink` between anchors; the new custom meshes were ring-stacked as
+nearly vertical pillars. V3 follows the original opposing fore-aft vectors
+(hip→knee +0.10 m Z / knee→ankle −0.10 m Z), amplifying them via purposeful
+faceted upper beams, knee forks and tapered lower shins. Carriage mount, joint
+centres, body envelope, paint roles, gait, and career balance remain unchanged.
+
+Armored appearances are designed as complete leg silhouettes before separating
+into fixed hip cowls, moving angled thigh fenders, moving shin greaves, and
+outer calf flanks. The eight individually removable armor identities remain.
+The fixed hip armor and moving thigh retain an articulation gap. Four V3
+Workbench assets use exactly the same updated production shapes. Verify
+side/front/rear views with `research/yardwalkerBrowserAudit.mjs` and test
+full-gait movement; the JSON exporter does not replace live IK metadata.
+
+Artistic acceptance: angled two-link profile is evident when Naked, and Heavy
+and Encased read as substantially different whole-leg silhouettes at arena
+size, not as sleeves or cuffs. Keep V3 in draft for actual visual approval.
+
+### Historical side-by-side visual audit
+
+Open `yardwalker-lineage.html` in the dev build for an equal-scale rendering
+of the frozen **original pre-JSON Yardwalker** (left) versus the actual current
+production V3 builder (right). Use 3D/SIDE/FRONT/REAR controls and the V3 armor
+tier selector. The historical model lives at
+`research/yardwalkerOriginalReference.js` and is **not** registered for
+career builds, vendor inventory or any production gameplay.
+
+The Yardwalker browser CI captures `lineage-original-v3-*-side.png` and a
+three-quarter Encased comparison in addition to the standard Armor Lab images.
+Artistic judgment requires looking at these rendered pictures, especially
+the opposing leg angles and whether armor reads as fitted long-form panels.

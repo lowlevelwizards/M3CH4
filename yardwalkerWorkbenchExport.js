@@ -58,13 +58,13 @@ export function makeYardwalkerWorkbenchAsset(tier){
   revision:1,type:'part',name:'Yardwalker / '+tier+' '+labels[tier],
   rootId,nodes,metadata:{definitionId:'legs-yard',
    reference:design.reference,
-   armorTier:tier,source:'yardwalker-design/master.json',version:'Yardwalker-V2',
+   armorTier:tier,source:'yardwalker-design/master.json',version:'Yardwalker-V3',
    visualOnly:true,articulated:true,
    note:'Edit joint-relative geometry; full production IK/damage requires yardwalkerVisual.js adapter.'}
  });
 }
 export function assertYardwalkerDesign(){
- if(design.format!=='m3ch4.yardwalker.design'||design.version!==2||
+ if(design.format!=='m3ch4.yardwalker.design'||design.version!==3||
    design.definitionId!=='legs-yard')throw Error('Invalid Yardwalker master header');
  if(design.core.length<32||design.core.length>54)throw Error('Yardwalker exceeds intended clean anatomy shape budget');
  const ids=new Set();
