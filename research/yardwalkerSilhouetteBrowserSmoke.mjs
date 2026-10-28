@@ -150,6 +150,16 @@ try{
   assert.equal(st.armorTier,level);
   assert.ok(Object.values(st.armorPieces).every(n=>n===([0,4,8,8])[level]));
   await snapshot('12-'+label+'-three-up-quarter.png');
+  // Inspect the kit itself, not just its appearance under the full mech.
+  await page.locator('#legs-only').click();
+  await snapshot('18-'+label+'-legs-only-three-up.png');
+  if(level>=2){
+   await page.locator('#focus').click();
+   await page.locator('#choose-bruiser').click();
+   await snapshot('19-'+label+'-bruiser-close-up.png');
+   await page.locator('#compare').click();
+  }
+  await page.locator('#full-rig').click();
   if(level===2){await page.locator('[data-view="side"]').click();
    await snapshot('13-heavy-three-up-side.png');
    await page.locator('[data-view="quarter"]').click();}
