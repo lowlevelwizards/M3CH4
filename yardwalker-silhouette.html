@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#151e19">
+<title>M3CH4 / Yardwalker Silhouette Playground</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./yardwalker-silhouette.css">
+</head><body>
+<header class="top">
+ <a href="./index.html">‹ GARAGE / DEV</a>
+ <div><strong>YARDWALKER / SILHOUETTE LAB</strong><small>3 INDEPENDENT STUDIES · ACTUAL ASSEMBLED RIG · VISUAL ONLY · NO SAVE</small></div>
+ <a href="./armor-lab.html">CURRENT V4 ARMOR LAB</a>
+</header>
+<section class="toolbar" aria-label="Comparison and camera">
+ <div class="tools">
+  <button type="button" id="compare" aria-pressed="true">COMPARE 3</button>
+  <button type="button" id="focus" aria-pressed="false">FOCUS ONE</button>
+  <button type="button" id="full-rig" aria-pressed="true">FULL MECH</button>
+  <button type="button" id="legs-only" aria-pressed="false">LEGS ONLY</button>
+  <button type="button" id="silhouette" aria-pressed="false">BLACK SILHOUETTE</button>
+ </div>
+ <div class="tools">
+  <button type="button" data-view="quarter" aria-pressed="true">3/4</button>
+  <button type="button" data-view="front" aria-pressed="false">FRONT</button>
+  <button type="button" data-view="side" aria-pressed="false">SIDE</button>
+  <button type="button" data-view="rear" aria-pressed="false">REAR</button>
+  <button type="button" id="garage" aria-pressed="true">GARAGE</button>
+  <button type="button" id="arena" aria-pressed="false">ARENA SCALE</button>
+  <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+  <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+  <button type="button" id="camera-reset">RESET VIEW</button>
+ </div>
+</section>
+<section id="stage" class="stage" aria-label="Three independent Yardwalker leg designs, with the same assembled mech upper body">
+ <canvas id="scene" aria-label="3D silhouette comparison canvas"></canvas>
+ <div class="panels" id="panels">
+  <div class="panel" data-id="strider"><div class="caption"><b>A / INDUSTRIAL STRIDER</b><span>TALL · OFFSET KNEE</span></div></div>
+  <div class="panel" data-id="bruiser"><div class="caption"><b>B / DOCKYARD BRUISER</b><span>SQUAT · WIDE THIGHS</span></div></div>
+  <div class="panel" data-id="hound"><div class="caption"><b>C / UTILITY HOUND</b><span>DEEP BENT LINKAGE</span></div></div>
+ </div>
+ <div class="overlay-tip">DRAG TO ORBIT · PINCH / +− TO ZOOM · TAP STUDY BELOW TO EDIT</div>
+</section>
+<div id="error" class="error" role="alert" hidden></div>
+<main class="dock">
+ <section class="study-choices" role="group" aria-label="Choose a study to edit">
+  <button id="choose-strider" data-choose="strider" type="button" aria-pressed="true">A / STRIDER</button>
+  <button id="choose-bruiser" data-choose="bruiser" type="button" aria-pressed="false">B / BRUISER</button>
+  <button id="choose-hound" data-choose="hound" type="button" aria-pressed="false">C / HOUND</button>
+ </section>
+ <section class="edit">
+  <div class="edit-head">
+   <div><strong id="selected-title">A / INDUSTRIAL STRIDER</strong><p id="selected-brief">Tall excavator-like linkages</p></div>
+   <div class="tools"><button type="button" id="reset-study">RESET THIS STUDY</button><button type="button" id="reset-all">RESET ALL</button></div>
+  </div>
+  <div class="sliders" id="sliders">
+   <label>HIP SPAN <output id="hipSpan-value">1.14 m</output><input id="hipSpan" type="range" min=".96" max="1.48" step=".01" value="1.14"></label>
+   <label>THIGH WIDTH <output id="thighMass-value">0.29 m</output><input id="thighMass" type="range" min=".21" max=".62" step=".01" value=".29"></label>
+   <label>REAR KNEE OFFSET <output id="kneeOffset-value">0.31 m</output><input id="kneeOffset" type="range" min=".06" max=".52" step=".01" value=".31"></label>
+   <label>THIGH / SHIN SPLIT <output id="thighShare-value">0.54</output><input id="thighShare" type="range" min=".40" max=".78" step=".01" value=".54"></label>
+   <label>BOOT SCALE <output id="footSize-value">0.88×</output><input id="footSize" type="range" min=".70" max="1.23" step=".01" value=".88"></label>
+  </div>
+  <div class="stats"><span id="study-footprint">STUDY ENVELOPE</span><span id="study-warnings">NO PRODUCTION GEOMETRY MODIFIED</span></div>
+ </section>
+ <p class="disclaimer">These are fresh proportion prototypes, not new catalogue parts. The torso, cab, weapon and generator are sourced from a real M3CH4 assembled rig; only the leg visual is substituted in this isolated lab. They do not affect IK, movement, hitboxes, credits, armor, saves, or the production Yardwalker. The silhouettes are intentionally primitive and do not yet prove mechanical articulation.</p>
+</main>
+<script type="module" src="./research/yardwalkerSilhouetteLab.js"></script>
+</body></html>
