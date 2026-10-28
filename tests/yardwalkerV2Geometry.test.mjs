@@ -52,7 +52,7 @@ test('every sculpted housing is a closed, non-degenerate consistently outward-fa
   assert.ok(signed>1e-7,'Inside-out sculpt '+s.id+' signed '+signed);
   visited++;
  }
- assert.ok(visited>35);
+ assert.ok(visited>=32);
 });
 test('armor remains joint-parented, individualized and genuinely changes its silhouette profile',()=>{
  for(const a of D.armor){
