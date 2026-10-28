@@ -53,6 +53,7 @@ test('the dev lab is linked, keeps production code isolated and has usable contr
  const html=get('../yardwalker-silhouette.html'),
   renderer=get('../research/yardwalkerSilhouetteLab.js'),
   geometry=get('../research/yardwalkerSilhouetteGeometry.js'),
+  armor=get('../research/yardwalkerSilhouetteArmor.js'),
   main=get('../index.html');
  assert.match(main,/id="yardwalker-silhouette-open"/);
  assert.match(html,/id="hipSpan"/);
