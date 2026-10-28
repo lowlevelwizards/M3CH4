@@ -1,7 +1,7 @@
 # Yardwalker silhouette playground — visual-first replacement study
 
 Open **[yardwalker-silhouette.html](../yardwalker-silhouette.html)** from the **garage → Dev** tools.
-No production Yardwalker JSON, palette, catalogue ID, IK, saves, armor, or combat is changed.
+The isolated lab does not edit production parts itself. As of the Industrial Strider promotion, the approved **Naked Industrial Strider** is the default live `legs-yard` visual on `main`; Dockyard Bruiser, Utility Hound and all experimental armor remain in this lab. The V4 JSON-backed model is retained only for the separate dev Armor Lab. Gameplay IK, catalogue ID, saves and combat remain unchanged.
 
 ## Why this lab exists
 
