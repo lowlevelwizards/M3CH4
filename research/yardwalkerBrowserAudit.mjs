@@ -92,6 +92,8 @@ try{
   await page.screenshot({path:dir+'/tier-'+tier+'-front.png'});
   await page.locator('#armor-side').click();
   await page.screenshot({path:dir+'/tier-'+tier+'-side.png'});
+  await page.locator('#armor-rear').click();
+  await page.screenshot({path:dir+'/tier-'+tier+'-rear.png'});
   if(tier===3){
    await page.locator('#armor-walk').click();
    await page.waitForTimeout(220);
