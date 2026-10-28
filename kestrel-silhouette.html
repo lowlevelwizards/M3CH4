@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#151e19">
+<title>M3CH4 / Kestrel Silhouette Playground</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./yardwalker-silhouette.css">
+</head><body>
+<header class="top">
+ <a href="./index.html">‹ GARAGE / DEV</a>
+ <div><strong>KESTREL / SILHOUETTE LAB</strong><small>3 NAKED AVIAN STUDIES · ACTUAL ASSEMBLED RIG · VISUAL ONLY · NO SAVE</small></div>
+ <a href="./yardwalker-silhouette.html">YARDWALKER LAB</a>
+</header>
+<section class="toolbar" aria-label="Comparison and camera">
+ <div class="tools">
+  <button type="button" id="compare" aria-pressed="true">COMPARE 3</button>
+  <button type="button" id="focus" aria-pressed="false">FOCUS ONE</button>
+  <button type="button" id="full-rig" aria-pressed="true">FULL MECH</button>
+  <button type="button" id="legs-only" aria-pressed="false">LEGS ONLY</button>
+  <button type="button" id="silhouette" aria-pressed="false">BLACK SILHOUETTE</button>
+ </div>
+ <div class="tools">
+  <button type="button" data-view="quarter" aria-pressed="true">3/4</button>
+  <button type="button" data-view="front" aria-pressed="false">FRONT</button>
+  <button type="button" data-view="side" aria-pressed="false">SIDE</button>
+  <button type="button" data-view="rear" aria-pressed="false">REAR</button>
+  <button type="button" id="garage" aria-pressed="true">GARAGE</button>
+  <button type="button" id="arena" aria-pressed="false">ARENA SCALE</button>
+  <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+  <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+  <button type="button" id="camera-reset">RESET VIEW</button>
+ </div>
+</section>
+<section id="stage" class="stage" aria-label="Three independent Kestrel leg designs, with the same assembled mech upper body">
+ <canvas id="scene" aria-label="3D silhouette comparison canvas"></canvas>
+ <div class="panels" id="panels">
+  <div class="panel" data-id="raptor"><div class="caption"><b>A / RAPTOR SCOUT</b><span>TAUT · SHARP HOCK</span></div></div>
+  <div class="panel" data-id="field"><div class="caption"><b>B / FIELD KESTREL</b><span>BALANCED · FIELD SCOUT</span></div></div>
+  <div class="panel" data-id="perch"><div class="caption"><b>C / PERCH RUNNER</b><span>TUCKED · PERCHING TOE</span></div></div>
+ </div>
+ <div class="overlay-tip">DRAG TO ORBIT · PINCH / +− TO ZOOM · TAP STUDY BELOW TO EDIT</div>
+</section>
+<div id="error" class="error" role="alert" hidden></div>
+<main class="dock">
+ <section class="study-choices" role="group" aria-label="Choose a study to edit">
+  <button id="choose-raptor" data-choose="raptor" type="button" aria-pressed="true">A / RAPTOR</button>
+  <button id="choose-field" data-choose="field" type="button" aria-pressed="false">B / FIELD</button>
+  <button id="choose-perch" data-choose="perch" type="button" aria-pressed="false">C / PERCH</button>
+ </section>
+ <section class="edit">
+  <div class="edit-head">
+   <div><strong id="selected-title">A / RAPTOR SCOUT</strong><p id="selected-brief">High-hip avian runner</p></div>
+   <div class="tools"><button type="button" id="reset-study">RESET THIS STUDY</button><button type="button" id="reset-all">RESET ALL</button></div>
+  </div>
+  <div class="sliders" id="sliders">
+   <label>HIP SPAN <output id="hipSpan-value">0.91 m</output><input id="hipSpan" type="range" min=".75" max="1.08" step=".01" value=".91"></label>
+   <label>UPPER CASTING <output id="thighMass-value">0.25 m</output><input id="thighMass" type="range" min=".20" max=".42" step=".01" value=".25"></label>
+   <label>REAR HOCK OFFSET <output id="kneeOffset-value">0.43 m</output><input id="kneeOffset" type="range" min=".24" max=".59" step=".01" value=".43"></label>
+   <label>KNEE HEIGHT <output id="thighShare-value">0.46</output><input id="thighShare" type="range" min=".34" max=".60" step=".01" value=".46"></label>
+   <label>FOOT SCALE <output id="footSize-value">0.85×</output><input id="footSize" type="range" min=".70" max="1.16" step=".01" value=".85"></label>
+  </div>
+  <div class="stats"><span id="study-footprint">COMPACT FOOTPRINT</span><span id="study-warnings">NO PRODUCTION GEOMETRY MODIFIED</span></div>
+ </section>
+ <p class="disclaimer">Three independent Naked Kestrel prototypes: Raptor Scout, Field Kestrel, and Perch Runner. Each is inspected beneath the same actual assembled M3CH4 upper rig; only its private mobility visual is changed. No experimental armor or animation has been introduced. Your playable Kestrel, handling, stats, inventory, hitboxes, and saves are untouched. Select a silhouette only after front, side, arena-distance, and full-rig inspection.</p>
+</main>
+<script type="module" src="./research/yardwalkerSilhouetteLab.js"></script>
+</body></html>
