@@ -85,3 +85,33 @@ Encased Taper, and optional boot-off, in addition to Naked, on desktop and
 portrait mobile. It checks closed manifold surface meshes, volume orientation,
 and base geometry preservation at all slider extremes. **Artistic approval and
 animated collision clearance remain required before implementing live armor.**
+
+## Focused fit and articulation pass
+
+The **Dockyard Bruiser only** uses a three-station hollow Encased shell that
+widens toward the hip and narrows at the knee. Both Box Flare and Tapered Hood
+remain selectable. Industrial Strider and Utility Hound retain their approved
+two-station Encased shells. Naked shapes, candidate proportions, and original
+manufacturing palette are unchanged.
+
+Light front plates now run farther along the major load member and taper
+naturally near the knee. Heavy front plates leave a narrow manufactured seam
+before the outside protection; armor remains tied to its actual moving member.
+
+The toolbar adds **NEUTRAL**, **WALK**, **DEEP BEND**, **PAUSE/RESUME**, adjustable
+walk speed, and a pause-only phase scrub. The same treadmill gait phase is
+shown across all three models; alternate feet plant and swing, the mech has a
+small body bob, and the knee is solved by fixed-length two-link sagittal
+kinematics. Deep bend lowers the body about 0.17m while keeping both boots
+planted. Neutral resets the exact original pose and is safe to use when
+comparing variants.
+
+**Limitations:** This is intentionally a visual preview, not the live M3CH4
+gait solver, colliders or a verified minimum-clearance guarantee. The
+horizontal foot progression is a treadmill inspection cycle, not true travel,
+and real collision/kinematic validation remains necessary after selecting a
+production candidate. Color, armor HP, repair, inventory and saves are not
+changed.
+
+Desktop and mobile browser artifacts include paused deep-bend and swing
+screenshots for Encased Bruiser plus the usual rest-pose comparisons.
