@@ -2759,11 +2759,21 @@ smokeButton.addEventListener('click',()=>{
         renderAmmo();
     }
 });
-devToggle.addEventListener('click', () => {
-    const opening = devPanel.classList.contains('hidden');
-    devPanel.classList.toggle('hidden');
-    document.body.classList.toggle('dev-open', opening);
+function setDevDrawerOpen(open) {
+    devPanel.classList.toggle('hidden', !open);
+    document.body.classList.toggle('dev-open', open);
+    devToggle.setAttribute('aria-expanded', String(open));
+    if (open) devPanel.scrollTop = 0;
     renderTarget();
+}
+devToggle.setAttribute('aria-controls', 'dev-panel');
+devToggle.setAttribute('aria-expanded', 'false');
+devToggle.addEventListener('click', () => {
+    setDevDrawerOpen(devPanel.classList.contains('hidden'));
+});
+document.querySelector('#dev-panel-close')?.addEventListener('click', () => {
+    setDevDrawerOpen(false);
+    devToggle.focus();
 });
 resetRig.addEventListener('click', () => { rig = createRigState(playerSpawn); controls.recenterLook(); });
 let wipeArmed = false;
