@@ -72,3 +72,16 @@
 @media(min-width:761px) and (max-width:1020px){
  .panels.four .caption{margin:5px;padding:6px}
 }
+
+/* V4 plate inspector: use the same industrial controls as encasement picker. */
+.armor-part-controls{gap:8px 12px}
+.armor-part-controls select{background:#293d32;color:#f1e6c7;
+ border:1px solid #6b8572;border-radius:5px;min-height:39px;
+ padding:8px 10px;max-width:min(48vw,330px);font:inherit;font-size:11px}
+.armor-part-controls select:disabled{opacity:.5}
+.armor-part-controls button:disabled{opacity:.5}
+#armor-part-status{color:#b9c9bb;font-size:10px;flex:1 1 160px;line-height:1.4}
+@media(max-width:760px){
+ .armor-part-controls select{max-width:100%;flex:1 1 210px;min-width:0}
+ .armor-part-controls #armor-part-status{flex-basis:100%}
+}
