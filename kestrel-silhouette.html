@@ -97,6 +97,15 @@
   </div>
   <span id="armor-description">Naked runner · No fitted armor · Experimental only</span>
  </div>
+ <div class="armor-line armor-part-controls" aria-label="Inspect and remove individual armor plates">
+  <label for="armor-part-select" class="pose-label">INDIVIDUAL PLATE</label>
+  <select id="armor-part-select" aria-label="Select removable armor plate" disabled>
+   <option value="">NO FITTED ARMOR</option>
+  </select>
+  <button id="armor-part-visibility" type="button" disabled>REMOVE PLATE</button>
+  <button id="armor-parts-reset" type="button" disabled>RESTORE PLATES</button>
+  <span id="armor-part-status">Select a fitted armor plate to inspect or remove</span>
+ </div>
 </section>
 <section id="stage" class="stage" aria-label="Three independent Kestrel leg designs, with the same assembled mech upper body">
  <canvas id="scene" aria-label="3D silhouette comparison canvas"></canvas>
