@@ -1,18 +1,22 @@
 /** Visual-only prototype lab. Uses the same five-station upper assembly as
  * production buildExteriorRig(), replacing *only* its mobility visual in a
- * private clone. No catalogue registration, persistence, weapons or IK rewrites.\n * Naked Kestrel candidates only; no unapproved armor.
+ * private clone. No catalogue registration, persistence, weapons or IK rewrites.\n * Kestrel V3 adds an entirely experimental removable visual armor study.
  */
 import * as THREE from 'three';
 import {makeTestAssembly} from '../components.js';
 import {buildExteriorRig} from '../scene.js';
 import {candidateById,SILHOUETTE_PRESETS,TUNABLES,deriveSilhouette,clampParameter}
   from './kestrelSilhouetteDesign.js';
-import {createArticulatedKestrel,calculateKestrelPose,STANCE_IDS,STANCES} from './kestrelSilhouetteMotion.js';
+import {createArticulatedKestrel,STANCE_IDS,STANCES} from './kestrelSilhouetteMotion.js';
+import {installKestrelArmor} from './kestrelSilhouetteArmor.js';
+import {ARMOR_LEVELS,ENCASED_FORMS,ARMOR_ZONES,normalizeArmorSettings} from './kestrelArmorSpec.js';
 
 const $=id=>document.getElementById(id);
 const stage=$('stage'),panels=$('panels'),canvas=$('scene');
 const state={selected:'raptor',focus:window.innerWidth<761,fullRig:true,black:false,
  comparison:'designs',stance:'balanced',motion:'stand',playing:false,phase:0,speed:1,
+ armorTier:0,armorForm:'swept',bootPlate:true,armorOnly:false,exploded:false,
+ armorZones:Object.fromEntries(ARMOR_ZONES.map(zone=>[zone,true])),
  view:'quarter',arena:false,zoom:1,yaw:.65,pitch:.22,
  configs:Object.fromEntries(SILHOUETTE_PRESETS.map(p=>[p.id,candidateById(p.id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33473b);
@@ -42,29 +46,45 @@ for(const child of [...mobility.children])mobility.remove(child);
 // The unchanged upper body is built once, then cloned with shared GPU geometry. Each
 // clone has its own newly authored mobility mesh; no live object is altered.
 const rigs=new Map();
-for(const preset of SILHOUETTE_PRESETS){
+for(const preset of [...SILHOUETTE_PRESETS,{id:'naked'}]){
  const root=initial.root.clone(true);
  const mobilityGroup=root.getObjectByName(mobility.name);
  if(!mobilityGroup)throw Error('Missing mobility mount in cloned five-station rig');
- const study=createArticulatedKestrel(state.configs[preset.id]);
+ const design=preset.id==='naked'?'raptor':preset.id;
+ const study=createArticulatedKestrel(state.configs[design]);
+ const armor=installKestrelArmor(study,{tier:0});
  mobilityGroup.add(study.root);
  root.visible=false;scene.add(root);
- const torso=root.getObjectByName(initial.partGroups.get('structure').name);
- rigs.set(preset.id,{root,mobilityGroup,torso,study,design:preset.id,basePosition:root.position.clone()});
+ const upperGroups=[...initial.partGroups.entries()].filter(([key])=>key!=='mobility')
+  .map(([,group])=>root.getObjectByName(group.name)).filter(Boolean);
+ rigs.set(preset.id,{root,mobilityGroup,upperGroups,study,armor,
+  design,armorTier:0,basePosition:root.position.clone()});
 }
 const renderStamp={count:0};
 let pending=false;
 function schedule(){if(pending)return;pending=true;requestAnimationFrame(render);}
 function displayFor(panelId){
+ if(state.comparison==='armor'&&!state.focus)
+  return {candidate:state.selected,stance:state.stance,
+   tier:['raptor','field','perch','naked'].indexOf(panelId)};
  if(state.comparison==='stances'&&!state.focus)
-  return {candidate:state.selected,stance:STANCE_IDS[SILHOUETTE_PRESETS.findIndex(p=>p.id===panelId)]};
- return {candidate:panelId,stance:state.stance};
+  return {candidate:state.selected,stance:STANCE_IDS[SILHOUETTE_PRESETS.findIndex(p=>p.id===panelId)],
+   tier:state.armorTier};
+ return {candidate:panelId==='naked'?state.selected:panelId,stance:state.stance,tier:state.armorTier};
 }
 function refreshPanelTitles(){
- for(const [i,preset] of SILHOUETTE_PRESETS.entries()){
+ const armorMode=state.comparison==='armor'&&!state.focus;
+ panels.classList.toggle('four',armorMode);
+ const armorPanel=panels.querySelector('[data-id="naked"]');
+ armorPanel.classList.toggle('hidden',!armorMode);
+ for(const [i,preset] of [...SILHOUETTE_PRESETS,{id:'naked'}].entries()){
+  if(i===3&&!armorMode)continue;
   const panel=panels.querySelector('[data-id="'+preset.id+'"]');
   const caption=panel.querySelector('.caption');
-  if(state.comparison==='stances'&&!state.focus){
+  if(armorMode){
+   caption.querySelector('b').textContent=i+' / '+ARMOR_LEVELS[i].name;
+   caption.querySelector('span').textContent=ARMOR_LEVELS[i].description;
+  }else if(state.comparison==='stances'&&!state.focus){
    caption.querySelector('b').textContent=(i+1)+' / '+STANCES[STANCE_IDS[i]].name;
    caption.querySelector('span').textContent=state.configs[state.selected].title+' · '+STANCES[STANCE_IDS[i]].description;
   }else{
@@ -73,18 +93,33 @@ function refreshPanelTitles(){
   }
  }
 }
-function replaceRigStudy(rig,candidate){
- if(rig.design===candidate)return;
+function replaceRigStudy(rig,candidate,tier=state.armorTier){
+ if(rig.design===candidate&&rig.armorTier===tier)return;
  const old=rig.study.root;
  const next=createArticulatedKestrel(state.configs[candidate]);
+ const kit=installKestrelArmor(next,{tier,form:state.armorForm,boot:state.bootPlate});
  rig.mobilityGroup.remove(old);
+ rig.armor.dispose();
  old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
- rig.study=next;rig.design=candidate;
+ rig.study=next;rig.armor=kit;rig.design=candidate;rig.armorTier=tier;
  rig.mobilityGroup.add(next.root);
+}
+function repaintDesign(design){
+ for(const rig of rigs.values()){
+  if(rig.design!==design)continue;
+  const old=rig.study.root,study=createArticulatedKestrel(state.configs[design]);
+  const armor=installKestrelArmor(study,{tier:rig.armorTier,
+   form:state.armorForm,boot:state.bootPlate});
+  rig.mobilityGroup.remove(old);rig.armor.dispose();
+  old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
+  rig.mobilityGroup.add(study.root);rig.study=study;rig.armor=armor;
+ }
+ schedule();
 }
 function syncRigAssignments(){
  for(const [panelId,rig] of rigs){
-  replaceRigStudy(rig,displayFor(panelId).candidate);
+  const display=displayFor(panelId);
+  replaceRigStudy(rig,display.candidate,display.tier);
  }
  refreshPanelTitles();
  schedule();
@@ -152,15 +187,17 @@ function setFocus(focused){
 $('focus').addEventListener('click',()=>setFocus(true));
 $('compare').addEventListener('click',()=>setFocus(false));
 function setComparison(mode){
- if(!['designs','stances'].includes(mode))throw Error('Unknown Kestrel comparison '+mode);
+ if(!['designs','stances','armor'].includes(mode))throw Error('Unknown Kestrel comparison '+mode);
  state.comparison=mode;
  $('compare-designs').setAttribute('aria-pressed',String(mode==='designs'));
  $('compare-stances').setAttribute('aria-pressed',String(mode==='stances'));
- if(mode==='stances'&&state.focus)setFocus(false);
+ $('compare-armor').setAttribute('aria-pressed',String(mode==='armor'));
+ if(mode!=='designs'&&state.focus)setFocus(false);
  syncRigAssignments();
 }
 $('compare-designs').addEventListener('click',()=>setComparison('designs'));
 $('compare-stances').addEventListener('click',()=>setComparison('stances'));
+$('compare-armor').addEventListener('click',()=>setComparison('armor'));
 function setStance(id){
  if(!STANCES[id])throw Error('Unknown stance '+id);
  state.stance=id;
@@ -170,6 +207,55 @@ function setStance(id){
 }
 for(const b of document.querySelectorAll('[data-stance]'))
  b.addEventListener('click',()=>setStance(b.dataset.stance));
+function updateArmorControls(){
+ const spec=normalizeArmorSettings({tier:state.armorTier,
+  form:state.armorForm,boot:state.bootPlate});
+ for(const b of document.querySelectorAll('[data-armor-tier]'))
+  b.setAttribute('aria-pressed',String(Number(b.dataset.armorTier)===spec.tier));
+ $('encased-form').disabled=spec.tier!==3;
+ $('encased-form').value=spec.form;
+ $('boot-plate').disabled=spec.tier!==3;
+ $('boot-plate').checked=spec.boot;
+ $('armor-only').setAttribute('aria-pressed',String(state.armorOnly));
+ $('armor-explode').setAttribute('aria-pressed',String(state.exploded));
+ for(const b of document.querySelectorAll('[data-armor-zone]'))
+  b.setAttribute('aria-pressed',String(state.armorZones[b.dataset.armorZone]));
+ $('armor-description').textContent=ARMOR_LEVELS[spec.tier].description+
+  (spec.tier===3?' · '+ENCASED_FORMS.find(f=>f.id===spec.form).name+
+  (spec.boot?' · Foot cap fitted':' · Naked feet'):'')+' · Prototype only · No save';
+}
+function applyArmor(){
+ for(const [id,rig] of rigs){
+  const desired=displayFor(id);
+  rig.armorTier=-1;
+  replaceRigStudy(rig,desired.candidate,desired.tier);
+ }
+ updateArmorControls();schedule();
+}
+for(const b of document.querySelectorAll('[data-armor-tier]'))
+ b.addEventListener('click',()=>{state.armorTier=Number(b.dataset.armorTier);applyArmor();});
+$('encased-form').addEventListener('change',e=>{
+ state.armorForm=e.target.value;applyArmor();
+});
+$('boot-plate').addEventListener('change',e=>{
+ state.bootPlate=e.target.checked;applyArmor();
+});
+$('armor-only').addEventListener('click',()=>{
+ state.armorOnly=!state.armorOnly;updateArmorControls();schedule();
+});
+$('armor-explode').addEventListener('click',()=>{
+ state.exploded=!state.exploded;updateArmorControls();schedule();
+});
+for(const b of document.querySelectorAll('[data-armor-zone]'))
+ b.addEventListener('click',()=>{
+  state.armorZones[b.dataset.armorZone]=!state.armorZones[b.dataset.armorZone];
+  updateArmorControls();schedule();
+ });
+$('armor-reset-view').addEventListener('click',()=>{
+ state.armorOnly=false;state.exploded=false;
+ for(const zone of ARMOR_ZONES)state.armorZones[zone]=true;
+ updateArmorControls();schedule();
+});
 function updatePlayButton(){
  $('toggle-play').textContent=state.playing?'Ⅱ PAUSE':'▶ PLAY';
  $('toggle-play').setAttribute('aria-pressed',String(state.playing));
@@ -284,13 +370,18 @@ function render(timestamp=0){
  floor.visible=grid.visible=!state.black;
  scene.background.setHex(state.black?0xa9b8a6:0x33473b);
  scene.overrideMaterial=state.black?blackMaterial:null;
- for(const rig of rigs.values()){rig.root.visible=false;rig.torso.visible=state.fullRig;}
+ for(const rig of rigs.values()){
+  rig.root.visible=false;
+  for(const part of rig.upperGroups)part.visible=state.fullRig&&!state.armorOnly;
+ }
  let worstReach=0;
- const ids=state.focus?[state.selected]:SILHOUETTE_PRESETS.map(p=>p.id);
+ const ids=state.focus?[state.selected]:state.comparison==='armor'?
+ ['raptor','field','perch','naked']:SILHOUETTE_PRESETS.map(p=>p.id);
  for(const id of ids){
   const rig=rigs.get(id),panel=panels.querySelector('[data-id="'+id+'"]');
   const assignment=displayFor(id);
-  replaceRigStudy(rig,assignment.candidate);
+  replaceRigStudy(rig,assignment.candidate,assignment.tier);
+  rig.armor.present({armorOnly:state.armorOnly,exploded:state.exploded,zones:state.armorZones});
   const pose=rig.study.pose({stance:assignment.stance,motion:state.motion,phase:state.phase});
   rig.root.position.copy(rig.basePosition);
   rig.root.position.y+=pose.bodyY;
@@ -319,7 +410,8 @@ function render(timestamp=0){
  }
  $('pose-status').textContent=worstReach>0.002?
   'JOINT REACH LIMIT · '+worstReach.toFixed(3)+' M':
-  (state.comparison==='stances'&&!state.focus?'THREE STANCES':
+  (state.comparison==='armor'&&!state.focus?'FOUR ARMOR LEVELS':
+   state.comparison==='stances'&&!state.focus?'THREE STANCES':
   STANCES[state.stance].name)+' · '+(state.motion==='stand'?'GROUNDED':'FOOT-PLANT PREVIEW');
  $('pose-status').classList.toggle('warn',worstReach>0.002);
  renderStamp.count++;
@@ -328,11 +420,17 @@ function render(timestamp=0){
   inspect:()=>({selected:state.selected,focus:state.focus,fullRig:state.fullRig,view:state.view,
    black:state.black,arena:state.arena,zoom:state.zoom,
    comparison:state.comparison,stance:state.stance,motion:state.motion,
+   armorTier:state.armorTier,armorForm:state.armorForm,bootPlate:state.bootPlate,
+   armorOnly:state.armorOnly,exploded:state.exploded,armorZones:{...state.armorZones},
    playing:state.playing,phase:state.phase,speed:state.speed,
-   rigPoses:[...rigs].map(([id,r])=>({id,design:r.design,pose:r.study.root.userData.lastPose,
-    worldY:r.root.position.y,worldZ:r.root.position.z})),
+   rigPoses:ids.map(id=>{const r=rigs.get(id);return {id,design:r.design,
+    pose:r.study.root.userData.lastPose,armorTier:r.armorTier,
+    armorCount:r.armor.meshes.length,
+    visibleArmor:r.armor.meshes.filter(m=>m.visible).length,
+    worldY:r.root.position.y,worldZ:r.root.position.z};}),
    candidates:SILHOUETTE_PRESETS.map(p=>({id:p.id,...deriveSilhouette(state.configs[p.id])}))})};
 }
 if('ResizeObserver'in window)new ResizeObserver(schedule).observe(stage);
 window.addEventListener('resize',schedule);
-setFocus(state.focus);choose(state.selected);setStance('balanced');setMotion('stand');schedule();
+setFocus(state.focus);choose(state.selected);setStance('balanced');setMotion('stand');
+updateArmorControls();schedule();
