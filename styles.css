@@ -758,3 +758,13 @@ body.observing-allies #target-panel { display:none!important; }
     outline: 3px solid #f0d393; outline-offset: 3px;
   }
 }
+
+/* Anchor drawer to the visible viewport rather than the stage layout.
+   A fixed bottom edge is essential on short landscape iPhone screens. */
+#dev-panel {
+  position: fixed;
+  top: max(49px, calc(env(safe-area-inset-top) + 46px));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  height: auto;
+  max-height: none;
+}
