@@ -1,15 +1,16 @@
 /** Kestrel V3 physical armor – standalone experimental Three.js geometry.
- * Shells are genuinely open-ended. No coplanar decals or canned armor boxes.
+ * Shells are long, continuous faceted fairings with real hollow end bores.
  * Each panel is parented to its own rigid thigh/shin/hip/foot mount, not world.
  */
 import * as THREE from 'three';
-import {plateGeometry,enclosureGeometry} from './yardwalkerSilhouetteArmor.js';
+import {plateGeometry} from './yardwalkerSilhouetteArmor.js';
+import {tailoredThighShell,tailoredSplitCheek,tailoredFrontStrike,
+ tailoredOuterCheek} from './kestrelArmorGeometryV4.js';
 import {armorRecipe,ARMOR_ZONES} from './kestrelArmorSpec.js';
 
-const colors={front:0xd7c8a6,side:0xb7ae94,hip:0xc7b995,instep:0xcabf9d};
+const colors={front:0xe0d1af,side:0xafa58a,hip:0xcbbd99,instep:0xd4c39f};
 const mat=Object.fromEntries(Object.entries(colors).map(([name,color])=>
  [name,new THREE.MeshStandardMaterial({color,flatShading:true,roughness:.85,metalness:.12,side:THREE.FrontSide})]));
-const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function localProfile(mesh){
  const g=mesh.geometry;if(!g.boundingBox)g.computeBoundingBox();
  const b=g.boundingBox;
@@ -25,71 +26,6 @@ function specifiedProfile(p,zone,cast){
  }
  const w=p.shinMass;
  return {len:b.len,topW:w*(p.id==='perch'?1.13:1.08),bottomW:w*.78,topD:.225,bottomD:.155};
-}
-function sizeAt(p,y){
- const t=clamp(y/p.len+.5,0,1);
- return {width:p.bottomW+(p.topW-p.bottomW)*t,
-  depth:p.bottomD+(p.topD-p.bottomD)*t};
-}
-function stations(p,ratio,kind,anatomy,tier){
- const low=-p.len*ratio,high=p.len*ratio;
- const at=(y)=>{
-  const {width,depth}=sizeAt(p,y);
-  const shrink=(tier===1?.725:kind==='thigh'?.88:.83)*anatomy.front;
-  const projection=tier===1?.047:kind==='thigh'?.076:.068;
-  return {y,width:width*shrink,front:-depth/2-projection,
-   back:-depth/2+.027};
- };
- return [at(low),at(high)];
-}
-function frontStrike(profile,kind,anatomy,tier){
- const r=kind==='thigh'?(tier===1?.305:.34):(tier===1?.36:.385);
- return plateGeometry(...stations(profile,r,kind,anatomy,tier));
-}
-function sideCheek(profile,side,anatomy,kind){
- // An outer-facing cheek remains separate from the main front shield.
- const r=kind==='thigh'?.295:.33;
- const ring=y=>{
-  const {width,depth}=sizeAt(profile,y);
-  return {y,x:side*(width/2+.022),width:kind==='thigh'?.090:.079,
-   front:-depth*.33,back:depth*.36};
- };
- return plateGeometry(ring(-profile.len*r),ring(profile.len*r));
-}
-function shellGeometry(profile,anatomy,style){
- // Never cover the rotary knee or upper shoulder; leave open physical bores.
- const lowY=-profile.len*.315,highY=profile.len*.34;
- const station=(y,upper)=>{
-  const {width,depth}=sizeAt(profile,y);
-  const flare=anatomy.flare;
-  const widthBonus=style==='pod'?(upper?.33:.19):
-   upper?.26:.065;
-  const frontBonus=style==='pod'?(upper?.16:.15):
-   upper?.18:.095;
-  const backBonus=style==='pod'?.13:upper?.12:.085;
-  return {
-   outer:{y,width:width+widthBonus*flare,
-    front:-depth/2-frontBonus*flare,
-    back:depth/2+backBonus*flare},
-   inner:{y,width:width+.055,
-    front:-depth/2-.028,back:depth/2+.028}
-  };
- };
- return enclosureGeometry(station(lowY,false),station(highY,true));
-}
-function splitCheek(profile,anatomy,index){
- const sign=index===0?-1:1;
- const f=y=>{
-  const {width,depth}=sizeAt(profile,y);
-  const t=y/profile.len+.5;
-  const flare=(.09+t*.17)*anatomy.flare;
-  const gap=anatomy.splitGap;
-  const spread=width+flare;
-  const half=(spread-gap)/2;
-  return {y,x:sign*(gap/2+half/2),width:half,
-   front:-depth/2-.12,back:-depth/2+.025};
- };
- return plateGeometry(f(-profile.len*.31),f(profile.len*.33));
 }
 function hipBrow(p,leg,anatomy){
  const [x,y,z]=leg.hip,span=p.thighMass*anatomy.hip*.84;
@@ -140,16 +76,17 @@ export function installKestrelArmor(study,settings={}){
     if(part.zone==='thigh'){
      parent=mounts.thigh;
      if(part.role==='shell'){
-      g=part.form==='split'?splitCheek(profiles.thigh,recipe.anatomy,part.piece):
-       shellGeometry(profiles.thigh,recipe.anatomy,part.form);
+      g=part.form==='split'?
+       tailoredSplitCheek(profiles.thigh,recipe.anatomy,part.piece):
+       tailoredThighShell(profiles.thigh,recipe.anatomy,part.form);
      }else if(part.role==='side'){
-      g=sideCheek(profiles.thigh,side,recipe.anatomy,'thigh');material='side';
-     }else g=frontStrike(profiles.thigh,'thigh',recipe.anatomy,recipe.tier);
+      g=tailoredOuterCheek(profiles.thigh,side,recipe.anatomy,'thigh');material='side';
+     }else g=tailoredFrontStrike(profiles.thigh,'thigh',recipe.anatomy,recipe.tier);
     }else if(part.zone==='shin'){
      parent=mounts.shin;
      if(part.role==='side'){
-      g=sideCheek(profiles.shin,side,recipe.anatomy,'shin');material='side';
-     }else g=frontStrike(profiles.shin,'shin',recipe.anatomy,recipe.tier);
+      g=tailoredOuterCheek(profiles.shin,side,recipe.anatomy,'shin');material='side';
+     }else g=tailoredFrontStrike(profiles.shin,'shin',recipe.anatomy,recipe.tier);
     }else if(part.zone==='hip'){
      parent=study.root;material='hip';g=hipBrow(p,limb.leg,recipe.anatomy);
     }else{
