@@ -157,13 +157,13 @@ export function installKestrelArmor(study,settings={}){
     }
     const mesh=new THREE.Mesh(g,mat[material]);mesh.name='ARMOR / '+part.name;
     mesh.userData={kestrelArmor:true,armorZone:part.zone,armorRole:part.role,
-     removable:true,experimentalOnly:true,side,level:recipe.tier};
+     removable:true,experimentalOnly:true,armorPartId:part.name,side,level:recipe.tier};
     mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);meshes.push(mesh);
    }
   }
  }
  const zoneMap=Object.fromEntries(ARMOR_ZONES.map(x=>[x,true]));
- function present({armorOnly=false,exploded=false,zones=zoneMap}={}){
+ function present({armorOnly=false,exploded=false,zones=zoneMap,hiddenParts=new Set()}={}){
   for(const obj of cores)obj.visible=!armorOnly;
   for(const anchor of anchors){
    anchor.object.position.copy(anchor.object.userData.restPosition||anchor.object.position);
@@ -176,7 +176,8 @@ export function installKestrelArmor(study,settings={}){
    }
   }
   for(const mesh of meshes){
-   mesh.visible=zones[mesh.userData.armorZone]!==false;
+   mesh.visible=zones[mesh.userData.armorZone]!==false &&
+    !hiddenParts.has(mesh.userData.armorPartId);
    if(mesh.userData.armorZone==='hip'){
     mesh.position.x=exploded?mesh.userData.side*.21:0;
     mesh.position.z=exploded?-.12:0;
