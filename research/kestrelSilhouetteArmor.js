@@ -11,6 +11,12 @@ import {armorRecipe,ARMOR_ZONES} from './kestrelArmorSpec.js';
 const colors={front:0xe0d1af,side:0xafa58a,hip:0xcbbd99,instep:0xd4c39f};
 const mat=Object.fromEntries(Object.entries(colors).map(([name,color])=>
  [name,new THREE.MeshStandardMaterial({color,flatShading:true,roughness:.85,metalness:.12,side:THREE.FrontSide})]));
+const selectedMat=Object.fromEntries(Object.entries(mat).map(([id,m])=>{
+ const highlight=m.clone();
+ highlight.emissive=new THREE.Color(0x785329);
+ highlight.emissiveIntensity=.35;
+ return [id,highlight];
+}));
 function localProfile(mesh){
  const g=mesh.geometry;if(!g.boundingBox)g.computeBoundingBox();
  const b=g.boundingBox;
@@ -94,13 +100,14 @@ export function installKestrelArmor(study,settings={}){
     }
     const mesh=new THREE.Mesh(g,mat[material]);mesh.name='ARMOR / '+part.name;
     mesh.userData={kestrelArmor:true,armorZone:part.zone,armorRole:part.role,
+     armorMaterial:material,
      removable:true,experimentalOnly:true,armorPartId:part.name,side,level:recipe.tier};
     mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);meshes.push(mesh);
    }
   }
  }
  const zoneMap=Object.fromEntries(ARMOR_ZONES.map(x=>[x,true]));
- function present({armorOnly=false,exploded=false,zones=zoneMap,hiddenParts=new Set()}={}){
+ function present({armorOnly=false,exploded=false,zones=zoneMap,hiddenParts=new Set(),selectedPart=''}={}){
   for(const obj of cores)obj.visible=!armorOnly;
   for(const anchor of anchors){
    anchor.object.position.copy(anchor.object.userData.restPosition||anchor.object.position);
@@ -113,6 +120,7 @@ export function installKestrelArmor(study,settings={}){
    }
   }
   for(const mesh of meshes){
+   mesh.material=mesh.userData.armorPartId===selectedPart?selectedMat[mesh.userData.armorMaterial]:mat[mesh.userData.armorMaterial];
    mesh.visible=zones[mesh.userData.armorZone]!==false &&
     !hiddenParts.has(mesh.userData.armorPartId);
    if(mesh.userData.armorZone==='hip'){
