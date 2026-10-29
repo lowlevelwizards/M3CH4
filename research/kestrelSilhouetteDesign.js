@@ -41,7 +41,7 @@ export function candidateById(id){
 export function deriveSilhouette(raw){
  const p={...candidateById(raw.id),...raw};
  for(const key of Object.keys(TUNABLES))p[key]=clampParameter(key,p[key]);
- const footWidth=.34*p.footSize,footDepth=.49*p.footSize,footHeight=.145;
+ const footWidth=.37*p.footSize,footDepth=.53*p.footSize,footHeight=.145;
  const ankleY=-.53,footY=KESTREL_STUDY_FLOOR+footHeight/2;
  const kneeY=p.hipY+(ankleY-p.hipY)*p.thighShare;
  const legs=[-1,1].map(side=>{
