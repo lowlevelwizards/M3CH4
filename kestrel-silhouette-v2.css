@@ -1,0 +1,37 @@
+/* Kestrel V2 only: preserve shared Yardwalker styling untouched. */
+.pose-toolbar {
+ background:#21352b;border-bottom:1px solid #647c68;color:#eadfc2;
+ padding:9px clamp(10px,2vw,26px);
+ display:flex;flex-wrap:wrap;flex-direction:column;gap:8px;
+}
+.pose-line {display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;min-width:0;}
+.pose-toolbar .pose-label{color:#d4b879;font-size:10px;font-weight:700;letter-spacing:.10em;}
+.pose-toolbar .tools {gap:5px}
+.pose-toolbar button{min-height:39px;padding:9px 11px;font-size:11px;white-space:normal;}
+.pose-toolbar .motion-control {
+ display:flex;align-items:center;gap:7px;font-size:10px;min-width:132px;color:#a9c0ae;
+}
+.pose-toolbar .motion-control output{color:#e9cf95;min-width:35px;text-align:right;}
+.pose-toolbar .motion-control input{min-width:65px;flex:1;max-width:140px;accent-color:#c9a65e;}
+.pose-toolbar .motion-phase{flex:1;max-width:290px;}
+.pose-toolbar .pose-status{color:#a6c5b5;font-size:10px;margin-left:auto;line-height:1.35;}
+.pose-toolbar .pose-status.warn{color:#f2ba8d;}
+.pose-toolbar [aria-pressed=true]{background:#d5ad65;color:#1c281e;border-color:#f2d5a2;}
+.motion-details{border-top:1px solid #577160;margin-top:12px}
+.panel .caption span {max-width:100%;text-wrap:balance}
+@media(max-width:760px){
+ .pose-toolbar{padding:7px 8px;gap:7px}
+ .pose-line{gap:6px}
+ .pose-toolbar .pose-label{width:46px;font-size:9px}
+ .pose-toolbar button{padding:7px 8px;font-size:10px;min-height:38px}
+ .pose-toolbar .motion-control{min-width:0;flex:1 1 125px;}
+ .pose-toolbar .motion-phase{max-width:none;flex:2 1 175px}
+ .pose-toolbar .pose-status{width:100%;margin-left:0}
+ .stage{height:57dvh;min-height:320px}
+}
+@media(max-width:400px){
+ .pose-toolbar .pose-label{width:100%;margin:1px 0 0}
+ .pose-toolbar .tools{flex:1}
+ .pose-toolbar .tools button{flex:1}
+ .pose-toolbar .motion-control{flex:1 1 140px}
+}
