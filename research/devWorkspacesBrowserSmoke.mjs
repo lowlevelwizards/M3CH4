@@ -28,8 +28,16 @@ try {
   await page.goto(base+'index.html',{waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(()=>document.getElementById('dev-toggle')?.getAttribute('aria-controls')==='dev-panel',
    null,{timeout:55000}).catch(e=>{throw Error(name+': game UI did not initialize: '+e.message+'\n'+pageErrors.join('\n'));});
-  await page.locator('#dev-toggle').click();
-  await assert.equal(await page.locator('#dev-panel').isVisible(),true);
+  if (name === 'portrait') {
+   assert.equal(await page.locator('#portrait-warning').isVisible(),true,
+    'portrait mode should still warn about landscape-only combat');
+   await page.locator('#portrait-dev-open').click();
+  } else {
+   await page.locator('#dev-toggle').click();
+  }
+  assert.equal(await page.locator('#dev-panel').isVisible(),true);
+  if(name==='portrait')assert.equal(await page.locator('#portrait-warning').isVisible(),false);
+
   const details=await page.evaluate(ids=>{
    const panel=document.getElementById('dev-panel');
    const rect=panel.getBoundingClientRect();
@@ -68,6 +76,8 @@ try {
   assert.equal(await page.locator('#dev-panel').isVisible(),false,
    name+': drawer close button must work');
   assert.equal(await page.locator('#dev-toggle').getAttribute('aria-expanded'),'false');
+  if(name==='portrait')assert.equal(await page.locator('#portrait-warning').isVisible(),true);
+
   await page.close();
  }
  console.log('DEV WORKSPACES NAVIGATION & MOBILE OVERFLOW PASS');
