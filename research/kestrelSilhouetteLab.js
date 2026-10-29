@@ -124,16 +124,6 @@ function syncRigAssignments(){
  refreshPanelTitles();
  schedule();
 }
-function repaintDesign(design){
- for(const rig of rigs.values()){
-  if(rig.design!==design)continue;
-  const old=rig.study.root,study=createArticulatedKestrel(state.configs[design]);
-  rig.mobilityGroup.remove(old);
-  old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
-  rig.mobilityGroup.add(study.root);rig.study=study;
- }
- schedule();
-}
 const choose=id=>{
  if(!state.configs[id])throw Error('Unknown lab selection '+id);
  state.selected=id;
