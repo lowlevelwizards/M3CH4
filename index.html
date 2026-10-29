@@ -287,22 +287,36 @@
     </section>
     <div id="orbit-help" class="orbit-help hidden" aria-hidden="true">DRAG · ORBIT &nbsp; | &nbsp; TWO FINGERS · PAN + PINCH &nbsp; | &nbsp; TAP · SELECT / CLEAR</div>
 
-    <section id="dev-panel" class="dev-panel hidden" aria-label="developer diagnostics">
-      <a id="dev-workbench-open" href="./part-workbench-v2.html?from=game" class="utility-button" style="display:inline-block;text-decoration:none;padding:12px;margin:6px;border-color:#dab676;color:#f2d8a1">▤ PART WORKBENCH · EDIT GAME PARTS</a>
-      <details class="dev-group" open>
-        <summary>00 / MAP &amp; PROP INSPECTION</summary>
-        <a id="backlot-prop-gallery-open" href="./backlot-prop-gallery.html?v=k5s4"
-          class="utility-button" style="display:inline-block;text-decoration:none;border-color:#d7ae5e;color:#f4cf89;padding:11px">
-          ▦ BACKLOT PROP GALLERY · FREE CAM
+    <section id="dev-panel" class="dev-panel hidden" aria-label="Developer workspaces and diagnostics">
+      <div class="dev-drawer-head">
+        <div>
+          <strong>DEV / WORKSPACES</strong>
+          <small>PLAYGROUNDS · EDITORS · NO SAVE</small>
+        </div>
+        <button id="dev-panel-close" type="button" aria-label="Close developer tools">✕ CLOSE</button>
+      </div>
+      <nav class="dev-launchers" aria-label="Development workspaces">
+        <a id="kestrel-silhouette-open" class="dev-launcher dev-launcher-featured" href="./kestrel-silhouette.html">
+          <span>KESTREL / SILHOUETTE LAB</span>
+          <small>NEW · Three birdlike leg prototypes · Naked · Compare / edit</small>
         </a>
-        <small style="display:block;margin:6px 0;color:#b1c5b7">Every authored Backlot cover instance + unique scenic part · labeled grid · touch fly controls · no save / no combat.</small>
-        <a id="armor-lab-open" href="./armor-lab.html?v=k5t1" class="utility-button" style="display:inline-block;text-decoration:none;border-color:#a6c5a3;color:#e6d5ab;padding:11px;margin-top:8px">▧ ARMOR LAB · CYCLOPS / KESTREL</a>
-        <small style="display:block;margin:6px 0;color:#b1c5b7">Real part anatomy · removable plates · impact / pit crew experiment · no save / no combat.</small>
-        <a id="yardwalker-silhouette-open" href="./yardwalker-silhouette.html" class="utility-button" style="display:inline-block;text-decoration:none;border-color:#d7ae5e;color:#f4cf89;padding:11px;margin-top:8px">▧ YARDWALKER / SILHOUETTE PLAYGROUND</a>
-        <small style="display:block;margin:6px 0;color:#b1c5b7">Three fresh industrial walker silhouettes · full mech / arena scale · draggable camera + proportions · isolated dev study, no save.</small>
-        <a id="kestrel-silhouette-open" href="./kestrel-silhouette.html" class="utility-button" style="display:inline-block;text-decoration:none;border-color:#92c7b0;color:#d9f0df;padding:11px;margin-top:8px">▧ KESTREL / SILHOUETTE PLAYGROUND</a>
-        <small style="display:block;margin:6px 0;color:#b1c5b7">Three new bare bird-runner designs · real complete rig · front, side & arena views · independently adjustable legs and feet · no save.</small>
-      </details>
+        <a id="yardwalker-silhouette-open" class="dev-launcher" href="./yardwalker-silhouette.html">
+          <span>YARDWALKER / SILHOUETTE LAB</span>
+          <small>Industrial Strider · Bruiser · Hound · Armor experiments</small>
+        </a>
+        <a id="dev-workbench-open" class="dev-launcher" href="./part-workbench-v2.html?from=game">
+          <span>PART WORKBENCH</span>
+          <small>Visual-first 3D editor · Edit game parts</small>
+        </a>
+        <a id="armor-lab-open" class="dev-launcher" href="./armor-lab.html?v=k5t1">
+          <span>ARMOR LAB</span>
+          <small>Removable plates · Impacts · Pit crew tests</small>
+        </a>
+        <a id="backlot-prop-gallery-open" class="dev-launcher" href="./backlot-prop-gallery.html?v=k5s4">
+          <span>BACKLOT PROP GALLERY</span>
+          <small>Models · Collision · Free camera</small>
+        </a>
+      </nav>
       <header>RIG DIAGNOSTICS <span id="dev-version"></span></header>
       <pre id="dev-readout"></pre>
       <details class="dev-group" open>
