@@ -4,11 +4,11 @@
 <meta name="theme-color" content="#151e19">
 <title>M3CH4 / Kestrel Silhouette Playground</title>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
-<link rel="stylesheet" href="./yardwalker-silhouette.css">
+<link rel="stylesheet" href="./yardwalker-silhouette.css"><link rel="stylesheet" href="./kestrel-silhouette-v2.css">
 </head><body>
 <header class="top">
  <a href="./index.html">‹ GARAGE / DEV</a>
- <div><strong>KESTREL / SILHOUETTE LAB</strong><small>3 NAKED AVIAN STUDIES · ACTUAL ASSEMBLED RIG · VISUAL ONLY · NO SAVE</small></div>
+ <div><strong>KESTREL / SILHOUETTE LAB</strong><small>V2 / ARTICULATED STANCES · FULL MECH GAIT · VISUAL ONLY · NO SAVE</small></div>
  <a href="./yardwalker-silhouette.html">YARDWALKER LAB</a>
 </header>
 <section class="toolbar" aria-label="Comparison and camera">
@@ -31,6 +31,37 @@
   <button type="button" id="camera-reset">RESET VIEW</button>
  </div>
 </section>
+<section class="pose-toolbar" aria-label="Kestrel stance and movement experiments">
+ <div class="pose-line">
+  <span class="pose-label">COMPARE</span>
+  <div class="tools" role="group" aria-label="Comparison mode">
+   <button id="compare-designs" aria-pressed="true">THREE DESIGNS</button>
+   <button id="compare-stances" aria-pressed="false">THREE STANCES</button>
+  </div>
+  <span class="pose-label">STANCE</span>
+  <div class="tools" role="group" aria-label="Stance for selected study">
+   <button id="stance-perched" data-stance="perched" aria-pressed="false">HIGH-PERCHED</button>
+   <button id="stance-balanced" data-stance="balanced" aria-pressed="true">BALANCED</button>
+   <button id="stance-crouched" data-stance="crouched" aria-pressed="false">DEEP-CROUCHED</button>
+  </div>
+ </div>
+ <div class="pose-line">
+  <span class="pose-label">MOTION</span>
+  <div class="tools" role="group" aria-label="Motion mode">
+   <button id="mode-stand" data-motion="stand" aria-pressed="true">STAND</button>
+   <button id="mode-walk" data-motion="walk" aria-pressed="false">WALK</button>
+   <button id="mode-inspect" data-motion="inspect" aria-pressed="false">SCRUB POSE</button>
+   <button id="toggle-play" aria-pressed="false">▶ PLAY</button>
+  </div>
+  <label class="motion-control">SPEED <output id="gait-speed-value">1.00×</output>
+   <input id="gait-speed" type="range" min=".35" max="2" step=".05" value="1">
+  </label>
+  <label class="motion-control motion-phase">GAIT PHASE <output id="gait-phase-value">0%</output>
+   <input id="gait-phase" type="range" min="0" max="100" step="1" value="0">
+  </label>
+  <span id="pose-status" class="pose-status" role="status">BALANCED · GROUNDED</span>
+ </div>
+</section>
 <section id="stage" class="stage" aria-label="Three independent Kestrel leg designs, with the same assembled mech upper body">
  <canvas id="scene" aria-label="3D silhouette comparison canvas"></canvas>
  <div class="panels" id="panels">
@@ -38,7 +69,7 @@
   <div class="panel" data-id="field"><div class="caption"><b>B / FIELD KESTREL</b><span>BALANCED · FIELD SCOUT</span></div></div>
   <div class="panel" data-id="perch"><div class="caption"><b>C / PERCH RUNNER</b><span>TUCKED · PERCHING TOE</span></div></div>
  </div>
- <div class="overlay-tip">DRAG TO ORBIT · PINCH / +− TO ZOOM · TAP STUDY BELOW TO EDIT</div>
+ <div class="overlay-tip">DRAG TO ORBIT · PINCH TO ZOOM · TRY STANCES + WALK</div>
 </section>
 <div id="error" class="error" role="alert" hidden></div>
 <main class="dock">
@@ -61,7 +92,7 @@
   </div>
   <div class="stats"><span id="study-footprint">COMPACT FOOTPRINT</span><span id="study-warnings">NO PRODUCTION GEOMETRY MODIFIED</span></div>
  </section>
- <p class="disclaimer">Three independent Naked Kestrel prototypes: Raptor Scout, Field Kestrel, and Perch Runner. Each is inspected beneath the same actual assembled M3CH4 upper rig; only its private mobility visual is changed. No experimental armor or animation has been introduced. Your playable Kestrel, handling, stats, inventory, hitboxes, and saves are untouched. Select a silhouette only after front, side, arena-distance, and full-rig inspection.</p>
+ <p class="disclaimer">Kestrel V2 remains entirely experimental. Three Naked prototypes share the actual M3CH4 assembled upper rig. Rigid-length knee/ankle articulation, three stances, a looping planted-foot walk preview and scrubber are available for art evaluation only. This does not modify production mobility, gameplay IK, armor, collisions, saved builds, stats or inventory. Check all nine design–stance combinations before selecting the eventual production model.</p>
 </main>
 <script type="module" src="./research/kestrelSilhouetteLab.js"></script>
 </body></html>
