@@ -4,6 +4,8 @@ on:
     paths:
       - 'kestrel-silhouette.html'
       - 'research/kestrelSilhouette*.js'
+      - 'research/kestrelArmorSpec.js'
+      - 'research/kestrelV3ArmorBrowserSmoke.mjs'
       - 'research/kestrelSilhouette*.mjs'
       - 'tests/kestrelSilhouetteLab.test.mjs'
       - '.github/workflows/kestrel-silhouette-ci.yml'
@@ -36,6 +38,8 @@ jobs:
         run: node research/kestrelSilhouetteBrowserSmoke.mjs
       - name: Verify articulated three-by-three Kestrel stance and gait previews
         run: node research/kestrelV2BrowserSmoke.mjs
+      - name: Verify all four Kestrel armor levels, shell variations and articulated geometry
+        run: node research/kestrelV3ArmorBrowserSmoke.mjs
       - name: Verify Dev tab launchers are reachable on iPhone and desktop
         run: node research/devWorkspacesBrowserSmoke.mjs
       - name: Upload rendered art review
@@ -46,4 +50,5 @@ jobs:
           path: |
             kestrel-silhouette-artifacts/
             kestrel-v2-artifacts/
+            kestrel-v3-artifacts/
           if-no-files-found: warn
