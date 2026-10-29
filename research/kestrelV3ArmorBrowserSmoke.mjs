@@ -71,6 +71,8 @@ try{
  assert.equal(s.armorOnly,true);
  await screenshot(p,'12-isolated-armor');
  await p.locator('[data-armor-zone="shin"]').click();
+ await p.waitForFunction(()=>window.__kestrelSilhouetteLab?.inspect().rigPoses
+  .filter(x=>x.armorTier>0).every(x=>x.visibleArmor<x.armorCount),null,{timeout:10000});
  s=await status(p);
  assert.equal(s.armorZones.shin,false);
  assert.ok(s.rigPoses.filter(x=>x.armorTier>0).every(x=>x.visibleArmor<x.armorCount));
