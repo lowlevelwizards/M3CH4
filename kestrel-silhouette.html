@@ -8,7 +8,7 @@
 </head><body>
 <header class="top">
  <a href="./index.html">‹ GARAGE / DEV</a>
- <div><strong>KESTREL / SILHOUETTE LAB</strong><small>V2 / ARTICULATED STANCES · FULL MECH GAIT · VISUAL ONLY · NO SAVE</small></div>
+ <div><strong>KESTREL / SILHOUETTE LAB</strong><small>V3 / PHYSICAL ARMOR · ARTICULATED GAIT · VISUAL ONLY · NO SAVE</small></div>
  <a href="./yardwalker-silhouette.html">YARDWALKER LAB</a>
 </header>
 <section class="toolbar" aria-label="Comparison and camera">
@@ -37,6 +37,7 @@
   <div class="tools" role="group" aria-label="Comparison mode">
    <button id="compare-designs" aria-pressed="true">THREE DESIGNS</button>
    <button id="compare-stances" aria-pressed="false">THREE STANCES</button>
+   <button id="compare-armor" aria-pressed="false">FOUR ARMOR LEVELS</button>
   </div>
   <span class="pose-label">STANCE</span>
   <div class="tools" role="group" aria-label="Stance for selected study">
@@ -62,12 +63,57 @@
   <span id="pose-status" class="pose-status" role="status">BALANCED · GROUNDED</span>
  </div>
 </section>
+<section class="armor-toolbar" aria-label="Kestrel removable armor studies">
+ <div class="armor-line">
+  <span class="pose-label">ARMOR KIT</span>
+  <div class="tools" role="group" aria-label="Armor levels">
+   <button data-armor-tier="0" aria-pressed="true">0 / NAKED</button>
+   <button data-armor-tier="1" aria-pressed="false">1 / LIGHT</button>
+   <button data-armor-tier="2" aria-pressed="false">2 / HEAVY</button>
+   <button data-armor-tier="3" aria-pressed="false">3 / ENCASED</button>
+  </div>
+  <label class="armor-select">ENCASING
+   <select id="encased-form" disabled>
+    <option value="swept">SWEPT FAIRING</option>
+    <option value="pod">ARMORED THIGH POD</option>
+    <option value="split">SPLIT MECHANICAL SHELL</option>
+   </select>
+  </label>
+  <label class="armor-check"><input id="boot-plate" type="checkbox" checked disabled> FOOT CAP</label>
+ </div>
+ <div class="armor-line">
+  <span class="pose-label">INSPECT</span>
+  <div class="tools">
+   <button type="button" id="armor-only" aria-pressed="false">ARMOR ONLY</button>
+   <button type="button" id="armor-explode" aria-pressed="false">EXPLODE PLATES</button>
+   <button type="button" id="armor-reset-view">SHOW ALL</button>
+  </div>
+  <span class="pose-label">VISIBLE</span>
+  <div class="tools" role="group" aria-label="Individual armor groups">
+   <button data-armor-zone="hip" aria-pressed="true">HIP</button>
+   <button data-armor-zone="thigh" aria-pressed="true">THIGH</button>
+   <button data-armor-zone="shin" aria-pressed="true">SHIN</button>
+   <button data-armor-zone="foot" aria-pressed="true">FOOT</button>
+  </div>
+  <span id="armor-description">Naked runner · No fitted armor · Experimental only</span>
+ </div>
+ <div class="armor-line armor-part-controls" aria-label="Inspect and remove individual armor plates">
+  <label for="armor-part-select" class="pose-label">INDIVIDUAL PLATE</label>
+  <select id="armor-part-select" aria-label="Select removable armor plate" disabled>
+   <option value="">NO FITTED ARMOR</option>
+  </select>
+  <button id="armor-part-visibility" type="button" disabled>REMOVE PLATE</button>
+  <button id="armor-parts-reset" type="button" disabled>RESTORE PLATES</button>
+  <span id="armor-part-status">Select a fitted armor plate to inspect or remove</span>
+ </div>
+</section>
 <section id="stage" class="stage" aria-label="Three independent Kestrel leg designs, with the same assembled mech upper body">
  <canvas id="scene" aria-label="3D silhouette comparison canvas"></canvas>
  <div class="panels" id="panels">
   <div class="panel" data-id="raptor"><div class="caption"><b>A / RAPTOR SCOUT</b><span>TAUT · SHARP HOCK</span></div></div>
   <div class="panel" data-id="field"><div class="caption"><b>B / FIELD KESTREL</b><span>BALANCED · FIELD SCOUT</span></div></div>
   <div class="panel" data-id="perch"><div class="caption"><b>C / PERCH RUNNER</b><span>TUCKED · PERCHING TOE</span></div></div>
+  <div class="panel hidden" data-id="naked"><div class="caption"><b>0 / NAKED</b><span>UNARMORED REFERENCE</span></div></div>
  </div>
  <div class="overlay-tip">DRAG TO ORBIT · PINCH TO ZOOM · TRY STANCES + WALK</div>
 </section>
@@ -92,7 +138,7 @@
   </div>
   <div class="stats"><span id="study-footprint">COMPACT FOOTPRINT</span><span id="study-warnings">NO PRODUCTION GEOMETRY MODIFIED</span></div>
  </section>
- <p class="disclaimer">Kestrel V2 remains entirely experimental. Three Naked prototypes share the actual M3CH4 assembled upper rig. Rigid-length knee/ankle articulation, three stances, a looping planted-foot walk preview and scrubber are available for art evaluation only. This does not modify production mobility, gameplay IK, armor, collisions, saved builds, stats or inventory. Check all nine design–stance combinations before selecting the eventual production model.</p>
+ <p class="disclaimer">Kestrel V3 remains entirely experimental. Armor tiers and three enclosure shapes are design-only; separate removable plates follow articulated leg mounts. Three Naked prototypes still share the actual M3CH4 assembled upper rig. Rigid-length knee/ankle articulation, three stances, a looping planted-foot walk preview and scrubber are available for art evaluation only. This does not modify production mobility, gameplay IK, live armor, collisions, saved builds, stats or inventory. Check all armor levels in all three stances and during walking; this study does not add combat armor.</p>
 </main>
 <script type="module" src="./research/kestrelSilhouetteLab.js"></script>
 </body></html>
