@@ -11,6 +11,7 @@ on:
       - 'styles.css'
       - 'main.js'
       - 'research/devWorkspacesBrowserSmoke.mjs'
+      - 'kestrel-silhouette-v2.css'
   workflow_dispatch:
 jobs:
   kestrel-studies:
@@ -33,6 +34,8 @@ jobs:
           sleep 2
       - name: Verify real assembled rigs, silhouette geometry and phone controls
         run: node research/kestrelSilhouetteBrowserSmoke.mjs
+      - name: Verify articulated three-by-three Kestrel stance and gait previews
+        run: node research/kestrelV2BrowserSmoke.mjs
       - name: Verify Dev tab launchers are reachable on iPhone and desktop
         run: node research/devWorkspacesBrowserSmoke.mjs
       - name: Upload rendered art review
@@ -40,5 +43,7 @@ jobs:
         if: always()
         with:
           name: kestrel-three-candidates-review
-          path: kestrel-silhouette-artifacts/
+          path: |
+            kestrel-silhouette-artifacts/
+            kestrel-v2-artifacts/
           if-no-files-found: warn

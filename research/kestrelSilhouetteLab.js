@@ -7,11 +7,12 @@ import {makeTestAssembly} from '../components.js';
 import {buildExteriorRig} from '../scene.js';
 import {candidateById,SILHOUETTE_PRESETS,TUNABLES,deriveSilhouette,clampParameter}
   from './kestrelSilhouetteDesign.js';
-import {createSilhouetteMachine} from './kestrelSilhouetteGeometry.js';
+import {createArticulatedKestrel,calculateKestrelPose,STANCE_IDS,STANCES} from './kestrelSilhouetteMotion.js';
 
 const $=id=>document.getElementById(id);
 const stage=$('stage'),panels=$('panels'),canvas=$('scene');
 const state={selected:'raptor',focus:window.innerWidth<761,fullRig:true,black:false,
+ comparison:'designs',stance:'balanced',motion:'stand',playing:false,phase:0,speed:1,
  view:'quarter',arena:false,zoom:1,yaw:.65,pitch:.22,
  configs:Object.fromEntries(SILHOUETTE_PRESETS.map(p=>[p.id,candidateById(p.id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33473b);
@@ -45,15 +46,59 @@ for(const preset of SILHOUETTE_PRESETS){
  const root=initial.root.clone(true);
  const mobilityGroup=root.getObjectByName(mobility.name);
  if(!mobilityGroup)throw Error('Missing mobility mount in cloned five-station rig');
- const study=createSilhouetteMachine(state.configs[preset.id]);
+ const study=createArticulatedKestrel(state.configs[preset.id]);
  mobilityGroup.add(study.root);
  root.visible=false;scene.add(root);
  const torso=root.getObjectByName(initial.partGroups.get('structure').name);
- rigs.set(preset.id,{root,mobilityGroup,torso,study});
+ rigs.set(preset.id,{root,mobilityGroup,torso,study,design:preset.id,basePosition:root.position.clone()});
 }
 const renderStamp={count:0};
 let pending=false;
 function schedule(){if(pending)return;pending=true;requestAnimationFrame(render);}
+function displayFor(panelId){
+ if(state.comparison==='stances'&&!state.focus)
+  return {candidate:state.selected,stance:STANCE_IDS[SILHOUETTE_PRESETS.findIndex(p=>p.id===panelId)]};
+ return {candidate:panelId,stance:state.stance};
+}
+function refreshPanelTitles(){
+ for(const [i,preset] of SILHOUETTE_PRESETS.entries()){
+  const panel=panels.querySelector('[data-id="'+preset.id+'"]');
+  const caption=panel.querySelector('.caption');
+  if(state.comparison==='stances'&&!state.focus){
+   caption.querySelector('b').textContent=(i+1)+' / '+STANCES[STANCE_IDS[i]].name;
+   caption.querySelector('span').textContent=state.configs[state.selected].title+' · '+STANCES[STANCE_IDS[i]].description;
+  }else{
+   caption.querySelector('b').textContent=preset.title;
+   caption.querySelector('span').textContent=preset.brief;
+  }
+ }
+}
+function replaceRigStudy(rig,candidate){
+ if(rig.design===candidate)return;
+ const old=rig.study.root;
+ const next=createArticulatedKestrel(state.configs[candidate]);
+ rig.mobilityGroup.remove(old);
+ old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
+ rig.study=next;rig.design=candidate;
+ rig.mobilityGroup.add(next.root);
+}
+function syncRigAssignments(){
+ for(const [panelId,rig] of rigs){
+  replaceRigStudy(rig,displayFor(panelId).candidate);
+ }
+ refreshPanelTitles();
+ schedule();
+}
+function repaintDesign(design){
+ for(const rig of rigs.values()){
+  if(rig.design!==design)continue;
+  const old=rig.study.root,study=createArticulatedKestrel(state.configs[design]);
+  rig.mobilityGroup.remove(old);
+  old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
+  rig.mobilityGroup.add(study.root);rig.study=study;
+ }
+ schedule();
+}
 const choose=id=>{
  if(!state.configs[id])throw Error('Unknown lab selection '+id);
  state.selected=id;
@@ -68,7 +113,7 @@ const choose=id=>{
  }
  for(const p of panels.querySelectorAll('.panel'))
   p.classList.toggle('active',p.dataset.id===id);
- updateMetrics();schedule();
+ updateMetrics();syncRigAssignments();
 };
 function format(k,v){return Number(v).toFixed(2)+(TUNABLES[k].unit==='m'?' m':TUNABLES[k].unit);}
 function updateMetrics(){
@@ -78,13 +123,7 @@ function updateMetrics(){
    'REFERENCE COMPACT WIDTH OK · NO SAVE':'OUTSIDE NOMINAL 1.67 M WIDTH · CONCEPT ONLY';
  status.classList.toggle('warn',!p.isNominalWidth);
 }
-function redrawStudy(id){
- const rig=rigs.get(id);const old=rig.study.root;
- const study=createSilhouetteMachine(state.configs[id]);rig.mobilityGroup.remove(old);
- // Only study meshes are exclusive to one rig and may be safely disposed.
- old.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
- rig.mobilityGroup.add(study.root);rig.study=study;updateMetrics();schedule();
-}
+function redrawStudy(id){ repaintDesign(id);updateMetrics();schedule(); }
 function setParameter(key,value){
  state.configs[state.selected][key]=clampParameter(key,value);
  $(key).value=String(state.configs[state.selected][key]);
@@ -108,10 +147,60 @@ function setFocus(focused){
  state.focus=focused;panels.classList.toggle('single',focused);
  $('focus').setAttribute('aria-pressed',String(focused));
  $('compare').setAttribute('aria-pressed',String(!focused));
- choose(state.selected);schedule();
+ choose(state.selected);syncRigAssignments();schedule();
 }
 $('focus').addEventListener('click',()=>setFocus(true));
 $('compare').addEventListener('click',()=>setFocus(false));
+function setComparison(mode){
+ if(!['designs','stances'].includes(mode))throw Error('Unknown Kestrel comparison '+mode);
+ state.comparison=mode;
+ $('compare-designs').setAttribute('aria-pressed',String(mode==='designs'));
+ $('compare-stances').setAttribute('aria-pressed',String(mode==='stances'));
+ if(mode==='stances'&&state.focus)setFocus(false);
+ syncRigAssignments();
+}
+$('compare-designs').addEventListener('click',()=>setComparison('designs'));
+$('compare-stances').addEventListener('click',()=>setComparison('stances'));
+function setStance(id){
+ if(!STANCES[id])throw Error('Unknown stance '+id);
+ state.stance=id;
+ for(const b of document.querySelectorAll('[data-stance]'))
+  b.setAttribute('aria-pressed',String(b.dataset.stance===id));
+ updateMetrics();schedule();
+}
+for(const b of document.querySelectorAll('[data-stance]'))
+ b.addEventListener('click',()=>setStance(b.dataset.stance));
+function updatePlayButton(){
+ $('toggle-play').textContent=state.playing?'Ⅱ PAUSE':'▶ PLAY';
+ $('toggle-play').setAttribute('aria-pressed',String(state.playing));
+}
+function setMotion(mode){
+ if(!['stand','walk','inspect'].includes(mode))throw Error('Unknown lab motion '+mode);
+ state.motion=mode;
+ state.playing=mode==='walk';
+ if(mode==='stand')state.phase=0;
+ for(const b of document.querySelectorAll('[data-motion]'))
+  b.setAttribute('aria-pressed',String(b.dataset.motion===mode));
+ updatePlayButton();schedule();
+}
+for(const b of document.querySelectorAll('[data-motion]'))
+ b.addEventListener('click',()=>setMotion(b.dataset.motion));
+$('toggle-play').addEventListener('click',()=>{
+ if(state.motion==='stand')setMotion('walk');
+ else{state.playing=!state.playing;updatePlayButton();schedule();}
+});
+$('gait-speed').addEventListener('input',e=>{
+ state.speed=Number(e.target.value);
+ $('gait-speed-value').textContent=state.speed.toFixed(2)+'×';
+});
+$('gait-phase').addEventListener('input',e=>{
+ state.phase=Number(e.target.value)/100;
+ state.playing=false;
+ if(state.motion==='stand')state.motion='inspect';
+ for(const b of document.querySelectorAll('[data-motion]'))
+  b.setAttribute('aria-pressed',String(b.dataset.motion===state.motion));
+ updatePlayButton();schedule();
+});
 function showRig(yes){
  state.fullRig=yes;
  $('full-rig').setAttribute('aria-pressed',String(yes));
@@ -179,17 +268,34 @@ function finishPointer(event){
 canvas.addEventListener('pointerup',finishPointer);
 canvas.addEventListener('pointercancel',event=>{pointers.delete(event.pointerId);oldPinch=0;});
 canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(event.deltaY>0?1.1:.91);},{passive:false});
-function render(){
+let previousTime;
+function render(timestamp=0){
  pending=false;
+ const dt=previousTime===undefined?0:Math.min(.08,Math.max(0,(timestamp-previousTime)/1000));
+ previousTime=timestamp;
+ if(state.playing){
+  // Two complete steps in a roughly 1.7s repeat; no saved game transform.
+  state.phase=(state.phase+dt*state.speed/1.7)%1;
+ }
+ $('gait-phase').value=String(Math.round(state.phase*100));
+ $('gait-phase-value').textContent=Math.round(state.phase*100)+'%';
  const r=stage.getBoundingClientRect();if(r.width<1||r.height<1)return;
  renderer.setSize(r.width,r.height,false);
  floor.visible=grid.visible=!state.black;
  scene.background.setHex(state.black?0xa9b8a6:0x33473b);
  scene.overrideMaterial=state.black?blackMaterial:null;
  for(const rig of rigs.values()){rig.root.visible=false;rig.torso.visible=state.fullRig;}
+ let worstReach=0;
  const ids=state.focus?[state.selected]:SILHOUETTE_PRESETS.map(p=>p.id);
  for(const id of ids){
   const rig=rigs.get(id),panel=panels.querySelector('[data-id="'+id+'"]');
+  const assignment=displayFor(id);
+  replaceRigStudy(rig,assignment.candidate);
+  const pose=rig.study.pose({stance:assignment.stance,motion:state.motion,phase:state.phase});
+  rig.root.position.copy(rig.basePosition);
+  rig.root.position.y+=pose.bodyY;
+  rig.root.position.z+=pose.bodyZ;
+  worstReach=Math.max(worstReach,pose.maxReachError);
   const v=panel.getBoundingClientRect();if(v.width<2||v.height<2)continue;
   const x=Math.floor(v.left-r.left),y=Math.floor(r.bottom-v.bottom),w=Math.floor(v.width),h=Math.floor(v.height);
   const aspect=w/h;
@@ -203,7 +309,7 @@ function render(){
     (state.arena?widthNeeded*1.34:widthNeeded)/aspect)*state.zoom;
   camera.left=-height*aspect/2;camera.right=height*aspect/2;
   camera.top=height/2;camera.bottom=-height/2;camera.updateProjectionMatrix();
-  const target=new THREE.Vector3(0,state.fullRig?1.48:1.03,0),radius=9;
+  const target=new THREE.Vector3(0,state.fullRig?1.48:1.03,pose.bodyZ),radius=9;
   camera.position.set(target.x+Math.sin(state.yaw)*radius*Math.cos(state.pitch),
     target.y+Math.sin(state.pitch)*radius,target.z-Math.cos(state.yaw)*radius*Math.cos(state.pitch));
   camera.lookAt(target);
@@ -211,12 +317,22 @@ function render(){
   renderer.setClearColor(state.black?0xa9b8a6:0x33473b,1);renderer.clear(true,true,true);
   rig.root.visible=true;scene.updateMatrixWorld(true);renderer.render(scene,camera);rig.root.visible=false;
  }
+ $('pose-status').textContent=worstReach>0.002?
+  'JOINT REACH LIMIT · '+worstReach.toFixed(3)+' M':
+  (state.comparison==='stances'&&!state.focus?'THREE STANCES':
+  STANCES[state.stance].name)+' · '+(state.motion==='stand'?'GROUNDED':'FOOT-PLANT PREVIEW');
+ $('pose-status').classList.toggle('warn',worstReach>0.002);
  renderStamp.count++;
+ if(state.playing)schedule();
  window.__kestrelSilhouetteLab={ready:true,frames:renderStamp.count,
   inspect:()=>({selected:state.selected,focus:state.focus,fullRig:state.fullRig,view:state.view,
    black:state.black,arena:state.arena,zoom:state.zoom,
+   comparison:state.comparison,stance:state.stance,motion:state.motion,
+   playing:state.playing,phase:state.phase,speed:state.speed,
+   rigPoses:[...rigs].map(([id,r])=>({id,design:r.design,pose:r.study.root.userData.lastPose,
+    worldY:r.root.position.y,worldZ:r.root.position.z})),
    candidates:SILHOUETTE_PRESETS.map(p=>({id:p.id,...deriveSilhouette(state.configs[p.id])}))})};
 }
 if('ResizeObserver'in window)new ResizeObserver(schedule).observe(stage);
 window.addEventListener('resize',schedule);
-setFocus(state.focus);choose(state.selected);schedule();
+setFocus(state.focus);choose(state.selected);setStance('balanced');setMotion('stand');schedule();
