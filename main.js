@@ -2771,9 +2771,13 @@ devToggle.setAttribute('aria-expanded', 'false');
 devToggle.addEventListener('click', () => {
     setDevDrawerOpen(devPanel.classList.contains('hidden'));
 });
+document.querySelector('#portrait-dev-open')?.addEventListener('click', () => {
+    setDevDrawerOpen(true);
+});
 document.querySelector('#dev-panel-close')?.addEventListener('click', () => {
     setDevDrawerOpen(false);
-    devToggle.focus();
+    const portrait = window.matchMedia('(orientation: portrait) and (max-width: 700px)').matches;
+    (portrait ? document.querySelector('#portrait-dev-open') : devToggle)?.focus();
 });
 resetRig.addEventListener('click', () => { rig = createRigState(playerSpawn); controls.recenterLook(); });
 let wipeArmed = false;
