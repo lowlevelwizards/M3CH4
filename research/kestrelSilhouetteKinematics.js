@@ -18,7 +18,7 @@ const hypot=(a,b)=>Math.hypot(a,b);
  * Unlike interpolating knee coordinates, this preserves the original
  * thigh and shin lengths at EVERY pose, including stride extremes.
  */
-export function solveRearHock(hip,ankle,upper,lower){
+export function solveRearHock(hip,ankle,upper,lower,kneeX=hip[0]){
  const dy=ankle[1]-hip[1],dz=ankle[2]-hip[2];
  const distance=hypot(dy,dz),small=Math.abs(upper-lower)+.00001;
  const large=upper+lower-.00001;
@@ -28,8 +28,8 @@ export function solveRearHock(hip,ankle,upper,lower){
  const uy=distance>1e-9?dy/distance:-1,uz=distance>1e-9?dz/distance:0;
  const midY=hip[1]+uy*along,midZ=hip[2]+uz*along;
  const points=[
-  [hip[0],midY-uz*height,midZ+uy*height],
-  [hip[0],midY+uz*height,midZ-uy*height]
+  [kneeX,midY-uz*height,midZ+uy*height],
+  [kneeX,midY+uz*height,midZ-uy*height]
  ];
  return {knee:points[0][2]>points[1][2]?points[0]:points[1],
   reachable:distance>=small&&distance<=large,
@@ -61,7 +61,7 @@ export function calculateKestrelPose(params,options={}){
   const foot=[leg.foot[0],leg.foot[1]+lift,worldFootZ];
   const upper=hypot(leg.knee[1]-leg.hip[1],leg.knee[2]-leg.hip[2]);
   const lower=hypot(leg.ankle[1]-leg.knee[1],leg.ankle[2]-leg.knee[2]);
-  const solved=solveRearHock(hip,ankle,upper,lower);
+  const solved=solveRearHock(hip,ankle,upper,lower,leg.knee[0]);
   const knee=solved.knee;
   // Rig is translated as one assembly; joints are returned in rig-local space
   // so the foot can stay world-planted while the upper mech steps forward.
