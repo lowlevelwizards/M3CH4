@@ -5,6 +5,8 @@ import {STANCES,STANCE_IDS,GAIT,calculateKestrelPose}
  from '../research/kestrelSilhouetteKinematics.js';
 import {SILHOUETTE_PRESETS,TUNABLES,candidateById,deriveSilhouette,clampParameter}
  from '../research/kestrelSilhouetteDesign.js';
+import {ARMOR_LEVELS,ENCASED_FORMS,ARMOR_ANATOMY,ARMOR_ZONES,armorRecipe,normalizeArmorSettings}
+ from '../research/kestrelArmorSpec.js';
 const read=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('three fresh birdlike silhouettes have genuinely independent mechanical proportions',()=>{
@@ -75,7 +77,10 @@ test('Kestrel prototype stays outside playable registry; one deliberate casting 
  assert.match(html,/id="arena"/);
  assert.match(html,/id="silhouette"/);
  assert.match(html,/id="focus"/);
- assert.doesNotMatch(html,/data-armor-tier|id="boot-plate"/);
+ assert.match(html,/data-armor-tier="3"/);
+ assert.match(html,/id="boot-plate"/);
+ // The playable registry remains the original production Kestrel.
+ assert.doesNotMatch(registry,/kestrelSilhouetteArmor|kestrelArmorSpec/);
 });
 
 test('three stance treatments preserve rigid link lengths and ground each foot',()=>{
@@ -145,4 +150,57 @@ test('V2 controls and articulated module remain lab-only, with compare and scrub
  assert.match(geom,/attachPiece\(thigh,mesh\)/);
  assert.match(kinematics,/solveRearHock/);
  assert.doesNotMatch(registry,/kestrelSilhouetteMotion|kestrelSilhouetteKinematics/);
+});
+
+test('Kestrel 0/1/2/3 build physically distinct and removable armor inventories',()=>{
+ assert.deepEqual(ARMOR_LEVELS.map(l=>l.tier),[0,1,2,3]);
+ assert.deepEqual(ENCASED_FORMS.map(f=>f.id),['swept','pod','split']);
+ assert.equal(Object.keys(ARMOR_ANATOMY).length,3);
+ for(const preset of SILHOUETTE_PRESETS){
+  const none=armorRecipe(preset.id,{tier:0});
+  assert.equal(none.parts.length,0,'Naked remains untouched');
+  const light=armorRecipe(preset.id,{tier:1});
+  assert.equal(light.parts.length,4);
+  assert.deepEqual(light.parts.map(p=>p.zone).sort(),['shin','shin','thigh','thigh']);
+  assert.ok(light.parts.every(p=>p.role==='front'));
+  const heavy=armorRecipe(preset.id,{tier:2});
+  assert.equal(heavy.parts.length,10);
+  assert.ok(heavy.parts.filter(p=>p.zone==='hip').length===2);
+  assert.ok(heavy.parts.filter(p=>p.role==='side').length===4);
+  for(const form of ENCASED_FORMS.map(f=>f.id)){
+   const encased=armorRecipe(preset.id,{tier:3,form,boot:true});
+   assert.equal(encased.parts.filter(p=>p.zone==='foot').length,2);
+   assert.equal(encased.parts.filter(p=>p.role==='shell').length,form==='split'?4:2);
+   assert.equal(encased.parts.length,form==='split'?12:10);
+   assert.ok(encased.parts.every(p=>ARMOR_ZONES.includes(p.zone)));
+   assert.equal(armorRecipe(preset.id,{tier:3,form,boot:false}).parts.length,
+    encased.parts.length-2);
+  }
+ }
+ assert.notEqual(ARMOR_ANATOMY.raptor.flare,ARMOR_ANATOMY.perch.flare);
+ assert.ok(ARMOR_ANATOMY.field.heavy>ARMOR_ANATOMY.raptor.heavy);
+ assert.equal(normalizeArmorSettings({tier:12,form:'invalid'}).tier,3);
+ assert.equal(normalizeArmorSettings({tier:12,form:'invalid'}).form,'swept');
+ assert.throws(()=>armorRecipe('yardwalker',{tier:3}),/Unknown Kestrel/);
+});
+test('Kestrel armor geometry stays independent, follows rigid bones and never registers combat armor',()=>{
+ const code=read('../research/kestrelSilhouetteArmor.js');
+ const lab=read('../research/kestrelSilhouetteLab.js');
+ const html=read('../kestrel-silhouette.html');
+ const registry=read('../partVisuals.js');
+ const live=read('../research/kestrelSilhouetteMotion.js');
+ for(const phrase of ['enclosureGeometry','plateGeometry','mountOn','limb.thigh',
+  'limb.shin','limb.foot','experimentalOnly','armorZone','present','dispose'])
+  assert.ok(code.includes(phrase),phrase);
+ for(const id of ['compare-armor','armor-only','armor-explode','armor-reset-view','encased-form',
+  'boot-plate','armor-description'])
+  assert.match(html,new RegExp('id="'+id+'"'));
+ for(const tier of [0,1,2,3])assert.match(html,new RegExp('data-armor-tier="'+tier+'"'));
+ for(const zone of ARMOR_ZONES)assert.match(html,new RegExp('data-armor-zone="'+zone+'"'));
+ assert.match(lab,/installKestrelArmor/);
+ assert.match(lab,/state\.comparison==='armor'/);
+ assert.match(lab,/rig\.armor\.present/);
+ assert.match(lab,/armorTier:state\.armorTier/);
+ assert.doesNotMatch(live,/installKestrelArmor|addArmorToLeg/);
+ assert.doesNotMatch(registry,/kestrelSilhouetteArmor|kestrelArmorSpec/);
 });
