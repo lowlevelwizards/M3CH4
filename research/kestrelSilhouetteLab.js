@@ -17,6 +17,7 @@ const state={selected:'raptor',focus:window.innerWidth<761,fullRig:true,black:fa
  comparison:'designs',stance:'balanced',motion:'stand',playing:false,phase:0,speed:1,
  armorTier:0,armorForm:'swept',bootPlate:true,armorOnly:false,exploded:false,
  armorZones:Object.fromEntries(ARMOR_ZONES.map(zone=>[zone,true])),
+ hiddenParts:new Set(),selectedPart:'',
  view:'quarter',arena:false,zoom:1,yaw:.65,pitch:.22,
  configs:Object.fromEntries(SILHOUETTE_PRESETS.map(p=>[p.id,candidateById(p.id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x33473b);
@@ -122,7 +123,7 @@ function syncRigAssignments(){
   replaceRigStudy(rig,display.candidate,display.tier);
  }
  refreshPanelTitles();
- schedule();
+ updateArmorPartControls();schedule();
 }
 const choose=id=>{
  if(!state.configs[id])throw Error('Unknown lab selection '+id);
@@ -214,16 +215,57 @@ function updateArmorControls(){
   (spec.tier===3?' · '+ENCASED_FORMS.find(f=>f.id===spec.form).name+
   (spec.boot?' · Foot cap fitted':' · Naked feet'):'')+' · Prototype only · No save';
 }
+/** The inspected armor belongs to the displayed study, not the toolbar's
+ * global tier! In four-up comparison, column 4 is always the encased model,
+ * even if the current tier button still says Naked.
+ */
+function currentArmorRig(){
+ return rigs.get(state.comparison==='armor'&&!state.focus?'naked':state.selected);
+}
+function updateArmorPartControls(){
+ const selected=$('armor-part-select'),rig=currentArmorRig();
+ const parts=rig?.armor?.meshes||[];
+ const valid=new Set(parts.map(mesh=>mesh.userData.armorPartId));
+ if(!valid.has(state.selectedPart))state.selectedPart=parts[0]?.userData.armorPartId||'';
+ selected.replaceChildren();
+ if(!parts.length)selected.add(new Option('NO FITTED ARMOR',''));
+ else for(const mesh of parts)
+  selected.add(new Option(mesh.userData.armorPartId.toUpperCase(),mesh.userData.armorPartId));
+ selected.value=state.selectedPart;
+ selected.disabled=!parts.length;
+ $('armor-part-visibility').disabled=!parts.length;
+ $('armor-parts-reset').disabled=!state.hiddenParts.size;
+ const removed=state.hiddenParts.has(state.selectedPart);
+ $('armor-part-visibility').textContent=removed?'REFIT PLATE':'REMOVE PLATE';
+ const part=parts.find(mesh=>mesh.userData.armorPartId===state.selectedPart);
+ $('armor-part-status').textContent=part?
+  part.userData.armorZone.toUpperCase()+' / '+(removed?'REMOVED':'FITTED')+
+   ' · selected plate highlighted · visual prototype only':
+  'No fitted armor in this view';
+}
+$('armor-part-select').addEventListener('change',event=>{
+ state.selectedPart=event.target.value;updateArmorPartControls();schedule();
+});
+$('armor-part-visibility').addEventListener('click',()=>{
+ if(!state.selectedPart)return;
+ if(state.hiddenParts.has(state.selectedPart))state.hiddenParts.delete(state.selectedPart);
+ else state.hiddenParts.add(state.selectedPart);
+ updateArmorPartControls();schedule();
+});
+$('armor-parts-reset').addEventListener('click',()=>{
+ state.hiddenParts.clear();updateArmorPartControls();schedule();
+});
 function applyArmor(){
  for(const [id,rig] of rigs){
   const desired=displayFor(id);
   rig.armorTier=-1;
   replaceRigStudy(rig,desired.candidate,desired.tier);
  }
- updateArmorControls();schedule();
+ updateArmorControls();updateArmorPartControls();schedule();
 }
 for(const b of document.querySelectorAll('[data-armor-tier]'))
- b.addEventListener('click',()=>{state.armorTier=Number(b.dataset.armorTier);applyArmor();});
+ b.addEventListener('click',()=>{state.armorTier=Number(b.dataset.armorTier);
+  state.hiddenParts.clear();state.selectedPart='';applyArmor();});
 $('encased-form').addEventListener('change',e=>{
  state.armorForm=e.target.value;applyArmor();
 });
@@ -242,9 +284,9 @@ for(const b of document.querySelectorAll('[data-armor-zone]'))
   updateArmorControls();schedule();
  });
 $('armor-reset-view').addEventListener('click',()=>{
- state.armorOnly=false;state.exploded=false;
+ state.armorOnly=false;state.exploded=false;state.hiddenParts.clear();
  for(const zone of ARMOR_ZONES)state.armorZones[zone]=true;
- updateArmorControls();schedule();
+ updateArmorControls();updateArmorPartControls();schedule();
 });
 function updatePlayButton(){
  $('toggle-play').textContent=state.playing?'Ⅱ PAUSE':'▶ PLAY';
@@ -338,7 +380,13 @@ function finishPointer(event){
   const cards=[...panels.querySelectorAll('.panel')];
   const hit=cards.find(p=>{const r=p.getBoundingClientRect();
    return event.clientX>=r.left&&event.clientX<r.right&&event.clientY>=r.top&&event.clientY<r.bottom;});
-  if(hit)choose(hit.dataset.id);
+  if(hit){
+   if(state.comparison==='armor'){
+    // The fourth column is a tier-3 test rig, NOT an editable design named 'naked'.
+    const idx=['raptor','field','perch','naked'].indexOf(hit.dataset.id);
+    if(idx>=0){state.armorTier=idx;state.selectedPart='';state.hiddenParts.clear();applyArmor();}
+   }else choose(hit.dataset.id);
+  }
  }
 }
 canvas.addEventListener('pointerup',finishPointer);
@@ -371,7 +419,8 @@ function render(timestamp=0){
   const rig=rigs.get(id),panel=panels.querySelector('[data-id="'+id+'"]');
   const assignment=displayFor(id);
   replaceRigStudy(rig,assignment.candidate,assignment.tier);
-  rig.armor.present({armorOnly:state.armorOnly,exploded:state.exploded,zones:state.armorZones});
+  rig.armor.present({armorOnly:state.armorOnly,exploded:state.exploded,
+   zones:state.armorZones,hiddenParts:state.hiddenParts,selectedPart:state.selectedPart});
   const pose=rig.study.pose({stance:assignment.stance,motion:state.motion,phase:state.phase});
   rig.root.position.copy(rig.basePosition);
   rig.root.position.y+=pose.bodyY;
@@ -412,6 +461,7 @@ function render(timestamp=0){
    comparison:state.comparison,stance:state.stance,motion:state.motion,
    armorTier:state.armorTier,armorForm:state.armorForm,bootPlate:state.bootPlate,
    armorOnly:state.armorOnly,exploded:state.exploded,armorZones:{...state.armorZones},
+   selectedPart:state.selectedPart,removedParts:[...state.hiddenParts],
    playing:state.playing,phase:state.phase,speed:state.speed,
    rigPoses:ids.map(id=>{const r=rigs.get(id);return {id,design:r.design,
     pose:r.study.root.userData.lastPose,armorTier:r.armorTier,
