@@ -42,7 +42,7 @@ function footParts(root,name,p,leg){
  // A heel shoe is one narrow functional stabilizer, not a pile of blocks.
  block(root,name+'/heel brake',
   [point[0],point[1]+.012,point[2]+fd*.31],
-  fw*.55,.07,fd*.20,'metal',.025);
+  fw*.72,.07,fd*.20,'metal',.025);
  const toeFront=point[2]-fd*.54;
  if(p.id==='raptor'){
   // One split wedge with an obvious center slot, pointed without claws.
@@ -136,6 +136,15 @@ export function createSilhouetteMachine(raw){
     [ankle[0],ankle[1]-.033,ankle[2]],
     [leg.foot[0],leg.foot[1]+.070,leg.foot[2]+.005],
     .115,.133,.12,.16,'metal');
+  // A pair of exposed ankle cheeks explains where the foot actually pivots.
+  // Small, separated from the central swivel stalk, and deliberately not armor.
+  for(const sign of [-1,1]){
+   const offset=sign*(.070+shinW*.13);
+   beam(root,tag+'/ankle fork '+sign,
+    [ankle[0]+offset,ankle[1]-.025,ankle[2]-.014],
+    [leg.foot[0]+offset,leg.foot[1]+.077,leg.foot[2]+.015],
+    .033,.028,.058,.050,'dark');
+  }
   footParts(root,tag,p,leg);
  }
  return {root,params:p};
