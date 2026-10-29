@@ -420,7 +420,8 @@ function render(timestamp=0){
   const assignment=displayFor(id);
   replaceRigStudy(rig,assignment.candidate,assignment.tier);
   rig.armor.present({armorOnly:state.armorOnly,exploded:state.exploded,
-   zones:state.armorZones,hiddenParts:state.hiddenParts,selectedPart:state.selectedPart});
+   zones:state.armorZones,hiddenParts:state.hiddenParts,
+   selectedPart:rig===currentArmorRig()?state.selectedPart:''});
   const pose=rig.study.pose({stance:assignment.stance,motion:state.motion,phase:state.phase});
   rig.root.position.copy(rig.basePosition);
   rig.root.position.y+=pose.bodyY;
