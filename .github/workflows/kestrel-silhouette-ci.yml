@@ -8,6 +8,9 @@ on:
       - 'tests/kestrelSilhouetteLab.test.mjs'
       - '.github/workflows/kestrel-silhouette-ci.yml'
       - 'index.html'
+      - 'styles.css'
+      - 'main.js'
+      - 'research/devWorkspacesBrowserSmoke.mjs'
   workflow_dispatch:
 jobs:
   kestrel-studies:
@@ -30,6 +33,8 @@ jobs:
           sleep 2
       - name: Verify real assembled rigs, silhouette geometry and phone controls
         run: node research/kestrelSilhouetteBrowserSmoke.mjs
+      - name: Verify Dev tab launchers are reachable on iPhone and desktop
+        run: node research/devWorkspacesBrowserSmoke.mjs
       - name: Upload rendered art review
         uses: actions/upload-artifact@v4
         if: always()
