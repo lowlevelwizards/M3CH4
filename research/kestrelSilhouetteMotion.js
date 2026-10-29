@@ -40,7 +40,7 @@ export function createArticulatedKestrel(config){
     attachPiece(thigh,mesh);
    else if(/primary forward shin|secondary shin rib|ankle turn bearing|ankle inset pivot/.test(n))
     attachPiece(shin,mesh);
-   else if(/landing sole|heel brake|talon|toe|foot swivel stalk/.test(n))
+   else if(/landing sole|heel brake|talon|toe|foot swivel stalk|ankle fork/.test(n))
     attachPiece(foot,mesh);
   }
   limbs.push({leg,thigh,shin,foot});
