@@ -35,3 +35,40 @@
  .pose-toolbar .tools button{flex:1}
  .pose-toolbar .motion-control{flex:1 1 140px}
 }
+
+/* V3 removable armor workbench; keeps the stage prominent on phones. */
+.armor-toolbar {background:#1a2f25;border-bottom:1px solid #637d6d;padding:8px 14px;
+ display:flex;flex-direction:column;gap:7px;min-width:0}
+.armor-line {display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;}
+.armor-toolbar .tools {gap:5px}
+.armor-toolbar button {font-size:11px;min-height:38px;padding:8px 10px}
+.armor-toolbar .pose-label{font:700 10px/1.3 ui-monospace,monospace;
+ color:#d5ba81;letter-spacing:.09em}
+.armor-toolbar [aria-pressed=true]{background:#cfa765;color:#15251c;border-color:#edd09b}
+.armor-select,.armor-check{display:flex;align-items:center;gap:7px;
+ font-size:10px;color:#b4c8b7}
+.armor-select select{background:#293d32;color:#f1e6c7;border:1px solid #6b8572;
+ padding:9px;border-radius:5px;max-width:230px}
+.armor-select select:disabled,.armor-check input:disabled{opacity:.46}
+.armor-check input{width:17px;height:17px;accent-color:#dfb979}
+#armor-description{font-size:10px;line-height:1.4;color:#9fb9a8;flex:1 1 240px}
+.panels .panel.hidden{display:none!important}
+.panels.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.panels.four .caption{font-size:10px;letter-spacing:.02em}
+.panels.four .caption span{font-size:9px}
+@media(max-width:760px){
+ .armor-toolbar{padding:7px 8px;gap:6px}
+ .armor-line{gap:5px}
+ .armor-toolbar .pose-label{width:100%}
+ .armor-toolbar button{font-size:10px;padding:8px 7px;min-width:0}
+ .armor-toolbar .tools{flex-wrap:wrap}
+ .armor-toolbar .armor-select{flex:1}
+ .armor-select select{max-width:185px}
+ #armor-description{flex-basis:100%}
+ .panels.four{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+ .panels.four .caption{margin:4px;padding:6px;font-size:9px;max-width:calc(100% - 8px)}
+ .panels.four .caption span{font-size:8px}
+}
+@media(min-width:761px) and (max-width:1020px){
+ .panels.four .caption{margin:5px;padding:6px}
+}
