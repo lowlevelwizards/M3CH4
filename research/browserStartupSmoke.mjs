@@ -577,6 +577,13 @@ try {
 
   // The first real iPhone audio milestone: DEV -> SOUND TEST BENCH -> one
   // tapped WebAudio audition, without affecting any rig or save data.
+  // The Sound Lab lives in a collapsed Dev diagnostics group. Open the real
+  // group through its summary before clicking the visible Sound Bench control.
+  const audioGroup=page.locator('details.dev-group').filter({
+    has:page.locator('#audio-bench-open')
+  });
+  if(!await audioGroup.evaluate(el=>el.open))
+    await audioGroup.locator('summary').click();
   await page.locator('#audio-bench-open').click({ timeout: 12000 });
   await page.locator('#audio-bench [data-weapon="gun-scatter"]').click({ timeout: 12000 });
   await page.locator('#audio-bench [data-variation="B"]').click({ timeout: 12000 });
