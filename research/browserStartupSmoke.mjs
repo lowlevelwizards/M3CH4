@@ -550,21 +550,25 @@ try {
   console.log('GARAGE SOLES:',JSON.stringify(contact));
   if(contact.length!==2||contact.some(foot=>Math.abs(foot.y-.102)>.045))
     throw Error('Visible garage soles do not meet service pad: '+JSON.stringify(contact));
-  await page.locator('#animation-preview-toggle').click();
+  // Do not click an already-running preview off before testing strafing.
   await page.locator('#animation-preview-mode').selectOption('strafe-left');
-  await page.waitForTimeout(720);
-  const strafePose=await page.evaluate(async()=>{
-    const {activePlayerArena}=await import('./scene.js');
-    const hips=[],knees=[];
-    activePlayerArena()?.arena?.scene.traverse(node=>{
-      if(node.userData?.joint==='hip')hips.push(node.rotation.z);
-      if(node.userData?.joint==='knee')knees.push(node.rotation.z);
-    });
-    return {hips,knees};
-  });
-  if(!strafePose.hips.some(n=>Math.abs(n)>.035)||
-     !strafePose.knees.some(n=>Math.abs(n)>.025))
-    throw Error('Side-step did not move both hip and knee joints: '+JSON.stringify(strafePose));
+  if(await animationToggle.getAttribute('aria-pressed')!=='true')
+    await animationToggle.click();
+  // The side-step gait has natural return-to-center instants: test observed
+  // physical motion over rendered frames rather than one phase-dependent snap.
+  try{
+    await page.waitForFunction(async()=>{
+      const {activePlayerArena}=await import('./scene.js');
+      let hip=false,knee=false;
+      activePlayerArena()?.arena?.scene?.traverse(node=>{
+        if(node.userData?.joint==='hip'&&Math.abs(node.rotation.z)>.035)hip=true;
+        if(node.userData?.joint==='knee'&&Math.abs(node.rotation.z)>.025)knee=true;
+      });
+      return hip&&knee;
+    },null,{timeout:5500,polling:90});
+  }catch{
+    throw Error('Side-step did not articulate real hip and knee joints during preview');
+  }
   await page.locator('#animation-preview-mode').selectOption('strafe-right');
   await page.waitForTimeout(540);
   await page.screenshot({path:output+'/strafe-ground-contact-iphone.png'});
