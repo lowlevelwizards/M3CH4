@@ -11,6 +11,7 @@ const browser=await chromium.launch({headless:true,
 const base='http://127.0.0.1:8765/';
 const expected={
  'kestrel-silhouette-open':'kestrel-silhouette.html',
+ 'hauler-fantasy-open':'hauler-fantasy-lab.html',
  'yardwalker-silhouette-open':'yardwalker-silhouette.html',
  'dev-workbench-open':'part-workbench-v2.html',
  'armor-lab-open':'armor-lab.html',
