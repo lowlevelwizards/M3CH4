@@ -129,7 +129,7 @@ function dockCarriage(root,p,mountGroup){
   cast(frame,'DOCK '+side+' / sliding guide shroud',[x,-.119,.04],
    [.35,.19,.37],'moss',.05);
   coupler(frame,'DOCK '+side+' / enclosed outboard drive motor',
-   [x+side*.295,.19,.05],side,.112);
+   [x+side*.135,.19,.05],side,.112);
  }
  return frame;
 }
