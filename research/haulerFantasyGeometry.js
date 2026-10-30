@@ -53,7 +53,7 @@ function cylinderAlong(parent,name,a,b,r,tone){
   start.clone().add(end).multiplyScalar(.5).toArray());
  m.quaternion.setFromUnitVectors(up,diff.normalize());return m;
 }
-function doubleShoe(foot,p,style){
+function doubleShoe(foot,p,style,tag){
  const w=p.soleWidth,depth=p.soleDepth;
  const heel=style==='dock'?.18:.16;
  casting(foot,'SERVICE / solid rear load bridge',[0,0,depth*.20],
@@ -75,6 +75,7 @@ function doubleShoe(foot,p,style){
   for(const sign of [-1,1])pin(foot,'SERVICE / toe axle '+sign,
    [sign*w*.26,.025,-depth*.37],.035,.062,'teal');
  }
+ for(const piece of foot.children)piece.name=tag+'/'+piece.name;
 }
 function fixedUpper(root,p){
  const carriage=group(root,'HAULER CONCEPT / FRAME MOUNT');
@@ -185,7 +186,7 @@ export function createHaulerConcept(config){
   if(p.id==='dock')dockAssembly(root,p,fixed,leg,joints);
   else if(p.id==='strider')striderAssembly(root,p,fixed,leg,joints);
   else craneAssembly(root,p,fixed,leg,joints);
-  doubleShoe(foot,p,p.id);
+  doubleShoe(foot,p,p.id,prefix.toUpperCase());
   const marker=mesh(foot,'DEV / foot contact indicator',
    new THREE.CylinderGeometry(.052,.052,.006,10),'teal',
    [0,-.095,0]);
