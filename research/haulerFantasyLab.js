@@ -134,6 +134,7 @@ function replaceStudy(id){
  r.study.root.traverse(obj=>{if(obj.isMesh)obj.geometry.dispose();});
  r.markers.forEach(m=>{m.material.dispose();m.geometry.dispose();});
  r.outlines.forEach(m=>{m.material.dispose();m.geometry.dispose();});
+ r.fitKey=null;
  r.study=createMovingHauler(state.edits[id]);
  r.markers=markJoints(r.study);
  r.outlines=addFootprintMarkers(r.study);
@@ -153,12 +154,14 @@ function inspect(){
    return {id:p.id,mechanism:data.mechanism,soleWidth:data.soleWidth,
     hipSpan:data.hipSpan,ground:data.ground,mount:data.topContact,
     motion:r.study.root.userData.lastPose,
+    framing:r.frameInfo??null,
     meshCount:(()=>{let n=0;r.study.root.traverse(x=>{if(x.isMesh&&!x.userData.jointMarker&&!x.userData.contactMarker)n++;});return n;})()};
   })};
 }
 window.__haulerFantasyLab={ready:true,inspect};
 function setFocus(yes){
  state.focus=yes;panels.classList.toggle('single',yes);
+ stage.classList.toggle('compare-mode',!yes);
  $('compare').setAttribute('aria-pressed',String(!yes));
  $('focus').setAttribute('aria-pressed',String(yes));
  for(const panel of panels.querySelectorAll('.panel'))
@@ -302,6 +305,51 @@ function endPointer(event){
 canvas.addEventListener('pointerup',endPointer);
 canvas.addEventListener('pointercancel',endPointer);
 canvas.addEventListener('wheel',event=>{event.preventDefault();zoom(event.deltaY>0?1.12:.89);},{passive:false});
+/** Actual visible geometry determines every camera fit. Shared compare scale,
+ * independent centering. Includes the complete weapon silhouette in Full Mech,
+ * excludes hidden legacy frame groups, joint markers and ghost overlays.
+ */
+function fitVisibleRig(rig,id,aspect){
+ const key=[id,state.fullRig,state.assemblyView,state.yaw.toFixed(4),
+  state.pitch.toFixed(4),aspect.toFixed(4)].join('/');
+ if(rig.fitKey===key)return rig.fitValue;
+ rig.root.updateWorldMatrix(true,true);
+ const orientationCamera=new THREE.Object3D();
+ const direction=new THREE.Vector3(Math.sin(state.yaw)*Math.cos(state.pitch),
+  Math.sin(state.pitch),-Math.cos(state.yaw)*Math.cos(state.pitch));
+ orientationCamera.position.copy(direction);
+ orientationCamera.lookAt(0,0,0);
+ const right=new THREE.Vector3(1,0,0).applyQuaternion(orientationCamera.quaternion);
+ const upAxis=new THREE.Vector3(0,1,0).applyQuaternion(orientationCamera.quaternion);
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ const box=new THREE.Box3();
+ function visit(node,visible=true){
+  if(!visible||!node.visible||node.userData?.ghostCopy)return;
+  if(node.isMesh&&!node.userData?.jointMarker&&!node.userData?.contactMarker&&
+     node.geometry){
+   if(!node.geometry.boundingBox)node.geometry.computeBoundingBox();
+   const local=node.geometry.boundingBox;
+   const {min,max}=local;
+   for(const x of [min.x,max.x])for(const y of [min.y,max.y])
+    for(const z of [min.z,max.z]){
+     const pt=new THREE.Vector3(x,y,z).applyMatrix4(node.matrixWorld);
+     box.expandByPoint(pt);
+     const rx=right.dot(pt),uy=upAxis.dot(pt);
+     minX=Math.min(minX,rx);maxX=Math.max(maxX,rx);
+     minY=Math.min(minY,uy);maxY=Math.max(maxY,uy);
+    }
+  }
+  for(const child of node.children)visit(child,true);
+ }
+ visit(rig.root);
+ if(box.isEmpty())throw Error('No Hauler meshes visible for '+id);
+ const center=box.getCenter(new THREE.Vector3());
+ const width=maxX-minX,vertical=maxY-minY;
+ const height=Math.max(1.7,vertical*1.19,width/Math.max(aspect,.10)*1.14);
+ rig.fitKey=key;
+ rig.fitValue={height,center,width,vertical};
+ return rig.fitValue;
+}
 function render(timestamp=0){
  dirty=false;
  const dt=lastTime==null?0:Math.min(.07,Math.max(0,(timestamp-lastTime)/1000));
@@ -321,6 +369,7 @@ function render(timestamp=0){
   for(const outline of rig.outlines)outline.visible=state.footprint;
  }
  let maxReachError=0;
+ const frames=[];
  for(const id of ids){
   const rig=rigs.get(id);
   const pose=rig.study.pose({motion:state.motion,phase:state.phase,contacts:state.contacts});
@@ -329,25 +378,31 @@ function render(timestamp=0){
   rig.root.position.copy(rig.base);
   rig.root.position.y+=pose.bodyY;
   rig.root.position.z+=pose.bodyZ;
-  // Ghosts stay for silhouette comparison and are not gameplay entities.
   rig.root.visible=true;
   const panel=panels.querySelector('[data-id="'+id+'"]');
   const rect=panel.getBoundingClientRect();
-  if(rect.width<3||rect.height<3)continue;
+  if(rect.width<3||rect.height<3){rig.root.visible=false;continue;}
   const x=Math.floor(rect.left-bounds.left),y=Math.floor(bounds.bottom-rect.bottom);
-  const w=Math.floor(rect.width),h=Math.floor(rect.height);
-  const aspect=w/h;
-  const width=state.fullRig?(state.view==='side'?4.40:3.75):3.0;
-  const minHeight=state.fullRig?4.1:2.55;
-  const height=Math.max(minHeight,width/aspect)*(state.arena?1.65:1)*state.zoom;
+  const w=Math.floor(rect.width),h=Math.floor(rect.height),aspect=w/h;
+  // Refit when paused or when view/geometry changes, not on every walk frame.
+  const fit=fitVisibleRig(rig,id,aspect);
+  frames.push({id,rig,fit,x,y,w,h,aspect});
+  rig.root.visible=false;
+ }
+ const sharedHeight=state.focus?null:Math.max(...frames.map(f=>f.fit.height));
+ for(const {rig,fit,x,y,w,h,aspect} of frames){
+  const height=(sharedHeight??fit.height)*(state.arena?1.65:1)*state.zoom;
   camera.left=-height*aspect*.5;camera.right=height*aspect*.5;
   camera.top=height*.5;camera.bottom=-height*.5;camera.updateProjectionMatrix();
-  const target=new THREE.Vector3(state.panX,state.fullRig?1.48+state.panY:1.02+state.panY,.05);
+  const target=fit.center.clone().add(new THREE.Vector3(state.panX,state.panY,0));
   const radius=10;
   camera.position.set(target.x+Math.sin(state.yaw)*radius*Math.cos(state.pitch),
    target.y+Math.sin(state.pitch)*radius,
    target.z-Math.cos(state.yaw)*radius*Math.cos(state.pitch));
   camera.lookAt(target);
+  rig.frameInfo={height,projectedWidth:fit.width,projectedHeight:fit.vertical,
+   viewportWidth:w,viewportHeight:h,aspect,center:target.toArray()};
+  rig.root.visible=true;
   renderer.setViewport(x,y,w,h);renderer.setScissor(x,y,w,h);
   renderer.setClearColor(state.silhouette?0xa7b5a5:0x354636,1);
   renderer.clear();renderer.render(scene,camera);

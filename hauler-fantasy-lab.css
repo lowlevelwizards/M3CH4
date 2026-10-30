@@ -75,3 +75,16 @@ main{padding:12px clamp(10px,3vw,28px) 30px;background:#172a20}
 #link-status.warn{color:#f1ae82}
 @media(max-width:430px){.assembly-filter{width:100%}
  .assembly-filter select{max-width:100%;min-width:0;flex:1}}
+
+/* V3 / iOS safe header and compact legible side-by-side inspections. */
+@media(max-width:760px){
+ .top{padding-top:max(52px,calc(env(safe-area-inset-top,0px) + 12px))}
+ #stage.compare-mode{height:min(47dvh,470px);min-height:290px}
+ #panels:not(.single) .caption{margin:4px;padding:5px;font-size:10px;
+  max-width:calc(100% - 8px)}
+ #panels:not(.single) .caption span{display:none}
+ #panels:not(.single) .panel{border-right:1px dashed #b4caac68}
+}
+@supports(padding:env(safe-area-inset-bottom)){
+ main{padding-bottom:max(30px,env(safe-area-inset-bottom))}
+}

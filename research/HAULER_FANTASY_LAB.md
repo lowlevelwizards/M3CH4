@@ -64,3 +64,25 @@ clearance, and assembled-foot geometry. Compare visuals before selecting one
 canonical Hauler; all three remain available as standalone experimental
 concepts. No production Hauler, save, vendor, inventory or gameplay mechanics
 are modified.
+
+## V3 physical-fit and iPhone composition pass
+
+- **Dockyard:** Wider reinforced compression column, enclosing lower guide,
+  larger .62 m pressure shoes and more believable mass beneath the .55 m drive
+  pods, while remaining inside the existing Hauler H2 envelope.
+- **Strider:** Independent compression brace closes each cantilever shoulder
+  into a load-bearing fork; fixed guide housing is distinguished from its
+  cream moving slide. Its longer .61 m contact skids keep the hinged toe.
+- **Crane:** Thickened lift and lower load arms, broadened clevises,
+  .60 m hinged stabilizers, and hydraulic anchor eyes relocated from the
+  high open space to the fixed crank and moving lift arm.
+- **Full Mech:** No SR-01 frame or production Hauler visual is modified.
+  The actual existing frame remains visible as an explicit fixture. The lab
+  measures the entire visible combined rig including cannon, cab and power
+  unit for the orthographic camera, with safe margins so weapons do not crop.
+- **Mobile:** Safe-area padded header, compact three-up labels, and a shorter
+  compare viewport. All three concepts use a shared fitted scale so their
+  comparative proportions remain truthful; focus mode gets its own fit.
+- **Tests:** Certify maximum editable sole span against H2 width, real mesh
+  envelopes, anchored actuator mechanics, iOS header inset, and full-mech
+  viewport limits in actual Chromium WebGL. All changes remain Dev-only.
