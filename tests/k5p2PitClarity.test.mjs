@@ -39,7 +39,7 @@ test('garage keeps persistent module damage and blue repair welding',()=>{
 });
 test('developer tools are grouped without losing any wired controls',()=>{
     const html=source('index.html');
-    assert.equal((html.match(/class="dev-group"/g)||[]).length,5);
+    assert.equal((html.match(/class="dev-group"/g)||[]).length,4);
     for(const id of ['dev-version','dev-readout','animation-preview-toggle','animation-preview-mode',
         'animation-preview-speed','audio-bench-open','pressure-forge-open','systems-sound-open','backlot-prop-gallery-open',
         'reset-rig','toggle-colliders','wipe-save']){
