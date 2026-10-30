@@ -34,6 +34,29 @@ export function solveHeavyLinks(hip,knee,ankle,target){
   reachError:Math.abs(d-requested),reachable:Math.abs(d-requested)<.002,
   upper,lower};
 }
+/** Secondary physical actions are native to each architecture; primary
+ * hip/knee IK stays rigid, while actual sliding or folding assemblies move.
+ */
+export function poseDockyardMechanism(limb,{walking,support,phase,bracing}){
+ const collar=limb.knee.children.find(o=>o.name.includes('traveling ram collar'));
+ if(collar)collar.position.y=-.01-(bracing?.015:
+  walking&&support?.009*(.5+.5*Math.sin(phase*Math.PI*2)**2):0);
+}
+export function poseStriderMechanism(limb,{walking,support,phase}){
+ const toe=limb.foot.children.find(o=>o.userData.toeHinge);
+ if(toe)toe.rotation.x=walking&&!support?-.12*Math.sin(phase*Math.PI):0;
+}
+export function poseCraneMechanism(limb,{walking,support,phase,bracing}){
+ for(const outrigger of limb.foot.children.filter(o=>o.userData.outrigger)){
+  outrigger.rotation.x=bracing?.018:
+   walking&&!support?.067*Math.sin(phase*Math.PI):0;
+ }
+}
+const mechanismPose=Object.freeze({
+ dock:poseDockyardMechanism,
+ strider:poseStriderMechanism,
+ crane:poseCraneMechanism
+});
 export const HAULER_MOTIONS=Object.freeze(['idle','walk','turn','brace']);
 export function createMovingHauler(config){
  const study=createHaulerConcept(config),id=study.params.id;
@@ -87,6 +110,7 @@ export function createMovingHauler(config){
     hip.rotation.z=knee.rotation.z=ankle.rotation.z=0;
     foot.rotation.y=0;
    }
+   mechanismPose[id](limb,{walking,support,phase:f,bracing});
    marker.visible=contacts;
    marker.material.emissive?.setHex(!walking||support?0x15392a:0x51351e);
    feet.push({side:leg.side,contact:!walking||support?'SUPPORT':'SWING',
