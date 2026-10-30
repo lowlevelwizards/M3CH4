@@ -1,0 +1,45 @@
+name: Hauler Fantasy H2 Lab
+on:
+  pull_request:
+    paths:
+      - 'hauler-fantasy-lab.html'
+      - 'hauler-fantasy-lab.css'
+      - 'research/haulerFantasy*.js'
+      - 'research/HAULER_FANTASY_LAB.md'
+      - 'tests/haulerFantasyLab.test.mjs'
+      - '.github/workflows/hauler-fantasy-ci.yml'
+      - 'index.html'
+      - 'research/devWorkspacesBrowserSmoke.mjs'
+  workflow_dispatch:
+jobs:
+  three-concepts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify mechanical contracts and production isolation
+        run: node --test tests/haulerFantasyLab.test.mjs
+      - name: Install headless Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Serve real game and Dev pages
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/hauler-http.log 2>&1 &
+          sleep 2
+      - name: Render and test all three Hauler models, stance and controls
+        run: node research/haulerFantasyBrowserSmoke.mjs
+      - name: Validate mobile Dev launcher
+        run: node research/devWorkspacesBrowserSmoke.mjs
+      - name: Upload actual model and phone renders
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hauler-h2-three-concepts-rendered-review
+          path: |
+            hauler-fantasy-artifacts/
+            kestrel-silhouette-artifacts/
+          if-no-files-found: warn
