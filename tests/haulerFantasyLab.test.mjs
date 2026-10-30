@@ -49,7 +49,7 @@ test('Hauler fantasy comes from original constructors and not production Hauler'
  const live=source('../haulerVisual.js');
  const html=source('../hauler-fantasy-lab.html');
  const index=source('../index.html');
- for(const name of ['dockAssembly','striderAssembly','craneAssembly','createHaulerConcept','doubleShoe'])
+ for(const name of ['dockAssembly','striderAssembly','craneAssembly','createHaulerConcept','dockFeet','striderFeet','craneFeet'])
   assert.ok(geometry.includes(name));
  assert.ok(!geometry.includes('buildHaulerVisual(') && !geometry.includes('import {HAULER_LAYOUT'), 'No legacy Hauler builder or layout imports');
  assert.match(motion,/solveHeavyLinks/);
