@@ -145,12 +145,15 @@ try {
     // Unlike its 2025 prototype it INCLUDES the certified physical obstacle
     // shells and intentionally uses sunlight, not four artificial floodlights.
     // Check the current venue contract, never a retired scenery group name.
+    // One compound obstacle may contain several certified physical solids:
+    // use the authoritative raycast-solid count, not the obstacle count.
     if(!backlot.visible||backlot.objects<25||
        backlot.stats?.sky!=='open'||
        backlot.stats?.enclosingWarehouseWalls!==0||
        backlot.stats?.overheadWarehouseFixtures!==0||
        !(backlot.stats?.obstacleCount>0)||
-       backlot.stats?.collisionSolids!==backlot.stats?.obstacleCount||
+       !backlot.stats?.collisionCertificate?.pass||
+       backlot.stats?.collisionSolids!==backlot.stats?.collisionCertificate?.authoritativeRaycastSolids||
        backlot.colliders<1||
        backlot.colliders>backlot.stats.obstacleCount*4||
        backlot.dynamicLights||
