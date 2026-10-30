@@ -211,9 +211,9 @@ $('zoom-out').addEventListener('click',()=>zoom(1.20));
 $('reset-camera').addEventListener('click',()=>{
  state.panX=state.panY=0;state.zoom=1;view('quarter');
 });
-for(const key of ['silhouette','contacts','joints','ghost','arena','grid-toggle','footprint']){
+for(const key of ['silhouette','contacts','joints','ghost','arena','grid-toggle','footprint-toggle']){
  $(key).addEventListener('change',event=>{
-  state[key==='grid-toggle'?'grid':key]=event.target.checked;
+  state[key==='grid-toggle'?'grid':key==='footprint-toggle'?'footprint':key]=event.target.checked;
   if(key==='ghost')ghostsForSelected();
   schedule();
  });
