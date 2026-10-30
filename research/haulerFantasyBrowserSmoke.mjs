@@ -131,7 +131,7 @@ try{
  await page.locator('#assembly-view').selectOption('mechanism');
  await page.screenshot({path:out+'/05a-mechanism-inspection.png'});
  await page.locator('#assembly-view').selectOption('feet');
- await page.locator('#footprint').check();
+ await page.locator('#footprint-toggle').check();
  await page.screenshot({path:out+'/05b-load-shoes-footprint.png'});
  await page.locator('#assembly-view').selectOption('all');
  await page.locator('#ghost').check();
