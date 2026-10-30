@@ -87,8 +87,10 @@ function striderFeet(foot,p,side){
  // Slender but long skid: front hinged toe and distinctive aft stabilizer.
  beam(foot,'STRIDER '+side+' / long landing skid',
   [0,0,depth*.41],[0,0,-depth*.29],w*.69,.14,'ivory');
- cast(foot,'STRIDER '+side+' / articulated front skid section',
-  [0,-.010,-depth*.36],[w*.79,.14,depth*.24],'light',.035);
+ const hinge=group(foot,'STRIDER '+side+' / independent hinged toe',[0,0,-depth*.27]);
+ hinge.userData.toeHinge=true;
+ cast(hinge,'STRIDER '+side+' / articulated front skid section',
+  [0,-.010,-depth*.09],[w*.79,.14,depth*.24],'light',.035);
  disk(foot,'STRIDER '+side+' / cross-skid hinge',
   [side*w*.38,-.002,-depth*.27],.052,.032,'teal');
  cast(foot,'STRIDER '+side+' / heel stabilizer',
@@ -102,8 +104,11 @@ function craneFeet(foot,p,side){
  cast(foot,'CRANE '+side+' / massive center pad',[0,-.006,.035],
   [w*.67,.15,depth*.72],'iron',.035);
  for(const s of [-1,1]){
-  cast(foot,'CRANE '+side+' / folding lateral stabilizer '+s,
-   [s*w*.38,-.018,-depth*.08],[w*.245,.13,depth*.65],
+  const pivot=group(foot,'CRANE '+side+' / outrigger hinge group '+s,
+   [s*w*.26,.035,depth*.21]);
+  pivot.userData.outrigger=s;
+  cast(pivot,'CRANE '+side+' / folding lateral stabilizer '+s,
+   [s*w*.12,-.053,-depth*.29],[w*.245,.13,depth*.65],
    'ivory',.026);
   disk(foot,'CRANE '+side+' / stabilizer hinge '+s,
    [s*w*.26,.035,depth*.21],.053,.021,'rust');
@@ -118,6 +123,8 @@ function dockCarriage(root,p,mountGroup){
  const frame=group(root,'DOCK / load-distribution casting');
  cast(frame,'DOCK / deeply boxed bridge',[0,.595,.045],
   [1.33,.255,.47],'ochre',.075);
+ cast(frame,'DOCK / U1 unbroken center load throat',[0,.762,.025],
+  [.45,.100,.31],'iron',.035);
  cast(frame,'DOCK / shear web',[0,.445,.055],
   [.94,.12,.30],'dark',.040);
  for(const side of [-1,1]){
@@ -154,6 +161,8 @@ function striderCarriage(root,p){
  const carriage=group(root,'STRIDER / independent upper fork');
  cast(carriage,'STRIDER / compact central transverse head',[0,.679,.0],
   [.73,.18,.33],'ochre',.055);
+ cast(carriage,'STRIDER / top load bearing collar',[0,.773,0],
+  [.32,.085,.29],'iron',.035);
  for(const side of [-1,1]){
   const x=side*(p.hipSpan*.5);
   beam(carriage,'STRIDER '+side+' / cast suspension shoulder',
@@ -291,6 +300,8 @@ export function createHaulerConcept(config){
    g.userData={joint,side,prototypeOnly:true};
   const marker=part(foot,n.toUpperCase()+' / DEV ground contact',
    new THREE.CylinderGeometry(.052,.052,.006,10),'teal',[0,-.093,0]);
+  // Marker glow must not leak into shared teal bearing materials.
+  marker.material=marker.material.clone();
   marker.visible=false;marker.userData.contactMarker=true;
   const ctx={hip,knee,ankle,foot,fixed,actuators:definitions};
   if(p.id==='dock')dockAssembly(ctx,leg,p);
