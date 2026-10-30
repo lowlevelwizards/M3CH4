@@ -15,7 +15,17 @@ async function open(viewport,mobile=false){
  await page.goto('http://127.0.0.1:8765/hauler-fantasy-lab.html',
   {waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__haulerFantasyLab?.ready&&
-  window.__haulerFantasyLab.inspect().frameCount>0,null,{timeout:55000});
+  window.__haulerFantasyLab.inspect().frameCount>0,null,{timeout:13000})
+  .catch(async e=>{
+   const state=await page.evaluate(()=>({
+    diagnostic:document.querySelector('#error')?.textContent,
+    module:[...document.scripts].filter(s=>s.type==='module').map(s=>s.src),
+    ready:!!window.__haulerFantasyLab,
+    body:document.body?.textContent?.slice(0,150)
+   }));
+   throw Error('Hauler lab startup failed: '+e.message+'; '+JSON.stringify(state)+
+    '; browser errors='+errors.join(' | '));
+  });
  return page;
 }
 const inspect=page=>page.evaluate(()=>window.__haulerFantasyLab.inspect());
@@ -60,7 +70,51 @@ try{
   assert.equal(entry.nodes.length,8,'both legs need 4 named joint pivots');
   assert.equal(entry.uniqueParts,entry.count,'components must have stable distinct names');
  }
- await page.screenshot({path:out+'/01-three-naked-concepts.png'});
+ // Real material and transform evaluation across gait phases, including
+ // anchored barrels and shoe-level support. Not source-string-only checks.
+ audit.actuation=await page.evaluate(async()=>{
+  const {createMovingHauler}=await import('./research/haulerFantasyMotion.js');
+  const {HAULER_IDS,preset}=await import('./research/haulerFantasyDesign.js');
+  const {Vector3,Box3}=await import('three');
+  const checks=[];
+  for(const id of HAULER_IDS){
+   const rig=createMovingHauler(preset(id));
+   for(const phase of [0,.10,.25,.45,.62,.78,.92]){
+    const pose=rig.pose({motion:'walk',phase});
+    rig.root.position.y=pose.bodyY;rig.root.position.z=pose.bodyZ;
+    rig.root.updateMatrixWorld(true);
+    const attachmentErrors=rig.actuators.map(a=>{
+     const aWorld=a.start.getWorldPosition(new Vector3());
+     const bWorld=a.end.getWorldPosition(new Vector3());
+     const barrelEnd=a.barrel.localToWorld(new Vector3(0,.5,0));
+     const rodEnd=a.rod.localToWorld(new Vector3(0,-.5,0));
+     // Full barrel/rod are on origin-child. Dynamic middle overlap can reverse,
+     // but both anchors must be shared with the correct mechanical endpoint.
+     const barrelStart=a.barrel.localToWorld(new Vector3(0,-.5,0));
+     const rodStart=a.rod.localToWorld(new Vector3(0,.5,0));
+     const proximity=Math.min(aWorld.distanceTo(barrelEnd),aWorld.distanceTo(barrelStart))+
+      Math.min(bWorld.distanceTo(rodEnd),bWorld.distanceTo(rodStart));
+     return proximity;
+    });
+    const shoeMin=rig.limbs.map(limb=>{
+     const box=new Box3().setFromObject(limb.foot);
+     return box.min.y;
+    });
+    checks.push({id,phase,reach:pose.reachError,
+     attachmentError:Math.max(...attachmentErrors),
+     shoeMin,actuatorLengths:pose.actuators.map(a=>a.length)});
+   }
+  }
+  return checks;
+ });
+ for(const c of audit.actuation){
+  assert.ok(c.attachmentError<.006,c.id+' disconnected cylinder at phase '+c.phase);
+  assert.ok(c.actuatorLengths.every(n=>n>.15&&n<1.5),'physically plausible actuator travel');
+  assert.ok(c.reach<.03,c.id+' excessive inverse kinematics clamp '+c.reach);
+  assert.ok(c.shoeMin.every(y=>y>-.92&&y<-.73),
+   c.id+' feet should remain near ground during physical swing/support');
+ }
+  await page.screenshot({path:out+'/01-three-naked-concepts.png'});
  for(const view of ['front','side','rear']){
   await page.locator('[data-view="'+view+'"]').click();
   await page.screenshot({path:out+'/02-'+view+'.png'});
@@ -74,6 +128,12 @@ try{
  await page.locator('#silhouette').uncheck();
  await page.locator('[data-choose="crane"]').click();
  await page.locator('#focus').click();
+ await page.locator('#assembly-view').selectOption('mechanism');
+ await page.screenshot({path:out+'/05a-mechanism-inspection.png'});
+ await page.locator('#assembly-view').selectOption('feet');
+ await page.locator('#footprint-toggle').check();
+ await page.screenshot({path:out+'/05b-load-shoes-footprint.png'});
+ await page.locator('#assembly-view').selectOption('all');
  await page.locator('#ghost').check();
  state=await inspect(page);
  assert.equal(state.selected,'crane');
