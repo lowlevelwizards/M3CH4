@@ -53,6 +53,8 @@ test('Hauler fantasy comes from original constructors and not production Hauler'
   assert.ok(geometry.includes(name));
  assert.ok(!geometry.includes('buildHaulerVisual(') && !geometry.includes('import {HAULER_LAYOUT'), 'No legacy Hauler builder or layout imports');
  assert.match(motion,/solveHeavyLinks/);
+ for(const name of ['poseDockyardMechanism','poseStriderMechanism','poseCraneMechanism'])
+  assert.ok(motion.includes('function '+name),name+' requires independent action rig');
  assert.match(geometry,/function dockCarriage/);
  assert.match(geometry,/function striderCarriage/);
  assert.match(geometry,/function craneCarriage/);
