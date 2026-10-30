@@ -42,7 +42,7 @@ test('experimental controls stay scoped and never change immutable design values
  }
 });
 test('Hauler fantasy comes from original constructors and not production Hauler',()=>{
- const geometry=source('../research/haulerFantasyGeometry.js');
+ const geometry=source('../research/haulerFantasyGeometryV2.js');
  const motion=source('../research/haulerFantasyMotion.js');
  const lab=source('../research/haulerFantasyLab.js');
  const registry=source('../partVisuals.js');
@@ -53,6 +53,12 @@ test('Hauler fantasy comes from original constructors and not production Hauler'
   assert.ok(geometry.includes(name));
  assert.ok(!geometry.includes('buildHaulerVisual(') && !geometry.includes('import {HAULER_LAYOUT'), 'No legacy Hauler builder or layout imports');
  assert.match(motion,/solveHeavyLinks/);
+ assert.match(geometry,/function dockCarriage/);
+ assert.match(geometry,/function striderCarriage/);
+ assert.match(geometry,/function craneCarriage/);
+ assert.match(geometry,/updateHaulerActuators/);
+ assert.match(lab,/assemblyView/);
+ assert.match(lab,/applySectionVisibility/);
  assert.match(lab,/buildExteriorRig\(makeTestAssembly\(\)\)/);
  assert.match(lab,/createMovingHauler/);
  assert.match(registry,/'legs-hauler': buildHaulerVisual/);
