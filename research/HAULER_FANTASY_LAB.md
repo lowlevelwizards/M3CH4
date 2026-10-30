@@ -34,3 +34,33 @@ The existing `legs-hauler` catalogue ID stays in production (1,520 kg; 2.55 × 1
 Check three front, side and quarter views, then the same models on whole assembled rigs and at arena distance. Look for believable stationary vs moving components, clear feet and physical negative space, a visually distinct heavy silhouette compared with the currently approved Yardwalker and Kestrel, and enough room for a future removable armor progression. Refit and armor must remain **deferred** until a Naked design is approved.
 
 To verify: `node --test tests/haulerFantasyLab.test.mjs`, then `node research/haulerFantasyBrowserSmoke.mjs` while serving the repo on localhost:8765 with Playwright installed. CI publishes real WebGL review captures for all three candidates.
+
+## V2 structural reboot
+
+The former shared carriage and generic double-shoe castings are archived from
+the active lab path. `haulerFantasyGeometry.js` forwards to the independent
+`haulerFantasyGeometryV2.js` mechanical builders:
+
+- **Dockyard Lifter:** one continuous low structural throat, immense stationary
+  load pods, recessed compression rams, oversized three-toe pressure platens.
+- **Industrial Strider:** compact upper fork and twin axial rails; telescoping
+  guided column, traveling service collar, long skid with an independently
+  hinged toe.
+- **Yard Crane:** small open truss with large offset crank hubs, diagonal
+  bearing arms, actuator-to-knee linkage, pivoting outboard stabilizers.
+
+`haulerFantasyMotion.js` now includes dedicated secondary joint actions
+for Dockyard's ram compression, Strider's skid hinge and Crane's outriggers.
+It also recomputes aligned cylinder barrels and real exposed piston rods from
+the fixed and moving anchors every preview frame. The shared two-link solver
+continues to enforce rigid bone lengths; this is *not* production IK.
+
+The lab offers isolated housing, exposed mechanism and foot-only views,
+load-pad footprint outlines and visible reach warnings. The all-three
+comparison uses synchronized phases, while all edits remain session-only.
+
+CI records per-frame hydraulic endpoint errors, rigid-link reach, ground
+clearance, and assembled-foot geometry. Compare visuals before selecting one
+canonical Hauler; all three remain available as standalone experimental
+concepts. No production Hauler, save, vendor, inventory or gameplay mechanics
+are modified.
