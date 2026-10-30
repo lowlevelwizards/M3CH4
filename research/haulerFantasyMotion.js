@@ -39,7 +39,7 @@ export function createMovingHauler(config){
   const p=study.params,t=((phase%1)+1)%1,footStates=[];
   const braced=motion==='brace',moving=motion==='walk';
   const bodyY=braced?-.055:moving?-.010*(.5+.5*Math.sin(t*Math.PI*4)**2):0;
-  const bodyZ=moving?.016*Math.sin(t*Math.PI*2):0;
+  const bodyZ=moving ? .016*Math.sin(t*Math.PI*2) : 0;
   let maxReachError=0;
   for(const limb of study.limbs){
    const {leg,hip,knee,ankle,foot,marker}=limb;
