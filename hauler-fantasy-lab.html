@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14211a">
+<title>M3CH4 · Hauler H2 Fantasy Lab</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./hauler-fantasy-lab.css">
+</head><body>
+<header class="top">
+ <a href="./index.html">‹ GARAGE / DEV</a>
+ <div><strong>HAULER H2 / FANTASY LAB</strong>
+ <small>THREE INDEPENDENT HEAVY MOBILITY CONCEPTS · NO SAVE / NO COST</small></div>
+ <a href="./kestrel-silhouette.html">KESTREL LAB</a>
+</header>
+<section class="toolbar" aria-label="Lab view controls">
+ <div class="button-group">
+  <button id="compare" type="button" aria-pressed="true">COMPARE 3</button>
+  <button id="focus" type="button" aria-pressed="false">FOCUS ONE</button>
+  <button id="full-rig" type="button" aria-pressed="false">FULL MECH</button>
+  <button id="legs-only" type="button" aria-pressed="true">MOBILITY ONLY</button>
+ </div>
+ <div class="button-group">
+  <button data-view="quarter" aria-pressed="true">3/4</button>
+  <button data-view="front" aria-pressed="false">FRONT</button>
+  <button data-view="side" aria-pressed="false">SIDE</button>
+  <button data-view="rear" aria-pressed="false">REAR</button>
+  <button id="zoom-out" aria-label="Zoom out">−</button>
+  <button id="zoom-in" aria-label="Zoom in">+</button>
+  <button id="reset-camera">RESET</button>
+ </div>
+</section>
+<section class="motion-toolbar" aria-label="Heavy mobility movement preview">
+ <div class="button-group">
+  <span class="group-name">MOTION</span>
+  <button data-motion="idle" aria-pressed="true">IDLE</button>
+  <button data-motion="walk" aria-pressed="false">WALK</button>
+  <button data-motion="turn" aria-pressed="false">TURN</button>
+  <button data-motion="brace" aria-pressed="false">BRACE</button>
+  <button id="play" aria-pressed="false">▶ PLAY</button>
+ </div>
+ <label class="slider-small">SPEED <output id="speed-value">1.00×</output>
+  <input id="speed" type="range" min=".35" max="2" step=".05" value="1">
+ </label>
+ <label class="slider-small">PHASE <output id="phase-value">0%</output>
+  <input id="phase" type="range" min="0" max="100" step="1" value="0">
+ </label>
+ <span id="motion-status" role="status">IDLE · HEAVY STANCE</span>
+</section>
+<section id="stage" aria-label="Interactive three-dimensional heavy Hauler concept comparison">
+ <canvas id="scene" aria-label="3D Hauler designs. Drag to orbit; two fingers to pan and pinch to zoom."></canvas>
+ <div id="panels">
+  <div class="panel" data-id="dock"><div class="caption"><b>A / DOCKYARD LIFTER</b><span>WIDE PODS · COMPRESSION</span></div></div>
+  <div class="panel" data-id="strider"><div class="caption"><b>B / INDUSTRIAL STRIDER</b><span>LONG COLUMN · TRAVEL</span></div></div>
+  <div class="panel" data-id="crane"><div class="caption"><b>C / YARD CRANE</b><span>TRIANGULATED LEVER</span></div></div>
+ </div>
+ <div class="stage-tip">DRAG / ORBIT · PINCH / ZOOM · TWO FINGERS / PAN</div>
+</section>
+<div id="error" role="alert" hidden></div>
+<main>
+ <div class="choices" aria-label="Select Hauler concept">
+  <button data-choose="dock" aria-pressed="true">A / DOCKYARD</button>
+  <button data-choose="strider" aria-pressed="false">B / STRIDER</button>
+  <button data-choose="crane" aria-pressed="false">C / CRANE</button>
+ </div>
+ <section class="inspector">
+  <div class="inspector-heading">
+   <div><strong id="selected-name">A / DOCKYARD LIFTER</strong>
+    <p id="selected-description">Wide load carrier with short compression stacks.</p></div>
+   <div class="button-group"><button id="reset-study">RESET CONCEPT</button><button id="reset-all">RESET ALL</button></div>
+  </div>
+  <div class="options">
+   <label><input id="silhouette" type="checkbox"> BLACK SILHOUETTE</label>
+   <label><input id="contacts" type="checkbox"> FOOT CONTACTS</label>
+   <label><input id="joints" type="checkbox"> JOINT MARKERS</label>
+   <label><input id="ghost" type="checkbox"> GHOST ALTERNATES</label>
+   <label><input id="arena" type="checkbox"> ARENA DISTANCE</label>
+   <label><input id="grid-toggle" type="checkbox" checked> FLOOR GRID</label>
+  </div>
+  <details class="proportions">
+   <summary>EDIT SELECTED CONCEPT / PROPORTIONS</summary>
+   <div id="sliders" class="sliders">
+    <label>HIP STANCE <output id="hipSpread-value">0.000 m</output><input id="hipSpread" type="range" min="-.035" max=".035" step=".005" value="0"></label>
+    <label>LOAD SHOE SIZE <output id="footScale-value">1.00×</output><input id="footScale" type="range" min=".88" max="1.06" step=".01" value="1"></label>
+    <label>DRIVE POD BULK <output id="podScale-value">1.00×</output><input id="podScale" type="range" min=".85" max="1.07" step=".01" value="1"></label>
+    <label>STEP LENGTH <output id="stroke-value">1.00×</output><input id="stroke" type="range" min=".75" max="1.22" step=".01" value="1"></label>
+   </div>
+  </details>
+  <div class="stats"><span id="mechanism">COMPRESSION STACK</span><span id="footprint">H2 / 2.55 × 1.68 × 1.35 m</span><span id="warning">DEV STUDY · NOT INSTALLED</span></div>
+ </section>
+ <p class="disclaimer">Fantasy-first geometry from three original heavy industrial suspension concepts — not from the current Hauler model. The upper assembly uses a clone of a real five-station rig only for visual scale. Rigid-link movement, load-shift animations, foot markers and editable proportions are visual studies, not gameplay physics. Existing Hauler H2, H2/U1 adapter, catalogue, collision, ownership and save data are untouched. All changes reset on reload.</p>
+</main>
+<script type="module" src="./research/haulerFantasyLab.js"></script>
+</body></html>
