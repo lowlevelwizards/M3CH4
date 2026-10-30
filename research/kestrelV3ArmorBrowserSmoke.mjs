@@ -31,6 +31,28 @@ try{
   await clickTier(p,tier);
   await screenshot(p,'0'+tier+'-three-designs-tier-'+tier);
  }
+ const shellSurvey=await p.evaluate(async()=>{
+  const g=await import('./research/kestrelArmorGeometryV4.js');
+  const anatomy={flare:1,front:.73,heavy:.83,shin:.76,hip:.88,splitGap:.17};
+  const profile={len:.58,topW:.22,bottomW:.16,topD:.245,bottomD:.19};
+  return ['swept','pod'].map(style=>{
+   const mesh=g.tailoredThighShell(profile,anatomy,style);
+   mesh.computeBoundingBox();
+   const b=mesh.boundingBox;
+   const position=mesh.getAttribute('position');
+   const finite=[...position.array].every(Number.isFinite);
+   const result={style,vertices:position.count,
+    width:b.max.x-b.min.x,height:b.max.y-b.min.y,
+    depth:b.max.z-b.min.z,finite,openEnded:mesh.userData.openEnded,
+    triangles:mesh.index.count/3};
+   mesh.dispose();return result;
+  });
+ });
+ assert.ok(shellSurvey.every(x=>x.finite&&x.openEnded&&x.vertices>=70&&x.triangles>=100));
+ assert.ok(shellSurvey.every(x=>x.height>.42&&x.width>.23),'long continuous shell, not narrow cuff');
+ assert.ok(shellSurvey.find(x=>x.style==='pod').width>
+  shellSurvey.find(x=>x.style==='swept').width,'pod needs its own broader silhouette');
+ results.shells=shellSurvey;
  await p.locator('#choose-raptor').click();
  await p.locator('#compare-armor').click();
  let s=await status(p);
@@ -38,6 +60,26 @@ try{
  assert.equal(s.rigPoses.length,4);
  assert.deepEqual(s.rigPoses.map(x=>x.armorTier),[0,1,2,3]);
  assert.deepEqual(s.rigPoses.map(x=>x.armorCount),[0,4,10,10]);
+ // Regression: tier comparison must inspect the displayed Encased rig, not
+ // accidentally use the global Naked tier's empty inventory.
+ const partSelect=p.locator('#armor-part-select');
+ assert.equal(await partSelect.isDisabled(),false);
+ assert.ok(await partSelect.locator('option').count()>=10);
+ const chosen=await partSelect.inputValue();
+ assert.notEqual(chosen,'');
+ await p.locator('#armor-part-visibility').click();
+ s=await status(p);
+ assert.ok(s.removedParts.includes(chosen));
+ await p.waitForFunction(name=>window.__kestrelSilhouetteLab?.inspect()
+  .rigPoses[3].visibleArmor<window.__kestrelSilhouetteLab.inspect().rigPoses[3].armorCount,
+  chosen);
+ await screenshot(p,'04a-selected-plate-removed');
+ await p.locator('#armor-part-visibility').click();
+ s=await status(p);
+ assert.ok(!s.removedParts.includes(chosen),'refit plate');
+ await p.locator('#armor-part-select').selectOption({index:2});
+ assert.notEqual(await partSelect.inputValue(),chosen,'individual selection changes');
+ await screenshot(p,'04b-selected-plate-highlighted');
  await screenshot(p,'04-raptor-four-tiers-full');
  await p.locator('#legs-only').click();
  await screenshot(p,'05-raptor-four-tiers-legs');

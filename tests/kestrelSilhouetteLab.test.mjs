@@ -189,7 +189,7 @@ test('Kestrel armor geometry stays independent, follows rigid bones and never re
  const html=read('../kestrel-silhouette.html');
  const registry=read('../partVisuals.js');
  const live=read('../research/kestrelSilhouetteMotion.js');
- for(const phrase of ['enclosureGeometry','plateGeometry','mountOn','limb.thigh',
+ for(const phrase of ['tailoredThighShell','plateGeometry','mountOn','limb.thigh',
   'limb.shin','limb.foot','experimentalOnly','armorZone','present','dispose'])
   assert.ok(code.includes(phrase),phrase);
  for(const id of ['compare-armor','armor-only','armor-explode','armor-reset-view','encased-form',
@@ -203,4 +203,24 @@ test('Kestrel armor geometry stays independent, follows rigid bones and never re
  assert.match(lab,/armorTier:state\.armorTier/);
  assert.doesNotMatch(live,/installKestrelArmor|addArmorToLeg/);
  assert.doesNotMatch(registry,/kestrelSilhouetteArmor|kestrelArmorSpec/);
+});
+
+test('V4 faceted shells are purpose-built and armor inspector has real handlers',()=>{
+ const geo=read('../research/kestrelArmorGeometryV4.js');
+ const lab=read('../research/kestrelSilhouetteLab.js');
+ const kit=read('../research/kestrelSilhouetteArmor.js');
+ for(const phrase of ['loftedOpenCasing','stations.length<3','outer',
+  'inner','tailoredThighShell','tailoredSplitCheek','tailoredFrontStrike',
+  'tailoredOuterCheek','openEnded:true'])
+  assert.ok(geo.includes(phrase),phrase);
+ assert.match(kit,/selectedMat/);
+ assert.match(kit,/selectedPart=''/);
+ assert.match(lab,/function currentArmorRig\(/);
+ assert.match(lab,/function updateArmorPartControls\(/);
+ assert.match(lab,/state\.comparison==='armor'&&!state\.focus\?'naked'/);
+ assert.match(lab,/state\.hiddenParts\.add\(state\.selectedPart\)/);
+ assert.match(lab,/state\.hiddenParts\.delete\(state\.selectedPart\)/);
+ assert.match(lab,/hiddenParts:state\.hiddenParts/);
+ assert.match(lab,/selectedPart:state\.selectedPart/);
+ assert.doesNotMatch(read('../partVisuals.js'),/kestrelArmorGeometryV4/);
 });

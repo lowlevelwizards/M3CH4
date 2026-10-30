@@ -5,6 +5,7 @@ on:
       - 'kestrel-silhouette.html'
       - 'research/kestrelSilhouette*.js'
       - 'research/kestrelArmorSpec.js'
+      - 'research/kestrelArmorGeometryV4.js'
       - 'research/kestrelV3ArmorBrowserSmoke.mjs'
       - 'research/kestrelSilhouette*.mjs'
       - 'tests/kestrelSilhouetteLab.test.mjs'
