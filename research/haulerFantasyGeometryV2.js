@@ -70,9 +70,9 @@ function dockFeet(foot,p,side){
  const w=p.soleWidth,depth=p.soleDepth;
  // Deep square platen, three large toe pads, hydraulic pad hinges.
  cast(foot,'DOCK '+side+' / large pressure platen',[0,-.007,.055],
-  [w,.16,depth*.83],'dark',.055);
+  [w,.17,depth*.85],'dark',.055);
  cast(foot,'DOCK '+side+' / thick replaceable load pad',[0,.028,-.055],
-  [w*.92,.106,depth*.70],'ivory',.030);
+  [w*.94,.112,depth*.72],'ivory',.030);
  for(let i=-1;i<=1;i++){
   const x=i*w*.293;
   cast(foot,'DOCK '+side+' / forward platen toe '+i,
@@ -80,13 +80,13 @@ function dockFeet(foot,p,side){
    i===0?'ochre':'light',.025);
  }
  footRubber(foot,'DOCK '+side+' / broad sole elastomer',
-  [0,-.081,.050],[w*.96,.018,depth*.77]);
+  [0,-.081,.050],[w*.96,.018,depth*.79]);
 }
 function striderFeet(foot,p,side){
  const w=p.soleWidth,depth=p.soleDepth;
  // Slender but long skid: front hinged toe and distinctive aft stabilizer.
  beam(foot,'STRIDER '+side+' / long landing skid',
-  [0,0,depth*.41],[0,0,-depth*.29],w*.69,.14,'ivory');
+  [0,0,depth*.41],[0,0,-depth*.29],w*.75,.18,'ivory');
  const hinge=group(foot,'STRIDER '+side+' / independent hinged toe',[0,0,-depth*.27]);
  hinge.userData.toeHinge=true;
  cast(hinge,'STRIDER '+side+' / articulated front skid section',
@@ -96,25 +96,25 @@ function striderFeet(foot,p,side){
  cast(foot,'STRIDER '+side+' / heel stabilizer',
   [0,-.01,depth*.38],[w*.80,.14,depth*.18],'iron',.028);
  footRubber(foot,'STRIDER '+side+' / skid sole',
-  [0,-.079,0],[w*.66,.018,depth*.83]);
+  [0,-.079,0],[w*.73,.018,depth*.83]);
 }
 function craneFeet(foot,p,side){
  const w=p.soleWidth,depth=p.soleDepth;
  // Broad asymmetric hinged outrigger blades, separate from the ankle jaw.
  cast(foot,'CRANE '+side+' / massive center pad',[0,-.006,.035],
-  [w*.67,.15,depth*.72],'iron',.035);
+  [w*.74,.15,depth*.72],'iron',.035);
  for(const s of [-1,1]){
   const pivot=group(foot,'CRANE '+side+' / outrigger hinge group '+s,
    [s*w*.26,.035,depth*.21]);
   pivot.userData.outrigger=s;
   cast(pivot,'CRANE '+side+' / folding lateral stabilizer '+s,
-   [s*w*.12,-.053,-depth*.29],[w*.245,.13,depth*.65],
+   [s*w*.12,-.053,-depth*.29],[w*.24,.13,depth*.65],
    'ivory',.026);
   disk(foot,'CRANE '+side+' / stabilizer hinge '+s,
    [s*w*.26,.035,depth*.21],.053,.021,'rust');
  }
  footRubber(foot,'CRANE '+side+' / outrigger sole',
-  [0,-.081,.01],[w*.93,.018,depth*.65]);
+  [0,-.081,.01],[w*.94,.018,depth*.67]);
 }
 /** Central low load-table ties two enormous fixed housings together.
  * Bulk is in the stationary pods; almost all moving upper links are recessed.
@@ -129,12 +129,12 @@ function dockCarriage(root,p,mountGroup){
   [.94,.12,.30],'dark',.040);
  for(const side of [-1,1]){
   const x=side*(p.hipSpan*.5+.035);
-  cast(frame,'DOCK '+side+' / integral stationary drive pod',[x,.215,.025],
-   [.55,.665,.58],'ochre',.105);
+  cast(frame,'DOCK '+side+' / integral stationary drive pod',[x,.204,.025],
+   [.55,.69,.58],'ochre',.105);
   cast(frame,'DOCK '+side+' / compact top casting',[x,.527,.025],
    [.50,.09,.53],'ivory',.042);
-  cast(frame,'DOCK '+side+' / sliding guide shroud',[x,-.119,.04],
-   [.35,.19,.37],'moss',.05);
+  cast(frame,'DOCK '+side+' / sliding guide shroud',[x,-.121,.04],
+   [.42,.20,.41],'moss',.05);
   coupler(frame,'DOCK '+side+' / enclosed outboard drive motor',
    [x+side*.135,.19,.05],side,.112);
  }
@@ -147,11 +147,11 @@ function dockAssembly(ctx,leg,p){
  beam(hip,n+' / short buried compression rod',[0,.020,0],
   [k[0],k[1]+.06,k[2]],.205,.235,'dark');
  cast(knee,n+' / square traveling ram collar',[0,-.01,-.015],
-  [.29,.22,.32],'ivory',.045);
+  [.37,.235,.36],'ivory',.045);
  coupler(knee,n+' / under-pod service bearing',[s*.168,0,.01],s,.089);
  beam(knee,n+' / wide low compression shoe column',[0,-.04,0],
-  [a[0],a[1]+.045,a[2]],.31,.35,'iron');
- cast(ankle,n+' / compliant wide load ankle',[0,.02,0],[.36,.18,.36],'moss',.046);
+  [a[0],a[1]+.045,a[2]],.405,.405,'iron');
+ cast(ankle,n+' / compliant wide load ankle',[0,.02,0],[.465,.195,.43],'moss',.046);
  dockFeet(foot,p,s);
  const top=anchor(ctx.fixed,n+' / dock fixed ram anchor',[s*(p.hipSpan*.5),.315,.190]);
  const bottom=anchor(knee,n+' / dock traveling ram endpoint',[s*.09,.05,.08]);
@@ -166,7 +166,13 @@ function striderCarriage(root,p){
  for(const side of [-1,1]){
   const x=side*(p.hipSpan*.5);
   beam(carriage,'STRIDER '+side+' / cast suspension shoulder',
-   [side*.31,.675,0],[x,.46,0],.19,.24,'ochre');
+   [side*.31,.675,0],[x,.46,0],.26,.27,'ochre');
+  // A lower triangulated load brace makes each shoulder a truss instead
+  // of an isolated cantilever projecting from the center.
+  beam(carriage,'STRIDER '+side+' / under-fork compression brace',
+   [side*.20,.60,.115],[x,.365,.12],.13,.12,'iron');
+  cast(carriage,'STRIDER '+side+' / fixed upper linear guide casing',
+   [x,.295,0],[.39,.345,.39],'moss',.052);
   cast(carriage,'STRIDER '+side+' / stationary guide crown',[x,.435,0],
    [.37,.25,.36],'ochre',.05);
   coupler(carriage,'STRIDER '+side+' / upper spherical bearing',
@@ -184,14 +190,14 @@ function striderAssembly(ctx,leg,p){
    [s*.12,.015,z],[s*.12,k[1]*.78,k[2]*.78+z],.075,.078,'moss');
  }
  beam(hip,n+' / long telescoping rectangular lift casing',
-  [0,-.04,0],[k[0],k[1]*.92,k[2]*.92],.215,.235,'iron');
+  [0,-.04,0],[k[0],k[1]*.92,k[2]*.92],.255,.265,'ivory');
  cast(knee,n+' / moving carriage and travel collar',[0,.025,0],
-  [.31,.265,.29],'ivory',.052);
+  [.35,.275,.33],'iron',.052);
  coupler(knee,n+' / lateral traveling elbow',[s*.174,0,0],s,.105);
  beam(knee,n+' / long straight load column',[0,0,0],
-  [a[0],a[1]+.04,a[2]],.21,.25,'ivory');
+  [a[0],a[1]+.04,a[2]],.275,.30,'ivory');
  cast(ankle,n+' / guided articulated skid ankle',[0,.025,0],
-  [.32,.18,.30],'iron',.04);
+  [.36,.19,.33],'iron',.04);
  striderFeet(foot,p,s);
  const top=anchor(ctx.fixed,n+' / cylinder fixed top',
   [s*(p.hipSpan*.5+.075),.475,.145]);
@@ -207,11 +213,11 @@ function craneCarriage(root,p){
  for(const side of [-1,1]){
   const x=side*(p.hipSpan*.5);
   beam(frame,'CRANE '+side+' / diagonal fixed shear truss',
-   [side*.28,.665,-.12],[x,.348,-.10],.18,.14,'moss');
+   [side*.28,.665,-.12],[x,.348,-.10],.23,.18,'moss');
   beam(frame,'CRANE '+side+' / rear triangulated cross brace',
    [side*.28,.655,.135],[x,.35,-.10],.10,.10,'dark');
   cast(frame,'CRANE '+side+' / main axle mount',[x,.345,-.10],
-   [.32,.26,.27],'ochre',.055);
+   [.37,.275,.32],'ochre',.055);
   coupler(frame,'CRANE '+side+' / outer lifting crank hub',
    [x+side*.188,.345,-.10],side,.145);
  }
@@ -222,24 +228,25 @@ function craneAssembly(ctx,leg,p){
  const k=delta(leg.knee,leg.hip),a=delta(leg.ankle,leg.knee);
  // Angular upper structural arm with true triangular brace from hip to knee.
  beam(hip,n+' / massive diagonal primary lift spar',[0,.02,-.055],
-  [k[0],k[1],k[2]],.27,.25,'ivory');
+  [k[0],k[1],k[2]],.345,.305,'ivory');
  beam(hip,n+' / rear triangulation member',
-  [s*.10,-.010,.095],[k[0]+s*.11,k[1]+.035,k[2]+.11],.095,.085,'dark');
+  [s*.10,-.010,.095],[k[0]+s*.11,k[1]+.035,k[2]+.11],.115,.11,'dark');
  beam(hip,n+' / front load-transfer cheek',
   [s*.13,-.06,-.13],[k[0]+s*.12,k[1]+.06,k[2]-.09],.09,.09,'moss');
  coupler(knee,n+' / compound elbow outer axle',
-  [s*.179,0,0],s,.16);
+  [s*.192,0,0],s,.17);
  beam(knee,n+' / forward driven shin lever',
-  [0,0,0],[a[0],a[1]+.05,a[2]],.23,.245,'ivory');
+  [0,0,0],[a[0],a[1]+.05,a[2]],.29,.28,'ivory');
  beam(knee,n+' / diagonal return lever',
   [s*.13,-.055,.14],[a[0]+s*.095,a[1]+.045,a[2]+.09],.088,.085,'iron');
  cast(ankle,n+' / rotating stabilizer clevis',[0,.03,0],
-  [.34,.20,.38],'moss',.052);
+  [.38,.22,.42],'moss',.052);
  craneFeet(foot,p,s);
+ // Both hydraulic eyes attach to solid fixed crank and moving lift spar.
  const top=anchor(ctx.fixed,n+' / hydraulics fixed-head anchor',
-  [s*(p.hipSpan*.5-.15),.59,.13]);
- const bottom=anchor(knee,n+' / power-cylinder knee anchor',
-  [s*.068,.08,.055]);
+  [s*(p.hipSpan*.5-.02),.35,-.065]);
+ const bottom=anchor(hip,n+' / power-cylinder lift-arm anchor',
+  [s*.075,-.285,.115]);
  ctx.actuators.push({type:'crane',side:s,start:top,end:bottom});
 }
 /** Dynamic hydraulics are two real visible segments, each attached to its
