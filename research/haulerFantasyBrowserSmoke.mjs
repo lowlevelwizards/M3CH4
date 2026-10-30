@@ -36,6 +36,13 @@ try{
  assert.equal(state.fullRig,false);
  assert.deepEqual(state.candidates.map(c=>c.id),['dock','strider','crane']);
  assert.ok(state.candidates.every(c=>c.meshCount>14));
+ for(const c of state.candidates){
+  assert.ok(c.framing,'every studio comparison model has a real camera fit');
+  assert.ok(c.framing.projectedWidth<c.framing.height*c.framing.aspect*.94,
+   c.id+' horizontally clipped at desktop compare scale');
+  assert.ok(c.framing.projectedHeight<c.framing.height*.94,
+   c.id+' vertically clipped at desktop compare scale');
+ }
  // Verify the original fantasy geometry actually builds inside the intended
  // footprint and has independent real joint groups. No live builder imported.
  audit.geometry=await page.evaluate(async()=>{
@@ -121,6 +128,14 @@ try{
  }
  await page.locator('[data-view="quarter"]').click();
  await page.locator('#full-rig').click();
+ await page.waitForTimeout(100);
+ state=await inspect(page);
+ for(const c of state.candidates){
+  assert.ok(c.framing.projectedWidth<c.framing.height*c.framing.aspect*.94,
+   c.id+' complete gun/frame silhouette clips horizontally');
+  assert.ok(c.framing.projectedHeight<c.framing.height*.94,
+   c.id+' complete gun/frame silhouette clips vertically');
+ }
  await page.screenshot({path:out+'/03-three-real-upper-assemblies.png'});
  await page.locator('#legs-only').click();
  await page.locator('#silhouette').check();
@@ -166,22 +181,39 @@ try{
  await page.locator('#footScale').evaluate(el=>{el.value='1.04';el.dispatchEvent(new Event('input',{bubbles:true}));});
  await page.waitForTimeout(90);
  state=await inspect(page);
- assert.ok(state.candidates[2].soleWidth>.53);
+ assert.ok(state.candidates[2].soleWidth>.60);
  assert.equal(state.candidates[0].hipSpan,1.89);
  assert.equal(state.candidates[1].hipSpan,1.8);
  await page.locator('#reset-study').click();
  await page.waitForTimeout(90);
  state=await inspect(page);
- assert.equal(state.candidates[2].soleWidth,.53);
+ assert.equal(state.candidates[2].soleWidth,.60);
  await page.close();
  page=await open({width:390,height:844},true);
  state=await inspect(page);
  assert.equal(state.focus,true,'portrait defaults to one useful large model');
+ const safeArea=await page.evaluate(()=>{
+  const header=document.querySelector('.top');
+  return {topPadding:parseFloat(getComputedStyle(header).paddingTop),
+    safeSpace:header.getBoundingClientRect().top};
+ });
+ assert.ok(safeArea.topPadding>=48,'status bar must not overlap lab header');
  await page.screenshot({path:out+'/08-phone-focus.png'});
  await page.locator('[data-choose="strider"]').click();
  await page.locator('[data-view="side"]').click();
  await page.screenshot({path:out+'/09-phone-strider-side.png'});
  await page.locator('#compare').click();
+ await page.waitForTimeout(100);
+ state=await inspect(page);
+ for(const c of state.candidates){
+  assert.ok(c.framing.projectedWidth<c.framing.height*c.framing.aspect*.94,
+   c.id+' clips in narrow phone three-up');
+ }
+ const compressed=await page.evaluate(()=>{
+  const stage=document.querySelector('#stage');
+  return stage.getBoundingClientRect().height/window.innerHeight;
+ });
+ assert.ok(compressed<.53,'phone compare should not reserve an oversized empty stage');
  await page.screenshot({path:out+'/10-phone-three-up.png'});
  const dimensions=await page.evaluate(()=>({
   body:document.documentElement.scrollWidth,viewport:innerWidth,
