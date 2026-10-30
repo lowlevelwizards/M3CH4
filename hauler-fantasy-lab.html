@@ -75,6 +75,15 @@
    <label><input id="ghost" type="checkbox"> GHOST ALTERNATES</label>
    <label><input id="arena" type="checkbox"> ARENA DISTANCE</label>
    <label><input id="grid-toggle" type="checkbox" checked> FLOOR GRID</label>
+   <label><input id="footprint" type="checkbox"> FOOTPRINT OUTLINES</label>
+   <label class="assembly-filter">SHOW
+    <select id="assembly-view" aria-label="Inspect individual physical assemblies">
+     <option value="all">WHOLE MECHANISM</option>
+     <option value="housings">HOUSINGS ONLY</option>
+     <option value="mechanism">BARE MECHANISM / ACTUATORS</option>
+     <option value="feet">FOOT ASSEMBLIES</option>
+    </select>
+   </label>
   </div>
   <details class="proportions">
    <summary>EDIT SELECTED CONCEPT / PROPORTIONS</summary>
@@ -85,9 +94,10 @@
     <label>STEP LENGTH <output id="stroke-value">1.00×</output><input id="stroke" type="range" min=".75" max="1.22" step=".01" value="1"></label>
    </div>
   </details>
-  <div class="stats"><span id="mechanism">COMPRESSION STACK</span><span id="footprint">H2 / 2.55 × 1.68 × 1.35 m</span><span id="warning">DEV STUDY · NOT INSTALLED</span></div>
+  <div class="stats"><span id="mechanism">COMPRESSION STACK</span><span id="footprint">H2 / 2.55 × 1.68 × 1.35 m</span><span id="warning">DEV STUDY · NOT INSTALLED</span>
+   <span id="link-status" role="status">LINKS / GROUNDED</span></div>
  </section>
- <p class="disclaimer">Fantasy-first geometry from three original heavy industrial suspension concepts — not from the current Hauler model. The upper assembly uses a clone of a real five-station rig only for visual scale. Rigid-link movement, load-shift animations, foot markers and editable proportions are visual studies, not gameplay physics. Existing Hauler H2, H2/U1 adapter, catalogue, collision, ownership and save data are untouched. All changes reset on reload.</p>
+ <p class="disclaimer">Fantasy-first geometry from three original heavy industrial suspension concepts — not from the current Hauler model. The upper assembly uses a clone of a real five-station rig only for visual scale. Mechanism-specific rigid links, anchored hydraulics, telescoping previews, support-foot targets, physical inspection filters and editable proportions are visual studies, not gameplay physics. Existing Hauler H2, H2/U1 adapter, catalogue, collision, ownership and save data are untouched. All changes reset on reload.</p>
 </main>
 <script type="module" src="./research/haulerFantasyLab.js"></script>
 </body></html>
