@@ -12,17 +12,17 @@ export const HAULER_PRESETS=Object.freeze([
  Object.freeze({id:'dock',letter:'A',title:'DOCKYARD LIFTER',
   brief:'A dock machine with broad stationary drive pods and short compression stacks',
   role:'LOW / WIDE / PLANTED',hipSpan:1.89,hipY:.21,kneeY:-.18,kneeZ:.15,
-  ankleY:-.63,ankleZ:-.02,footWidth:.51,podScale:1.0,stride:.115,lift:.058,
+  ankleY:-.63,ankleZ:-.02,footWidth:.62,podScale:1.0,stride:.115,lift:.058,
   recovery:1.65,stance:'very-wide',mechanism:'compression-stack'}),
  Object.freeze({id:'strider',letter:'B',title:'INDUSTRIAL STRIDER',
   brief:'Tall heavy hydraulic columns, suspended yoke and long load-bearing reach',
   role:'REACH / TRAVEL / COLUMN',hipSpan:1.80,hipY:.30,kneeY:-.17,kneeZ:.06,
-  ankleY:-.64,ankleZ:-.06,footWidth:.55,podScale:.86,stride:.18,lift:.092,
+  ankleY:-.64,ankleZ:-.06,footWidth:.61,podScale:.86,stride:.18,lift:.092,
   recovery:1.35,stance:'upright',mechanism:'hydraulic-column'}),
  Object.freeze({id:'crane',letter:'C',title:'YARD CRANE',
   brief:'Crank-driven triangular leverage, coupled push-rods and load-spreading feet',
   role:'TRIANGLE / LEVER / CATCH',hipSpan:1.86,hipY:.23,kneeY:-.24,kneeZ:.25,
-  ankleY:-.64,ankleZ:-.12,footWidth:.53,podScale:.90,stride:.145,lift:.075,
+  ankleY:-.64,ankleZ:-.12,footWidth:.60,podScale:.90,stride:.145,lift:.075,
   recovery:1.50,stance:'braced',mechanism:'crank-linkage'})
 ]);
 export const HAULER_TUNABLES=Object.freeze({
