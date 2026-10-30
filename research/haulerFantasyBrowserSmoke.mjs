@@ -84,7 +84,8 @@ try{
  await page.locator('[data-motion="walk"]').click();
  await page.locator('#contacts').check();
  await page.locator('#joints').check();
- await page.locator('#phase').fill('35');
+ await page.locator('#phase').evaluate(el=>{el.value='35';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.waitForTimeout(80);
  state=await inspect(page);
  assert.equal(state.motion,'walk');
  assert.ok(state.candidates[2].motion.feet.some(x=>x.contact==='SWING'));
@@ -96,17 +97,20 @@ try{
  assert.notEqual(moving.phase,state.phase);
  await page.locator('#play').click();
  await page.locator('[data-motion="brace"]').click();
+ await page.waitForTimeout(70);
  state=await inspect(page);
  assert.equal(state.motion,'brace');
  await page.screenshot({path:out+'/07-crane-brace.png'});
  // Edit one candidate without mutating any other design's default.
  await page.locator('.proportions summary').click();
- await page.locator('#footScale').fill('1.04');
+ await page.locator('#footScale').evaluate(el=>{el.value='1.04';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.waitForTimeout(90);
  state=await inspect(page);
  assert.ok(state.candidates[2].soleWidth>.53);
  assert.equal(state.candidates[0].hipSpan,1.89);
  assert.equal(state.candidates[1].hipSpan,1.8);
  await page.locator('#reset-study').click();
+ await page.waitForTimeout(90);
  state=await inspect(page);
  assert.equal(state.candidates[2].soleWidth,.53);
  await page.close();
