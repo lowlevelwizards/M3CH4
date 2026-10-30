@@ -145,12 +145,15 @@ try {
     // Unlike its 2025 prototype it INCLUDES the certified physical obstacle
     // shells and intentionally uses sunlight, not four artificial floodlights.
     // Check the current venue contract, never a retired scenery group name.
+    // One compound obstacle may contain several certified physical solids:
+    // use the authoritative raycast-solid count, not the obstacle count.
     if(!backlot.visible||backlot.objects<25||
        backlot.stats?.sky!=='open'||
        backlot.stats?.enclosingWarehouseWalls!==0||
        backlot.stats?.overheadWarehouseFixtures!==0||
        !(backlot.stats?.obstacleCount>0)||
-       backlot.stats?.collisionSolids!==backlot.stats?.obstacleCount||
+       !backlot.stats?.collisionCertificate?.pass||
+       backlot.stats?.collisionSolids!==backlot.stats?.collisionCertificate?.authoritativeRaycastSolids||
        backlot.colliders<1||
        backlot.colliders>backlot.stats.obstacleCount*4||
        backlot.dynamicLights||
@@ -479,20 +482,27 @@ try {
   // DEV animation inspection previews the ACTUAL fitted garage model;
   // all moving parts must be real transforms rather than just UI controls.
   await page.locator('#dev-toggle').click({ timeout: 12000 });
-  await page.locator('#animation-preview-toggle').click({ timeout: 12000 });
-  await page.waitForTimeout(650);
-  const inspectionMotion=await page.evaluate(async()=>{
-    const {activePlayerArena}=await import('./scene.js');
-    const root=activePlayerArena()?.arena?.scene;
-    const joints=[];root?.traverse(node=>{
-      if(node.userData?.joint==='hip'||node.userData?.joint==='knee')
-        joints.push(Math.abs(node.rotation.x));
-    });
-    return joints;
-  });
-  if(!inspectionMotion.some(a=>a>.04))
-    throw Error('Garage animation preview does not articulate the actual hip/knee transforms: '+
-      JSON.stringify(inspectionMotion));
+  // Explicitly request WALK even if an earlier dev interaction left a
+  // different preview mode selected. Never toggle an already-enabled lab off.
+  await page.locator('#animation-preview-mode').selectOption('walk');
+  const animationToggle=page.locator('#animation-preview-toggle');
+  if(await animationToggle.getAttribute('aria-pressed')!=='true')
+    await animationToggle.click({timeout:12000});
+  // Sample multiple rendered frames: one exact instant can be a fully planted
+  // rest pose, yet the moving limb graph must show a genuine nonzero bend.
+  try{
+    await page.waitForFunction(async()=>{
+      const {activePlayerArena}=await import('./scene.js');
+      let bent=false;
+      activePlayerArena()?.arena?.scene?.traverse(node=>{
+        if((node.userData?.joint==='hip'||node.userData?.joint==='knee')&&
+           Math.abs(node.rotation.x)>.04)bent=true;
+      });
+      return bent;
+    },null,{timeout:5500,polling:90});
+  }catch{
+    throw Error('Garage animation preview failed to articulate actual hip/knee transforms during WALK');
+  }
   await page.locator('#animation-preview-mode').selectOption('reload');
   // Wait until the bolt has actually been drawn back, not the initial
   // opening-latch stage where motion is deliberately only a few millimetres.
@@ -540,21 +550,25 @@ try {
   console.log('GARAGE SOLES:',JSON.stringify(contact));
   if(contact.length!==2||contact.some(foot=>Math.abs(foot.y-.102)>.045))
     throw Error('Visible garage soles do not meet service pad: '+JSON.stringify(contact));
-  await page.locator('#animation-preview-toggle').click();
+  // Do not click an already-running preview off before testing strafing.
   await page.locator('#animation-preview-mode').selectOption('strafe-left');
-  await page.waitForTimeout(720);
-  const strafePose=await page.evaluate(async()=>{
-    const {activePlayerArena}=await import('./scene.js');
-    const hips=[],knees=[];
-    activePlayerArena()?.arena?.scene.traverse(node=>{
-      if(node.userData?.joint==='hip')hips.push(node.rotation.z);
-      if(node.userData?.joint==='knee')knees.push(node.rotation.z);
-    });
-    return {hips,knees};
-  });
-  if(!strafePose.hips.some(n=>Math.abs(n)>.035)||
-     !strafePose.knees.some(n=>Math.abs(n)>.025))
-    throw Error('Side-step did not move both hip and knee joints: '+JSON.stringify(strafePose));
+  if(await animationToggle.getAttribute('aria-pressed')!=='true')
+    await animationToggle.click();
+  // The side-step gait has natural return-to-center instants: test observed
+  // physical motion over rendered frames rather than one phase-dependent snap.
+  try{
+    await page.waitForFunction(async()=>{
+      const {activePlayerArena}=await import('./scene.js');
+      let hip=false,knee=false;
+      activePlayerArena()?.arena?.scene?.traverse(node=>{
+        if(node.userData?.joint==='hip'&&Math.abs(node.rotation.z)>.035)hip=true;
+        if(node.userData?.joint==='knee'&&Math.abs(node.rotation.z)>.025)knee=true;
+      });
+      return hip&&knee;
+    },null,{timeout:5500,polling:90});
+  }catch{
+    throw Error('Side-step did not articulate real hip and knee joints during preview');
+  }
   await page.locator('#animation-preview-mode').selectOption('strafe-right');
   await page.waitForTimeout(540);
   await page.screenshot({path:output+'/strafe-ground-contact-iphone.png'});
@@ -563,6 +577,13 @@ try {
 
   // The first real iPhone audio milestone: DEV -> SOUND TEST BENCH -> one
   // tapped WebAudio audition, without affecting any rig or save data.
+  // The Sound Lab lives in a collapsed Dev diagnostics group. Open the real
+  // group through its summary before clicking the visible Sound Bench control.
+  const audioGroup=page.locator('details.dev-group').filter({
+    has:page.locator('#audio-bench-open')
+  });
+  if(!await audioGroup.evaluate(el=>el.open))
+    await audioGroup.locator('summary').click();
   await page.locator('#audio-bench-open').click({ timeout: 12000 });
   await page.locator('#audio-bench [data-weapon="gun-scatter"]').click({ timeout: 12000 });
   await page.locator('#audio-bench [data-variation="B"]').click({ timeout: 12000 });

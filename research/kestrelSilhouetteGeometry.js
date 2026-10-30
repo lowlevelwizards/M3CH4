@@ -106,7 +106,10 @@ export function createSilhouetteMachine(raw){
   // A single exposed linkage to explain the compression/spring action.
   // Keep it offset at the BACK of thigh, so it does not z-fight with casting.
   const shaftTop=[hip[0]+side*hWidth*.40,hip[1]-.09,hip[2]+.185];
-  const shaftBot=[knee[0]+side*hWidth*.36,knee[1]+.095,knee[2]+.10];
+  // Raptor's rear clevis sits 13 mm inward to clear the existing 1.0 m
+  // catalogue depth without changing the hock, shin, or foot silhouette.
+  const shaftBot=[knee[0]+side*hWidth*.36,knee[1]+.095,
+   knee[2]+(p.id==='raptor'?.087:.10)];
   beam(root,tag+'/rear suspension rod',shaftTop,shaftBot,
    .044,.039,.048,.044,'metal');
   pin(root,tag+'/rear suspension clevis',shaftBot,.050,.040,'dark',8);

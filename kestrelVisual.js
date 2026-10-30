@@ -1,14 +1,15 @@
-/** k.3a.8 — Kestrel: exaggerated open reverse-knee runner, preview-only.
+/** Archived k.3a.8 Kestrel: exaggerated open reverse-knee runner, preview-only.
  * Narrow forked hip, long opposing diagonals and independently exposed toe
  * prongs. Its moving graph is intentionally unlike a conventional work leg.
  */
 import * as THREE from 'three';
+import {buildRaptorScoutKestrel} from './kestrelRaptorVisual.js';
 import {KESTREL_LAYOUT,validateKestrelLayout} from './mobilityDefinitions.js?v=k3a8';
 import {groupAt,block,disk,bearing,link,actuator,forkBracket,taperedLink,
     wedgeSole,splitToe,finishMobilityVisual} from './mobilityVisualKit.js?v=k3a8';
 const sub=(a,b)=>a.map((n,i)=>n-b[i]);
 const scale=(a,n)=>a.map(v=>v*n);
-export function buildKestrelVisual(fixture,layout=KESTREL_LAYOUT){
+export function buildLegacyKestrelVisual(fixture,layout=KESTREL_LAYOUT){
     const check=validateKestrelLayout(layout,fixture);
     if(!check.valid)throw new Error(`Invalid Kestrel engineering sheet: ${check.errors.join(' ')}`);
     const root=new THREE.Group();root.name='fit-fixture:legs-compact';
@@ -94,4 +95,13 @@ export function buildKestrelGuideVisuals(plan){
         link(root,`${word}-fixed-drop-guide`,start,bridge.receiver,.066,.078,'charcoal');
     }
     return root;
+}
+
+/** Gameplay Kestrel is the approved Naked Raptor Scout. Experimental armors
+ * and alternate bird-runner silhouettes remain separate in their Dev labs.
+ */
+export function buildKestrelVisual(fixture,layout=KESTREL_LAYOUT){
+ const check=validateKestrelLayout(layout,fixture);
+ if(!check.valid)throw Error('Invalid Kestrel engineering sheet: '+check.errors.join(' '));
+ return buildRaptorScoutKestrel(fixture,layout);
 }

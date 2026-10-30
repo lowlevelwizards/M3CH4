@@ -7,8 +7,13 @@ on:
       - 'research/kestrelArmorSpec.js'
       - 'research/kestrelArmorGeometryV4.js'
       - 'research/kestrelV3ArmorBrowserSmoke.mjs'
+      - 'research/kestrelProductionBrowserSmoke.mjs'
+      - 'kestrelRaptorVisual.js'
+      - 'kestrelVisual.js'
+      - 'armorPrototype.js'
       - 'research/kestrelSilhouette*.mjs'
       - 'tests/kestrelSilhouetteLab.test.mjs'
+      - 'tests/raptorScoutProduction.test.mjs'
       - '.github/workflows/kestrel-silhouette-ci.yml'
       - 'index.html'
       - 'styles.css'
@@ -26,7 +31,7 @@ jobs:
         with:
           node-version: 22
       - name: Validate design invariants and isolated Naked presets
-        run: node --test tests/kestrelSilhouetteLab.test.mjs
+        run: node --test tests/kestrelSilhouetteLab.test.mjs tests/raptorScoutProduction.test.mjs
       - name: Install headless Chromium
         run: |
           npm install --no-save --no-package-lock playwright
@@ -41,6 +46,8 @@ jobs:
         run: node research/kestrelV2BrowserSmoke.mjs
       - name: Verify all four Kestrel armor levels, shell variations and articulated geometry
         run: node research/kestrelV3ArmorBrowserSmoke.mjs
+      - name: Verify approved Raptor Scout live model, articulated bones and archived armor
+        run: node research/kestrelProductionBrowserSmoke.mjs
       - name: Verify Dev tab launchers are reachable on iPhone and desktop
         run: node research/devWorkspacesBrowserSmoke.mjs
       - name: Upload rendered art review
@@ -52,4 +59,5 @@ jobs:
             kestrel-silhouette-artifacts/
             kestrel-v2-artifacts/
             kestrel-v3-artifacts/
+            kestrel-production-artifacts/
           if-no-files-found: warn
