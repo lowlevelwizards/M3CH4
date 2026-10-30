@@ -15,7 +15,17 @@ async function open(viewport,mobile=false){
  await page.goto('http://127.0.0.1:8765/hauler-fantasy-lab.html',
   {waitUntil:'domcontentloaded',timeout:60000});
  await page.waitForFunction(()=>window.__haulerFantasyLab?.ready&&
-  window.__haulerFantasyLab.inspect().frameCount>0,null,{timeout:55000});
+  window.__haulerFantasyLab.inspect().frameCount>0,null,{timeout:13000})
+  .catch(async e=>{
+   const state=await page.evaluate(()=>({
+    diagnostic:document.querySelector('#error')?.textContent,
+    module:[...document.scripts].filter(s=>s.type==='module').map(s=>s.src),
+    ready:!!window.__haulerFantasyLab,
+    body:document.body?.textContent?.slice(0,150)
+   }));
+   throw Error('Hauler lab startup failed: '+e.message+'; '+JSON.stringify(state)+
+    '; browser errors='+errors.join(' | '));
+  });
  return page;
 }
 const inspect=page=>page.evaluate(()=>window.__haulerFantasyLab.inspect());
