@@ -26,7 +26,7 @@ export const HAULER_PRESETS=Object.freeze([
   recovery:1.50,stance:'braced',mechanism:'crank-linkage'})
 ]);
 export const HAULER_TUNABLES=Object.freeze({
- hipSpread:Object.freeze({label:'Hip stance',min:-.035,max:.035,step:.005,unit:'m'}),
+ hipSpread:Object.freeze({label:'Hip stance',min:-.035,max:.015,step:.005,unit:'m'}),
  footScale:Object.freeze({label:'Load shoe size',min:.88,max:1.06,step:.01,unit:'×'}),
  podScale:Object.freeze({label:'Drive housing size',min:.85,max:1.07,step:.01,unit:'×'}),
  stroke:Object.freeze({label:'Stride travel',min:.75,max:1.22,step:.01,unit:'×'})
