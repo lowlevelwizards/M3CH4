@@ -13,7 +13,7 @@ const stage=$('stage'),canvas=$('scene'),panels=$('panels');
 const state={selected:'dock',focus:innerWidth<761,fullRig:false,
  silhouette:false,contacts:false,joints:false,ghost:false,arena:false,grid:true,
  motion:'idle',playing:false,phase:0,speed:1,
- view:'quarter',yaw:.68,pitch:.22,zoom:1,panX:0,panY:0,
+ view:'quarter',yaw:.68,pitch:.22,zoom:1,panX:0,panY:0,footprint:false,assemblyView:'all',
  edits:Object.fromEntries(HAULER_IDS.map(id=>[id,preset(id)]))};
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x354636);
 scene.add(new THREE.HemisphereLight(0xe9e1cb,0x33483e,2.15));
@@ -39,6 +39,42 @@ const originalMount=assembly.partGroups.get('mobility');
 if(!originalMount)throw Error('Missing actual mobility mount in the five-station assembly');
 for(const child of [...originalMount.children])originalMount.remove(child);
 const rigs=new Map();
+function addFootprintMarkers(study){
+ const outlines=[];
+ for(const limb of study.limbs){
+  const width=study.params.soleWidth,depth=study.params.soleDepth;
+  const geometry=new THREE.EdgesGeometry(new THREE.BoxGeometry(width,.006,depth));
+  const mat=new THREE.LineBasicMaterial({color:0xe7bd75,depthTest:false});
+  const edge=new THREE.LineSegments(geometry,mat);
+  edge.name='DEV / grounded footprint '+limb.leg.side;
+  edge.position.set(0,-.083,0);edge.visible=false;
+  limb.foot.add(edge);outlines.push(edge);
+ }
+ return outlines;
+}
+function sectionOf(obj){
+ if(obj.userData?.dynamicActuator)return 'actuator';
+ let parent=obj.parent;
+ while(parent){
+  if(parent.userData?.joint==='foot')return 'feet';
+  parent=parent.parent;
+ }
+ if(/stationary drive pod|top casting|guide shroud|transverse head|fixed shear truss|main axle mount|compact central|enclosed outer guide|guide crown|integral stationary|upper spherical bearing|side connector|load-distribution casting/.test(obj.name))
+  return 'housing';
+ if(obj.name.includes('U1 reference')||obj.name.includes('contact face'))return 'housing';
+ return 'structure';
+}
+function applySectionVisibility(study){
+ const mode=state.assemblyView;
+ study.root.traverse(obj=>{
+  if(!obj.isMesh||obj.userData.jointMarker||obj.userData.contactMarker)return;
+  const section=sectionOf(obj);
+  obj.visible=mode==='all'||
+   mode==='feet'&&section==='feet'||
+   mode==='housings'&&section==='housing'||
+   mode==='mechanism'&&(section==='actuator'||section==='structure');
+ });
+}
 function markJoints(study){
  const markers=[];
  for(const limb of study.limbs){
@@ -58,10 +94,11 @@ for(const p of HAULER_PRESETS){
  if(!mount)throw Error('Missing mobility attachment in cloned upper structure');
  const study=createMovingHauler(state.edits[p.id]);
  const markers=markJoints(study);
+ const outlines=addFootprintMarkers(study);
  mount.add(study.root);root.visible=false;scene.add(root);
  const upperGroups=[...assembly.partGroups.entries()].filter(([k])=>k!=='mobility')
   .map(([,group])=>root.getObjectByName(group.name)).filter(Boolean);
- rigs.set(p.id,{root,mount,study,upperGroups,markers,ghosts:[],base:root.position.clone()});
+ rigs.set(p.id,{root,mount,study,upperGroups,markers,outlines,ghosts:[],base:root.position.clone()});
 }
 let dirty=false,frameCount=0,lastTime;
 function schedule(){if(dirty)return;dirty=true;requestAnimationFrame(render);}
@@ -95,9 +132,11 @@ function replaceStudy(id){
  const r=rigs.get(id);for(const rig of rigs.values())disposeGhosts(rig);
  r.mount.remove(r.study.root);
  r.study.root.traverse(obj=>{if(obj.isMesh)obj.geometry.dispose();});
- r.markers.forEach(m=>m.material.dispose());
+ r.markers.forEach(m=>{m.material.dispose();m.geometry.dispose();});
+ r.outlines.forEach(m=>{m.material.dispose();m.geometry.dispose();});
  r.study=createMovingHauler(state.edits[id]);
  r.markers=markJoints(r.study);
+ r.outlines=addFootprintMarkers(r.study);
  r.mount.add(r.study.root);
  ghostsForSelected();
  schedule();
@@ -106,6 +145,7 @@ function inspect(){
  return {selected:state.selected,focus:state.focus,fullRig:state.fullRig,
   silhouette:state.silhouette,contacts:state.contacts,joints:state.joints,
   ghost:state.ghost,arena:state.arena,grid:state.grid,
+  footprint:state.footprint,assemblyView:state.assemblyView,
   motion:state.motion,playing:state.playing,phase:state.phase,speed:state.speed,
   view:state.view,yaw:state.yaw,pitch:state.pitch,zoom:state.zoom,
   frameCount,candidates:HAULER_PRESETS.map(p=>{
@@ -171,13 +211,16 @@ $('zoom-out').addEventListener('click',()=>zoom(1.20));
 $('reset-camera').addEventListener('click',()=>{
  state.panX=state.panY=0;state.zoom=1;view('quarter');
 });
-for(const key of ['silhouette','contacts','joints','ghost','arena','grid-toggle']){
+for(const key of ['silhouette','contacts','joints','ghost','arena','grid-toggle','footprint']){
  $(key).addEventListener('change',event=>{
   state[key==='grid-toggle'?'grid':key]=event.target.checked;
   if(key==='ghost')ghostsForSelected();
   schedule();
  });
 }
+$('assembly-view').addEventListener('change',event=>{
+ state.assemblyView=event.target.value;schedule();
+});
 function setMotion(mode){
  if(!HAULER_MOTIONS.includes(mode))throw Error('Unknown motion '+mode);
  state.motion=mode;if(mode==='idle'||mode==='brace')state.playing=false;
@@ -275,11 +318,13 @@ function render(timestamp=0){
   rig.root.visible=false;
   for(const g of rig.upperGroups)g.visible=state.fullRig;
   for(const marker of rig.markers)marker.visible=state.joints;
+  for(const outline of rig.outlines)outline.visible=state.footprint;
  }
  let maxReachError=0;
  for(const id of ids){
   const rig=rigs.get(id);
   const pose=rig.study.pose({motion:state.motion,phase:state.phase,contacts:state.contacts});
+  applySectionVisibility(rig.study);
   maxReachError=Math.max(maxReachError,pose.reachError);
   rig.root.position.copy(rig.base);
   rig.root.position.y+=pose.bodyY;
@@ -308,6 +353,9 @@ function render(timestamp=0){
   renderer.clear();renderer.render(scene,camera);
   rig.root.visible=false;
  }
+ $('link-status').textContent=maxReachError>.008?
+  'REACH WARNING · '+maxReachError.toFixed(3)+' m':'ANCHORS CONNECTED · FEET GROUNDED';
+ $('link-status').classList.toggle('warn',maxReachError>.008);
  $('motion-status').textContent=state.motion.toUpperCase()+' · '+
   (state.playing?'LOOPING · ':'PAUSED / SCRUB · ')+
   (maxReachError>.008?'REACH LIMIT '+maxReachError.toFixed(3)+' m':'HEAVY CONTACT STUDY');
