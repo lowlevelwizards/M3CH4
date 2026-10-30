@@ -69,3 +69,24 @@ test('Hauler fantasy comes from original constructors and not production Hauler'
  assert.match(index,/id="hauler-fantasy-open"/);
  assert.doesNotMatch(lab,/localStorage|sessionStorage|setItem\(/);
 });
+
+test('V3 low mass distribution gives each concept a real heavy-duty footprint',()=>{
+ const dock=haulerDimensions(preset('dock'));
+ const strider=haulerDimensions(preset('strider'));
+ const crane=haulerDimensions(preset('crane'));
+ assert.equal(dock.soleWidth,.62);
+ assert.equal(strider.soleWidth,.61);
+ assert.equal(crane.soleWidth,.60);
+ for(const id of HAULER_IDS){
+  const p=haulerDimensions(preset(id));
+  const max=haulerDimensions(adjust(id,{footScale:1.06,hipSpread:.035}));
+  assert.ok(max.maxFootX<1.29,id+' shoe leaves certified H2 outer width');
+  assert.ok(p.maxFootX<1.29);
+ }
+ const geom=source('../research/haulerFantasyGeometryV2.js');
+ for(const name of ['under-fork compression brace','fixed upper linear guide casing',
+  'power-cylinder lift-arm anchor','wide low compression shoe column',
+  'large pressure platen','folding lateral stabilizer']){
+  assert.ok(geom.includes(name),name+' must be visible as distinct load-bearing geometry');
+ }
+});
