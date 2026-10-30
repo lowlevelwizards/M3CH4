@@ -95,7 +95,7 @@ function dockAssembly(root,p,carriage,leg,joints){
  // Stationary drive pods carry the mass. Short lower columns do the stepping.
  const x=s*.985;
  casting(carriage,sign+'/DOCK / fixed ochre drive pod',[x,.29,.01],
-  [.52*.97,.54*.p.podScale,.53],'paint',.10);
+  [.52*.97,.54*p.podScale,.53],'paint',.10);
  casting(carriage,sign+'/DOCK / upper end cap',
   [x,.52,.01],[.49,.14,.54],'cream',.052);
  casting(carriage,sign+'/DOCK / lower maintenance housing',
