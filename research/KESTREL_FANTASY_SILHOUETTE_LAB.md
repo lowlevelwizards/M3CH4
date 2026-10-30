@@ -1,11 +1,22 @@
 # Kestrel · Fantasy-first Naked Legsets
 
+> **Production decision (2026-10-29):** A / Raptor Scout is the canonical
+> **Naked** live Kestrel (`legs-compact`). Its approved original casting geometry
+> now drives the gameplay and vendor visual with named animated joints. The
+> original Kestrel is retained for the old armor lab. B / Field Kestrel and
+> C / Perch Runner remain unmodified selectable Dev studies, not additional
+> inventory parts. **Split Shell** is the preferred future Encased Raptor Scout
+> armor treatment; it remains inspectable/removable in the Kestrel playground,
+> but is **not** installed on production mechs until armor gameplay ships.
+> No gameplay parameters, physical fitting IDs, saves, or ownership change.
+
+
 Open `kestrel-silhouette.html` from **Garage → Dev → Kestrel Silhouette Playground**.
 
 ## Artistic thesis
 
-The production Kestrel already has great avian hock anatomy. This study deliberately
-**does not modify or reshape the existing live JSON**. It treats the live Kestrel
+The previous production Kestrel had useful avian hock anatomy. This study deliberately
+**did not modify or reshape the original live geometry during selection**. It treats the live Kestrel
 as a reference for *fantasy* and the source catalogue for compact interface limits,
 not as an editable geometry dependency.
 
@@ -54,14 +65,18 @@ Review across front, side, three-quarter, arena-scale, and full assembled-mech
 views. If any candidate looks like stacks of overlapping joint cylinders,
 refine the primary proportions *in this lab* before adding more detail.
 
-## Explicitly deferred
+## Explicitly deferred after Naked Raptor production integration
 
-No production `legs-compact` replacement, IK rewrite, gameplay stat or weight
-changes, armor, armor levels, new foot kits, purchasable variants, saved-build
-migration, combat hitboxes or new manufacturers. These three are **Naked**
-visual studies only. The goal is to choose one strong anatomy and then perform
-an animated, clearance-checked production integration in a separate PR.
+No additional `legs-compact` ID, IK rewrite, gameplay stat or weight
+changes, active armor levels, new foot kits, purchasable variants, saved-build
+migration, combat hitboxes or new manufacturers. These three are preserved as
+independent Dev studies. Only the approved Naked Raptor is integrated into live
+play, with the legacy `legs-compact` inventory ID. Encased Split Shell is an
+art direction decision, not yet a new gameplay component.
 
 Tests: `node --test tests/kestrelSilhouetteLab.test.mjs`.
 Browser checks: `node research/kestrelSilhouetteBrowserSmoke.mjs` with
 Playwright Chromium and static server on localhost:8765.
+
+Production integration tests: `node --test tests/raptorScoutProduction.test.mjs`;
+`node research/kestrelProductionBrowserSmoke.mjs` with Playwright and the local server.
