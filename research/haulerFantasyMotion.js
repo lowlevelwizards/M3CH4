@@ -99,7 +99,7 @@ export function createMovingHauler(config){
    barrelError:a.barrel.userData.anchorError||0
   }));
   const result={motion,phase:t,bodyY,bodyZ,bodyYaw,
-   mechanism:id,maxReachError,reachError:maximumReachError,
+   mechanism:id,maxReachError:maximumReachError,reachError:maximumReachError,
    feet,actuators:actuatorTravel};
   study.root.userData.lastPose=result;
   return result;
